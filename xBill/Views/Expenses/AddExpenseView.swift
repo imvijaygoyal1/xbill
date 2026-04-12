@@ -28,22 +28,49 @@ struct AddExpenseView: View {
                     VStack(alignment: .leading, spacing: XBillSpacing.xl) {
 
                         // MARK: Amount hero
-                        VStack(spacing: 0) {
+                        VStack(spacing: XBillSpacing.xs) {
                             HStack(alignment: .firstTextBaseline, spacing: XBillSpacing.xs) {
-                                Text(vm.currency)
-                                    .font(.xbillLargeAmount)
-                                    .foregroundStyle(Color.textTertiary)
+                                // Currency badge — tap to change
+                                Menu {
+                                    ForEach(ExchangeRateService.commonCurrencies, id: \.self) { code in
+                                        Button(code) {
+                                            vm.expenseCurrency = code
+                                            Task { await vm.updateConversion() }
+                                        }
+                                    }
+                                } label: {
+                                    HStack(spacing: 2) {
+                                        Text(vm.expenseCurrency)
+                                            .font(.xbillLargeAmount)
+                                            .foregroundStyle(vm.isForeignCurrency
+                                                             ? Color.brandPrimary
+                                                             : Color.textTertiary)
+                                        Image(systemName: "chevron.down")
+                                            .font(.caption2.bold())
+                                            .foregroundStyle(vm.isForeignCurrency
+                                                             ? Color.brandPrimary
+                                                             : Color.textTertiary)
+                                    }
+                                }
                                 TextField("0.00", text: $vm.amountText)
                                     .font(.xbillHeroAmount)
                                     .multilineTextAlignment(.center)
                                     .keyboardType(.decimalPad)
                                     .foregroundStyle(Color.textPrimary)
+                                    .onChange(of: vm.amountText) { _, _ in
+                                        Task { await vm.updateConversion() }
+                                    }
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, XBillSpacing.base)
                             Rectangle()
                                 .frame(height: 1)
                                 .foregroundStyle(Color.inputBorder)
+
+                            // Conversion preview
+                            if vm.isForeignCurrency {
+                                conversionPreview
+                            }
                         }
                         .padding(.horizontal, XBillSpacing.xl)
 
@@ -210,6 +237,32 @@ struct AddExpenseView: View {
             }
         }
         .errorAlert(error: $vm.error)
+    }
+
+    // MARK: - Conversion Preview
+
+    private var conversionPreview: some View {
+        Group {
+            if vm.isFetchingRate {
+                ProgressView()
+                    .scaleEffect(0.7)
+            } else if let converted = vm.convertedAmount, let rate = vm.exchangeRate {
+                VStack(spacing: 2) {
+                    Text("≈ \(converted.formatted(currencyCode: vm.currency))")
+                        .font(.xbillBodyMedium)
+                        .foregroundStyle(Color.brandPrimary)
+                    Text("1 \(vm.expenseCurrency) = \(String(format: "%.4f", rate)) \(vm.currency)")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.bottom, XBillSpacing.xs)
+            } else {
+                Text("Tap amount to fetch rate")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .padding(.bottom, XBillSpacing.xs)
+            }
+        }
     }
 
     // MARK: - Helpers

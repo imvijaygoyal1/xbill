@@ -43,15 +43,28 @@ final class GroupViewModel {
         isLoading = true
         error = nil
         defer { isLoading = false }
-        do {
-            async let membersTask  = groupService.fetchMembers(groupID: group.id)
-            async let expensesTask = expenseService.fetchExpenses(groupID: group.id)
-            let (fetchedMembers, fetchedExpenses) = try await (membersTask, expensesTask)
-            members  = fetchedMembers
-            expenses = fetchedExpenses
+
+        if NetworkMonitor.shared.isConnected {
+            do {
+                async let membersTask  = groupService.fetchMembers(groupID: group.id)
+                async let expensesTask = expenseService.fetchExpenses(groupID: group.id)
+                let (fetchedMembers, fetchedExpenses) = try await (membersTask, expensesTask)
+                members  = fetchedMembers
+                expenses = fetchedExpenses
+                CacheService.shared.saveMembers(fetchedMembers, groupID: group.id)
+                CacheService.shared.saveExpenses(fetchedExpenses, groupID: group.id)
+                await computeBalances()
+            } catch {
+                // Fall back to cache on network error
+                if members.isEmpty  { members  = CacheService.shared.loadMembers(groupID: group.id) }
+                if expenses.isEmpty { expenses = CacheService.shared.loadExpenses(groupID: group.id) }
+                self.error = AppError.from(error)
+                await computeBalances()
+            }
+        } else {
+            members  = CacheService.shared.loadMembers(groupID: group.id)
+            expenses = CacheService.shared.loadExpenses(groupID: group.id)
             await computeBalances()
-        } catch {
-            self.error = AppError.from(error)
         }
     }
 

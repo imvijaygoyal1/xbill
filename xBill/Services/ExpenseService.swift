@@ -52,29 +52,33 @@ final class ExpenseService: Sendable {
 
     /// Atomically inserts expense + splits using the `add_expense_with_splits` RPC.
     func createExpense(
-        groupID:    UUID,
-        title:      String,
-        amount:     Decimal,
-        currency:   String,
-        payerID:    UUID,
-        category:   Expense.Category,
-        notes:      String?,
-        receiptURL: URL? = nil,
-        splits:     [SplitInput]
+        groupID:          UUID,
+        title:            String,
+        amount:           Decimal,
+        currency:         String,
+        payerID:          UUID,
+        category:         Expense.Category,
+        notes:            String?,
+        receiptURL:       URL? = nil,
+        splits:           [SplitInput],
+        originalAmount:   Decimal? = nil,
+        originalCurrency: String?  = nil
     ) async throws -> Expense {
         let splitParams = splits.filter(\.isIncluded).map {
             RPCSplitParam(userID: $0.userID, amount: $0.amount)
         }
         let params = AddExpenseRPCParams(
-            groupID:    groupID,
-            paidBy:     payerID,
-            amount:     amount,
-            title:      title,
-            category:   category.rawValue,
-            currency:   currency,
-            notes:      notes,
-            receiptURL: receiptURL?.absoluteString,
-            splits:     splitParams
+            groupID:          groupID,
+            paidBy:           payerID,
+            amount:           amount,
+            title:            title,
+            category:         category.rawValue,
+            currency:         currency,
+            notes:            notes,
+            receiptURL:       receiptURL?.absoluteString,
+            splits:           splitParams,
+            originalAmount:   originalAmount,
+            originalCurrency: originalCurrency
         )
         return try await supabase.client.rpc("add_expense_with_splits", params: params)
             .execute()
@@ -168,25 +172,29 @@ private struct RPCSplitParam: Encodable {
 }
 
 private struct AddExpenseRPCParams: Encodable {
-    let groupID:    UUID
-    let paidBy:     UUID
-    let amount:     Decimal
-    let title:      String
-    let category:   String
-    let currency:   String
-    let notes:      String?
-    let receiptURL: String?
-    let splits:     [RPCSplitParam]
+    let groupID:          UUID
+    let paidBy:           UUID
+    let amount:           Decimal
+    let title:            String
+    let category:         String
+    let currency:         String
+    let notes:            String?
+    let receiptURL:       String?
+    let splits:           [RPCSplitParam]
+    let originalAmount:   Decimal?
+    let originalCurrency: String?
     enum CodingKeys: String, CodingKey {
-        case groupID    = "p_group_id"
-        case paidBy     = "p_paid_by"
-        case amount     = "p_amount"
-        case title      = "p_title"
-        case category   = "p_category"
-        case currency   = "p_currency"
-        case notes      = "p_notes"
-        case receiptURL = "p_receipt_url"
-        case splits     = "p_splits"
+        case groupID          = "p_group_id"
+        case paidBy           = "p_paid_by"
+        case amount           = "p_amount"
+        case title            = "p_title"
+        case category         = "p_category"
+        case currency         = "p_currency"
+        case notes            = "p_notes"
+        case receiptURL       = "p_receipt_url"
+        case splits           = "p_splits"
+        case originalAmount   = "p_original_amount"
+        case originalCurrency = "p_original_currency"
     }
 }
 

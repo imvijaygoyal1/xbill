@@ -12,6 +12,8 @@ struct Expense: Codable, Identifiable, Equatable, Sendable {
     var category: Category
     var notes: String?
     var receiptURL: URL?
+    var originalAmount: Decimal?
+    var originalCurrency: String?
     let createdAt: Date
 
     enum Category: String, Codable, CaseIterable, Sendable {
@@ -60,7 +62,9 @@ struct Expense: Codable, Identifiable, Equatable, Sendable {
         case payerID    = "paid_by"
         case category
         case notes
-        case receiptURL = "receipt_url"
-        case createdAt  = "created_at"
+        case receiptURL       = "receipt_url"
+        case originalAmount   = "original_amount"
+        case originalCurrency = "original_currency"
+        case createdAt        = "created_at"
     }
 }

@@ -9,7 +9,7 @@ struct MainTabView: View {
     @State private var selectedTab: Tab = .home
 
     enum Tab: Hashable {
-        case home, groups, activity, profile
+        case home, groups, friends, activity, profile
     }
 
     var body: some View {
@@ -21,6 +21,10 @@ struct MainTabView: View {
             GroupListView(vm: homeVM)
                 .tabItem { Label("Groups", systemImage: "person.3.fill") }
                 .tag(Tab.groups)
+
+            FriendsView(currentUserID: homeVM.currentUser?.id ?? UUID())
+                .tabItem { Label("Friends", systemImage: "dollarsign.arrow.trianglehead.counterclockwise.rotate.90") }
+                .tag(Tab.friends)
 
             ActivityView(vm: activityVM)
                 .tabItem { Label("Activity", systemImage: "bolt.fill") }

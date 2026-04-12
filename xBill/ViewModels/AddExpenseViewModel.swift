@@ -9,12 +9,18 @@ final class AddExpenseViewModel {
 
     var title: String = ""
     var amountText: String = ""
-    var currency: String = "USD"
+    var currency: String          // group base currency
+    var expenseCurrency: String   // currency the expense was paid in
     var category: Expense.Category = .other
     var notes: String = ""
     var splitStrategy: SplitStrategy = .equal
     var splitInputs: [SplitInput] = []
     var payerID: UUID?
+
+    // Multi-currency
+    var convertedAmount: Decimal?     // amount in group currency (nil = same currency)
+    var exchangeRate: Double?         // rate used
+    var isFetchingRate: Bool = false
 
     var isLoading: Bool = false
     var isSaved: Bool = false
@@ -27,11 +33,12 @@ final class AddExpenseViewModel {
     // MARK: - Init
 
     init(group: BillGroup, members: [User], currentUserID: UUID) {
-        self.group    = group
-        self.members  = members
-        self.currency = group.currency
-        self.payerID  = currentUserID
-        self.splitInputs = members.map {
+        self.group          = group
+        self.members        = members
+        self.currency       = group.currency
+        self.expenseCurrency = group.currency
+        self.payerID        = currentUserID
+        self.splitInputs    = members.map {
             SplitInput(userID: $0.id, displayName: $0.displayName, avatarURL: $0.avatarURL)
         }
     }
@@ -42,27 +49,36 @@ final class AddExpenseViewModel {
         Decimal(string: amountText.replacingOccurrences(of: ",", with: ".")) ?? .zero
     }
 
+    var isForeignCurrency: Bool { expenseCurrency != currency }
+
+    /// The amount that will be recorded in the group's base currency.
+    var finalAmount: Decimal {
+        isForeignCurrency ? (convertedAmount ?? .zero) : amount
+    }
+
     var canSave: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
         && amount > .zero
         && payerID != nil
         && splitInputs.contains(where: \.isIncluded)
+        && (!isForeignCurrency || convertedAmount != nil)
     }
 
     var splitValidationError: String? {
         guard splitStrategy == .exact else { return nil }
-        return SplitCalculator.validateExact(total: amount, inputs: splitInputs)
+        return SplitCalculator.validateExact(total: finalAmount, inputs: splitInputs)
     }
 
     // MARK: - Split Recompute
 
     func recomputeSplits() {
-        guard amount > .zero else { return }
+        let total = finalAmount
+        guard total > .zero else { return }
         switch splitStrategy {
         case .equal:
-            SplitCalculator.splitEqually(total: amount, inputs: &splitInputs)
+            SplitCalculator.splitEqually(total: total, inputs: &splitInputs)
         case .percentage:
-            SplitCalculator.splitByPercentage(total: amount, inputs: &splitInputs)
+            SplitCalculator.splitByPercentage(total: total, inputs: &splitInputs)
         case .exact:
             break
         }
@@ -74,40 +90,81 @@ final class AddExpenseViewModel {
         recomputeSplits()
     }
 
+    // MARK: - Currency Conversion
+
+    func updateConversion() async {
+        guard isForeignCurrency, amount > .zero else {
+            convertedAmount = nil
+            exchangeRate    = nil
+            recomputeSplits()
+            return
+        }
+        isFetchingRate = true
+        defer { isFetchingRate = false }
+        do {
+            let rate = try await ExchangeRateService.shared.rate(from: expenseCurrency, to: currency)
+            exchangeRate    = rate
+            convertedAmount = (amount * Decimal(rate)).rounded(scale: 2)
+            recomputeSplits()
+        } catch {
+            self.error = AppError.from(error)
+        }
+    }
+
     // MARK: - Save
 
     func save() async {
         guard canSave, let payerID else { return }
+
+        // If foreign currency, need a valid conversion
+        if isForeignCurrency && convertedAmount == nil {
+            await updateConversion()
+            guard convertedAmount != nil else { return }
+        }
+
         isLoading = true
         error = nil
         defer { isLoading = false }
+
         do {
             let expense = try await expenseService.createExpense(
-                groupID:  group.id,
-                title:    title.trimmingCharacters(in: .whitespaces),
-                amount:   amount,
-                currency: currency,
-                payerID:  payerID,
-                category: category,
-                notes:    notes.isEmpty ? nil : notes,
-                splits:   splitInputs
+                groupID:          group.id,
+                title:            title.trimmingCharacters(in: .whitespaces),
+                amount:           finalAmount,
+                currency:         currency,
+                payerID:          payerID,
+                category:         category,
+                notes:            notes.isEmpty ? nil : notes,
+                splits:           splitInputs,
+                originalAmount:   isForeignCurrency ? amount : nil,
+                originalCurrency: isForeignCurrency ? expenseCurrency : nil
             )
             isSaved = true
 
-            // Notify group members (fire-and-forget, errors silently ignored)
             let payerName = members.first(where: { $0.id == payerID })?.displayName ?? "Someone"
             Task {
                 await expenseService.notifyExpenseAdded(
-                    expenseID:     expense.id,
-                    groupID:       group.id,
-                    payerName:     payerName,
-                    expenseTitle:  expense.title,
-                    amount:        expense.amount,
-                    currency:      expense.currency
+                    expenseID:    expense.id,
+                    groupID:      group.id,
+                    payerName:    payerName,
+                    expenseTitle: expense.title,
+                    amount:       expense.amount,
+                    currency:     expense.currency
                 )
             }
         } catch {
             self.error = AppError.from(error)
         }
+    }
+}
+
+// MARK: - Decimal helper
+
+private extension Decimal {
+    func rounded(scale: Int) -> Decimal {
+        var result = Decimal()
+        var copy = self
+        NSDecimalRound(&result, &copy, scale, .plain)
+        return result
     }
 }

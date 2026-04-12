@@ -12,14 +12,19 @@ struct HomeView: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbarBackground(Color.navBarBg, for: .navigationBar)
                     .toolbarBackground(.visible, for: .navigationBar)
+                    .safeAreaInset(edge: .top) {
+                        if !NetworkMonitor.shared.isConnected { OfflineBanner() }
+                    }
                     .refreshable { await vm.refresh() }
                     .sheet(isPresented: $showCreateGroup) {
                         CreateGroupView { _ in await vm.refresh() }
                     }
 
-                FABButton { showCreateGroup = true }
-                    .padding(.bottom, 24)
-                    .padding(.trailing, 20)
+                if NetworkMonitor.shared.isConnected {
+                    FABButton { showCreateGroup = true }
+                        .padding(.bottom, 24)
+                        .padding(.trailing, 20)
+                }
             }
         }
         .task { await vm.startRealtimeUpdates() }

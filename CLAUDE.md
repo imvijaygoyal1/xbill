@@ -47,6 +47,7 @@
 | `splits` | `id uuid PK`, `expense_id uuid`, `user_id uuid`, `amount numeric`, `is_settled bool` |
 | `comments` | `id uuid PK`, `expense_id uuid`, `user_id uuid`, `text text`, `created_at` |
 | `group_invites` | `token text PK (default: uuid stripped of dashes)`, `group_id uuid`, `created_by uuid`, `expires_at (default: +7 days)` |
+| `ious` | `id uuid PK`, `created_by uuid`, `lender_id uuid`, `borrower_id uuid`, `amount numeric`, `currency text`, `description text`, `is_settled bool`, `created_at` — CHECK: `created_by = lender_id OR created_by = borrower_id`, `lender_id != borrower_id` |
 
 ### RPC Functions
 - `add_expense_with_splits(p_group_id, p_paid_by, p_amount, p_title, p_category, p_currency, p_notes, p_receipt_url, p_splits[])` — atomic expense + splits insert; `p_splits` is an array of `split_input` composite type `{user_id uuid, amount numeric}`
@@ -59,6 +60,8 @@
 5. `005_backfill_profiles.sql` — Inserts profiles for existing auth users without profile rows
 6. `006_groups_currency_member_rls.sql` — Adds `currency` to groups; fixes RLS to allow group creator to insert themselves as first member
 7. `007_groups_creator_read.sql` — Fixes groups SELECT policy to allow `created_by = auth.uid()`, so the INSERT RETURNING clause succeeds before the creator is added as a member
+13. `013_multi_currency.sql` — Adds `original_amount numeric` + `original_currency text` to expenses; recreates `add_expense_with_splits` RPC with new optional params
+14. `014_ious.sql` — `ious` table with RLS; `lender_id`/`borrower_id`/`created_by` constraints
 11. `011_expense_comments.sql` — `comments` table; RLS (group members can view/insert, author can delete); Realtime enabled
 12. `012_group_invites.sql` — `group_invites` table; `join_group_via_invite(p_token)` SECURITY DEFINER RPC (validates expiry, idempotent insert into group_members, returns group_id)
 
@@ -87,6 +90,7 @@
 - `xBill/Core/NetworkMonitor.swift` — `NWPathMonitor` wrapper
 
 ### Models
+- `xBill/Models/IOU.swift` — `struct IOU` (id, createdBy, lenderID, borrowerID, amount, currency, description, isSettled, createdAt)
 - `xBill/Models/Comment.swift` — `struct Comment: Codable, Identifiable, Sendable` (id, expenseID, userID, text, createdAt)
 - `xBill/Models/GroupInvite.swift` — `struct GroupInvite: Codable, Identifiable, Sendable` (token, groupID, createdBy, expiresAt); `inviteURL` computed property → `xbill://join/<token>`
 - `xBill/Models/User.swift` — `struct User: Codable, Identifiable` → matches `profiles` table (id, email, displayName, avatarURL, createdAt)
@@ -99,6 +103,9 @@
 - `xBill/Models/ReceiptJSON.swift` — `ParsedReceiptJSON` + `ParsedItemJSON` (Decodable); shared output schema for both FoundationModelService and heuristic parser
 
 ### Services
+- `xBill/Services/ExchangeRateService.swift` — `actor`; fetches from `open.er-api.com/v6/latest/{base}` (no key needed); 1-hour in-memory cache; `convert(amount:from:to:)` and `rate(from:to:)`; `commonCurrencies` static array of 20 codes
+- `xBill/Services/IOUService.swift` — `fetchIOUs(userID:)` (two queries: as lender + as borrower, deduplicated), `fetchUserByEmail(_:)`, `createIOU(...)`, `settleIOU(id:)`, `settleAllIOUs(with:currentUserID:)`, `deleteIOU(id:)`
+- `xBill/Services/CacheService.swift` — UserDefaults JSON cache (`.secondsSince1970` date strategy); `saveGroups/loadGroups`, `saveExpenses/loadExpenses(groupID:)`, `saveMembers/loadMembers(groupID:)`
 - `xBill/Services/CommentService.swift` — `fetchComments(expenseID:)`, `addComment(expenseID:userID:text:)`, `deleteComment(id:)`, `commentChanges(expenseID:) → AsyncStream<Void>` (Realtime subscription filtered by expense_id)
 - `xBill/Services/AuthService.swift` — `signUpWithEmail`, `signInWithEmail`, `signInWithApple` (CryptoKit SHA256 nonce), `signOut`, `fetchProfile`, `currentUser()`; all table refs use `"profiles"` (not `"users"`)
 - `xBill/Services/GroupService.swift` — `fetchGroups(for:)`, `fetchMembers(groupID:)`, `createGroup(...)`, `addMember(groupId:userId:)`, `removeMember(groupId:userId:)`, `inviteMembers(emails:groupName:groupEmoji:inviterName:)`, `groupChanges(userID:) → AsyncStream<Void>`, `createInvite(groupID:createdBy:)`, `fetchInvite(token:)`, `joinGroupViaInvite(token:) → UUID`
@@ -114,7 +121,7 @@
 - `xBill/ViewModels/AuthViewModel.swift` — `@Observable @MainActor`; `currentUser: User?`, `confirmationEmailSent: Bool`, `isInPasswordRecovery: Bool`, `isLoading`, `error`, `pendingJoinRequest: InviteJoinRequest?`; `startListeningToAuthChanges()` handles `.passwordRecovery` event; `handlePasswordReset(newPassword:)` calls `supabase.auth.update`. `InviteJoinRequest` is a top-level `Identifiable` struct with `token: String`
 - `xBill/ViewModels/HomeViewModel.swift` — loads groups, computes net balance + `recentExpenses: [RecentEntry]` (top 10 across all groups, members co-fetched); `RecentEntry` is `{ expense, members }` identifiable struct; `balancesInGroup` now returns expenses+members alongside balances to avoid duplicate API calls
 - `xBill/ViewModels/GroupViewModel.swift` — loads members + expenses, computes balances + settlement suggestions, `recordSettlement()`
-- `xBill/ViewModels/AddExpenseViewModel.swift` — split calculation for add-expense form
+- `xBill/ViewModels/AddExpenseViewModel.swift` — split calculation; `expenseCurrency` (defaults to group currency); `convertedAmount`/`exchangeRate` computed via `ExchangeRateService.shared`; `updateConversion()` called on currency/amount change; `finalAmount` = converted or raw; `save()` passes `originalAmount`/`originalCurrency` when foreign currency used
 - `xBill/ViewModels/ProfileViewModel.swift` — profile editing; `loadStats(userID:)` fetches groups + expenses concurrently via `withTaskGroup` to compute `totalGroupsCount`, `totalExpensesCount`, `lifetimePaid`; `saveProfile(avatarImage:)` uploads avatar via `AuthService.uploadAvatar` then calls `updateProfile`
 - `xBill/ViewModels/ActivityViewModel.swift` — loads activity feed via `ActivityService`; `load()` gets `currentUserID` from `AuthService` then fetches recent items
 - `xBill/ViewModels/ReceiptViewModel.swift` — receipt scan + review flow
@@ -126,7 +133,7 @@
 
 ### Views — Main
 - `xBill/Views/Main/ContentView.swift` — animated transition: `ResetPasswordView` (priority) → `MainTabView` → `AuthView`; `ResetPasswordView` shown when `authVM.isInPasswordRecovery == true`
-- `xBill/Views/Main/MainTabView.swift` — 4 tabs: Home / Groups / Activity / Profile; shares `homeVM` between Home and Groups tabs
+- `xBill/Views/Main/MainTabView.swift` — 5 tabs: Home / Groups / Friends / Activity / Profile; shares `homeVM` between Home and Groups tabs; Friends tab passes `homeVM.currentUser?.id`
 - `xBill/Views/Main/HomeView.swift` — `BalanceHeroCard` + quick stats row + horizontal `ScrollView` of `GroupChipView` chips + "RECENT EXPENSES" `LazyVStack`; no nav bar `+` button; FAB only; `.inline` title
 - `xBill/Views/Main/ActivityView.swift` — sections grouped by date ("TODAY"/"YESTERDAY"/date); `AmountBadge(.total)` trailing; single-line subtitle "Group · Paid by Name"
 
@@ -140,7 +147,10 @@
 - `xBill/Views/Groups/InviteMembersView.swift` — email invite list; calls `GroupService.inviteMembers` → `invite-member` Edge Function
 
 ### Views — Expenses
-- `xBill/Views/Expenses/AddExpenseView.swift` — `bgSecondary` sheet; hero amount `TextField` centered with bottom border; horizontal category chip `ScrollView` (private `CategoryChipView`); `XBillCard` wrappers for Paid By/Notes/Split sections; `XBillTextField` for title; `xbillSectionTitle` uppercase section labels; standard Cancel/Save toolbar; receipt scan preserved
+- `xBill/Views/Friends/FriendsView.swift` — Friends tab; groups IOUs by other person; net balance per currency per friend; FAB to AddIOUView; navigates to `FriendDetailView`
+- `xBill/Views/Friends/FriendDetailView.swift` — (defined in FriendsView.swift) outstanding + settled IOU sections; "Settle All" button
+- `xBill/Views/Friends/AddIOUView.swift` — email search to find user; amount + currency picker; "I owe / they owe" toggle; calls `IOUService.createIOU`
+- `xBill/Views/Expenses/AddExpenseView.swift` — `bgSecondary` sheet; hero amount `TextField`; currency picker `Menu` next to currency symbol (tappable, defaults to group currency); shows conversion preview (`≈ X.XX GROUP_CURRENCY + rate`) when foreign currency selected; `ExchangeRateService.commonCurrencies` populates the picker
 - `xBill/Views/Expenses/ExpenseDetailView.swift` — expense detail with split breakdown + Comments section (realtime); `currentUserID: UUID` required; comment input bar via `safeAreaInset(edge: .bottom)`
 - `xBill/Views/Expenses/ReceiptScanView.swift` — accepts `members: [User]` + `onConfirmed: ([SplitInput]) -> Void`; camera/photo-library picker via `UIImagePickerController` (`ImagePickerController: UIViewControllerRepresentable`); shows "Review Receipt" button after scan completes; pushes `ReceiptReviewView` via `navigationDestination`; "Scan Again" resets state
 - `xBill/Views/Expenses/ReceiptReviewView.swift` — item review, member chip assignment, tax/tip display, per-person totals; "Use These Splits" calls `onConfirmed` then dismisses back to `AddExpenseView`
@@ -157,6 +167,7 @@
 - `xBill/Views/Components/XBillButton.swift` — design-system button with `.primary/.secondary/.ghost/.destructive` styles; fires `HapticManager.impact` on tap
 - `xBill/Views/Components/XBillTextField.swift` — `inputBg`/`inputBorder` styled text field; focus-animated border turns `brandPrimary`
 - `xBill/Views/Components/CategoryIconView.swift` — emoji icon in category-colored rounded square; extends `Expense.Category` with `.emoji` and `.categoryBackground`
+- `xBill/Views/Components/OfflineBanner.swift` — orange banner shown via `safeAreaInset(edge:.top)` in HomeView and GroupDetailView when `NetworkMonitor.shared.isConnected == false`
 - `xBill/Views/Components/FABButton.swift` — 56pt `brandPrimary` circle FAB with shadow and haptic
 - `xBill/Views/Components/GroupChipView.swift` — compact 110pt card for horizontal group scroll in HomeView
 - `xBill/Views/Components/ExpenseRowView.swift` — expense list row; `showAmountBadge: Bool = false` — when true shows `AmountBadge(.total)` instead of plain amount text

@@ -25,6 +25,9 @@ struct GroupDetailView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .tint(Color.brandPrimary)
             .toolbar { toolbar }
+            .safeAreaInset(edge: .top) {
+                if !NetworkMonitor.shared.isConnected { OfflineBanner() }
+            }
             .task { await vm.load() }
             .refreshable { await vm.refresh() }
             .sheet(isPresented: $showAddExpense) {
@@ -52,8 +55,8 @@ struct GroupDetailView: View {
             }
             .errorAlert(error: $vm.error)
 
-            // FAB — only on Expenses tab
-            if selectedTab == 0 {
+            // FAB — only on Expenses tab when online
+            if selectedTab == 0 && NetworkMonitor.shared.isConnected {
                 FABButton { showAddExpense = true }
                     .padding(.bottom, 24)
                     .padding(.trailing, 20)

@@ -51,6 +51,15 @@ struct ExpenseDetailView: View {
                     Text(expense.amount.formatted(currencyCode: currency))
                         .font(.largeTitle.bold())
 
+                    // Show original foreign currency amount if applicable
+                    if let origAmount = expense.originalAmount,
+                       let origCurrency = expense.originalCurrency,
+                       origCurrency != currency {
+                        Text("Originally \(origAmount.formatted(currencyCode: origCurrency))")
+                            .font(.caption)
+                            .foregroundStyle(Color.brandPrimary)
+                    }
+
                     HStack {
                         Text("Paid by")
                             .foregroundStyle(.secondary)

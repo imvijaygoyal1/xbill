@@ -41,13 +41,21 @@ final class HomeViewModel {
 
     func loadAll() async {
         guard let user = currentUser else { return }
-        isLoading = true
-        defer { isLoading = false }
-        do {
-            groups = try await groupService.fetchGroups(for: user.id)
-            await computeBalances(for: user.id)
-        } catch {
-            self.error = AppError.from(error)
+
+        if NetworkMonitor.shared.isConnected {
+            isLoading = true
+            defer { isLoading = false }
+            do {
+                groups = try await groupService.fetchGroups(for: user.id)
+                CacheService.shared.saveGroups(groups)
+                await computeBalances(for: user.id)
+            } catch {
+                // Fall back to cache on network error
+                if groups.isEmpty { groups = CacheService.shared.loadGroups() }
+                self.error = AppError.from(error)
+            }
+        } else {
+            groups = CacheService.shared.loadGroups()
         }
     }
 
