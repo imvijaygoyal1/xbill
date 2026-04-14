@@ -21,6 +21,16 @@ final class GroupService: Sendable {
         return rows.compactMap(\.group).filter { !$0.isArchived }
     }
 
+    func fetchArchivedGroups(for userID: UUID) async throws -> [BillGroup] {
+        struct Row: Decodable { let group: BillGroup? }
+        let rows: [Row] = try await supabase.table("group_members")
+            .select("group:groups(*)")
+            .eq("user_id", value: userID)
+            .execute()
+            .value
+        return rows.compactMap(\.group).filter { $0.isArchived }
+    }
+
     func fetchGroup(id: UUID) async throws -> BillGroup {
         try await supabase.table("groups")
             .select()

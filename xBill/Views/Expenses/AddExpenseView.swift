@@ -4,6 +4,7 @@ struct AddExpenseView: View {
     let group: BillGroup
     let members: [User]
     let currentUserID: UUID
+    let startWithScan: Bool
     let onSaved: () async -> Void
 
     @State private var vm: AddExpenseViewModel
@@ -11,10 +12,11 @@ struct AddExpenseView: View {
     @State private var receiptVM = ReceiptViewModel()
     @Environment(\.dismiss) private var dismiss
 
-    init(group: BillGroup, members: [User], currentUserID: UUID, onSaved: @escaping () async -> Void) {
+    init(group: BillGroup, members: [User], currentUserID: UUID, startWithScan: Bool = false, onSaved: @escaping () async -> Void) {
         self.group         = group
         self.members       = members
         self.currentUserID = currentUserID
+        self.startWithScan = startWithScan
         self.onSaved       = onSaved
         _vm = State(initialValue: AddExpenseViewModel(group: group, members: members, currentUserID: currentUserID))
     }
@@ -127,6 +129,20 @@ struct AddExpenseView: View {
                             .padding(.horizontal, XBillSpacing.base)
                         }
 
+                        // MARK: Recurrence
+                        VStack(alignment: .leading, spacing: XBillSpacing.sm) {
+                            sectionHeader("Repeat")
+                            XBillCard {
+                                Picker("Repeat", selection: $vm.recurrence) {
+                                    ForEach(Expense.Recurrence.allCases, id: \.self) { r in
+                                        Text(r.displayName).tag(r)
+                                    }
+                                }
+                                .tint(Color.brandPrimary)
+                            }
+                            .padding(.horizontal, XBillSpacing.base)
+                        }
+
                         // MARK: Split strategy
                         VStack(alignment: .leading, spacing: XBillSpacing.sm) {
                             sectionHeader("How to Split")
@@ -163,6 +179,33 @@ struct AddExpenseView: View {
                                                     .multilineTextAlignment(.trailing)
                                                     .frame(width: 70)
                                                     .foregroundStyle(Color.textPrimary)
+                                            } else if vm.splitStrategy == .shares {
+                                                HStack(spacing: XBillSpacing.xs) {
+                                                    Button {
+                                                        guard input.shares > 1 else { return }
+                                                        input.shares -= 1
+                                                        vm.recomputeSplits()
+                                                    } label: {
+                                                        Image(systemName: "minus.circle")
+                                                            .foregroundStyle(input.shares > 1 ? Color.brandPrimary : Color.textTertiary)
+                                                    }
+                                                    .buttonStyle(.plain)
+                                                    Text("\(input.shares)×")
+                                                        .font(.xbillLabel)
+                                                        .foregroundStyle(Color.textPrimary)
+                                                        .frame(minWidth: 26)
+                                                    Button {
+                                                        input.shares += 1
+                                                        vm.recomputeSplits()
+                                                    } label: {
+                                                        Image(systemName: "plus.circle")
+                                                            .foregroundStyle(Color.brandPrimary)
+                                                    }
+                                                    .buttonStyle(.plain)
+                                                }
+                                                Text(input.amount.formatted(currencyCode: vm.currency))
+                                                    .font(.xbillSmallAmount)
+                                                    .foregroundStyle(Color.textSecondary)
                                             } else {
                                                 Text(input.amount.formatted(currencyCode: vm.currency))
                                                     .font(.xbillSmallAmount)
@@ -234,6 +277,12 @@ struct AddExpenseView: View {
                         applyReceiptSplits(splits: splits)
                     }
                 )
+            }
+            .task {
+                if startWithScan {
+                    receiptVM = ReceiptViewModel()
+                    showReceiptScan = true
+                }
             }
         }
         .errorAlert(error: $vm.error)

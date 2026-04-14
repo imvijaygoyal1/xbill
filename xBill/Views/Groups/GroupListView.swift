@@ -3,13 +3,14 @@ import SwiftUI
 struct GroupListView: View {
     @Bindable var vm: HomeViewModel
     @State private var showCreateGroup = false
+    @State private var showArchived = false
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $vm.groupsNavigationPath) {
             Group {
-                if vm.isLoading && vm.groups.isEmpty {
+                if vm.isLoading && vm.groups.isEmpty && vm.archivedGroups.isEmpty {
                     LoadingOverlay(message: "Loading groups…")
-                } else if vm.groups.isEmpty {
+                } else if vm.groups.isEmpty && vm.archivedGroups.isEmpty {
                     EmptyStateView(
                         icon: "person.3.fill",
                         title: "No Groups Yet",
@@ -35,23 +36,66 @@ struct GroupListView: View {
             .sheet(isPresented: $showCreateGroup) {
                 CreateGroupView { _ in await vm.refresh() }
             }
-            .refreshable { await vm.refresh() }
+            .refreshable {
+                await vm.refresh()
+                await vm.loadArchivedGroups()
+            }
+            .task { await vm.loadArchivedGroups() }
         }
         .errorAlert(error: $vm.error)
     }
 
     private var groupList: some View {
         List {
-            ForEach(vm.groups) { group in
-                NavigationLink(value: group) {
-                    groupRow(group)
+            // Active groups
+            if !vm.groups.isEmpty {
+                Section {
+                    ForEach(vm.groups) { group in
+                        NavigationLink(value: group) {
+                            groupRow(group, isArchived: false)
+                        }
+                        .listRowBackground(Color.bgCard)
+                    }
+                    .onDelete { indexSet in
+                        for i in indexSet {
+                            let group = vm.groups[i]
+                            Task { await vm.deleteGroup(group) }
+                        }
+                    }
                 }
-                .listRowBackground(Color.bgCard)
             }
-            .onDelete { indexSet in
-                for i in indexSet {
-                    let group = vm.groups[i]
-                    Task { await vm.deleteGroup(group) }
+
+            // Archived groups — collapsible section
+            if !vm.archivedGroups.isEmpty {
+                Section {
+                    if showArchived {
+                        ForEach(vm.archivedGroups) { group in
+                            NavigationLink(value: group) {
+                                groupRow(group, isArchived: true)
+                            }
+                            .listRowBackground(Color.bgCard)
+                            .swipeActions(edge: .leading) {
+                                Button {
+                                    Task { await vm.unarchiveGroup(group) }
+                                } label: {
+                                    Label("Unarchive", systemImage: "tray.and.arrow.up")
+                                }
+                                .tint(Color.brandPrimary)
+                            }
+                        }
+                    }
+                } header: {
+                    HStack {
+                        Text("Archived (\(vm.archivedGroups.count))")
+                            .font(.xbillSectionTitle)
+                            .foregroundStyle(Color.textSecondary)
+                        Spacer()
+                        Image(systemName: showArchived ? "chevron.up" : "chevron.down")
+                            .font(.caption)
+                            .foregroundStyle(Color.textTertiary)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { showArchived.toggle() }
                 }
             }
         }
@@ -67,24 +111,31 @@ struct GroupListView: View {
         }
     }
 
-    private func groupRow(_ group: BillGroup) -> some View {
+    private func groupRow(_ group: BillGroup, isArchived: Bool) -> some View {
         HStack(spacing: XBillSpacing.md) {
             Text(group.emoji)
                 .font(.title2)
                 .frame(width: 44, height: 44)
                 .background(Color.brandSurface)
                 .clipShape(Circle())
+                .opacity(isArchived ? 0.6 : 1)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(group.name)
                     .font(.xbillBodyLarge)
-                    .foregroundStyle(Color.textPrimary)
+                    .foregroundStyle(isArchived ? Color.textSecondary : Color.textPrimary)
                 Text("\(group.currency) · \(group.createdAt.shortFormatted)")
                     .font(.xbillBodySmall)
-                    .foregroundStyle(Color.textSecondary)
+                    .foregroundStyle(Color.textTertiary)
             }
 
             Spacer()
+
+            if isArchived {
+                Image(systemName: "archivebox")
+                    .font(.caption)
+                    .foregroundStyle(Color.textTertiary)
+            }
         }
         .padding(.vertical, XBillSpacing.xs)
     }

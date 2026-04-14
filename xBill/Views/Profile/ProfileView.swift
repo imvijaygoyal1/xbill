@@ -46,6 +46,8 @@ struct ProfileView: View {
     @State private var showSignOutConfirm = false
     @State private var selectedAvatar: UIImage? = nil
     @State private var showAvatarPicker   = false
+    @State private var showPrivacy        = false
+    @State private var showTerms          = false
 
     var body: some View {
         NavigationStack {
@@ -127,6 +129,35 @@ struct ProfileView: View {
                     .foregroundStyle(Color.moneyNegative)
                     .listRowBackground(Color.bgCard)
                     .listRowSeparator(.hidden)
+                }
+
+                // Footer
+                Section {
+                    VStack(spacing: 6) {
+                        HStack(spacing: XBillSpacing.base) {
+                            Button("Terms of Service") { showTerms = true }
+                                .font(.xbillCaption)
+                                .foregroundStyle(Color.textTertiary)
+                                .underline()
+
+                            Button("Privacy Policy") { showPrivacy = true }
+                                .font(.xbillCaption)
+                                .foregroundStyle(Color.textTertiary)
+                                .underline()
+                        }
+                        .buttonStyle(.plain)
+
+                        Text("xBill v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
+                            .font(.xbillCaption)
+                            .foregroundStyle(Color.textTertiary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .safariSheet(isPresented: $showPrivacy, url: XBillURLs.privacyPolicy)
+                    .sheet(isPresented: $showTerms) { TermsOfServiceView() }
                 }
             }
             .listStyle(.insetGrouped)

@@ -33,6 +33,15 @@ struct AmountBadge: View {
         }
     }
 
+    private var accessibilityDescription: String {
+        switch direction {
+        case .positive: return "owed to you: \(amount.formatted(currencyCode: currency))"
+        case .negative: return "you owe: \(amount.formatted(currencyCode: currency))"
+        case .settled:  return "settled: \(amount.formatted(currencyCode: currency))"
+        case .total:    return "total: \(amount.formatted(currencyCode: currency))"
+        }
+    }
+
     var body: some View {
         Text("\(prefix)\(amount.formatted(currencyCode: currency))")
             .font(.xbillSmallAmount)
@@ -41,6 +50,7 @@ struct AmountBadge: View {
             .padding(.vertical, XBillSpacing.xs)
             .background(bg)
             .clipShape(Capsule())
+            .accessibilityLabel(accessibilityDescription)
     }
 }
 

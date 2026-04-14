@@ -35,6 +35,8 @@ struct ExpenseRowView: View {
             }
         }
         .padding(.vertical, XBillSpacing.xs)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(expense.title), paid by \(name(for: expense.payerID)), \(expense.amount.formatted(currencyCode: expense.currency))")
     }
 }
 
@@ -45,7 +47,7 @@ struct ExpenseRowView: View {
                 id: UUID(), groupID: UUID(), title: "Team Lunch",
                 amount: 87.40, currency: "USD", payerID: UUID(),
                 category: .food, notes: nil, receiptURL: nil,
-                createdAt: Date()
+                recurrence: .none, createdAt: Date()
             ),
             members: [],
             showAmountBadge: true

@@ -332,16 +332,18 @@ struct ExpenseDetailView: View {
         isSaving = true
         defer { isSaving = false }
         let updated = Expense(
-            id:         expense.id,
-            groupID:    expense.groupID,
-            title:      editTitle.trimmingCharacters(in: .whitespaces),
-            amount:     amount,
-            currency:   currency,
-            payerID:    payerID,
-            category:   editCategory,
-            notes:      editNotes.isEmpty ? nil : editNotes,
-            receiptURL: expense.receiptURL,
-            createdAt:  expense.createdAt
+            id:                   expense.id,
+            groupID:              expense.groupID,
+            title:                editTitle.trimmingCharacters(in: .whitespaces),
+            amount:               amount,
+            currency:             currency,
+            payerID:              payerID,
+            category:             editCategory,
+            notes:                editNotes.isEmpty ? nil : editNotes,
+            receiptURL:           expense.receiptURL,
+            recurrence:           expense.recurrence,
+            nextOccurrenceDate:   expense.nextOccurrenceDate,
+            createdAt:            expense.createdAt
         )
         do {
             let saved = try await ExpenseService.shared.updateExpense(updated)
@@ -379,7 +381,7 @@ struct ExpenseDetailView: View {
                 id: UUID(), groupID: UUID(), title: "Dinner",
                 amount: 120.50, currency: "USD", payerID: UUID(),
                 category: .food, notes: "Great sushi place!",
-                receiptURL: nil, createdAt: Date()
+                receiptURL: nil, recurrence: .none, createdAt: Date()
             ),
             members: [],
             currency: "USD",

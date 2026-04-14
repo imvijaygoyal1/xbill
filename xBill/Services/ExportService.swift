@@ -1,0 +1,239 @@
+import Foundation
+import PDFKit
+import UIKit
+
+// MARK: - ExportService
+// Must be @MainActor because PDF generation uses UIKit drawing APIs.
+
+@MainActor
+final class ExportService {
+    static let shared = ExportService()
+    private init() {}
+
+    // MARK: - CSV
+
+    /// Returns UTF-8 CSV data for all expenses in a group.
+    func generateCSV(
+        group: BillGroup,
+        expenses: [Expense],
+        memberNames: [UUID: String]
+    ) -> Data {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+
+        var lines = ["Date,Title,Category,Amount,Currency,Paid By,Notes,Recurrence"]
+        for expense in expenses.sorted(by: { $0.createdAt < $1.createdAt }) {
+            let date      = df.string(from: expense.createdAt)
+            let title     = csvEscape(expense.title)
+            let category  = expense.category.displayName
+            let amount    = String(format: "%.2f", NSDecimalNumber(decimal: expense.amount).doubleValue)
+            let currency  = expense.currency
+            let paidBy    = csvEscape(memberNames[expense.payerID] ?? "Unknown")
+            let notes     = csvEscape(expense.notes ?? "")
+            let recur     = expense.recurrence == .none ? "" : expense.recurrence.shortLabel
+            lines.append("\(date),\(title),\(category),\(amount),\(currency),\(paidBy),\(notes),\(recur)")
+        }
+        return lines.joined(separator: "\n").data(using: .utf8) ?? Data()
+    }
+
+    // MARK: - PDF
+
+    /// Returns PDF data for a group expense report.
+    func generatePDF(
+        group: BillGroup,
+        expenses: [Expense],
+        memberNames: [UUID: String],
+        balances: [UUID: Decimal]
+    ) -> Data {
+        let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842)  // A4 portrait
+        let margin:   CGFloat = 48
+        let contentW: CGFloat = pageRect.width - margin * 2
+
+        let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
+        return renderer.pdfData { ctx in
+            ctx.beginPage()
+
+            var y: CGFloat = margin
+
+            // ── Header ──
+            y = drawText(
+                "\(group.emoji) \(group.name)",
+                at: CGPoint(x: margin, y: y),
+                font: .boldSystemFont(ofSize: 22),
+                maxWidth: contentW
+            ) + 6
+
+            let df = DateFormatter(); df.dateStyle = .medium
+            y = drawText(
+                "Expense Report · Generated \(df.string(from: Date()))",
+                at: CGPoint(x: margin, y: y),
+                font: .systemFont(ofSize: 11),
+                color: .secondaryLabel,
+                maxWidth: contentW
+            ) + 4
+
+            y = drawHRule(at: y, margin: margin, width: pageRect.width) + 14
+
+            // ── Summary ──
+            let totalAmount = expenses.reduce(Decimal.zero) { $0 + $1.amount }
+            let fmt = currencyFormatter(code: group.currency)
+            let totalStr = fmt.string(from: totalAmount as NSDecimalNumber) ?? "\(totalAmount)"
+
+            y = drawSectionTitle("Summary", at: CGPoint(x: margin, y: y)) + 8
+
+            y = drawText(
+                "Total expenses: \(expenses.count)   Total amount: \(totalStr)",
+                at: CGPoint(x: margin, y: y),
+                font: .systemFont(ofSize: 12),
+                maxWidth: contentW
+            ) + 12
+
+            // ── Balances ──
+            y = drawSectionTitle("Balances", at: CGPoint(x: margin, y: y)) + 8
+
+            for (userID, balance) in balances.sorted(by: { abs($0.value) > abs($1.value) }) {
+                let name = memberNames[userID] ?? "Unknown"
+                let direction: String
+                if balance > 0 {
+                    direction = "is owed \(fmt.string(from: balance as NSDecimalNumber) ?? "")"
+                } else if balance < 0 {
+                    direction = "owes \(fmt.string(from: (-balance) as NSDecimalNumber) ?? "")"
+                } else {
+                    direction = "is settled"
+                }
+                y = drawText(
+                    "• \(name): \(direction)",
+                    at: CGPoint(x: margin + 8, y: y),
+                    font: .systemFont(ofSize: 12),
+                    maxWidth: contentW - 8
+                ) + 4
+            }
+            y += 8
+
+            y = drawHRule(at: y, margin: margin, width: pageRect.width) + 14
+
+            // ── Expense Table ──
+            y = drawSectionTitle("Expenses", at: CGPoint(x: margin, y: y)) + 10
+
+            // Column x positions
+            let cols: [(header: String, x: CGFloat, maxW: CGFloat)] = [
+                ("Date",     margin,      72),
+                ("Title",    margin + 80, 160),
+                ("Category", margin + 250, 100),
+                ("Amount",   margin + 360, 90),
+                ("Paid By",  margin + 460, 80)
+            ]
+
+            // Header row
+            for col in cols {
+                drawText(col.header, at: CGPoint(x: col.x, y: y), font: .boldSystemFont(ofSize: 9),
+                         color: .secondaryLabel, maxWidth: col.maxW)
+            }
+            y += 14
+
+            drawHRule(at: y - 2, margin: margin, width: pageRect.width, alpha: 0.4)
+            y += 4
+
+            // Rows
+            df.dateFormat = "MMM d, yyyy"
+            var alternate = false
+
+            for expense in expenses.sorted(by: { $0.createdAt < $1.createdAt }) {
+                if y > pageRect.height - 60 {
+                    ctx.beginPage()
+                    y = margin
+                }
+
+                if alternate {
+                    let rowRect = CGRect(x: margin, y: y - 2,
+                                        width: pageRect.width - margin * 2, height: 16)
+                    UIColor.systemGray6.setFill()
+                    UIBezierPath(roundedRect: rowRect, cornerRadius: 2).fill()
+                }
+                alternate.toggle()
+
+                let amtStr  = fmt.string(from: expense.amount as NSDecimalNumber) ?? "\(expense.amount)"
+                let paidBy  = memberNames[expense.payerID] ?? "Unknown"
+                let values  = [
+                    df.string(from: expense.createdAt),
+                    expense.title + (expense.recurrence != .none ? " ↻" : ""),
+                    expense.category.displayName,
+                    amtStr,
+                    paidBy
+                ]
+                for (col, val) in zip(cols, values) {
+                    drawText(val, at: CGPoint(x: col.x, y: y),
+                             font: .systemFont(ofSize: 9),
+                             maxWidth: col.maxW - 6)
+                }
+                y += 16
+            }
+        }
+    }
+
+    // MARK: - Temp file helpers
+
+    func writeTemp(data: Data, filename: String) throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        try data.write(to: url)
+        return url
+    }
+
+    // MARK: - Private drawing helpers
+
+    @discardableResult
+    private func drawText(
+        _ text: String,
+        at point: CGPoint,
+        font: UIFont,
+        color: UIColor = .label,
+        maxWidth: CGFloat
+    ) -> CGFloat {
+        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
+        let boundingRect = text.boundingRect(
+            with: CGSize(width: maxWidth, height: 400),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: attrs, context: nil
+        )
+        text.draw(in: CGRect(origin: point, size: boundingRect.size), withAttributes: attrs)
+        return point.y + boundingRect.height
+    }
+
+    @discardableResult
+    private func drawSectionTitle(_ title: String, at point: CGPoint) -> CGFloat {
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.boldSystemFont(ofSize: 10),
+            .foregroundColor: UIColor.secondaryLabel,
+            .kern: 0.8
+        ]
+        title.uppercased().draw(at: point, withAttributes: attrs)
+        return point.y + 14
+    }
+
+    @discardableResult
+    private func drawHRule(at y: CGFloat, margin: CGFloat, width: CGFloat, alpha: CGFloat = 1) -> CGFloat {
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: margin, y: y))
+        path.addLine(to: CGPoint(x: width - margin, y: y))
+        UIColor.separator.withAlphaComponent(alpha).setStroke()
+        path.lineWidth = 0.5
+        path.stroke()
+        return y + 1
+    }
+
+    private func currencyFormatter(code: String) -> NumberFormatter {
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.currencyCode = code
+        f.minimumFractionDigits = 2
+        f.maximumFractionDigits = 2
+        return f
+    }
+
+    private func csvEscape(_ value: String) -> String {
+        let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
+        return escaped.contains(",") || escaped.contains("\"") || escaped.contains("\n")
+            ? "\"\(escaped)\""
+            : escaped
+    }
+}

@@ -8,7 +8,28 @@ struct GroupDetailView: View {
     @State private var showInvite = false
     @State private var showInviteLink = false
     @State private var showStats = false
+    @State private var showArchiveConfirm = false
+    @State private var shareItem: ExportShareItem?
     @State private var selectedTab = 0
+    @State private var searchText = ""
+    @State private var filterCategory: Expense.Category? = nil
+    @Environment(\.dismiss) private var dismiss
+
+    private var filteredExpenses: [Expense] {
+        var result = vm.sortedExpenses
+        if !searchText.isEmpty {
+            let q = searchText.lowercased()
+            result = result.filter { exp in
+                exp.title.lowercased().contains(q) ||
+                exp.category.displayName.lowercased().contains(q) ||
+                (exp.notes?.lowercased().contains(q) == true)
+            }
+        }
+        if let cat = filterCategory {
+            result = result.filter { $0.category == cat }
+        }
+        return result
+    }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -24,11 +45,15 @@ struct GroupDetailView: View {
             .toolbarBackground(Color.navBarBg, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .tint(Color.brandPrimary)
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search expenses")
             .toolbar { toolbar }
             .safeAreaInset(edge: .top) {
                 if !NetworkMonitor.shared.isConnected { OfflineBanner() }
             }
-            .task { await vm.load() }
+            .task {
+                await vm.load()
+                await vm.createDueRecurringInstances(currentUserID: currentUserID)
+            }
             .refreshable { await vm.refresh() }
             .sheet(isPresented: $showAddExpense) {
                 AddExpenseView(group: vm.group, members: vm.members, currentUserID: currentUserID) {
@@ -45,6 +70,25 @@ struct GroupDetailView: View {
             }
             .sheet(isPresented: $showInviteLink) {
                 GroupInviteView(group: vm.group, currentUserID: currentUserID)
+            }
+            .sheet(item: $shareItem) { item in
+                ShareSheetView(url: item.url)
+                    .ignoresSafeArea()
+            }
+            .confirmationDialog(
+                "Archive \"\(vm.group.name)\"?",
+                isPresented: $showArchiveConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Archive Group", role: .destructive) {
+                    Task {
+                        await vm.archiveGroup()
+                        dismiss()
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("The group will be hidden from your active list. You can unarchive it later from the Groups tab.")
             }
             .navigationDestination(isPresented: $showStats) {
                 GroupStatsView(
@@ -82,6 +126,30 @@ struct GroupDetailView: View {
 
             Color.separator.frame(height: 0.5)
 
+            // Category filter strip (expenses tab only)
+            if selectedTab == 0 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: XBillSpacing.xs) {
+                        ExpenseFilterChip(label: "All", isSelected: filterCategory == nil) {
+                            filterCategory = nil
+                        }
+                        ForEach(Expense.Category.allCases, id: \.self) { cat in
+                            ExpenseFilterChip(
+                                label: "\(cat.emoji) \(cat.displayName)",
+                                isSelected: filterCategory == cat
+                            ) {
+                                filterCategory = filterCategory == cat ? nil : cat
+                            }
+                        }
+                    }
+                    .padding(.horizontal, XBillSpacing.base)
+                    .padding(.vertical, XBillSpacing.xs)
+                }
+                .background(Color.bgCard)
+
+                Color.separator.frame(height: 0.5)
+            }
+
             // Tab content
             switch selectedTab {
             case 0: expensesTab
@@ -104,9 +172,15 @@ struct GroupDetailView: View {
                     actionLabel: "Add Expense",
                     action: { showAddExpense = true }
                 )
+            } else if filteredExpenses.isEmpty {
+                EmptyStateView(
+                    icon: "magnifyingglass",
+                    title: "No Results",
+                    message: "No expenses match your search."
+                )
             } else {
                 List {
-                    ForEach(vm.sortedExpenses) { expense in
+                    ForEach(filteredExpenses) { expense in
                         NavigationLink {
                             ExpenseDetailView(
                                 expense: expense,
@@ -122,7 +196,7 @@ struct GroupDetailView: View {
                         .listRowBackground(Color.bgCard)
                     }
                     .onDelete { offsets in
-                        for expense in offsets.map({ vm.sortedExpenses[$0] }) {
+                        for expense in offsets.map({ filteredExpenses[$0] }) {
                             Task { await vm.deleteExpense(expense) }
                         }
                     }
@@ -218,17 +292,104 @@ struct GroupDetailView: View {
                 Button { showStats = true } label: {
                     Label("Stats", systemImage: "chart.bar.fill")
                 }
+
                 Divider()
+
+                Menu {
+                    Button { exportCSV() } label: {
+                        Label("Export CSV", systemImage: "tablecells")
+                    }
+                    Button { exportPDF() } label: {
+                        Label("Export PDF", systemImage: "doc.richtext")
+                    }
+                } label: {
+                    Label("Export", systemImage: "square.and.arrow.up")
+                }
+
+                Divider()
+
                 Button { showInvite = true } label: {
                     Label("Invite via Email", systemImage: "envelope")
                 }
                 Button { showInviteLink = true } label: {
                     Label("Invite via Link", systemImage: "qrcode")
                 }
+
+                Divider()
+
+                Button(role: .destructive) {
+                    showArchiveConfirm = true
+                } label: {
+                    Label("Archive Group", systemImage: "archivebox")
+                }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
         }
+    }
+
+    // MARK: - Export
+
+    private func exportCSV() {
+        let names = vm.memberNames
+        let data = ExportService.shared.generateCSV(
+            group: vm.group,
+            expenses: vm.expenses,
+            memberNames: names
+        )
+        let filename = "\(vm.group.name.sanitizedForFilename)_expenses.csv"
+        guard let url = try? ExportService.shared.writeTemp(data: data, filename: filename) else { return }
+        shareItem = ExportShareItem(url: url)
+    }
+
+    private func exportPDF() {
+        let names = vm.memberNames
+        let data = ExportService.shared.generatePDF(
+            group: vm.group,
+            expenses: vm.expenses,
+            memberNames: names,
+            balances: vm.balances
+        )
+        let filename = "\(vm.group.name.sanitizedForFilename)_expenses.pdf"
+        guard let url = try? ExportService.shared.writeTemp(data: data, filename: filename) else { return }
+        shareItem = ExportShareItem(url: url)
+    }
+}
+
+// MARK: - Filter Chip
+
+private struct ExpenseFilterChip: View {
+    let label: String
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            Text(label)
+                .font(.xbillLabel)
+                .foregroundStyle(isSelected ? Color.brandPrimary : Color.textSecondary)
+                .padding(.horizontal, XBillSpacing.md)
+                .padding(.vertical, XBillSpacing.xs)
+                .background(isSelected ? Color.brandSurface : Color.bgTertiary)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(isSelected ? Color.brandPrimary : Color.clear, lineWidth: 1.5))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Export helpers
+
+struct ExportShareItem: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+private extension String {
+    var sanitizedForFilename: String {
+        self.components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .joined(separator: "_")
+            .lowercased()
     }
 }
 

@@ -53,8 +53,10 @@ final class GroupViewModel {
                 expenses = fetchedExpenses
                 CacheService.shared.saveMembers(fetchedMembers, groupID: group.id)
                 CacheService.shared.saveExpenses(fetchedExpenses, groupID: group.id)
+                SpotlightService.indexExpenses(fetchedExpenses, groupName: group.name, groupEmoji: group.emoji)
                 await computeBalances()
             } catch {
+                guard !(error is CancellationError) else { return }
                 // Fall back to cache on network error
                 if members.isEmpty  { members  = CacheService.shared.loadMembers(groupID: group.id) }
                 if expenses.isEmpty { expenses = CacheService.shared.loadExpenses(groupID: group.id) }
@@ -109,6 +111,82 @@ final class GroupViewModel {
         defer { isLoading = false }
         do {
             try await groupService.removeMember(groupId: group.id, userId: userID)
+            await load()
+        } catch {
+            self.error = AppError.from(error)
+        }
+    }
+
+    // MARK: - Archive
+
+    func archiveGroup() async {
+        isLoading = true
+        error = nil
+        defer { isLoading = false }
+        do {
+            var updated = group
+            updated.isArchived = true
+            group = try await groupService.updateGroup(updated)
+        } catch {
+            self.error = AppError.from(error)
+        }
+    }
+
+    func unarchiveGroup() async {
+        isLoading = true
+        error = nil
+        defer { isLoading = false }
+        do {
+            var updated = group
+            updated.isArchived = false
+            group = try await groupService.updateGroup(updated)
+        } catch {
+            self.error = AppError.from(error)
+        }
+    }
+
+    // MARK: - Recurring Instances
+
+    /// Creates new expense instances for any recurring expenses that are due,
+    /// then advances (clears) the template's next_occurrence_date.
+    /// Only acts on expenses where the current user is the payer (RPC constraint).
+    func createDueRecurringInstances(currentUserID: UUID) async {
+        guard NetworkMonitor.shared.isConnected else { return }
+        do {
+            let dueExpenses = try await expenseService.fetchDueRecurringExpenses(
+                groupID: group.id,
+                payerID: currentUserID
+            )
+            guard !dueExpenses.isEmpty else { return }
+
+            for expense in dueExpenses {
+                guard expense.recurrence != .none,
+                      let nextDate = expense.nextOccurrenceDate else { continue }
+
+                let existingSplits = (try? await expenseService.fetchSplits(expenseID: expense.id)) ?? []
+                let splitInputs = existingSplits.map { SplitInput(from: $0) }
+                guard !splitInputs.isEmpty else { continue }
+
+                let newNextDate = expense.recurrence.nextDate(from: nextDate)
+
+                _ = try await expenseService.createExpense(
+                    groupID:             expense.groupID,
+                    title:               expense.title,
+                    amount:              expense.amount,
+                    currency:            expense.currency,
+                    payerID:             expense.payerID,
+                    category:            expense.category,
+                    notes:               expense.notes,
+                    splits:              splitInputs,
+                    originalAmount:      expense.originalAmount,
+                    originalCurrency:    expense.originalCurrency,
+                    recurrence:          expense.recurrence,
+                    nextOccurrenceDate:  newNextDate
+                )
+
+                try await expenseService.clearNextOccurrenceDate(expenseID: expense.id)
+            }
+
             await load()
         } catch {
             self.error = AppError.from(error)

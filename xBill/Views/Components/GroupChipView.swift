@@ -22,11 +22,9 @@ struct GroupChipView: View {
         }
         .padding(XBillSpacing.md)
         .frame(width: 110)
-        .background(Color.bgCard)
-        .clipShape(RoundedRectangle(cornerRadius: XBillRadius.lg))
-        .overlay(
-            RoundedRectangle(cornerRadius: XBillRadius.lg)
-                .stroke(Color.separator, lineWidth: 0.5)
-        )
+        .asSharpCard()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(group.name) group, \(group.currency)")
+        .accessibilityAddTraits(.isButton)
     }
 }

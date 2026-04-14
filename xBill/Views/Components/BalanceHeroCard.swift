@@ -27,6 +27,8 @@ struct BalanceHeroCard: View {
         .padding(.vertical, XBillSpacing.lg)
         .background(Color.brandPrimary)
         .clipShape(RoundedRectangle(cornerRadius: XBillRadius.xl))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label): \(amount.formatted(currencyCode: currency)), \(subtitle)")
     }
 }
 

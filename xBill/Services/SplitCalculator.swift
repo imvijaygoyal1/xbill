@@ -55,6 +55,36 @@ enum SplitCalculator {
         }
     }
 
+    // MARK: - Shares Split
+
+    /// Distributes `total` proportionally to each input's `shares` value.
+    /// Adjusts the first included participant to absorb rounding error.
+    static func splitByShares(total: Decimal, inputs: inout [SplitInput]) {
+        let included = inputs.indices.filter { inputs[$0].isIncluded }
+        guard !included.isEmpty else { return }
+
+        let totalShares = included.reduce(0) { $0 + inputs[$1].shares }
+        guard totalShares > 0 else { return }
+
+        let totalSharesDecimal = Decimal(totalShares)
+        var distributed = Decimal.zero
+
+        for index in included {
+            let shareCount = Decimal(inputs[index].shares)
+            var amount = total * shareCount / totalSharesDecimal
+            var rounded = Decimal()
+            NSDecimalRound(&rounded, &amount, 2, .bankers)
+            inputs[index].amount = rounded
+            inputs[index].percentage = (shareCount / totalSharesDecimal * 100).rounded
+            distributed += rounded
+        }
+
+        // Assign remainder to first included participant
+        if let first = included.first {
+            inputs[first].amount += total - distributed
+        }
+    }
+
     // MARK: - Exact Split (validate totals)
 
     /// Returns an error string if exact amounts don't sum to total, nil otherwise.

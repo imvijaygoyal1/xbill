@@ -18,10 +18,14 @@
   ```
   DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -scheme xBill -destination 'id=DA97985A-F7CC-44F6-8281-9DD24C22B978' -configuration Debug build
   ```
-- Install + launch:
+- Install + launch (simctl requires DEVELOPER_DIR — xcrun simctl won't resolve in this env):
   ```
-  xcrun simctl install DA97985A-F7CC-44F6-8281-9DD24C22B978 <APP_PATH>
-  xcrun simctl launch DA97985A-F7CC-44F6-8281-9DD24C22B978 com.vijaygoyal.xbill
+  DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer /Applications/Xcode.app/Contents/Developer/usr/bin/simctl install DA97985A-F7CC-44F6-8281-9DD24C22B978 <APP_PATH>
+  DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer /Applications/Xcode.app/Contents/Developer/usr/bin/simctl launch DA97985A-F7CC-44F6-8281-9DD24C22B978 com.vijaygoyal.xbill
+  ```
+- If simulator is Shutdown, boot it first:
+  ```
+  DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer /Applications/Xcode.app/Contents/Developer/usr/bin/simctl boot DA97985A-F7CC-44F6-8281-9DD24C22B978
   ```
 - **Always build and run on simulator after implementing a feature.**
 
@@ -43,14 +47,14 @@
 | `profiles` | `id uuid PK (→ auth.users)`, `email text`, `display_name text`, `avatar_url text`, `created_at` |
 | `groups` | `id uuid PK`, `name text`, `emoji text`, `currency text DEFAULT 'USD'`, `created_by uuid`, `is_archived bool`, `created_at` |
 | `group_members` | `group_id uuid`, `user_id uuid`, `joined_at` |
-| `expenses` | `id uuid PK`, `group_id uuid`, `title text`, `amount numeric`, `currency text`, `category text`, `notes text`, `paid_by uuid`, `created_at` |
+| `expenses` | `id uuid PK`, `group_id uuid`, `title text`, `amount numeric`, `currency text`, `category text`, `notes text`, `paid_by uuid`, `recurrence text DEFAULT 'none'`, `next_occurrence_date timestamptz`, `created_at` |
 | `splits` | `id uuid PK`, `expense_id uuid`, `user_id uuid`, `amount numeric`, `is_settled bool` |
 | `comments` | `id uuid PK`, `expense_id uuid`, `user_id uuid`, `text text`, `created_at` |
 | `group_invites` | `token text PK (default: uuid stripped of dashes)`, `group_id uuid`, `created_by uuid`, `expires_at (default: +7 days)` |
 | `ious` | `id uuid PK`, `created_by uuid`, `lender_id uuid`, `borrower_id uuid`, `amount numeric`, `currency text`, `description text`, `is_settled bool`, `created_at` — CHECK: `created_by = lender_id OR created_by = borrower_id`, `lender_id != borrower_id` |
 
 ### RPC Functions
-- `add_expense_with_splits(p_group_id, p_paid_by, p_amount, p_title, p_category, p_currency, p_notes, p_receipt_url, p_splits[])` — atomic expense + splits insert; `p_splits` is an array of `split_input` composite type `{user_id uuid, amount numeric}`
+- `add_expense_with_splits(p_group_id, p_paid_by, p_amount, p_title, p_category, p_currency, p_notes, p_receipt_url, p_splits[], p_original_amount, p_original_currency, p_recurrence, p_next_occurrence_date)` — atomic expense + splits insert; `p_splits` is an array of `split_input` composite type `{user_id uuid, amount numeric}`; recurrence/next_occurrence_date are optional (default 'none'/null)
 
 ### Migrations (in order)
 1. `001_initial_schema.sql` — All tables, RLS, `is_group_member()` + `is_expense_group_member()` helpers
@@ -64,6 +68,7 @@
 14. `014_ious.sql` — `ious` table with RLS; `lender_id`/`borrower_id`/`created_by` constraints
 11. `011_expense_comments.sql` — `comments` table; RLS (group members can view/insert, author can delete); Realtime enabled
 12. `012_group_invites.sql` — `group_invites` table; `join_group_via_invite(p_token)` SECURITY DEFINER RPC (validates expiry, idempotent insert into group_members, returns group_id)
+15. `015_recurring_expenses.sql` — Adds `recurrence text DEFAULT 'none'` + `next_occurrence_date timestamptz` to expenses; recreates RPC with new optional params
 
 ## File Map
 
@@ -74,8 +79,9 @@
 - `supabase/functions/invite-member/index.ts` — Deno; calls Resend API to send group invite emails; expects `{ groupName, groupEmoji, inviterName, emails[] }`; returns `{ sent, failed[] }`
 
 ### Design System
+- `xBill/Core/DesignSystem/XBillTheme.swift` — `XBillTheme` enum (central "Professional Sharp" theme): `background`, `surface`, `primaryBrand`, `accentMint`, `accentCoral(hex)` color properties; shadow constants (`shadowColor`, `shadowRadius`, `shadowX`, `shadowY`), `cardRadius = 18`; `SharpCard` ViewModifier (white surface, 18pt corners, 0.5pt hairline stroke, drop shadow); `View.asSharpCard()` extension
 - `xBill/Core/DesignSystem/XBillColors.swift` — `Color` extension with all brand/background/text/money/category/chrome tokens (reference named assets in Assets.xcassets)
-- `xBill/Core/DesignSystem/XBillFonts.swift` — `Font` extension with all `xbill*` tokens; amounts use `.monospaced` design
+- `xBill/Core/DesignSystem/XBillFonts.swift` — `Font` extension with all `xbill*` tokens; amounts use `.monospaced` design; all UI label/body/button fonts use `.rounded` design for modern feel; apply `.tracking(1.0)` on metadata `Text` views for professional spacing; **all tokens use Dynamic Type text styles** (e.g. `.largeTitle`, `.title`, `.subheadline`) so they scale with the user's preferred text size — do NOT revert to fixed `size:` integers
 - `xBill/Core/DesignSystem/XBillLayout.swift` — `XBillSpacing`, `XBillRadius`, `XBillIcon` enums with spacing/radius/size constants
 - `xBill/Core/Extensions/HapticManager.swift` — `@MainActor enum HapticManager` with `impact(_:)`, `success()`, `error()`, `selection()` helpers
 
@@ -83,9 +89,11 @@
 31 named color sets with light/dark variants: `BrandPrimary`, `BrandAccent`, `BrandSurface`, `BrandDeep`, `BgPrimary`, `BgSecondary`, `BgTertiary`, `BgCard`, `TextPrimary`, `TextSecondary`, `TextTertiary`, `TextInverse`, `MoneyPositive`, `MoneyNegative`, `MoneySettled`, `MoneyTotal`, `MoneyPositiveBg`, `MoneyNegativeBg`, `MoneySettledBg`, `Separator`, `TabBarBg`, `NavBarBg`, `InputBg`, `InputBorder`, `CatFood`, `CatTravel`, `CatHome`, `CatEntertain`, `CatHealth`, `CatShopping`, `CatOther`
 
 ### Core
+- `xBill/Core/AppState.swift` — `@Observable final class AppState: @unchecked Sendable` singleton (`AppState.shared`); `pendingQuickAction: QuickAction?` (.addExpense/.scanReceipt) set by AppDelegate; `spotlightTarget: SpotlightTarget?` (.group(UUID)) set by Spotlight NSUserActivity handler in xBillApp; consumed by MainTabView via `.task(id:)`
 - `xBill/Core/SupabaseClient.swift` — `SupabaseManager.shared`; reads URL/key from `Bundle.main.infoDictionary`; graceful fallback to placeholder (no crash) when credentials missing
 - `xBill/Core/AppError.swift` — `AppError` enum: `.network`, `.auth`, `.database`, `.confirmationRequired`, `.unknown`; `static func from(_ error: Error) -> AppError`
-- `xBill/Core/Extensions.swift` — `View.errorAlert(error:)` modifier; `Decimal.formatted(currencyCode:)`; `errorAlert` shows `error.errorDescription` as title (not generic "Something went wrong")
+- `xBill/Core/Constants/XBillURLs.swift` — `enum XBillURLs` with `privacyPolicy`, `termsOfService`, and `landingPage` static `URL` constants; always reference these instead of hardcoding URL strings
+- `xBill/Core/Extensions.swift` — `View.errorAlert(error:)` modifier; `Decimal.formatted(currencyCode:)`; `errorAlert` shows `error.errorDescription` as title (not generic "Something went wrong"); `Color.init(hex:)` initializer for hex strings (e.g. `Color(hex: "#FF6B6B")`)
 - `xBill/Core/KeychainManager.swift` — Keychain read/write helpers
 - `xBill/Core/NetworkMonitor.swift` — `NWPathMonitor` wrapper
 
@@ -96,7 +104,7 @@
 - `xBill/Models/User.swift` — `struct User: Codable, Identifiable` → matches `profiles` table (id, email, displayName, avatarURL, createdAt)
 - `xBill/Models/Group.swift` — `struct BillGroup: Codable, Identifiable` (NOT `Group` — would clash with `SwiftUI.Group`); `struct GroupMember`
 - `xBill/Models/Expense.swift` — `struct Expense`, `enum Expense.Category` (with `displayName`, `systemImage`, `allCases`)
-- `xBill/Models/Split.swift` — `struct Split`
+- `xBill/Models/Split.swift` — `struct Split`; `SplitStrategy` has `.equal`, `.percentage`, `.exact`, `.shares`; `SplitInput` has `shares: Int` (default 1) for weighted sharing
 - `xBill/Models/Settlement.swift` — `struct SettlementSuggestion: Identifiable` (fromName, toName, amount, currency)
 - `xBill/Models/Receipt.swift` — `struct Receipt` for OCR-scanned receipts
 - `xBill/Models/ActivityItem.swift` — `struct ActivityItem: Identifiable, Sendable` (id, expenseTitle, amount, currency, category, payerName, groupName, groupEmoji, createdAt)
@@ -110,37 +118,46 @@
 - `xBill/Services/AuthService.swift` — `signUpWithEmail`, `signInWithEmail`, `signInWithApple` (CryptoKit SHA256 nonce), `signOut`, `fetchProfile`, `currentUser()`; all table refs use `"profiles"` (not `"users"`)
 - `xBill/Services/GroupService.swift` — `fetchGroups(for:)`, `fetchMembers(groupID:)`, `createGroup(...)`, `addMember(groupId:userId:)`, `removeMember(groupId:userId:)`, `inviteMembers(emails:groupName:groupEmoji:inviterName:)`, `groupChanges(userID:) → AsyncStream<Void>`, `createInvite(groupID:createdBy:)`, `fetchInvite(token:)`, `joinGroupViaInvite(token:) → UUID`
 - `xBill/Services/ExpenseService.swift` — `fetchExpenses(groupID:)`, `fetchExpense(id:)`, `fetchSplits(expenseID:)`, `fetchUnsettledExpenses(groupID:userID:)`, `createExpense(...)` (uses `add_expense_with_splits` RPC — atomic), `updateExpense(_:)`, `settleSplit(id:)`, `deleteExpense(id:)`, `uploadReceiptImage(_:expenseID:)`
-- `xBill/Services/SplitCalculator.swift` — `splitEqually`, `splitByPercentage`, `validateExact`, `netBalances(expenses:splits:)`, `minimizeTransactions(balances:names:currency:)`. `netBalances` skips settled splits and payer's own split — only unsettled non-payer splits affect balances. Used by both `GroupViewModel` and `HomeViewModel` for consistent balance computation.
+- `xBill/Services/SplitCalculator.swift` — `splitEqually`, `splitByPercentage`, `splitByShares`, `validateExact`, `netBalances(expenses:splits:)`, `minimizeTransactions(balances:names:currency:)`. `splitByShares` distributes proportionally to each `SplitInput.shares` value with rounding absorbed by first participant. `netBalances` skips settled splits and payer's own split — only unsettled non-payer splits affect balances. Used by both `GroupViewModel` and `HomeViewModel` for consistent balance computation.
+- `xBill/Services/SpotlightService.swift` — `enum SpotlightService`; `indexGroups(_:)` / `removeGroup(id:)` and `indexExpenses(_:groupName:groupEmoji:)` / `removeExpense(id:)` — fire-and-forget CSSearchableIndex operations; identifiers use `"group:<uuid>"` / `"expense:<uuid>"` prefixes
 - `xBill/Services/PaymentLinkService.swift` — Venmo deep-link URL generation
 - `xBill/Services/VisionService.swift` — Two-tier receipt parsing. Tier 1: `FoundationModelService` (iOS 26+, Apple Intelligence, ~90–95% accuracy). Tier 2: improved heuristics with spatial bounding-box grouping (iOS 17+, ~75–80%). Both return `ScanResult(receipt:confidence:tier:validationWarning:)`. Validates items+tax+tip ≈ total within $0.02.
 - `xBill/Services/FoundationModelService.swift` — `@available(iOS 26.0, *)`. Uses `LanguageModelSession(instructions:)` + `session.respond(to: ocrText)` to produce structured JSON. Strips markdown fences from response before decoding. Falls through to heuristics on failure.
 - `xBill/Services/ActivityService.swift` — `fetchRecentActivity(userID:limit:)` fetches all groups, then expenses+members per group in parallel, builds `[ActivityItem]` sorted by `createdAt` desc (default limit 50)
 - `xBill/Services/NotificationService.swift` — Local push notifications
+- `xBill/Services/ExportService.swift` — `@MainActor`; `generateCSV(group:expenses:memberNames:) -> Data`; `generatePDF(group:expenses:memberNames:balances:) -> Data` (PDFKit A4 report with summary, balances, expense table); `writeTemp(data:filename:) throws -> URL` for share sheet
 
 ### ViewModels
 - `xBill/ViewModels/AuthViewModel.swift` — `@Observable @MainActor`; `currentUser: User?`, `confirmationEmailSent: Bool`, `isInPasswordRecovery: Bool`, `isLoading`, `error`, `pendingJoinRequest: InviteJoinRequest?`; `startListeningToAuthChanges()` handles `.passwordRecovery` event; `handlePasswordReset(newPassword:)` calls `supabase.auth.update`. `InviteJoinRequest` is a top-level `Identifiable` struct with `token: String`
-- `xBill/ViewModels/HomeViewModel.swift` — loads groups, computes net balance + `recentExpenses: [RecentEntry]` (top 10 across all groups, members co-fetched); `RecentEntry` is `{ expense, members }` identifiable struct; `balancesInGroup` now returns expenses+members alongside balances to avoid duplicate API calls
-- `xBill/ViewModels/GroupViewModel.swift` — loads members + expenses, computes balances + settlement suggestions, `recordSettlement()`
+- `xBill/ViewModels/HomeViewModel.swift` — loads groups, computes net balance + `recentExpenses: [RecentEntry]` (top 10 across all groups, members co-fetched); `RecentEntry` is `{ expense, members }` identifiable struct; `archivedGroups: [BillGroup]` loaded via `loadArchivedGroups()`; `unarchiveGroup(_:)` unarchives and refreshes both lists; `groupsNavigationPath: NavigationPath` — bound to `GroupListView`'s `NavigationStack` for programmatic navigation (used by Spotlight); calls `SpotlightService.indexGroups` after successful network fetch
+- `xBill/ViewModels/GroupViewModel.swift` — loads members + expenses, computes balances + settlement suggestions, `recordSettlement()`; `archiveGroup()` / `unarchiveGroup()` set `isArchived` on the group via `GroupService.updateGroup`; `createDueRecurringInstances(currentUserID:)` fetches due recurring expenses, creates new instances, clears old `next_occurrence_date`
 - `xBill/ViewModels/AddExpenseViewModel.swift` — split calculation; `expenseCurrency` (defaults to group currency); `convertedAmount`/`exchangeRate` computed via `ExchangeRateService.shared`; `updateConversion()` called on currency/amount change; `finalAmount` = converted or raw; `save()` passes `originalAmount`/`originalCurrency` when foreign currency used
 - `xBill/ViewModels/ProfileViewModel.swift` — profile editing; `loadStats(userID:)` fetches groups + expenses concurrently via `withTaskGroup` to compute `totalGroupsCount`, `totalExpensesCount`, `lifetimePaid`; `saveProfile(avatarImage:)` uploads avatar via `AuthService.uploadAvatar` then calls `updateProfile`
 - `xBill/ViewModels/ActivityViewModel.swift` — loads activity feed via `ActivityService`; `load()` gets `currentUserID` from `AuthService` then fetches recent items
 - `xBill/ViewModels/ReceiptViewModel.swift` — receipt scan + review flow
 
 ### Views — Auth
-- `xBill/Views/Auth/AuthView.swift` — `bgSecondary` background; `brandPrimary` wordmark icon; `XBillButton`-style email CTA; Sign In with Apple button
+- `xBill/Views/Auth/AuthView.swift` — `bgSecondary` background; `brandPrimary` wordmark icon; Sign In with Apple button; "Continue with Email" NavigationLink; fine print with separate "Terms of Service" and "Privacy Policy" tappable links (`.safariSheet` to `XBillURLs.termsOfService` / `XBillURLs.privacyPolicy`)
 - `xBill/Views/Auth/EmailAuthView.swift` — `XBillTextField` fields; `XBillButton(style:.primary)` submit; `bgSecondary` background
 - `xBill/Views/Auth/ResetPasswordView.swift` — shown when app opened from password reset link; new + confirm password fields; calls `authVM.handlePasswordReset(newPassword:)`
 
+### Views — Legal
+- `xBill/Views/Legal/TermsOfServiceView.swift` — in-app ToS screen; native `NavigationStack` + `ScrollView` with 9 placeholder sections; presented as `.sheet` (NOT via Safari) from `AuthView` and `ProfileView` so no external URL is required; update the section text with actual legal copy before App Store submission
+
+### Views — Onboarding
+- `xBill/Views/Onboarding/OnboardingView.swift` — 4-page swipeable onboarding (TabView .page style); shown once after first sign-in via `@AppStorage("hasCompletedOnboarding")` flag in `ContentView`; pages: Welcome, Groups, Receipts, Balances; "Skip" on pages 1–3, "Get Started" on page 4 — both set `hasCompletedOnboarding = true`
+
 ### Views — Main
-- `xBill/Views/Main/ContentView.swift` — animated transition: `ResetPasswordView` (priority) → `MainTabView` → `AuthView`; `ResetPasswordView` shown when `authVM.isInPasswordRecovery == true`
-- `xBill/Views/Main/MainTabView.swift` — 5 tabs: Home / Groups / Friends / Activity / Profile; shares `homeVM` between Home and Groups tabs; Friends tab passes `homeVM.currentUser?.id`
+- `xBill/Views/Main/ContentView.swift` — animated transition priority: `ResetPasswordView` → (logged in) `OnboardingView` (first launch only) or `MainTabView` → `AuthView`; `@AppStorage("hasCompletedOnboarding")` controls onboarding gate
+- `xBill/Views/Main/MainTabView.swift` — 5 tabs: Home / Groups / Friends / Activity / Profile; shares `homeVM` between Home and Groups tabs; Friends tab passes `homeVM.currentUser?.id`; tab bar uses `.ultraThinMaterial` glassmorphic background; handles `AppState.shared.pendingQuickAction` via `.task(id:)` → switches to Groups tab + shows `QuickAddExpenseSheet`; handles `AppState.shared.spotlightTarget` via `.task(id:)` → navigates to group via `homeVM.groupsNavigationPath`
 - `xBill/Views/Main/HomeView.swift` — `BalanceHeroCard` + quick stats row + horizontal `ScrollView` of `GroupChipView` chips + "RECENT EXPENSES" `LazyVStack`; no nav bar `+` button; FAB only; `.inline` title
 - `xBill/Views/Main/ActivityView.swift` — sections grouped by date ("TODAY"/"YESTERDAY"/date); `AmountBadge(.total)` trailing; single-line subtitle "Group · Paid by Name"
 
 ### Views — Groups
 - `xBill/Views/Groups/CreateGroupView.swift` — 4×5 emoji grid picker (20 emojis), currency picker, invite email field
-- `xBill/Views/Groups/GroupListView.swift` — groups list tab; shares `HomeViewModel`; navigates to `GroupDetailView`
-- `xBill/Views/Groups/GroupDetailView.swift` — segmented Picker (Expenses/Balances/Settle Up) tabs; `AmountBadge` in balances; `AmountBadge(.total)` on expense rows; FAB only on Expenses tab; Settle Up embedded (no separate sheet button); toolbar has "Invite via Email" + "Invite via Link" (QR)
+- `xBill/Views/Groups/GroupListView.swift` — groups list tab; shares `HomeViewModel`; active groups section + collapsible "Archived (N)" section (tap header to expand); swipe-left on archived row → "Unarchive" button; navigates to `GroupDetailView`; loads archived groups on `.task`
+- `xBill/Views/Groups/GroupDetailView.swift` — segmented Picker (Expenses/Balances/Settle Up) tabs; `AmountBadge` in balances; `AmountBadge(.total)` on expense rows; FAB only on Expenses tab; Settle Up embedded; toolbar menu has: Add Expense, Stats, Export (CSV/PDF via `ExportService`+`ShareSheetView`), Invite via Email, Invite via Link (QR), Archive Group (confirmation dialog → `vm.archiveGroup()` + dismiss); `.task` also calls `vm.createDueRecurringInstances(currentUserID:)`; `.searchable` on Group to add search bar; horizontal `ExpenseFilterChip` strip for category filter on Expenses tab; `filteredExpenses` computed property filters `vm.sortedExpenses` by `searchText` and `filterCategory`
+- `xBill/Views/Groups/QuickAddExpenseSheet.swift` — sheet for "Add Expense"/"Scan Receipt" quick actions; shows list of active groups; fetches members on group selection; presents `AddExpenseView` with optional `startWithScan: true`
 - `xBill/Views/Groups/GroupInviteView.swift` — shows QR code (CoreImage `CIFilter.qrCodeGenerator`) + `ShareLink` for `xbill://join/<token>`; generates a new invite on appear; refresh button in toolbar
 - `xBill/Views/Groups/JoinGroupView.swift` — confirms and handles group join via invite token; fetches group name, shows confirmation card, calls `joinGroupViaInvite` RPC on confirm
 - `xBill/Views/Groups/SettleUpView.swift` — settlement suggestions with Venmo link + Mark Settled button
@@ -150,20 +167,20 @@
 - `xBill/Views/Friends/FriendsView.swift` — Friends tab; groups IOUs by other person; net balance per currency per friend; FAB to AddIOUView; navigates to `FriendDetailView`
 - `xBill/Views/Friends/FriendDetailView.swift` — (defined in FriendsView.swift) outstanding + settled IOU sections; "Settle All" button
 - `xBill/Views/Friends/AddIOUView.swift` — email search to find user; amount + currency picker; "I owe / they owe" toggle; calls `IOUService.createIOU`
-- `xBill/Views/Expenses/AddExpenseView.swift` — `bgSecondary` sheet; hero amount `TextField`; currency picker `Menu` next to currency symbol (tappable, defaults to group currency); shows conversion preview (`≈ X.XX GROUP_CURRENCY + rate`) when foreign currency selected; `ExchangeRateService.commonCurrencies` populates the picker
+- `xBill/Views/Expenses/AddExpenseView.swift` — `bgSecondary` sheet; hero amount `TextField`; currency picker `Menu` next to currency symbol; conversion preview when foreign currency; "Repeat" section with `Expense.Recurrence` picker (Does not repeat / Weekly / Monthly / Yearly); `ExchangeRateService.commonCurrencies` populates the currency picker
 - `xBill/Views/Expenses/ExpenseDetailView.swift` — expense detail with split breakdown + Comments section (realtime); `currentUserID: UUID` required; comment input bar via `safeAreaInset(edge: .bottom)`
 - `xBill/Views/Expenses/ReceiptScanView.swift` — accepts `members: [User]` + `onConfirmed: ([SplitInput]) -> Void`; camera/photo-library picker via `UIImagePickerController` (`ImagePickerController: UIViewControllerRepresentable`); shows "Review Receipt" button after scan completes; pushes `ReceiptReviewView` via `navigationDestination`; "Scan Again" resets state
 - `xBill/Views/Expenses/ReceiptReviewView.swift` — item review, member chip assignment, tax/tip display, per-person totals; "Use These Splits" calls `onConfirmed` then dismisses back to `AddExpenseView`
 
 ### Views — Profile
-- `xBill/Views/Profile/ProfileView.swift` — `bgSecondary` page; Payment Handles section (`venmoHandle`/`paypalEmail` in `ProfileViewModel`, not persisted to DB); `xbillSmallAmount` for Total Paid; `XBillButton(.ghost)` sign out with `moneyNegative` foreground
+- `xBill/Views/Profile/ProfileView.swift` — `bgSecondary` page; Payment Handles section (`venmoHandle`/`paypalEmail` in `ProfileViewModel`, not persisted to DB); `xbillSmallAmount` for Total Paid; `XBillButton(.ghost)` sign out with `moneyNegative` foreground; footer section with "Terms of Service" + "Privacy Policy" links (`.safariSheet` to `XBillURLs.termsOfService`/`privacyPolicy`) + app version string
 
 ### Views — Components
 - `xBill/Views/Components/AvatarView.swift` — circular avatar; deterministic bg color from name hash (brandPrimary first); `XBillIcon.avatarMd` default; `textInverse` initials
 - `xBill/Views/Components/BalanceBadge.swift` — green (owed to you) / red (you owe) badge (legacy; prefer `AmountBadge` for new screens)
 - `xBill/Views/Components/AmountBadge.swift` — colored pill badge with `AmountDirection` (.positive/.negative/.settled/.total); uses design system money tokens
 - `xBill/Views/Components/BalanceHeroCard.swift` — `Color.brandPrimary` hero card for balance display at top of screens; `.xbillHeroAmount` monospaced number
-- `xBill/Views/Components/XBillCard.swift` — generic `bgCard` card wrapper with separator border
+- `xBill/Views/Components/XBillCard.swift` — generic card wrapper; delegates to `SharpCard` modifier (18pt corners, hairline border, drop shadow)
 - `xBill/Views/Components/XBillButton.swift` — design-system button with `.primary/.secondary/.ghost/.destructive` styles; fires `HapticManager.impact` on tap
 - `xBill/Views/Components/XBillTextField.swift` — `inputBg`/`inputBorder` styled text field; focus-animated border turns `brandPrimary`
 - `xBill/Views/Components/CategoryIconView.swift` — emoji icon in category-colored rounded square; extends `Expense.Category` with `.emoji` and `.categoryBackground`
@@ -174,6 +191,8 @@
 - `xBill/Views/Components/EmptyStateView.swift` — icon + title + message + optional action button
 - `xBill/Views/Components/LoadingOverlay.swift` — centered spinner with message
 - `xBill/Views/Components/SplitSlider.swift` — percentage split slider
+- `xBill/Views/Components/SafariView.swift` — `UIViewControllerRepresentable` wrapping `SFSafariViewController`; branded with `UIColor(Color.brandPrimary)` bar tint + white controls; `View.safariSheet(isPresented:url:)` extension for presenting in-app; used for privacy policy links — do NOT use `openURL` env action for policy links
+- `xBill/Views/Components/ShareSheetView.swift` — `UIViewControllerRepresentable` wrapping `UIActivityViewController`; accepts a `URL` to share; used by `GroupDetailView` for CSV/PDF export
 
 ### Tests
 - `xBillTests/SplitCalculatorTests.swift` — 17 tests: equal split (even/rounding/excluded/single), percentage (proportional/rounding), exact validation (pass/fail), net balances, single payer, circular debt, partially settled, two people, floating point precision (÷3), minimize transactions (basic/all-settled)
@@ -253,6 +272,15 @@ Applied surfaces:
 - **EmptyStateView action button** — `.liquidGlassButton(fallback: Color.accentColor, in: Capsule())`; `emptyButtonForeground` adapts text color.
 - **Venmo + Mark Settled buttons** (`SettleUpView`) — `.liquidGlassButton(fallback:in: .capsule)`
 
+### Accessibility
+- All font tokens use Dynamic Type text styles (`.largeTitle`, `.title`, `.subheadline`, etc.) — do NOT use fixed `size:` integers, which break Dynamic Type scaling
+- Key display components expose `.accessibilityElement(children: .ignore)` + `.accessibilityLabel(...)` so VoiceOver reads a single coherent description:
+  - `BalanceHeroCard` — "\(label): \(amount), \(subtitle)"
+  - `GroupChipView` — "\(group.name) group, \(group.currency)"
+  - `ExpenseRowView` — "\(title), paid by \(name), \(amount)"
+  - `AmountBadge` — "owed to you / you owe / settled / total: \(amount)"
+- Use `.accessibilityHidden(true)` on purely decorative icons (e.g. onboarding illustrations)
+
 ### Error Display
 - `errorAlert` modifier shows `error.errorDescription` as the alert title (not a generic string) — useful for debugging
 - `error = nil` is only cleared on success, not at the start of an action (prevents alert dismissal)
@@ -263,6 +291,7 @@ Applied surfaces:
 
 ## Known TODOs
 - Deploy `invite-member` Edge Function: `supabase functions deploy invite-member` (after setting secrets `RESEND_API_KEY` + `INVITE_FROM_EMAIL`)
+- App Store Assets: screenshots, preview video, keyword strategy (only remaining P0 blocker)
 
 ## Expense Model Notes
 - `Expense.payerID` CodingKey maps to `"paid_by"` (DB column name, not `"payer_id"`)

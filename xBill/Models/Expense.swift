@@ -14,7 +14,11 @@ struct Expense: Codable, Identifiable, Equatable, Sendable {
     var receiptURL: URL?
     var originalAmount: Decimal?
     var originalCurrency: String?
+    var recurrence: Recurrence
+    var nextOccurrenceDate: Date?
     let createdAt: Date
+
+    // MARK: - Category
 
     enum Category: String, Codable, CaseIterable, Sendable {
         case food          = "food"
@@ -53,6 +57,45 @@ struct Expense: Codable, Identifiable, Equatable, Sendable {
         }
     }
 
+    // MARK: - Recurrence
+
+    enum Recurrence: String, Codable, CaseIterable, Equatable, Sendable {
+        case none    = "none"
+        case weekly  = "weekly"
+        case monthly = "monthly"
+        case yearly  = "yearly"
+
+        var displayName: String {
+            switch self {
+            case .none:    return "Does not repeat"
+            case .weekly:  return "Weekly"
+            case .monthly: return "Monthly"
+            case .yearly:  return "Yearly"
+            }
+        }
+
+        var shortLabel: String {
+            switch self {
+            case .none:    return ""
+            case .weekly:  return "Weekly"
+            case .monthly: return "Monthly"
+            case .yearly:  return "Yearly"
+            }
+        }
+
+        func nextDate(from date: Date) -> Date {
+            let cal = Calendar.current
+            switch self {
+            case .none:    return date
+            case .weekly:  return cal.date(byAdding: .weekOfYear, value: 1, to: date) ?? date
+            case .monthly: return cal.date(byAdding: .month,      value: 1, to: date) ?? date
+            case .yearly:  return cal.date(byAdding: .year,       value: 1, to: date) ?? date
+            }
+        }
+    }
+
+    // MARK: - Coding Keys
+
     enum CodingKeys: String, CodingKey {
         case id
         case groupID    = "group_id"
@@ -62,9 +105,11 @@ struct Expense: Codable, Identifiable, Equatable, Sendable {
         case payerID    = "paid_by"
         case category
         case notes
-        case receiptURL       = "receipt_url"
-        case originalAmount   = "original_amount"
-        case originalCurrency = "original_currency"
-        case createdAt        = "created_at"
+        case receiptURL           = "receipt_url"
+        case originalAmount       = "original_amount"
+        case originalCurrency     = "original_currency"
+        case recurrence
+        case nextOccurrenceDate   = "next_occurrence_date"
+        case createdAt            = "created_at"
     }
 }

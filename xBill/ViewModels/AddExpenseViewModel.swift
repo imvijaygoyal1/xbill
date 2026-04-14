@@ -22,6 +22,8 @@ final class AddExpenseViewModel {
     var exchangeRate: Double?         // rate used
     var isFetchingRate: Bool = false
 
+    var recurrence: Expense.Recurrence = .none
+
     var isLoading: Bool = false
     var isSaved: Bool = false
     var error: AppError?
@@ -79,6 +81,8 @@ final class AddExpenseViewModel {
             SplitCalculator.splitEqually(total: total, inputs: &splitInputs)
         case .percentage:
             SplitCalculator.splitByPercentage(total: total, inputs: &splitInputs)
+        case .shares:
+            SplitCalculator.splitByShares(total: total, inputs: &splitInputs)
         case .exact:
             break
         }
@@ -127,17 +131,22 @@ final class AddExpenseViewModel {
         defer { isLoading = false }
 
         do {
+            let nextOccurrence: Date? = recurrence != .none
+                ? recurrence.nextDate(from: Date())
+                : nil
             let expense = try await expenseService.createExpense(
-                groupID:          group.id,
-                title:            title.trimmingCharacters(in: .whitespaces),
-                amount:           finalAmount,
-                currency:         currency,
-                payerID:          payerID,
-                category:         category,
-                notes:            notes.isEmpty ? nil : notes,
-                splits:           splitInputs,
-                originalAmount:   isForeignCurrency ? amount : nil,
-                originalCurrency: isForeignCurrency ? expenseCurrency : nil
+                groupID:             group.id,
+                title:               title.trimmingCharacters(in: .whitespaces),
+                amount:              finalAmount,
+                currency:            currency,
+                payerID:             payerID,
+                category:            category,
+                notes:               notes.isEmpty ? nil : notes,
+                splits:              splitInputs,
+                originalAmount:      isForeignCurrency ? amount : nil,
+                originalCurrency:    isForeignCurrency ? expenseCurrency : nil,
+                recurrence:          recurrence,
+                nextOccurrenceDate:  nextOccurrence
             )
             isSaved = true
 

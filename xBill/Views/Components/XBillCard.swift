@@ -7,11 +7,6 @@ struct XBillCard<Content: View>: View {
     var body: some View {
         content()
             .padding(padding)
-            .background(Color.bgCard)
-            .clipShape(RoundedRectangle(cornerRadius: XBillRadius.lg))
-            .overlay(
-                RoundedRectangle(cornerRadius: XBillRadius.lg)
-                    .stroke(Color.separator, lineWidth: 0.5)
-            )
+            .asSharpCard()
     }
 }

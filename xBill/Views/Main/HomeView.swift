@@ -69,6 +69,7 @@ struct HomeView: View {
                         Text("MY GROUPS")
                             .font(.xbillSectionTitle)
                             .textCase(.uppercase)
+                            .tracking(1.0)
                             .foregroundStyle(Color.textTertiary)
                             .padding(.horizontal, XBillSpacing.base)
 
@@ -91,6 +92,7 @@ struct HomeView: View {
                             Text("RECENT EXPENSES")
                                 .font(.xbillSectionTitle)
                                 .textCase(.uppercase)
+                                .tracking(1.0)
                                 .foregroundStyle(Color.textTertiary)
                                 .padding(.horizontal, XBillSpacing.base)
 
@@ -99,7 +101,6 @@ struct HomeView: View {
                                     ExpenseRowView(expense: entry.expense, members: entry.members)
                                         .padding(.horizontal, XBillSpacing.base)
                                         .padding(.vertical, XBillSpacing.xs)
-                                        .background(Color.bgCard)
 
                                     if entry.id != vm.recentExpenses.last?.id {
                                         Divider()
@@ -107,11 +108,7 @@ struct HomeView: View {
                                     }
                                 }
                             }
-                            .clipShape(RoundedRectangle(cornerRadius: XBillRadius.lg))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: XBillRadius.lg)
-                                    .stroke(Color.separator, lineWidth: 0.5)
-                            )
+                            .asSharpCard()
                             .padding(.horizontal, XBillSpacing.base)
                         }
                     }
@@ -135,6 +132,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: XBillSpacing.xs) {
             Text(label)
                 .font(.xbillCaption)
+                .tracking(1.0)
                 .foregroundStyle(Color.textTertiary)
             Text(amount.formatted(currencyCode: "USD"))
                 .font(.xbillMediumAmount)
@@ -142,8 +140,7 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(XBillSpacing.md)
-        .background(direction == .positive ? Color.moneyPositiveBg : Color.moneyNegativeBg)
-        .clipShape(RoundedRectangle(cornerRadius: XBillRadius.md))
+        .asSharpCard()
     }
 }
 

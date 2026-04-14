@@ -198,9 +198,9 @@ extension Expense.Category {
         GroupStatsView(
             expenses: [
                 Expense(id: UUID(), groupID: UUID(), title: "Dinner", amount: 80, currency: "USD",
-                        payerID: UUID(), category: .food, notes: nil, receiptURL: nil, createdAt: Date()),
+                        payerID: UUID(), category: .food, notes: nil, receiptURL: nil, recurrence: .none, createdAt: Date()),
                 Expense(id: UUID(), groupID: UUID(), title: "Taxi", amount: 30, currency: "USD",
-                        payerID: UUID(), category: .transport, notes: nil, receiptURL: nil, createdAt: Date())
+                        payerID: UUID(), category: .transport, notes: nil, receiptURL: nil, recurrence: .none, createdAt: Date())
             ],
             members: [],
             currency: "USD"

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 @Observable
 @MainActor
@@ -8,7 +9,9 @@ final class HomeViewModel {
     // MARK: - State
 
     var groups: [BillGroup] = []
+    var archivedGroups: [BillGroup] = []
     var currentUser: User?
+    var groupsNavigationPath = NavigationPath()
     var totalOwed: Decimal = .zero
     var totalOwing: Decimal = .zero
     var recentExpenses: [RecentEntry] = []
@@ -48,8 +51,10 @@ final class HomeViewModel {
             do {
                 groups = try await groupService.fetchGroups(for: user.id)
                 CacheService.shared.saveGroups(groups)
+                SpotlightService.indexGroups(groups)
                 await computeBalances(for: user.id)
             } catch {
+                guard !(error is CancellationError) else { return }
                 // Fall back to cache on network error
                 if groups.isEmpty { groups = CacheService.shared.loadGroups() }
                 self.error = AppError.from(error)
@@ -65,6 +70,27 @@ final class HomeViewModel {
         do {
             try await groupService.deleteGroup(groupId: group.id)
             groups.removeAll { $0.id == group.id }
+        } catch {
+            self.error = AppError.from(error)
+        }
+    }
+
+    func loadArchivedGroups() async {
+        guard let user = currentUser else { return }
+        do {
+            archivedGroups = try await groupService.fetchArchivedGroups(for: user.id)
+        } catch {
+            self.error = AppError.from(error)
+        }
+    }
+
+    func unarchiveGroup(_ group: BillGroup) async {
+        do {
+            var updated = group
+            updated.isArchived = false
+            _ = try await groupService.updateGroup(updated)
+            archivedGroups.removeAll { $0.id == group.id }
+            await loadAll()
         } catch {
             self.error = AppError.from(error)
         }

@@ -28,12 +28,14 @@ enum SplitStrategy: String, CaseIterable, Sendable {
     case equal      = "equal"
     case percentage = "percentage"
     case exact      = "exact"
+    case shares     = "shares"
 
     var displayName: String {
         switch self {
         case .equal:      return "Equal"
         case .percentage: return "By %"
         case .exact:      return "Exact"
+        case .shares:     return "Shares"
         }
     }
 }
@@ -47,6 +49,7 @@ struct SplitInput: Identifiable, Equatable, Sendable {
     var avatarURL: URL?
     var amount: Decimal
     var percentage: Decimal
+    var shares: Int
     var isIncluded: Bool
 
     init(userID: UUID, displayName: String, avatarURL: URL? = nil) {
@@ -56,6 +59,19 @@ struct SplitInput: Identifiable, Equatable, Sendable {
         self.avatarURL   = avatarURL
         self.amount      = .zero
         self.percentage  = .zero
+        self.shares      = 1
+        self.isIncluded  = true
+    }
+
+    /// Convenience init for replicating a saved split (e.g. recurring expense instances).
+    init(from split: Split) {
+        self.id          = UUID()
+        self.userID      = split.userID
+        self.displayName = ""
+        self.avatarURL   = nil
+        self.amount      = split.amount
+        self.percentage  = split.percentage ?? .zero
+        self.shares      = 1
         self.isIncluded  = true
     }
 }

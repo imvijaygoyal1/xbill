@@ -52,37 +52,65 @@ final class ExpenseService: Sendable {
 
     /// Atomically inserts expense + splits using the `add_expense_with_splits` RPC.
     func createExpense(
-        groupID:          UUID,
-        title:            String,
-        amount:           Decimal,
-        currency:         String,
-        payerID:          UUID,
-        category:         Expense.Category,
-        notes:            String?,
-        receiptURL:       URL? = nil,
-        splits:           [SplitInput],
-        originalAmount:   Decimal? = nil,
-        originalCurrency: String?  = nil
+        groupID:              UUID,
+        title:                String,
+        amount:               Decimal,
+        currency:             String,
+        payerID:              UUID,
+        category:             Expense.Category,
+        notes:                String?,
+        receiptURL:           URL? = nil,
+        splits:               [SplitInput],
+        originalAmount:       Decimal? = nil,
+        originalCurrency:     String?  = nil,
+        recurrence:           Expense.Recurrence  = .none,
+        nextOccurrenceDate:   Date?               = nil
     ) async throws -> Expense {
         let splitParams = splits.filter(\.isIncluded).map {
             RPCSplitParam(userID: $0.userID, amount: $0.amount)
         }
         let params = AddExpenseRPCParams(
-            groupID:          groupID,
-            paidBy:           payerID,
-            amount:           amount,
-            title:            title,
-            category:         category.rawValue,
-            currency:         currency,
-            notes:            notes,
-            receiptURL:       receiptURL?.absoluteString,
-            splits:           splitParams,
-            originalAmount:   originalAmount,
-            originalCurrency: originalCurrency
+            groupID:             groupID,
+            paidBy:              payerID,
+            amount:              amount,
+            title:               title,
+            category:            category.rawValue,
+            currency:            currency,
+            notes:               notes,
+            receiptURL:          receiptURL?.absoluteString,
+            splits:              splitParams,
+            originalAmount:      originalAmount,
+            originalCurrency:    originalCurrency,
+            recurrence:          recurrence.rawValue,
+            nextOccurrenceDate:  nextOccurrenceDate
         )
         return try await supabase.client.rpc("add_expense_with_splits", params: params)
             .execute()
             .value
+    }
+
+    // MARK: - Recurring
+
+    /// Fetches recurring expenses in a group that are due (next_occurrence_date ≤ now)
+    /// and where the given user is the payer.
+    func fetchDueRecurringExpenses(groupID: UUID, payerID: UUID) async throws -> [Expense] {
+        let nowString = ISO8601DateFormatter().string(from: Date())
+        return try await supabase.table("expenses")
+            .select()
+            .eq("group_id",  value: groupID)
+            .eq("paid_by",   value: payerID)
+            .neq("recurrence", value: "none")
+            .lte("next_occurrence_date", value: nowString)
+            .execute()
+            .value
+    }
+
+    /// Advances the `next_occurrence_date` on a template expense after spawning its instance.
+    func clearNextOccurrenceDate(expenseID: UUID) async throws {
+        try await supabase.table("expenses")
+            .update(NullNextOccurrence())
+            .eq("id", value: expenseID)
+            .execute()
     }
 
     // MARK: - Update
@@ -172,29 +200,44 @@ private struct RPCSplitParam: Encodable {
 }
 
 private struct AddExpenseRPCParams: Encodable {
-    let groupID:          UUID
-    let paidBy:           UUID
-    let amount:           Decimal
-    let title:            String
-    let category:         String
-    let currency:         String
-    let notes:            String?
-    let receiptURL:       String?
-    let splits:           [RPCSplitParam]
-    let originalAmount:   Decimal?
-    let originalCurrency: String?
+    let groupID:             UUID
+    let paidBy:              UUID
+    let amount:              Decimal
+    let title:               String
+    let category:            String
+    let currency:            String
+    let notes:               String?
+    let receiptURL:          String?
+    let splits:              [RPCSplitParam]
+    let originalAmount:      Decimal?
+    let originalCurrency:    String?
+    let recurrence:          String
+    let nextOccurrenceDate:  Date?
     enum CodingKeys: String, CodingKey {
-        case groupID          = "p_group_id"
-        case paidBy           = "p_paid_by"
-        case amount           = "p_amount"
-        case title            = "p_title"
-        case category         = "p_category"
-        case currency         = "p_currency"
-        case notes            = "p_notes"
-        case receiptURL       = "p_receipt_url"
-        case splits           = "p_splits"
-        case originalAmount   = "p_original_amount"
-        case originalCurrency = "p_original_currency"
+        case groupID             = "p_group_id"
+        case paidBy              = "p_paid_by"
+        case amount              = "p_amount"
+        case title               = "p_title"
+        case category            = "p_category"
+        case currency            = "p_currency"
+        case notes               = "p_notes"
+        case receiptURL          = "p_receipt_url"
+        case splits              = "p_splits"
+        case originalAmount      = "p_original_amount"
+        case originalCurrency    = "p_original_currency"
+        case recurrence          = "p_recurrence"
+        case nextOccurrenceDate  = "p_next_occurrence_date"
+    }
+}
+
+/// Payload that explicitly sets next_occurrence_date to null.
+private struct NullNextOccurrence: Encodable {
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeNil(forKey: .nextOccurrenceDate)
+    }
+    enum CodingKeys: String, CodingKey {
+        case nextOccurrenceDate = "next_occurrence_date"
     }
 }
 

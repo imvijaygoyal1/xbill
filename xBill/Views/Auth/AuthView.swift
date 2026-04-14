@@ -5,6 +5,8 @@ import CryptoKit
 struct AuthView: View {
     @Bindable var vm: AuthViewModel
     @State private var currentNonce: String?
+    @State private var showPrivacy = false
+    @State private var showTerms   = false
 
     var body: some View {
         NavigationStack {
@@ -92,7 +94,37 @@ struct AuthView: View {
                         }
                     }
                     .padding(.horizontal, XBillSpacing.xl)
+
+                    VStack(spacing: 4) {
+                        Group {
+                            Text("By continuing, you agree to our ")
+                                .foregroundStyle(Color.textTertiary) +
+                            Text("Terms of Service")
+                                .foregroundStyle(Color.brandPrimary)
+                                .underline() +
+                            Text(" and ")
+                                .foregroundStyle(Color.textTertiary) +
+                            Text("Privacy Policy")
+                                .foregroundStyle(Color.brandPrimary)
+                                .underline()
+                        }
+                        .font(.xbillCaption)
+                        .multilineTextAlignment(.center)
+                        .onTapGesture { showPrivacy = true }
+
+                        HStack(spacing: XBillSpacing.base) {
+                            Button("Terms of Service") { showTerms = true }
+                                .font(.xbillCaption)
+                                .foregroundStyle(Color.brandPrimary)
+                            Button("Privacy Policy") { showPrivacy = true }
+                                .font(.xbillCaption)
+                                .foregroundStyle(Color.brandPrimary)
+                        }
+                    }
+                    .padding(.top, 8)
                     .padding(.bottom, XBillSpacing.xxxl)
+                    .safariSheet(isPresented: $showPrivacy, url: XBillURLs.privacyPolicy)
+                    .sheet(isPresented: $showTerms) { TermsOfServiceView() }
                 }
             }
         }
