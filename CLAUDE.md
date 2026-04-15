@@ -139,7 +139,8 @@
 
 ### Views — Auth
 - `xBill/Views/Auth/AuthView.swift` — `bgSecondary` background; `brandPrimary` wordmark icon; Sign In with Apple button; "Continue with Email" NavigationLink; fine print with separate "Terms of Service" and "Privacy Policy" tappable links (`.safariSheet` to `XBillURLs.termsOfService` / `XBillURLs.privacyPolicy`)
-- `xBill/Views/Auth/EmailAuthView.swift` — `XBillTextField` fields; `XBillButton(style:.primary)` submit; `bgSecondary` background
+- `xBill/Views/Auth/EmailAuthView.swift` — `XBillTextField` fields; `XBillButton(style:.primary)` submit; `bgSecondary` background; "Forgot password?" button (sign-in mode only) presents `ForgotPasswordView` sheet with `prefillEmail: vm.email`
+- `xBill/Views/Auth/ForgotPasswordView.swift` — two-step sheet (form → success); calls `AuthService.shared.sendPasswordReset`; inline error display; 30s resend cooldown via `Task`-based sleep loop (no `Timer`); shows success state even for "user not found" errors (account enumeration prevention); `HapticManager.success()/error()` feedback; private `HintRow` and `ResendButtonView` subviews
 - `xBill/Views/Auth/ResetPasswordView.swift` — shown when app opened from password reset link; new + confirm password fields; calls `authVM.handlePasswordReset(newPassword:)`
 
 ### Views — Legal

@@ -86,6 +86,7 @@
 		CF7BB5EDBB1D51E7878487CB /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCE2A2449DE087F7C0D3279 /* NetworkMonitor.swift */; };
 		D0CC4E253D676DBD1E40A406 /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AB8AF6F4AAD3693C507E55E /* AppError.swift */; };
 		D591CAF6F79DA7AF9EEC23D8 /* ActivityViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15E8600431061D4E18C948CE /* ActivityViewModel.swift */; };
+		D877B4C2B93A0F18F2BEF04C /* ForgotPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 664476D95516D6FD52C66F91 /* ForgotPasswordView.swift */; };
 		D8D65B0D644476ADCBE28A91 /* ExpenseRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4185D86CF6ECFD00EC25628 /* ExpenseRowView.swift */; };
 		E02E33C577B484FF78380CF1 /* JoinGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F05A200F1E19E50323CFDE /* JoinGroupView.swift */; };
 		E22E2E9ADD3596691B8F0CC4 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A34645B53CEA1FC51CD867B1 /* OnboardingView.swift */; };
@@ -158,6 +159,7 @@
 		620BE6FABFA8DC50F6625733 /* FABButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FABButton.swift; sourceTree = "<group>"; };
 		6254841C9BA8DCEF16494B86 /* Settlement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settlement.swift; sourceTree = "<group>"; };
 		660094306688B8BD8869E033 /* ExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportService.swift; sourceTree = "<group>"; };
+		664476D95516D6FD52C66F91 /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
 		68A0F91F429F870275190B0E /* InviteMembersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteMembersView.swift; sourceTree = "<group>"; };
 		6BC31D74A8BB9161A92940CE /* ProfileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewModel.swift; sourceTree = "<group>"; };
 		6C2516D590CE1CD48191C4DD /* AvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarView.swift; sourceTree = "<group>"; };
@@ -343,6 +345,7 @@
 			children = (
 				270F53F1AB491F71EAD02ECE /* AuthView.swift */,
 				F3B09DB08A10227EBBB8F379 /* EmailAuthView.swift */,
+				664476D95516D6FD52C66F91 /* ForgotPasswordView.swift */,
 				745C32AE77CF03058CA5A0EF /* ResetPasswordView.swift */,
 			);
 			path = Auth;
@@ -655,6 +658,7 @@
 				8E5CF020384675D09AA382EF /* ExportService.swift in Sources */,
 				329AB9B86A4EB42F0D96BD06 /* Extensions.swift in Sources */,
 				E3656E4F81FE14EE8A818D6E /* FABButton.swift in Sources */,
+				D877B4C2B93A0F18F2BEF04C /* ForgotPasswordView.swift in Sources */,
 				464045D307F457B3959641F4 /* FoundationModelService.swift in Sources */,
 				97823306D5CE81B8F66405C0 /* FriendsView.swift in Sources */,
 				957C65C01366B052F4AB7D3D /* Group.swift in Sources */,

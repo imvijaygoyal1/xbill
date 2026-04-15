@@ -4,6 +4,7 @@ struct EmailAuthView: View {
     @Bindable var vm: AuthViewModel
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focusedField: Field?
+    @State private var showForgotPassword = false
 
     private enum Field: Hashable { case email, password, confirm, name }
 
@@ -70,12 +71,15 @@ struct EmailAuthView: View {
                     // Forgot password (sign-in only)
                     if !vm.isSigningUp {
                         Button {
-                            Task { await vm.sendPasswordReset() }
+                            showForgotPassword = true
+                            HapticManager.selection()
                         } label: {
                             Text("Forgot password?")
                                 .font(.xbillCaption)
                                 .foregroundStyle(Color.brandPrimary)
+                                .underline()
                         }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(XBillSpacing.xl)
@@ -86,6 +90,11 @@ struct EmailAuthView: View {
         .toolbarBackground(Color.navBarBg, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .errorAlert(item: $vm.errorAlert)
+        .sheet(isPresented: $showForgotPassword) {
+            ForgotPasswordView(prefillEmail: vm.email)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
     }
 }
 
