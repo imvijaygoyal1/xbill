@@ -7,9 +7,14 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
+                Color.bgSecondary.ignoresSafeArea()
                 scrollContent
-                    .navigationTitle("xBill")
                     .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .principal) {
+                            XBillWordmark()
+                        }
+                    }
                     .toolbarBackground(Color.navBarBg, for: .navigationBar)
                     .toolbarBackground(.visible, for: .navigationBar)
                     .safeAreaInset(edge: .top) {
@@ -28,7 +33,7 @@ struct HomeView: View {
             }
         }
         .task { await vm.startRealtimeUpdates() }
-        .errorAlert(error: $vm.error)
+        .errorAlert(item: $vm.errorAlert)
     }
 
     // MARK: - Content
@@ -67,9 +72,8 @@ struct HomeView: View {
                     // My Groups — horizontal chips
                     VStack(alignment: .leading, spacing: XBillSpacing.sm) {
                         Text("MY GROUPS")
-                            .font(.xbillSectionTitle)
-                            .textCase(.uppercase)
-                            .tracking(1.0)
+                            .font(.xbillUpperLabel)
+                            .tracking(1.08)
                             .foregroundStyle(Color.textTertiary)
                             .padding(.horizontal, XBillSpacing.base)
 
@@ -90,9 +94,8 @@ struct HomeView: View {
                     if !vm.recentExpenses.isEmpty {
                         VStack(alignment: .leading, spacing: XBillSpacing.sm) {
                             Text("RECENT EXPENSES")
-                                .font(.xbillSectionTitle)
-                                .textCase(.uppercase)
-                                .tracking(1.0)
+                                .font(.xbillUpperLabel)
+                                .tracking(1.08)
                                 .foregroundStyle(Color.textTertiary)
                                 .padding(.horizontal, XBillSpacing.base)
 
@@ -131,8 +134,8 @@ struct HomeView: View {
     private func quickStatCard(label: String, amount: Decimal, direction: AmountDirection) -> some View {
         VStack(alignment: .leading, spacing: XBillSpacing.xs) {
             Text(label)
-                .font(.xbillCaption)
-                .tracking(1.0)
+                .font(.xbillUpperLabel)
+                .tracking(1.08)
                 .foregroundStyle(Color.textTertiary)
             Text(amount.formatted(currencyCode: "USD"))
                 .font(.xbillMediumAmount)

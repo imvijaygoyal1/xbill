@@ -14,7 +14,7 @@ final class ProfileViewModel {
     var paypalEmail:  String  = ""
     var isLoading:    Bool    = false
     var isSaved:      Bool    = false
-    var error:        AppError?
+    var errorAlert:   ErrorAlert?
 
     // Stats
     var totalGroupsCount:   Int     = 0
@@ -29,7 +29,6 @@ final class ProfileViewModel {
 
     func load() async {
         isLoading = true
-        error     = nil
         defer { isLoading = false }
         do {
             let loaded  = try await auth.currentUser()
@@ -37,7 +36,7 @@ final class ProfileViewModel {
             displayName = loaded.displayName
             await loadStats(userID: loaded.id)
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
@@ -80,7 +79,6 @@ final class ProfileViewModel {
         guard let user else { return }
         isLoading = true
         isSaved   = false
-        error     = nil
         defer { isLoading = false }
 
         do {
@@ -92,7 +90,7 @@ final class ProfileViewModel {
             self.user   = updated
             isSaved     = true
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
@@ -103,7 +101,42 @@ final class ProfileViewModel {
             try await auth.signOut()
             user = nil
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Sign Out Failed", message: error.localizedDescription)
+        }
+    }
+
+    // MARK: - Delete Account
+
+    func deleteAccount() async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            let supabase = SupabaseManager.shared
+
+            // Delete profile row (cascade handled by RLS + DB)
+            if let userID = await auth.currentUserID {
+                try await supabase.table("profiles")
+                    .delete()
+                    .eq("id", value: userID)
+                    .execute()
+            }
+
+            // Call Edge Function to delete the Supabase Auth user
+            // (service role key must not be in Swift client)
+            struct DeletePayload: Encodable {
+                let user_id: String
+            }
+            let _: Void = try await supabase.client.functions
+                .invoke("delete-account", options: .init(body: DeletePayload(user_id: (await auth.currentUserID)?.uuidString ?? "")))
+
+            // Sign out locally
+            try await auth.signOut()
+
+        } catch {
+            self.errorAlert = ErrorAlert(
+                title: "Could not delete account",
+                message: error.localizedDescription
+            )
         }
     }
 

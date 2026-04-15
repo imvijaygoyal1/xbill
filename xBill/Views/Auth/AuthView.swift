@@ -14,18 +14,23 @@ struct AuthView: View {
                 Color.bgSecondary.ignoresSafeArea()
 
                 VStack(spacing: XBillSpacing.xxl) {
-                    // MARK: Wordmark
+                    // MARK: Wordmark — Ube swatch hero section
                     VStack(spacing: XBillSpacing.sm) {
                         Image(systemName: "dollarsign.circle.fill")
                             .font(.system(size: 72))
-                            .foregroundStyle(Color.brandPrimary)
+                            .foregroundStyle(.white)
+                            .accessibilityHidden(true)
                         Text("xBill")
                             .font(.xbillLargeTitle)
-                            .foregroundStyle(Color.textPrimary)
+                            .foregroundStyle(.white)
                         Text("Split expenses, not friendships.")
                             .font(.xbillBodyMedium)
-                            .foregroundStyle(Color.textSecondary)
+                            .foregroundStyle(Color.clayUbeLight)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, XBillSpacing.xxxl)
+                    .swatchSection(Color.clayUbe, radius: XBillRadius.card)
+                    .padding(.horizontal, XBillSpacing.base)
                     .padding(.top, 60)
 
                     // MARK: Confirmation Banner
@@ -66,14 +71,14 @@ struct AuthView: View {
                                     let tokenData = credential.identityToken,
                                     let token = String(data: tokenData, encoding: .utf8)
                                 else {
-                                    vm.error = .validationFailed("Apple Sign In credential invalid.")
+                                    vm.errorAlert = ErrorAlert(title: "Sign In Failed", message: "Apple Sign In credential invalid.")
                                     return
                                 }
                                 Task { await vm.signInWithApple(idToken: token, nonce: nonce) }
                             case .failure(let error):
                                 let nsError = error as NSError
                                 if nsError.code != ASAuthorizationError.canceled.rawValue {
-                                    vm.error = AppError.from(error)
+                                    vm.errorAlert = ErrorAlert(title: "Sign In Failed", message: error.localizedDescription)
                                 }
                             }
                         }
@@ -133,7 +138,7 @@ struct AuthView: View {
                 LoadingOverlay(message: "Signing in…")
             }
         }
-        .errorAlert(error: $vm.error)
+        .errorAlert(item: $vm.errorAlert)
     }
 
     // MARK: - Nonce Helpers

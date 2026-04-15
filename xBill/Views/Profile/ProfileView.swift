@@ -43,7 +43,8 @@ struct ProfileView: View {
     var onSignOut: (() -> Void)? = nil
 
     @State private var isEditing          = false
-    @State private var showSignOutConfirm = false
+    @State private var showSignOutConfirm   = false
+    @State private var showDeleteConfirm    = false
     @State private var selectedAvatar: UIImage? = nil
     @State private var showAvatarPicker   = false
     @State private var showPrivacy        = false
@@ -89,7 +90,8 @@ struct ProfileView: View {
                     .listRowBackground(Color.bgCard)
                 } header: {
                     Text("YOUR STATS")
-                        .font(.xbillSectionTitle)
+                        .font(.xbillUpperLabel)
+                        .tracking(1.08)
                         .foregroundStyle(Color.textTertiary)
                 }
 
@@ -117,11 +119,12 @@ struct ProfileView: View {
                     .listRowBackground(Color.bgCard)
                 } header: {
                     Text("PAYMENT HANDLES")
-                        .font(.xbillSectionTitle)
+                        .font(.xbillUpperLabel)
+                        .tracking(1.08)
                         .foregroundStyle(Color.textTertiary)
                 }
 
-                // Sign out
+                // Sign out + Delete account
                 Section {
                     XBillButton(title: "Sign Out", style: .ghost) {
                         showSignOutConfirm = true
@@ -129,6 +132,17 @@ struct ProfileView: View {
                     .foregroundStyle(Color.moneyNegative)
                     .listRowBackground(Color.bgCard)
                     .listRowSeparator(.hidden)
+
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        Label("Delete account", systemImage: "trash")
+                            .font(.xbillBodyMedium)
+                            .foregroundStyle(Color.moneyNegative)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 4)
+                    }
+                    .listRowBackground(Color.bgCard)
                 }
 
                 // Footer
@@ -180,8 +194,20 @@ struct ProfileView: View {
                 }
                 Button("Cancel", role: .cancel) { }
             }
+            .confirmationDialog(
+                "Delete your account?",
+                isPresented: $showDeleteConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Delete account", role: .destructive) {
+                    Task { await vm.deleteAccount() }
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("This permanently removes your profile and signs you out. Expenses you created will remain in your groups.")
+            }
         }
-        .errorAlert(error: $vm.error)
+        .errorAlert(item: $vm.errorAlert)
     }
 
     // MARK: - Edit Sheet
@@ -219,7 +245,8 @@ struct ProfileView: View {
 
                     VStack(alignment: .leading, spacing: XBillSpacing.xs) {
                         Text("DISPLAY NAME")
-                            .font(.xbillSectionTitle)
+                            .font(.xbillUpperLabel)
+                            .tracking(1.08)
                             .foregroundStyle(Color.textTertiary)
                         XBillTextField(placeholder: "Your name", text: $vm.displayName)
                     }

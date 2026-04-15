@@ -1,5 +1,15 @@
 import Foundation
 
+// MARK: - ErrorAlert
+
+struct ErrorAlert: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
+}
+
+// MARK: - AppError
+
 enum AppError: LocalizedError, Equatable {
     case networkUnavailable
     case unauthenticated

@@ -97,7 +97,7 @@ struct GroupDetailView: View {
                     currency: vm.group.currency
                 )
             }
-            .errorAlert(error: $vm.error)
+            .errorAlert(item: $vm.errorAlert)
 
             // FAB — only on Expenses tab when online
             if selectedTab == 0 && NetworkMonitor.shared.isConnected {

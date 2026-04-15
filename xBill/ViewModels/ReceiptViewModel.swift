@@ -10,15 +10,13 @@ final class ReceiptViewModel {
 
     var capturedImage:     UIImage?
     var scannedReceipt:    Receipt?
-    var isScanning:        Bool    = false
-    var error:             AppError?
+    var isScanning:        Bool     = false
+    var errorAlert:        ErrorAlert?
 
-    // Parsing metadata
-    var confidence:        Double  = 0.0
-    var validationWarning: String? = nil
-    var parsingTier:       String  = ""   // "Apple Intelligence" or "Heuristic"
+    var confidence:        Double   = 0.0
+    var validationWarning: String?  = nil
+    var parsingTier:       String   = ""
 
-    /// Items with optional user assignments (for splitting by item)
     var items:   [ReceiptItem] = []
     var members: [User]        = []
 
@@ -42,12 +40,16 @@ final class ReceiptViewModel {
         }
     }
 
+    /// True when members exist but at least one item has no one assigned.
+    var hasUnassignedItems: Bool {
+        !members.isEmpty && items.contains { $0.assignedUserIDs.isEmpty }
+    }
+
     // MARK: - Scan
 
     func scan(image: UIImage) async {
         capturedImage     = image
         isScanning        = true
-        error             = nil
         validationWarning = nil
         defer { isScanning = false }
         do {
@@ -58,7 +60,7 @@ final class ReceiptViewModel {
             validationWarning = result.validationWarning
             parsingTier       = result.tier
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Scan Failed", message: error.localizedDescription)
         }
     }
 
@@ -73,12 +75,17 @@ final class ReceiptViewModel {
         }
     }
 
-    func assignAll(userIDs: [UUID], to itemID: UUID) {
+    /// If all members are assigned → unassign all. Otherwise → assign all members.
+    func toggleAssignAll(to itemID: UUID) {
         guard let index = items.firstIndex(where: { $0.id == itemID }) else { return }
-        items[index].assignedUserIDs = userIDs
+        let allIDs      = members.map(\.id)
+        let allAssigned = allIDs.allSatisfy { items[index].assignedUserIDs.contains($0) }
+        items[index].assignedUserIDs = allAssigned ? [] : allIDs
     }
 
     // MARK: - Per-User Total
+    // Tax + tip are split only among members who have ≥1 item assigned,
+    // not across all group members.
 
     func total(for userID: UUID) -> Decimal {
         let itemShare = items
@@ -88,8 +95,12 @@ final class ReceiptViewModel {
                 return total + item.totalPrice / Decimal(item.assignedUserIDs.count)
             }
 
-        guard !members.isEmpty else { return itemShare }
-        let sharedExtra = (tax + tip) / Decimal(members.count)
+        // Only members with ≥1 item assigned share the tax+tip
+        let participatingIDs = Set(items.flatMap(\.assignedUserIDs))
+        guard participatingIDs.contains(userID), !participatingIDs.isEmpty else {
+            return itemShare.rounded
+        }
+        let sharedExtra = (tax + tip) / Decimal(participatingIDs.count)
         return (itemShare + sharedExtra).rounded
     }
 
@@ -97,11 +108,8 @@ final class ReceiptViewModel {
 
     func asSplitInputs() -> [SplitInput] {
         members.map { member in
-            var input = SplitInput(
-                userID:      member.id,
-                displayName: member.displayName,
-                avatarURL:   member.avatarURL
-            )
+            var input = SplitInput(userID: member.id, displayName: member.displayName,
+                                   avatarURL: member.avatarURL)
             input.amount     = total(for: member.id)
             input.isIncluded = input.amount > .zero
             return input
@@ -109,6 +117,14 @@ final class ReceiptViewModel {
     }
 
     // MARK: - Edit
+
+    func updateUnitPrice(itemID: UUID, unitPrice: Decimal) {
+        guard let index = items.firstIndex(where: { $0.id == itemID }) else { return }
+        let existing = items[index]
+        items[index] = ReceiptItem(id: existing.id, name: existing.name,
+                                   quantity: existing.quantity, unitPrice: unitPrice)
+        items[index].assignedUserIDs = existing.assignedUserIDs
+    }
 
     func updateItem(_ item: ReceiptItem) {
         items = items.replacing(item)
@@ -125,11 +141,9 @@ final class ReceiptViewModel {
     func updateQuantity(itemID: UUID, quantity: Int) {
         guard quantity >= 1,
               let index = items.firstIndex(where: { $0.id == itemID }) else { return }
-        items[index] = ReceiptItem(
-            id:        items[index].id,
-            name:      items[index].name,
-            quantity:  quantity,
-            unitPrice: items[index].unitPrice
-        )
+        let existing = items[index]
+        items[index] = ReceiptItem(id: existing.id, name: existing.name,
+                                   quantity: quantity, unitPrice: existing.unitPrice)
+        items[index].assignedUserIDs = existing.assignedUserIDs
     }
 }

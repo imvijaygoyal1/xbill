@@ -16,7 +16,7 @@ final class HomeViewModel {
     var totalOwing: Decimal = .zero
     var recentExpenses: [RecentEntry] = []
     var isLoading: Bool = false
-    var error: AppError?
+    var errorAlert: ErrorAlert?
 
     struct RecentEntry: Identifiable, Sendable {
         var id: UUID { expense.id }
@@ -38,7 +38,7 @@ final class HomeViewModel {
         do {
             currentUser = try await auth.currentUser()
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
@@ -57,7 +57,7 @@ final class HomeViewModel {
                 guard !(error is CancellationError) else { return }
                 // Fall back to cache on network error
                 if groups.isEmpty { groups = CacheService.shared.loadGroups() }
-                self.error = AppError.from(error)
+                self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
             }
         } else {
             groups = CacheService.shared.loadGroups()
@@ -71,7 +71,7 @@ final class HomeViewModel {
             try await groupService.deleteGroup(groupId: group.id)
             groups.removeAll { $0.id == group.id }
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
@@ -80,7 +80,7 @@ final class HomeViewModel {
         do {
             archivedGroups = try await groupService.fetchArchivedGroups(for: user.id)
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
@@ -92,7 +92,7 @@ final class HomeViewModel {
             archivedGroups.removeAll { $0.id == group.id }
             await loadAll()
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 

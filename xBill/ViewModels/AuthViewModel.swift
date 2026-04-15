@@ -19,7 +19,7 @@ final class AuthViewModel {
 
     var isSigningUp: Bool = false
     var isLoading: Bool = false
-    var error: AppError?
+    var errorAlert: ErrorAlert?
     var currentUser: User?
     var confirmationEmailSent: Bool = false
     var isInPasswordRecovery: Bool = false
@@ -78,9 +78,8 @@ final class AuthViewModel {
         defer { isLoading = false }
         do {
             currentUser = try await auth.signInWithEmail(email: email, password: password)
-            error = nil  // clear only on success
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Sign In Failed", message: error.localizedDescription)
         }
     }
 
@@ -94,12 +93,10 @@ final class AuthViewModel {
                 password: password,
                 displayName: displayName
             )
-            error = nil  // clear only on success
         } catch AppError.confirmationRequired {
-            error = nil
             confirmationEmailSent = true
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Sign Up Failed", message: error.localizedDescription)
         }
     }
 
@@ -109,7 +106,7 @@ final class AuthViewModel {
         do {
             currentUser = try await auth.signInWithApple(idToken: idToken, nonce: nonce)
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Sign In Failed", message: error.localizedDescription)
         }
     }
 
@@ -121,22 +118,21 @@ final class AuthViewModel {
             isInPasswordRecovery = false
             await loadCurrentUser()
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Reset Failed", message: error.localizedDescription)
         }
     }
 
     func sendPasswordReset() async {
         guard isEmailValid else {
-            error = .validationFailed("Please enter a valid email address.")
+            errorAlert = ErrorAlert(title: "Invalid Email", message: "Please enter a valid email address.")
             return
         }
         isLoading = true
-        error = nil
         defer { isLoading = false }
         do {
             try await auth.sendPasswordReset(email: email)
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
@@ -145,7 +141,7 @@ final class AuthViewModel {
             try await auth.signOut()
             // currentUser is cleared by the auth-state listener (.signedOut event)
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Sign Out Failed", message: error.localizedDescription)
         }
     }
 
@@ -159,7 +155,7 @@ final class AuthViewModel {
 
     func toggleMode() {
         isSigningUp.toggle()
-        error = nil
+        errorAlert = nil
         password = ""
         confirmPassword = ""
     }

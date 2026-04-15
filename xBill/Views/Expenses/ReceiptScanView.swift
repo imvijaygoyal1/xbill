@@ -1,37 +1,46 @@
 import SwiftUI
 import UIKit
+import VisionKit
+import PhotosUI
 
-// MARK: - ImagePickerController
+// MARK: - DocumentCameraView
+// Wraps VNDocumentCameraViewController — automatically detects receipt boundary
+// and applies perspective correction before returning the image.
 
-private struct ImagePickerController: UIViewControllerRepresentable {
-    let sourceType: UIImagePickerController.SourceType
-    @Binding var selectedImage: UIImage?
-    @Binding var isPresented: Bool
+private struct DocumentCameraView: UIViewControllerRepresentable {
+    @Binding var scannedImage: UIImage?
+    @Binding var isPresented:  Bool
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.sourceType = sourceType
-        picker.delegate   = context.coordinator
-        return picker
+    func makeUIViewController(context: Context) -> VNDocumentCameraViewController {
+        let vc = VNDocumentCameraViewController()
+        vc.delegate = context.coordinator
+        return vc
     }
 
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    func updateUIViewController(_ uiViewController: VNDocumentCameraViewController, context: Context) {}
 
-    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let parent: ImagePickerController
-        init(_ parent: ImagePickerController) { self.parent = parent }
+    final class Coordinator: NSObject, VNDocumentCameraViewControllerDelegate {
+        let parent: DocumentCameraView
+        init(_ parent: DocumentCameraView) { self.parent = parent }
 
-        func imagePickerController(
-            _ picker: UIImagePickerController,
-            didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
+        func documentCameraViewController(
+            _ controller: VNDocumentCameraViewController,
+            didFinishWith scan: VNDocumentCameraScan
         ) {
-            parent.selectedImage = info[.originalImage] as? UIImage
-            parent.isPresented   = false
+            parent.scannedImage = scan.imageOfPage(at: 0)
+            parent.isPresented  = false
         }
 
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        func documentCameraViewControllerDidCancel(_ controller: VNDocumentCameraViewController) {
+            parent.isPresented = false
+        }
+
+        func documentCameraViewController(
+            _ controller: VNDocumentCameraViewController,
+            didFailWithError error: Error
+        ) {
             parent.isPresented = false
         }
     }
@@ -45,7 +54,7 @@ struct ReceiptScanView: View {
     var onConfirmed: (([SplitInput]) -> Void)? = nil
 
     @State private var showCamera      = false
-    @State private var showPhotoPicker = false
+    @State private var selectedPhoto:  PhotosPickerItem? = nil
     @State private var showReview      = false
     @Environment(\.dismiss) private var dismiss
 
@@ -61,9 +70,13 @@ struct ReceiptScanView: View {
                         .padding(.horizontal)
 
                     if vm.isScanning {
-                        ProgressView("Scanning receipt…")
+                        VStack(spacing: 8) {
+                            ProgressView()
+                            Text("Scanning receipt…")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                     } else if vm.scannedReceipt != nil {
-                        // Scan complete — show review CTA
                         VStack(spacing: 10) {
                             Button {
                                 showReview = true
@@ -92,7 +105,6 @@ struct ReceiptScanView: View {
                         .padding(.horizontal, 24)
                     }
                 } else {
-                    // Placeholder
                     ZStack {
                         RoundedRectangle(cornerRadius: 16)
                             .fill(Color(.systemGray6))
@@ -108,23 +120,20 @@ struct ReceiptScanView: View {
                     }
                     .padding(.horizontal)
 
-                    // Capture buttons
                     VStack(spacing: 12) {
                         Button {
                             showCamera = true
                         } label: {
-                            Label("Take Photo", systemImage: "camera.fill")
+                            Label("Scan Receipt", systemImage: "camera.fill")
                                 .frame(maxWidth: .infinity)
                                 .padding()
                                 .background(.tint)
                                 .foregroundStyle(.white)
                                 .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
-                        .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
+                        .disabled(!VNDocumentCameraViewController.isSupported)
 
-                        Button {
-                            showPhotoPicker = true
-                        } label: {
+                        PhotosPicker(selection: $selectedPhoto, matching: .images) {
                             Label("Choose from Library", systemImage: "photo.fill")
                                 .frame(maxWidth: .infinity)
                                 .padding()
@@ -152,21 +161,19 @@ struct ReceiptScanView: View {
                     dismiss()
                 }
             }
-            .sheet(isPresented: $showCamera) {
-                ImagePickerController(
-                    sourceType: .camera,
-                    selectedImage: $vm.capturedImage,
-                    isPresented: $showCamera
-                )
-                .ignoresSafeArea()
+            .fullScreenCover(isPresented: $showCamera) {
+                DocumentCameraView(scannedImage: $vm.capturedImage, isPresented: $showCamera)
+                    .ignoresSafeArea()
             }
-            .sheet(isPresented: $showPhotoPicker) {
-                ImagePickerController(
-                    sourceType: .photoLibrary,
-                    selectedImage: $vm.capturedImage,
-                    isPresented: $showPhotoPicker
-                )
-                .ignoresSafeArea()
+            .onChange(of: selectedPhoto) { _, item in
+                guard let item else { return }
+                Task {
+                    if let data  = try? await item.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        vm.capturedImage = image
+                    }
+                    selectedPhoto = nil
+                }
             }
             .onChange(of: vm.capturedImage) { _, image in
                 guard let image else { return }
@@ -174,7 +181,7 @@ struct ReceiptScanView: View {
             }
         }
         .onAppear { vm.members = members }
-        .errorAlert(error: $vm.error)
+        .errorAlert(item: $vm.errorAlert)
     }
 }
 

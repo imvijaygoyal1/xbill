@@ -13,7 +13,7 @@ final class GroupViewModel {
     var balances: [UUID: Decimal] = [:]
     var settlementSuggestions: [SettlementSuggestion] = []
     var isLoading: Bool = false
-    var error: AppError?
+    var errorAlert: ErrorAlert?
 
     private var splitsMap: [UUID: [Split]] = [:]
     private let groupService = GroupService.shared
@@ -41,7 +41,6 @@ final class GroupViewModel {
 
     func load() async {
         isLoading = true
-        error = nil
         defer { isLoading = false }
 
         if NetworkMonitor.shared.isConnected {
@@ -60,7 +59,7 @@ final class GroupViewModel {
                 // Fall back to cache on network error
                 if members.isEmpty  { members  = CacheService.shared.loadMembers(groupID: group.id) }
                 if expenses.isEmpty { expenses = CacheService.shared.loadExpenses(groupID: group.id) }
-                self.error = AppError.from(error)
+                self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
                 await computeBalances()
             }
         } else {
@@ -95,25 +94,23 @@ final class GroupViewModel {
 
     func addMember(userId: UUID) async {
         isLoading = true
-        error = nil
         defer { isLoading = false }
         do {
             try await groupService.addMember(groupId: group.id, userId: userId)
             await load()
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
     func removeMember(userID: UUID) async {
         isLoading = true
-        error = nil
         defer { isLoading = false }
         do {
             try await groupService.removeMember(groupId: group.id, userId: userID)
             await load()
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
@@ -121,27 +118,25 @@ final class GroupViewModel {
 
     func archiveGroup() async {
         isLoading = true
-        error = nil
         defer { isLoading = false }
         do {
             var updated = group
             updated.isArchived = true
             group = try await groupService.updateGroup(updated)
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
     func unarchiveGroup() async {
         isLoading = true
-        error = nil
         defer { isLoading = false }
         do {
             var updated = group
             updated.isArchived = false
             group = try await groupService.updateGroup(updated)
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
@@ -189,7 +184,7 @@ final class GroupViewModel {
 
             await load()
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
@@ -202,13 +197,12 @@ final class GroupViewModel {
             splitsMap.removeValue(forKey: expense.id)
             await computeBalances()
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
     func updateExpense(_ updated: Expense) async {
         isLoading = true
-        error = nil
         defer { isLoading = false }
         do {
             let saved = try await expenseService.updateExpense(updated)
@@ -217,13 +211,12 @@ final class GroupViewModel {
             }
             await computeBalances()
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
     func recordSettlement(_ suggestion: SettlementSuggestion) async {
         isLoading = true
-        error = nil
         defer { isLoading = false }
 
         do {
@@ -247,7 +240,7 @@ final class GroupViewModel {
 
             await load()
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 }

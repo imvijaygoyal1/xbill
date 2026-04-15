@@ -77,6 +77,7 @@
 		B23C8B565012DDE6432E4B9B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 584BAC14164D3737BAC27CC5 /* ContentView.swift */; };
 		B33FBBE5819AF4C6161CD460 /* QuickAddExpenseSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF35C40846E6F5E8F901117 /* QuickAddExpenseSheet.swift */; };
 		B5DAF1DF87B84590F7EE11DA /* GroupInvite.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBFE0C31221A637C053EB927 /* GroupInvite.swift */; };
+		B74AEE2665D15137C350A1AC /* XBillWordmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3009227F418A3B8AF412629 /* XBillWordmark.swift */; };
 		C0A34302D61036B54C10B112 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9300CF88C633865DC505CDF7 /* HomeView.swift */; };
 		C32CC9D8E957EA4033C2E43F /* TermsOfServiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E5A79FC8CA0B5CB9744BDEC /* TermsOfServiceView.swift */; };
 		C345C3FCACF011DD4FBBBBE6 /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2516D590CE1CD48191C4DD /* AvatarView.swift */; };
@@ -200,6 +201,7 @@
 		DA937D31A0181F43B8747D40 /* GroupDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupDetailView.swift; sourceTree = "<group>"; };
 		DCBBD52E262E694ADC799385 /* xBill.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = xBill.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E22D97081A17583A65576DEE /* GroupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupService.swift; sourceTree = "<group>"; };
+		E3009227F418A3B8AF412629 /* XBillWordmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillWordmark.swift; sourceTree = "<group>"; };
 		E5685D1C7A9AB1D8C03FCA78 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		E5F57D9E8BA76933667996CC /* PaymentLinkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentLinkService.swift; sourceTree = "<group>"; };
 		E65272EFDCFD007E43ADAD46 /* CategoryIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryIconView.swift; sourceTree = "<group>"; };
@@ -377,6 +379,7 @@
 				482A03C4A082448A734C4FDD /* XBillButton.swift */,
 				C357CB10AF58D0B03787860E /* XBillCard.swift */,
 				51E90EC1B09543804ACB2689 /* XBillTextField.swift */,
+				E3009227F418A3B8AF412629 /* XBillWordmark.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -707,6 +710,7 @@
 				73CDD159049479799C4FEAA2 /* XBillTextField.swift in Sources */,
 				34E6720F9FDC0DCC01780EA6 /* XBillTheme.swift in Sources */,
 				984FECBE4D755678387F5E88 /* XBillURLs.swift in Sources */,
+				B74AEE2665D15137C350A1AC /* XBillWordmark.swift in Sources */,
 				85EF4FE35F770FC35BB9E29D /* xBillApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

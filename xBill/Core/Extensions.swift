@@ -104,6 +104,21 @@ extension View {
         }
     }
 
+    /// Persistent error alert — stays on screen until user taps OK.
+    /// Use this with `ErrorAlert?` from ViewModels to prevent auto-dismissal on state updates.
+    func errorAlert(item: Binding<ErrorAlert?>) -> some View {
+        let title   = item.wrappedValue?.title   ?? ""
+        let message = item.wrappedValue?.message ?? ""
+        return alert(title, isPresented: Binding(
+            get: { item.wrappedValue != nil },
+            set: { if !$0 { item.wrappedValue = nil } }
+        )) {
+            Button("OK", role: .cancel) { item.wrappedValue = nil }
+        } message: {
+            Text(message)
+        }
+    }
+
     /// Non-interactive Liquid Glass on iOS 26+; regular material on earlier OS.
     @ViewBuilder
     func liquidGlass(in shape: some Shape) -> some View {

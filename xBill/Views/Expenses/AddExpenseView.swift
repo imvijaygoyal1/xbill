@@ -285,7 +285,7 @@ struct AddExpenseView: View {
                 }
             }
         }
-        .errorAlert(error: $vm.error)
+        .errorAlert(item: $vm.errorAlert)
     }
 
     // MARK: - Conversion Preview
@@ -318,8 +318,8 @@ struct AddExpenseView: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
-            .font(.xbillSectionTitle)
-            .textCase(.uppercase)
+            .font(.xbillUpperLabel)
+            .tracking(1.08)
             .foregroundStyle(Color.textTertiary)
             .padding(.horizontal, XBillSpacing.base)
     }

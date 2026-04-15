@@ -26,7 +26,7 @@ final class AddExpenseViewModel {
 
     var isLoading: Bool = false
     var isSaved: Bool = false
-    var error: AppError?
+    var errorAlert: ErrorAlert?
 
     let group: BillGroup
     private let members: [User]
@@ -111,7 +111,7 @@ final class AddExpenseViewModel {
             convertedAmount = (amount * Decimal(rate)).rounded(scale: 2)
             recomputeSplits()
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
@@ -127,7 +127,6 @@ final class AddExpenseViewModel {
         }
 
         isLoading = true
-        error = nil
         defer { isLoading = false }
 
         do {
@@ -162,7 +161,7 @@ final class AddExpenseViewModel {
                 )
             }
         } catch {
-            self.error = AppError.from(error)
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 }

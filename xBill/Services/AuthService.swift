@@ -62,7 +62,10 @@ final class AuthService: Sendable {
     // MARK: - Password Reset
 
     func sendPasswordReset(email: String) async throws {
-        try await supabase.auth.resetPasswordForEmail(email)
+        try await supabase.auth.resetPasswordForEmail(
+            email,
+            redirectTo: URL(string: "xbill://reset")!
+        )
     }
 
     // MARK: - Sign Out

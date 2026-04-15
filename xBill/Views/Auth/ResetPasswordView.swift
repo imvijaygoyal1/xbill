@@ -6,7 +6,6 @@ struct ResetPasswordView: View {
     @State private var newPassword: String = ""
     @State private var confirmPassword: String = ""
     @State private var isLoading: Bool = false
-    @State private var error: AppError?
 
     private var isValid: Bool {
         newPassword.count >= 8 && newPassword == confirmPassword
@@ -47,16 +46,12 @@ struct ResetPasswordView: View {
                 }
             }
         }
-        .errorAlert(error: $error)
+        .errorAlert(item: $authVM.errorAlert)
     }
 
     private func submit() async {
         isLoading = true
         defer { isLoading = false }
         await authVM.handlePasswordReset(newPassword: newPassword)
-        if authVM.error != nil {
-            error = authVM.error
-            authVM.error = nil
-        }
     }
 }

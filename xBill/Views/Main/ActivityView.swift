@@ -25,7 +25,7 @@ struct ActivityView: View {
             .task { await vm.load() }
             .refreshable { await vm.load() }
         }
-        .errorAlert(error: $vm.error)
+        .errorAlert(item: $vm.errorAlert)
     }
 
     // MARK: - Grouped list

@@ -25,7 +25,7 @@ struct SettleUpView: View {
                 }
             }
         }
-        .errorAlert(error: $vm.error)
+        .errorAlert(item: $vm.errorAlert)
     }
 
     // MARK: - Suggestions

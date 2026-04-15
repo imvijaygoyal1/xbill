@@ -42,7 +42,7 @@ struct GroupListView: View {
             }
             .task { await vm.loadArchivedGroups() }
         }
-        .errorAlert(error: $vm.error)
+        .errorAlert(item: $vm.errorAlert)
     }
 
     private var groupList: some View {
@@ -86,8 +86,9 @@ struct GroupListView: View {
                     }
                 } header: {
                     HStack {
-                        Text("Archived (\(vm.archivedGroups.count))")
-                            .font(.xbillSectionTitle)
+                        Text("ARCHIVED (\(vm.archivedGroups.count))")
+                            .font(.xbillUpperLabel)
+                            .tracking(1.08)
                             .foregroundStyle(Color.textSecondary)
                         Spacer()
                         Image(systemName: showArchived ? "chevron.up" : "chevron.down")

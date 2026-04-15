@@ -85,7 +85,7 @@ struct EmailAuthView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(Color.navBarBg, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .errorAlert(error: $vm.error)
+        .errorAlert(item: $vm.errorAlert)
     }
 }
 
