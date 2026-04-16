@@ -77,13 +77,13 @@ final class AuthService: Sendable {
     // MARK: - Delete Account
 
     func deleteAccount() async throws {
-        guard let _ = try? await supabase.auth.session else {
+        guard (try? await supabase.auth.session) != nil else {
             throw AppError.unauthenticated
         }
-        // The Supabase SDK automatically attaches the session JWT as Authorization.
-        // The Edge Function uses the service role client to verify it, which
-        // supports both HS256 (email/password) and ES256 (Apple Sign-In) tokens.
-        let _: Void = try await supabase.client.functions.invoke("delete-account")
+        // The Edge Function verifies identity via adminClient.auth.getUser(jwt),
+        // which supports both HS256 (email/password) and ES256 (Apple Sign-In) tokens.
+        // verify_jwt = false in config.toml bypasses the gateway's HS256-only check.
+        try await supabase.client.functions.invoke("delete-account")
         try await supabase.auth.signOut()
     }
 
