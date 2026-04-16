@@ -11,13 +11,16 @@ Deno.serve(async (req: Request) => {
     )
   }
 
+  const jwt = authHeader.replace('Bearer ', '')
+
   const anonClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } }
+    Deno.env.get('SUPABASE_ANON_KEY')!
   )
 
-  const { data: { user }, error: authError } = await anonClient.auth.getUser()
+  // Pass the token directly — getUser() without args reads local session,
+  // which is always empty in a freshly-created Edge Function client.
+  const { data: { user }, error: authError } = await anonClient.auth.getUser(jwt)
   if (authError || !user) {
     return new Response(
       JSON.stringify({ error: 'Could not verify user identity' }),
