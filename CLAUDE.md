@@ -191,7 +191,7 @@
 - `xBill/Views/Components/FABButton.swift` — 56pt `brandPrimary` circle FAB with shadow and haptic
 - `xBill/Views/Components/GroupChipView.swift` — compact 110pt card for horizontal group scroll in HomeView
 - `xBill/Views/Components/ExpenseRowView.swift` — expense list row; `showAmountBadge: Bool = false` — when true shows `AmountBadge(.total)` instead of plain amount text
-- `xBill/Views/Components/EmptyStateView.swift` — icon + title + message + optional action button
+- `xBill/Views/Components/EmptyStateView.swift` — wraps `ContentUnavailableView` (iOS 17+); `(icon:title:message:actionLabel?:action?)` API unchanged; action button uses `.borderedProminent` style; two variants compiled at runtime: with/without action
 - `xBill/Views/Components/LoadingOverlay.swift` — centered spinner with message
 - `xBill/Views/Components/SplitSlider.swift` — percentage split slider
 - `xBill/Views/Components/SafariView.swift` — `UIViewControllerRepresentable` wrapping `SFSafariViewController`; branded with `UIColor(Color.brandPrimary)` bar tint + white controls; `View.safariSheet(isPresented:url:)` extension for presenting in-app; used for privacy policy links — do NOT use `openURL` env action for policy links

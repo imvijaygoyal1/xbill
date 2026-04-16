@@ -7,44 +7,23 @@ struct EmptyStateView: View {
     var actionLabel: String? = nil
     var action: (() -> Void)? = nil
 
-    private var emptyButtonForeground: Color {
-        if #available(iOS 26, *) { return .accentColor }
-        return .white
-    }
-
     var body: some View {
-        VStack(spacing: 20) {
-            Spacer()
-
-            Image(systemName: icon)
-                .font(.system(size: 56))
-                .foregroundStyle(.secondary)
-
-            VStack(spacing: 8) {
-                Text(title)
-                    .font(.title3.bold())
+        if let actionLabel, let action {
+            ContentUnavailableView {
+                Label(title, systemImage: icon)
+            } description: {
                 Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+            } actions: {
+                Button(actionLabel, action: action)
+                    .buttonStyle(.borderedProminent)
             }
-
-            if let actionLabel, let action {
-                Button(action: action) {
-                    Text(actionLabel)
-                        .font(.subheadline.bold())
-                        .foregroundStyle(emptyButtonForeground)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 10)
-                        .liquidGlassButton(fallback: Color.accentColor, in: Capsule())
-                }
-                .padding(.top, 4)
+        } else {
+            ContentUnavailableView {
+                Label(title, systemImage: icon)
+            } description: {
+                Text(message)
             }
-
-            Spacer()
         }
-        .frame(maxWidth: .infinity)
     }
 }
 
