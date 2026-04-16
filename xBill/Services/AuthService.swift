@@ -81,7 +81,8 @@ final class AuthService: Sendable {
             throw AppError.unauthenticated
         }
         // The Supabase SDK automatically attaches the session JWT as Authorization.
-        // Do NOT pass headers manually — it conflicts with the SDK's injection.
+        // The Edge Function uses the service role client to verify it, which
+        // supports both HS256 (email/password) and ES256 (Apple Sign-In) tokens.
         let _: Void = try await supabase.client.functions.invoke("delete-account")
         try await supabase.auth.signOut()
     }

@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 Deno.serve(async (req: Request) => {
 
-  // 1. Extract and verify user from JWT — never trust request body
+  // 1. Extract JWT from Authorization header
   const authHeader = req.headers.get('Authorization')
   if (!authHeader?.startsWith('Bearer ')) {
     return new Response(
@@ -13,14 +13,14 @@ Deno.serve(async (req: Request) => {
 
   const jwt = authHeader.replace('Bearer ', '')
 
-  const anonClient = createClient(
+  // Use the service role client for JWT verification.
+  // The anon client only supports HS256 and rejects Apple Sign-In tokens (ES256).
+  const adminClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
 
-  // Pass the token directly — getUser() without args reads local session,
-  // which is always empty in a freshly-created Edge Function client.
-  const { data: { user }, error: authError } = await anonClient.auth.getUser(jwt)
+  const { data: { user }, error: authError } = await adminClient.auth.getUser(jwt)
   if (authError || !user) {
     return new Response(
       JSON.stringify({ error: 'Could not verify user identity' }),
@@ -28,19 +28,14 @@ Deno.serve(async (req: Request) => {
     )
   }
 
-  const adminClient = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  )
-
-  // 2. Delete device tokens — non-fatal (table may be empty, log and continue)
+  // 2. Delete device tokens — non-fatal
   const { error: tokenError } = await adminClient
     .from('device_tokens')
     .delete()
     .eq('user_id', user.id)
   if (tokenError) console.error('device_tokens delete:', tokenError.message)
 
-  // 3. Delete profile row — non-fatal (auth deletion is the critical step)
+  // 3. Delete profile row — non-fatal
   const { error: profileError } = await adminClient
     .from('profiles')
     .delete()
