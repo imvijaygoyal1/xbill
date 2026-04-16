@@ -74,6 +74,20 @@ final class AuthService: Sendable {
         try await supabase.auth.signOut()
     }
 
+    // MARK: - Delete Account
+
+    func deleteAccount() async throws {
+        guard let session = try? await supabase.auth.session else {
+            throw AppError.unauthenticated
+        }
+        // Edge Function verifies JWT and handles: device_tokens → profile → auth user
+        let _: Void = try await supabase.client.functions.invoke(
+            "delete-account",
+            options: .init(headers: ["Authorization": "Bearer \(session.accessToken)"])
+        )
+        try await supabase.auth.signOut()
+    }
+
     // MARK: - Profile
 
     func updateProfile(displayName: String, avatarURL: URL?) async throws -> User {

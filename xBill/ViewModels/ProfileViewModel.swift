@@ -108,37 +108,10 @@ final class ProfileViewModel {
     // MARK: - Delete Account
 
     func deleteAccount() async {
-        let supabase = SupabaseManager.shared
-
-        guard let session = try? await supabase.auth.session else {
-            self.errorAlert = ErrorAlert(
-                title: "Not signed in",
-                message: "Please sign in again before deleting your account."
-            )
-            return
-        }
-
         isLoading = true
         defer { isLoading = false }
-
         do {
-            // Step 1 — Delete device token row
-            try await supabase.table("device_tokens")
-                .delete()
-                .eq("user_id", value: session.user.id.uuidString)
-                .execute()
-
-            // Step 2 — Call Edge Function with JWT so it can verify identity server-side.
-            // Never pass user_id in the body — the function derives it from the verified JWT.
-            let _: Void = try await supabase.client.functions
-                .invoke(
-                    "delete-account",
-                    options: .init(headers: ["Authorization": "Bearer \(session.accessToken)"])
-                )
-
-            // Step 3 — Sign out locally after successful server-side deletion
-            try await auth.signOut()
-
+            try await auth.deleteAccount()
         } catch {
             self.errorAlert = ErrorAlert(
                 title: "Could not delete account",
