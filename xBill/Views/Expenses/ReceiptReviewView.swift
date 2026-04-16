@@ -8,12 +8,12 @@ struct ReceiptReviewView: View {
     @State private var newItemName  = ""
     @State private var newItemPrice = ""
 
+    private var currency: String { vm.scannedReceipt?.currency ?? "USD" }
+
     var body: some View {
         List {
-            // Parsing tier + confidence header
             confidenceHeader
 
-            // Validation warning (math mismatch)
             if let warning = vm.validationWarning {
                 Section {
                     Label(warning, systemImage: "exclamationmark.triangle.fill")
@@ -22,18 +22,31 @@ struct ReceiptReviewView: View {
                 }
             }
 
-            // Merchant
-            if let merchant = vm.scannedReceipt?.merchant {
+            if vm.hasUnassignedItems {
                 Section {
-                    Label(merchant, systemImage: "storefront.fill")
-                        .font(.headline)
+                    Label("Some items have no one assigned — tap member chips below each item.",
+                          systemImage: "person.fill.questionmark")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
 
-            // Items
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("MERCHANT")
+                        .font(.xbillUpperLabel)
+                        .tracking(1.08)
+                        .foregroundStyle(Color.textTertiary)
+                    XBillTextField(
+                        placeholder: "Merchant name",
+                        text: $vm.merchantName
+                    )
+                }
+            }
+
             Section("Items") {
                 ForEach($vm.items) { $item in
-                    itemRow(item: $item)
+                    ItemRow(item: $item, vm: vm, currency: currency)
                 }
                 .onDelete { vm.items.remove(atOffsets: $0) }
 
@@ -42,30 +55,36 @@ struct ReceiptReviewView: View {
                 }
             }
 
-            // Tax / Tip / Total
             Section("Extras") {
                 if let tax = vm.scannedReceipt?.tax {
-                    HStack {
-                        Text("Tax")
-                        Spacer()
-                        Text(tax.formatted(currencyCode: "USD")).foregroundStyle(.secondary)
+                    LabeledContent("Tax") {
+                        Text(tax.formatted(currencyCode: currency)).foregroundStyle(.secondary)
                     }
                 }
-                if let tip = vm.scannedReceipt?.tip {
-                    HStack {
-                        Text("Tip")
-                        Spacer()
-                        Text(tip.formatted(currencyCode: "USD")).foregroundStyle(.secondary)
-                    }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("TIP")
+                        .font(.xbillUpperLabel)
+                        .tracking(1.08)
+                        .foregroundStyle(Color.textTertiary)
+                    XBillTextField(
+                        placeholder: "0.00 (optional)",
+                        text: $vm.tipAmount,
+                        keyboardType: .decimalPad
+                    )
                 }
-                HStack {
-                    Text("Grand Total").bold()
-                    Spacer()
-                    Text(vm.grandTotal.formatted(currencyCode: "USD")).bold()
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("TOTAL AMOUNT")
+                        .font(.xbillUpperLabel)
+                        .tracking(1.08)
+                        .foregroundStyle(Color.textTertiary)
+                    XBillTextField(
+                        placeholder: "0.00",
+                        text: $vm.totalAmount,
+                        keyboardType: .decimalPad
+                    )
                 }
             }
 
-            // Per-person totals
             if !vm.members.isEmpty {
                 Section("Per Person") {
                     ForEach(vm.members) { member in
@@ -73,7 +92,7 @@ struct ReceiptReviewView: View {
                             AvatarView(name: member.displayName, url: member.avatarURL, size: 28)
                             Text(member.displayName)
                             Spacer()
-                            Text(vm.total(for: member.id).formatted(currencyCode: "USD"))
+                            Text(vm.total(for: member.id).formatted(currencyCode: currency))
                                 .monospacedDigit()
                         }
                     }
@@ -84,17 +103,16 @@ struct ReceiptReviewView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Use These Splits") {
-                    onConfirmed(vm.asSplitInputs())
-                }
-                .fontWeight(.semibold)
+                Button("Use These Splits") { onConfirmed(vm.asSplitInputs()) }
+                    .fontWeight(.semibold)
             }
         }
         .alert("Add Item", isPresented: $showAddItem) {
             TextField("Name", text: $newItemName)
             TextField("Price", text: $newItemPrice).keyboardType(.decimalPad)
             Button("Add") {
-                if let price = Decimal(string: newItemPrice), price > .zero {
+                let normalized = newItemPrice.replacingOccurrences(of: ",", with: ".")
+                if let price = Decimal(string: normalized), price > .zero {
                     vm.addItem(name: newItemName, unitPrice: price)
                 }
                 newItemName = ""; newItemPrice = ""
@@ -108,15 +126,11 @@ struct ReceiptReviewView: View {
     private var confidenceHeader: some View {
         Section {
             HStack(spacing: 10) {
-                // Tier label
                 Label(vm.parsingTier.isEmpty ? "Scanned" : vm.parsingTier,
                       systemImage: vm.parsingTier == "Apple Intelligence" ? "apple.logo" : "text.magnifyingglass")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-
                 Spacer()
-
-                // Confidence badge
                 Text(vm.confidenceLabel)
                     .font(.caption.bold())
                     .padding(.horizontal, 10)
@@ -135,19 +149,42 @@ struct ReceiptReviewView: View {
         default:      return .red
         }
     }
+}
 
-    // MARK: - Item Row
+// MARK: - ItemRow
+// File-private subview so it can hold @State for the price text field.
 
-    @ViewBuilder
-    private func itemRow(item: Binding<ReceiptItem>) -> some View {
+private struct ItemRow: View {
+    @Binding var item: ReceiptItem
+    @Bindable var vm:  ReceiptViewModel
+    let currency:      String
+
+    @State private var priceText: String = ""
+
+    var isAllAssigned: Bool {
+        !vm.members.isEmpty && vm.members.allSatisfy { item.assignedUserIDs.contains($0.id) }
+    }
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                TextField("Item name", text: item.name)
+                TextField("Item name", text: $item.name)
                     .font(.subheadline)
-                Spacer()
-                Text(item.wrappedValue.totalPrice.formatted(currencyCode: "USD"))
+                Spacer(minLength: 8)
+                // Inline price editing
+                TextField("0.00", text: $priceText)
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 72)
+                    .onAppear { priceText = "\(item.unitPrice)" }
+                    .onChange(of: priceText) { _, text in
+                        let normalized = text.replacingOccurrences(of: ",", with: ".")
+                        if let price = Decimal(string: normalized), price > .zero {
+                            vm.updateUnitPrice(itemID: item.id, unitPrice: price)
+                        }
+                    }
             }
 
             // Quantity stepper
@@ -157,40 +194,51 @@ struct ReceiptReviewView: View {
                     .foregroundStyle(.secondary)
                 Stepper(
                     value: Binding(
-                        get: { item.wrappedValue.quantity },
-                        set: { vm.updateQuantity(itemID: item.wrappedValue.id, quantity: $0) }
+                        get: { item.quantity },
+                        set: { vm.updateQuantity(itemID: item.id, quantity: $0) }
                     ),
                     in: 1...99
                 ) {
-                    Text("\(item.wrappedValue.quantity)")
+                    Text("\(item.quantity)")
                         .font(.caption.monospacedDigit())
                         .frame(minWidth: 24)
                 }
                 .fixedSize()
-
-                Text("@ \(item.wrappedValue.unitPrice.formatted(currencyCode: "USD")) each")
+                Text("@ \(item.unitPrice.formatted(currencyCode: currency)) each")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-
                 Spacer()
             }
 
-            // Member assignment chips
+            // Member assignment chips with "All" shortcut
             if !vm.members.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
+                        // "All" chip — assigns/unassigns everyone at once
+                        Button {
+                            vm.toggleAssignAll(to: item.id)
+                        } label: {
+                            Text("All")
+                                .font(.caption.bold())
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(isAllAssigned ? Color.brandPrimary : Color(.systemGray5))
+                                .foregroundStyle(isAllAssigned ? Color.white : Color.primary)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+
                         ForEach(vm.members) { member in
-                            let assigned = item.wrappedValue.assignedUserIDs.contains(member.id)
+                            let assigned = item.assignedUserIDs.contains(member.id)
                             Button {
-                                vm.assign(userID: member.id, to: item.wrappedValue.id)
+                                vm.assign(userID: member.id, to: item.id)
                             } label: {
-                                Text(member.displayName.components(separatedBy: " ").first
-                                     ?? member.displayName)
+                                Text(member.displayName.components(separatedBy: " ").first ?? member.displayName)
                                     .font(.caption.bold())
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 4)
                                     .background(assigned ? Color.accentColor : Color(.systemGray5))
-                                    .foregroundStyle(assigned ? .white : .primary)
+                                    .foregroundStyle(assigned ? Color.white : Color.primary)
                                     .clipShape(Capsule())
                             }
                             .buttonStyle(.plain)

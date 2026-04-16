@@ -100,36 +100,48 @@ struct AuthView: View {
                     }
                     .padding(.horizontal, XBillSpacing.xl)
 
-                    VStack(spacing: 4) {
-                        Group {
-                            Text("By continuing, you agree to our ")
-                                .foregroundStyle(Color.textTertiary) +
+                    HStack(spacing: 4) {
+                        Text("By continuing, you agree to our")
+                            .font(.xbillCaption)
+                            .foregroundStyle(Color.textTertiary)
+
+                        Button {
+                            showTerms = true
+                            HapticManager.selection()
+                        } label: {
                             Text("Terms of Service")
-                                .foregroundStyle(Color.brandPrimary)
-                                .underline() +
-                            Text(" and ")
-                                .foregroundStyle(Color.textTertiary) +
-                            Text("Privacy Policy")
+                                .font(.xbillCaption)
                                 .foregroundStyle(Color.brandPrimary)
                                 .underline()
                         }
-                        .font(.xbillCaption)
-                        .multilineTextAlignment(.center)
-                        .onTapGesture { showPrivacy = true }
+                        .buttonStyle(.plain)
 
-                        HStack(spacing: XBillSpacing.base) {
-                            Button("Terms of Service") { showTerms = true }
+                        Text("and")
+                            .font(.xbillCaption)
+                            .foregroundStyle(Color.textTertiary)
+
+                        Button {
+                            showPrivacy = true
+                            HapticManager.selection()
+                        } label: {
+                            Text("Privacy Policy")
                                 .font(.xbillCaption)
                                 .foregroundStyle(Color.brandPrimary)
-                            Button("Privacy Policy") { showPrivacy = true }
-                                .font(.xbillCaption)
-                                .foregroundStyle(Color.brandPrimary)
+                                .underline()
                         }
+                        .buttonStyle(.plain)
                     }
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity)
                     .padding(.top, 8)
                     .padding(.bottom, XBillSpacing.xxxl)
+                    .sheet(isPresented: $showTerms) {
+                        TermsOfServiceView()
+                            .presentationDetents([.large])
+                            .presentationDragIndicator(.visible)
+                    }
                     .safariSheet(isPresented: $showPrivacy, url: XBillURLs.privacyPolicy)
-                    .sheet(isPresented: $showTerms) { TermsOfServiceView() }
                 }
             }
         }

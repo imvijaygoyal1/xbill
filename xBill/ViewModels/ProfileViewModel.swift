@@ -108,28 +108,35 @@ final class ProfileViewModel {
     // MARK: - Delete Account
 
     func deleteAccount() async {
+        let supabase = SupabaseManager.shared
+
+        guard let session = try? await supabase.auth.session else {
+            self.errorAlert = ErrorAlert(
+                title: "Not signed in",
+                message: "Please sign in again before deleting your account."
+            )
+            return
+        }
+
         isLoading = true
         defer { isLoading = false }
+
         do {
-            let supabase = SupabaseManager.shared
+            // Step 1 — Delete device token row
+            try await supabase.table("device_tokens")
+                .delete()
+                .eq("user_id", value: session.user.id.uuidString)
+                .execute()
 
-            // Delete profile row (cascade handled by RLS + DB)
-            if let userID = await auth.currentUserID {
-                try await supabase.table("profiles")
-                    .delete()
-                    .eq("id", value: userID)
-                    .execute()
-            }
-
-            // Call Edge Function to delete the Supabase Auth user
-            // (service role key must not be in Swift client)
-            struct DeletePayload: Encodable {
-                let user_id: String
-            }
+            // Step 2 — Call Edge Function with JWT so it can verify identity server-side.
+            // Never pass user_id in the body — the function derives it from the verified JWT.
             let _: Void = try await supabase.client.functions
-                .invoke("delete-account", options: .init(body: DeletePayload(user_id: (await auth.currentUserID)?.uuidString ?? "")))
+                .invoke(
+                    "delete-account",
+                    options: .init(headers: ["Authorization": "Bearer \(session.accessToken)"])
+                )
 
-            // Sign out locally
+            // Step 3 — Sign out locally after successful server-side deletion
             try await auth.signOut()
 
         } catch {

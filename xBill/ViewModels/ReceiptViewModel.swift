@@ -17,8 +17,13 @@ final class ReceiptViewModel {
     var validationWarning: String?  = nil
     var parsingTier:       String   = ""
 
-    var items:   [ReceiptItem] = []
-    var members: [User]        = []
+    var items:        [ReceiptItem] = []
+    var members:      [User]        = []
+
+    // Editable scan fields — populated after scan, user can correct before confirming
+    var merchantName: String = ""
+    var totalAmount:  String = ""
+    var tipAmount:    String = ""
 
     private let vision = VisionService.shared
 
@@ -59,6 +64,9 @@ final class ReceiptViewModel {
             confidence        = result.confidence
             validationWarning = result.validationWarning
             parsingTier       = result.tier
+            merchantName      = result.receipt.merchant ?? ""
+            if let tip   = result.receipt.tip   { tipAmount   = "\(tip)"   }
+            if let total = result.receipt.total  { totalAmount = "\(total)" }
         } catch {
             self.errorAlert = ErrorAlert(title: "Scan Failed", message: error.localizedDescription)
         }
