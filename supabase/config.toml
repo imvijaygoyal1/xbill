@@ -1,0 +1,6 @@
+# Disable gateway-level JWT verification for delete-account.
+# The Supabase gateway only supports HS256 but newer projects issue ES256 tokens,
+# so the gateway rejects the request before the function code ever runs.
+# The function itself verifies identity using adminClient.auth.getUser(jwt).
+[functions.delete-account]
+verify_jwt = false
