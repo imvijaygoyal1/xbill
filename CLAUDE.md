@@ -2,6 +2,7 @@
 
 > **IMPORTANT FOR CLAUDE:** After every code change to this project, update this file to reflect the change. New file → add to File Map. New pattern → update Key Patterns. This file must always stay current.
 > **After every feature implementation, run `xcodegen generate` if new Swift files were added, then build + install on simulator DA97985A-F7CC-44F6-8281-9DD24C22B978.**
+> **Native patterns:** Before writing any SwiftUI view, read `NATIVE_PATTERNS.md`. It defines the required conventions for navigation, lists, SF Symbols, typography, colors, controls, sheets, empty states, swipe actions, animations, accessibility, haptics, safe area, and performance. Every rule in that file is non-negotiable.
 
 ## App Identity
 - **Name:** xBill
