@@ -120,7 +120,7 @@ struct SplitCalculatorTests {
             id: UUID(), groupID: UUID(), title: "Dinner",
             amount: 60.00, currency: "USD", payerID: payerID,
             category: .food, notes: nil, receiptURL: nil,
-            createdAt: Date()        )
+            recurrence: .none, createdAt: Date())
         let splits: [UUID: [Split]] = [
             expense.id: [
                 // Payer's own split is skipped by the algorithm
@@ -188,7 +188,7 @@ struct SplitCalculatorTests {
             id: UUID(), groupID: UUID(), title: "Groceries",
             amount: 90.00, currency: "USD", payerID: payerID,
             category: .food, notes: nil, receiptURL: nil,
-            createdAt: Date()        )
+            recurrence: .none, createdAt: Date())
         let splits: [UUID: [Split]] = [
             expense.id: [
                 Split(id: UUID(), expenseID: expense.id, userID: payerID, amount: 30.00, percentage: nil, isSettled: false, settledAt: nil),
@@ -209,7 +209,7 @@ struct SplitCalculatorTests {
         )
         // Exactly 2 transfers: P1→Payer $30, P2→Payer $30
         #expect(suggestions.count == 2)
-        #expect(suggestions.map(\.amount).reduce(.zero, +) == 60.00)
+        #expect(suggestions.map { $0.amount }.reduce(Decimal.zero, +) == 60.00)
         #expect(suggestions.allSatisfy { $0.toUserID == payerID })
     }
 
@@ -223,15 +223,15 @@ struct SplitCalculatorTests {
         let eA = Expense(id: UUID(), groupID: UUID(), title: "A→B",
                          amount: 10.00, currency: "USD", payerID: aID,
                          category: .other, notes: nil, receiptURL: nil,
-                         createdAt: Date(), updatedAt: Date())
+                         recurrence: .none, createdAt: Date())
         let eB = Expense(id: UUID(), groupID: UUID(), title: "B→C",
                          amount: 10.00, currency: "USD", payerID: bID,
                          category: .other, notes: nil, receiptURL: nil,
-                         createdAt: Date(), updatedAt: Date())
+                         recurrence: .none, createdAt: Date())
         let eC = Expense(id: UUID(), groupID: UUID(), title: "C→A",
                          amount: 10.00, currency: "USD", payerID: cID,
                          category: .other, notes: nil, receiptURL: nil,
-                         createdAt: Date(), updatedAt: Date())
+                         recurrence: .none, createdAt: Date())
 
         let splits: [UUID: [Split]] = [
             eA.id: [Split(id: UUID(), expenseID: eA.id, userID: bID, amount: 10.00, percentage: nil, isSettled: false, settledAt: nil)],
@@ -264,7 +264,7 @@ struct SplitCalculatorTests {
             id: UUID(), groupID: UUID(), title: "Hotel",
             amount: 90.00, currency: "USD", payerID: payerID,
             category: .accommodation, notes: nil, receiptURL: nil,
-            createdAt: Date()        )
+            recurrence: .none, createdAt: Date())
         let splits: [UUID: [Split]] = [
             expense.id: [
                 Split(id: UUID(), expenseID: expense.id, userID: payerID, amount: 30.00, percentage: nil, isSettled: false, settledAt: nil),
@@ -300,7 +300,7 @@ struct SplitCalculatorTests {
             id: UUID(), groupID: UUID(), title: "Taxi",
             amount: 40.00, currency: "USD", payerID: aliceID,
             category: .transport, notes: nil, receiptURL: nil,
-            createdAt: Date()        )
+            recurrence: .none, createdAt: Date())
         let splits: [UUID: [Split]] = [
             expense.id: [
                 Split(id: UUID(), expenseID: expense.id, userID: aliceID, amount: 20.00, percentage: nil, isSettled: false, settledAt: nil),

@@ -1,3 +1,10 @@
+//
+//  GroupService.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import Foundation
 import Supabase
 
@@ -11,24 +18,38 @@ final class GroupService: Sendable {
     // MARK: - Fetch
 
     func fetchGroups(for userID: UUID) async throws -> [BillGroup] {
-        // Join group_members → groups, return only non-archived groups
-        struct Row: Decodable { let group: BillGroup? }
-        let rows: [Row] = try await supabase.table("group_members")
-            .select("group:groups(*)")
-            .eq("user_id", value: userID)
+        let groupIDs = try await memberGroupIDs(userID: userID)
+        guard !groupIDs.isEmpty else { return [] }
+        return try await supabase.table("groups")
+            .select()
+            .in("id", values: groupIDs)
+            .eq("is_archived", value: false)
             .execute()
             .value
-        return rows.compactMap(\.group).filter { !$0.isArchived }
     }
 
     func fetchArchivedGroups(for userID: UUID) async throws -> [BillGroup] {
-        struct Row: Decodable { let group: BillGroup? }
+        let groupIDs = try await memberGroupIDs(userID: userID)
+        guard !groupIDs.isEmpty else { return [] }
+        return try await supabase.table("groups")
+            .select()
+            .in("id", values: groupIDs)
+            .eq("is_archived", value: true)
+            .execute()
+            .value
+    }
+
+    private func memberGroupIDs(userID: UUID) async throws -> [UUID] {
+        struct Row: Decodable {
+            let groupId: UUID
+            enum CodingKeys: String, CodingKey { case groupId = "group_id" }
+        }
         let rows: [Row] = try await supabase.table("group_members")
-            .select("group:groups(*)")
+            .select("group_id")
             .eq("user_id", value: userID)
             .execute()
             .value
-        return rows.compactMap(\.group).filter { $0.isArchived }
+        return rows.map(\.groupId)
     }
 
     func fetchGroup(id: UUID) async throws -> BillGroup {
@@ -212,17 +233,28 @@ final class GroupService: Sendable {
 
     // MARK: - Realtime
 
-    /// Returns an AsyncStream that yields whenever the current user's group memberships change.
+    /// Returns an AsyncStream that yields whenever the current user's group memberships or group metadata change.
     func groupChanges(userID: UUID) async throws -> AsyncStream<Void> {
-        let channel = supabase.client.channel("groups-\(userID.uuidString)")
-        let stream = channel.postgresChange(AnyAction.self, schema: "public", table: "group_members")
-        try await channel.subscribe()
+        let topic = "groups-\(userID.uuidString)"
+        // The SDK caches channels by topic; remove any existing subscribed channel
+        // before registering new callbacks to avoid "callbacks after subscribe" error.
+        let stale = supabase.client.channel(topic)
+        await supabase.client.removeChannel(stale)
+
+        let channel = supabase.client.channel(topic)
+        let membersStream = channel.postgresChange(AnyAction.self, schema: "public", table: "group_members")
+        let groupsStream  = channel.postgresChange(AnyAction.self, schema: "public", table: "groups")
+        try await channel.subscribeWithError()
+        let client = supabase.client
         return AsyncStream { continuation in
+            continuation.onTermination = { _ in
+                Task { await client.removeChannel(channel) }
+            }
             Task {
-                for await _ in stream {
-                    continuation.yield()
-                }
-                continuation.finish()
+                for await _ in membersStream { continuation.yield() }
+            }
+            Task {
+                for await _ in groupsStream { continuation.yield() }
             }
         }
     }

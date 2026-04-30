@@ -1,3 +1,10 @@
+//
+//  GroupListView.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import SwiftUI
 
 struct GroupListView: View {
@@ -34,7 +41,10 @@ struct GroupListView: View {
                 }
             }
             .sheet(isPresented: $showCreateGroup) {
-                CreateGroupView { _ in await vm.refresh() }
+                CreateGroupView { newGroup in
+                    vm.groups.append(newGroup)
+                    SpotlightService.indexGroups(vm.groups)
+                }
             }
             .refreshable {
                 await vm.refresh()
@@ -105,10 +115,16 @@ struct GroupListView: View {
         .background(Color.bgSecondary)
         .listRowSeparatorTint(Color.separator)
         .navigationDestination(for: BillGroup.self) { group in
-            GroupDetailView(
-                vm: GroupViewModel(group: group),
-                currentUserID: vm.currentUser?.id ?? UUID()
-            )
+            if let userID = vm.currentUser?.id {
+                GroupDetailView(
+                    vm: GroupViewModel(group: group),
+                    currentUserID: userID,
+                    onGroupStatusChanged: {
+                        await vm.refresh()
+                        await vm.loadArchivedGroups()
+                    }
+                )
+            }
         }
     }
 

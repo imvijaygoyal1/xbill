@@ -1,3 +1,10 @@
+//
+//  CreateGroupView.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import SwiftUI
 
 struct CreateGroupView: View {
@@ -17,7 +24,7 @@ struct CreateGroupView: View {
         "🎵", "🚗", "💊", "📚", "🌮", "🍣", "⚽", "🎯", "🎁", "🧳"
     ]
 
-    private let currencies = ["USD", "EUR", "GBP", "INR", "AUD", "CAD", "SGD", "JPY"]
+    private let currencies = ExchangeRateService.commonCurrencies
 
     var canCreate: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty }
 
@@ -112,15 +119,26 @@ struct CreateGroupView: View {
         isLoading = true
         defer { isLoading = false }
         do {
+            let profile = try? await AuthService.shared.currentUser()
             let group = try await GroupService.shared.createGroup(
                 name: name.trimmingCharacters(in: .whitespaces),
                 emoji: selectedEmoji,
                 currency: currency,
                 createdBy: userID
             )
+            let trimmedEmail = inviteEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedEmail.isEmpty {
+                try? await GroupService.shared.inviteMembers(
+                    emails: [trimmedEmail],
+                    groupName: group.name,
+                    groupEmoji: group.emoji,
+                    inviterName: profile?.displayName ?? "Someone"
+                )
+            }
             await onCreated(group)
             dismiss()
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.error = AppError.from(error)
         }
     }

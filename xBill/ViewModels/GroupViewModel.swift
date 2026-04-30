@@ -1,3 +1,10 @@
+//
+//  GroupViewModel.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import Foundation
 import Observation
 
@@ -55,7 +62,7 @@ final class GroupViewModel {
                 SpotlightService.indexExpenses(fetchedExpenses, groupName: group.name, groupEmoji: group.emoji)
                 await computeBalances()
             } catch {
-                guard !(error is CancellationError) else { return }
+                guard !AppError.isSilent(error) else { return }
                 // Fall back to cache on network error
                 if members.isEmpty  { members  = CacheService.shared.loadMembers(groupID: group.id) }
                 if expenses.isEmpty { expenses = CacheService.shared.loadExpenses(groupID: group.id) }
@@ -99,6 +106,7 @@ final class GroupViewModel {
             try await groupService.addMember(groupId: group.id, userId: userId)
             await load()
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
@@ -110,6 +118,7 @@ final class GroupViewModel {
             try await groupService.removeMember(groupId: group.id, userId: userID)
             await load()
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
@@ -123,7 +132,11 @@ final class GroupViewModel {
             var updated = group
             updated.isArchived = true
             group = try await groupService.updateGroup(updated)
+            var cached = CacheService.shared.loadGroups()
+            cached.removeAll { $0.id == group.id }
+            CacheService.shared.saveGroups(cached)
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
@@ -135,7 +148,13 @@ final class GroupViewModel {
             var updated = group
             updated.isArchived = false
             group = try await groupService.updateGroup(updated)
+            var cached = CacheService.shared.loadGroups()
+            if !cached.contains(where: { $0.id == group.id }) {
+                cached.append(group)
+                CacheService.shared.saveGroups(cached)
+            }
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
@@ -184,6 +203,7 @@ final class GroupViewModel {
 
             await load()
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
@@ -197,6 +217,7 @@ final class GroupViewModel {
             splitsMap.removeValue(forKey: expense.id)
             await computeBalances()
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
@@ -211,6 +232,7 @@ final class GroupViewModel {
             }
             await computeBalances()
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
@@ -240,6 +262,7 @@ final class GroupViewModel {
 
             await load()
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }

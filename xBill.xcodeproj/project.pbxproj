@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		00A2504533911F143F2C4F9F /* ActivityItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1F1C9D0BD11514C7CA0ADF /* ActivityItem.swift */; };
+		02DB9838B626008A375E8BD5 /* GroupFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA815E59A9392EC45FC52770 /* GroupFlowTests.swift */; };
 		0382A3B05FD435103A7599E5 /* GroupDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA937D31A0181F43B8747D40 /* GroupDetailView.swift */; };
 		0A726A1D819C6155645F4A2D /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395C4D39C71AAE22F3D2CAA4 /* EmptyStateView.swift */; };
 		0ADB22C3506F27AB43A4F2AF /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 089113BCA5CC5EBB34974DD9 /* HapticManager.swift */; };
@@ -88,6 +89,7 @@
 		D591CAF6F79DA7AF9EEC23D8 /* ActivityViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15E8600431061D4E18C948CE /* ActivityViewModel.swift */; };
 		D877B4C2B93A0F18F2BEF04C /* ForgotPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 664476D95516D6FD52C66F91 /* ForgotPasswordView.swift */; };
 		D8D65B0D644476ADCBE28A91 /* ExpenseRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4185D86CF6ECFD00EC25628 /* ExpenseRowView.swift */; };
+		DB3CA3E4E92BBA9FA06C0685 /* GroupFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03B23885DCEF8D3A2862BDCF /* GroupFlowUITests.swift */; };
 		E02E33C577B484FF78380CF1 /* JoinGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F05A200F1E19E50323CFDE /* JoinGroupView.swift */; };
 		E22E2E9ADD3596691B8F0CC4 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A34645B53CEA1FC51CD867B1 /* OnboardingView.swift */; };
 		E242F2571DF59CECE27D0ED4 /* PaymentLinkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F57D9E8BA76933667996CC /* PaymentLinkService.swift */; };
@@ -121,6 +123,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		03B23885DCEF8D3A2862BDCF /* GroupFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupFlowUITests.swift; sourceTree = "<group>"; };
 		05B3640249525E36A9F52772 /* AddExpenseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddExpenseView.swift; sourceTree = "<group>"; };
 		07FD702DF905B1648AC99BA8 /* Comment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Comment.swift; sourceTree = "<group>"; };
 		089113BCA5CC5EBB34974DD9 /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
@@ -138,6 +141,7 @@
 		2CCE2A2449DE087F7C0D3279 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		2EE32F30DD7CE24CD3A20BDD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		395C4D39C71AAE22F3D2CAA4 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
+		407648848EB75D072D788008 /* xBill.Debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = xBill.Debug.entitlements; sourceTree = "<group>"; };
 		409D770333EE099DAF34DC66 /* ExpenseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseService.swift; sourceTree = "<group>"; };
 		40A69C55FFF1DB3E06C04CB2 /* LoadingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingOverlay.swift; sourceTree = "<group>"; };
 		410250FF5165956E1D72F2AB /* ShareSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheetView.swift; sourceTree = "<group>"; };
@@ -185,6 +189,7 @@
 		A9F05A200F1E19E50323CFDE /* JoinGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoinGroupView.swift; sourceTree = "<group>"; };
 		B15941156CC3FE45D87BA4FD /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		BA2F6A9C1B5518B246E1F435 /* CreateGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateGroupView.swift; sourceTree = "<group>"; };
+		BA815E59A9392EC45FC52770 /* GroupFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupFlowTests.swift; sourceTree = "<group>"; };
 		BB4481148EB9CE5A694C43C5 /* SettleUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettleUpView.swift; sourceTree = "<group>"; };
 		C2EC2F7533797B1D64E4E904 /* Group.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Group.swift; sourceTree = "<group>"; };
 		C357CB10AF58D0B03787860E /* XBillCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillCard.swift; sourceTree = "<group>"; };
@@ -327,6 +332,7 @@
 		6ABDCA7D6D2D3386638893E7 /* xBillUITests */ = {
 			isa = PBXGroup;
 			children = (
+				03B23885DCEF8D3A2862BDCF /* GroupFlowUITests.swift */,
 				C5C4BA81091307A0810FA982 /* OnboardingUITests.swift */,
 			);
 			path = xBillUITests;
@@ -468,6 +474,7 @@
 		E81DF1FD3C8224431510E29F /* xBillTests */ = {
 			isa = PBXGroup;
 			children = (
+				BA815E59A9392EC45FC52770 /* GroupFlowTests.swift */,
 				6F7E985AB9EB58FE61DF4C83 /* SplitCalculatorTests.swift */,
 			);
 			path = xBillTests;
@@ -483,6 +490,7 @@
 				FADF86D4F2B03A1FA6ABD5E9 /* Views */,
 				C8DD986E4230E05B93E8DB84 /* Assets.xcassets */,
 				7D61CEC8B0A8BF9508268563 /* Info.plist */,
+				407648848EB75D072D788008 /* xBill.Debug.entitlements */,
 				C6DD9ABFBB9977E1A8181A0B /* xBill.entitlements */,
 				9A92E6317BFEDCD8644649CC /* xBillApp.swift */,
 			);
@@ -618,6 +626,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				02DB9838B626008A375E8BD5 /* GroupFlowTests.swift in Sources */,
 				3480BEBFF1A5006FEC9457CC /* SplitCalculatorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -723,6 +732,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DB3CA3E4E92BBA9FA06C0685 /* GroupFlowUITests.swift in Sources */,
 				2CFDE350FBF34B8CCC7DBB4C /* OnboardingUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -818,7 +828,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = xBill/xBill.entitlements;
+				CODE_SIGN_ENTITLEMENTS = xBill/xBill.Debug.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = xBill/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

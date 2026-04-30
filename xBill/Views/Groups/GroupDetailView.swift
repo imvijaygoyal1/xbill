@@ -1,14 +1,23 @@
+//
+//  GroupDetailView.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import SwiftUI
 
 struct GroupDetailView: View {
     @Bindable var vm: GroupViewModel
     let currentUserID: UUID
+    var onGroupStatusChanged: (() async -> Void)?
     @State private var showAddExpense = false
     @State private var showSettleUp = false
     @State private var showInvite = false
     @State private var showInviteLink = false
     @State private var showStats = false
     @State private var showArchiveConfirm = false
+    @State private var showUnarchiveConfirm = false
     @State private var shareItem: ExportShareItem?
     @State private var selectedTab = 0
     @State private var searchText = ""
@@ -83,12 +92,33 @@ struct GroupDetailView: View {
                 Button("Archive Group", role: .destructive) {
                     Task {
                         await vm.archiveGroup()
+                        await onGroupStatusChanged?()
                         dismiss()
                     }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("The group will be hidden from your active list. You can unarchive it later from the Groups tab.")
+                if vm.settlementSuggestions.isEmpty {
+                    Text("The group will be hidden from your active list. You can unarchive it later from the Groups tab.")
+                } else {
+                    Text("This group has \(vm.settlementSuggestions.count) unsettled balance\(vm.settlementSuggestions.count == 1 ? "" : "s"). It will be hidden from your active list — you can unarchive it later from the Groups tab.")
+                }
+            }
+            .confirmationDialog(
+                "Unarchive \"\(vm.group.name)\"?",
+                isPresented: $showUnarchiveConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Unarchive Group") {
+                    Task {
+                        await vm.unarchiveGroup()
+                        await onGroupStatusChanged?()
+                        dismiss()
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("The group will be moved back to your active list.")
             }
             .navigationDestination(isPresented: $showStats) {
                 GroupStatsView(
@@ -317,10 +347,18 @@ struct GroupDetailView: View {
 
                 Divider()
 
-                Button(role: .destructive) {
-                    showArchiveConfirm = true
-                } label: {
-                    Label("Archive Group", systemImage: "archivebox")
+                if vm.group.isArchived {
+                    Button {
+                        showUnarchiveConfirm = true
+                    } label: {
+                        Label("Unarchive Group", systemImage: "tray.and.arrow.up")
+                    }
+                } else {
+                    Button(role: .destructive) {
+                        showArchiveConfirm = true
+                    } label: {
+                        Label("Archive Group", systemImage: "archivebox")
+                    }
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
