@@ -1,3 +1,10 @@
+//
+//  FABButton.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import SwiftUI
 
 struct FABButton: View {
@@ -14,8 +21,10 @@ struct FABButton: View {
                 .frame(width: XBillIcon.fabSize, height: XBillIcon.fabSize)
                 .background(Color.brandPrimary)
                 .clipShape(Circle())
-                .shadow(color: Color.brandPrimary.opacity(0.35), radius: 8, x: 0, y: 4)
+                // Clay: hard offset shadow on FAB instead of soft glow
+                .shadow(color: .black.opacity(0.25), radius: 0, x: -3, y: 3)
         }
+        .buttonStyle(ClayButtonStyle())
     }
 }
 

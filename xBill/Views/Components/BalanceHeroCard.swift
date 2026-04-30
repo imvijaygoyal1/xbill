@@ -1,3 +1,10 @@
+//
+//  BalanceHeroCard.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import SwiftUI
 
 struct BalanceHeroCard: View {
@@ -10,7 +17,8 @@ struct BalanceHeroCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: XBillSpacing.xs) {
             Text(label.uppercased())
-                .font(.xbillSectionTitle)
+                .font(.xbillUpperLabel)
+                .tracking(1.08)
                 .foregroundStyle(Color.brandAccent)
 
             Text(amount.formatted(currencyCode: currency))
@@ -26,7 +34,7 @@ struct BalanceHeroCard: View {
         .padding(.horizontal, XBillSpacing.xl)
         .padding(.vertical, XBillSpacing.lg)
         .background(Color.brandPrimary)
-        .clipShape(RoundedRectangle(cornerRadius: XBillRadius.xl))
+        .clipShape(RoundedRectangle(cornerRadius: XBillRadius.card))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label): \(amount.formatted(currencyCode: currency)), \(subtitle)")
     }

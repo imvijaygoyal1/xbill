@@ -1,3 +1,10 @@
+//
+//  HapticManager.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import UIKit
 
 @MainActor

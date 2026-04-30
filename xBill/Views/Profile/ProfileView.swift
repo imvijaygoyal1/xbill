@@ -1,3 +1,10 @@
+//
+//  ProfileView.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import SwiftUI
 import UIKit
 
@@ -119,6 +126,25 @@ struct ProfileView: View {
                     .listRowBackground(Color.bgCard)
                 } header: {
                     Text("PAYMENT HANDLES")
+                        .font(.xbillUpperLabel)
+                        .tracking(1.08)
+                        .foregroundStyle(Color.textTertiary)
+                }
+
+                // Security
+                Section {
+                    Toggle(isOn: Binding(
+                        get: { AppLockService.shared.isEnabled },
+                        set: { AppLockService.shared.isEnabled = $0 }
+                    )) {
+                        Label("Require Face ID / Passcode", systemImage: AppLockService.shared.lockIconName)
+                            .font(.xbillBodyMedium)
+                            .foregroundStyle(Color.textPrimary)
+                    }
+                    .tint(Color.brandPrimary)
+                    .listRowBackground(Color.bgCard)
+                } header: {
+                    Text("SECURITY")
                         .font(.xbillUpperLabel)
                         .tracking(1.08)
                         .foregroundStyle(Color.textTertiary)

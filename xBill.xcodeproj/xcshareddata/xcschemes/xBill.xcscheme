@@ -49,6 +49,20 @@
                ReferencedContainer = "container:xBill.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "401CB2682ED66B85C3BA883B"
+               BuildableName = "xBillWidget.appex"
+               BlueprintName = "xBillWidget"
+               ReferencedContainer = "container:xBill.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

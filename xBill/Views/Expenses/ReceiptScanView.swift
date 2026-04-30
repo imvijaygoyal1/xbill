@@ -1,3 +1,10 @@
+//
+//  ReceiptScanView.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import SwiftUI
 import UIKit
 import VisionKit
@@ -138,6 +145,18 @@ struct ReceiptScanView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding()
                                 .background(Color(.systemGray5))
+                                .foregroundStyle(.primary)
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                        }
+
+                        Button {
+                            vm.startManually(members: members)
+                            showReview = true
+                        } label: {
+                            Label("Enter Manually", systemImage: "pencil")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color(.systemGray6))
                                 .foregroundStyle(.primary)
                                 .clipShape(RoundedRectangle(cornerRadius: 14))
                         }

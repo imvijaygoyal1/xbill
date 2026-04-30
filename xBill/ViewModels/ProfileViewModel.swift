@@ -1,3 +1,10 @@
+//
+//  ProfileViewModel.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import Foundation
 import UIKit
 import Observation
@@ -36,6 +43,7 @@ final class ProfileViewModel {
             displayName = loaded.displayName
             await loadStats(userID: loaded.id)
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
@@ -90,6 +98,7 @@ final class ProfileViewModel {
             self.user   = updated
             isSaved     = true
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }

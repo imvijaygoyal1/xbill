@@ -1,3 +1,10 @@
+//
+//  AuthService.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import Foundation
 import UIKit
 import Supabase
@@ -184,4 +191,3 @@ private struct UserUpdatePayload: Encodable {
         case avatarURL   = "avatar_url"
     }
 }
-

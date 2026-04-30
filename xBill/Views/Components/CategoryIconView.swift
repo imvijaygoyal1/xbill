@@ -1,3 +1,10 @@
+//
+//  CategoryIconView.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import SwiftUI
 
 // Extends the existing Expense.Category model with visual properties

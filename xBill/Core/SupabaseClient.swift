@@ -1,3 +1,10 @@
+//
+//  SupabaseClient.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import Foundation
 import Supabase
 
@@ -17,7 +24,15 @@ final class SupabaseManager: Sendable {
         let resolvedURL = URL(string: urlString) ?? URL(string: "https://placeholder.supabase.co")!
         let resolvedKey = key.isEmpty ? "placeholder-key" : key
 
-        client = SupabaseClient(supabaseURL: resolvedURL, supabaseKey: resolvedKey)
+        client = SupabaseClient(
+            supabaseURL: resolvedURL,
+            supabaseKey: resolvedKey,
+            options: SupabaseClientOptions(
+                auth: SupabaseClientOptions.AuthOptions(
+                    emitLocalSessionAsInitialSession: true
+                )
+            )
+        )
     }
 }
 

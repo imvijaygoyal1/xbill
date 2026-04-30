@@ -1,3 +1,10 @@
+//
+//  CommentService.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import Foundation
 import Supabase
 
@@ -51,15 +58,24 @@ final class CommentService: Sendable {
 
     /// Streams a signal whenever any comment on the given expense changes.
     func commentChanges(expenseID: UUID) async throws -> AsyncStream<Void> {
-        let channel = supabase.client.channel("comments-\(expenseID.uuidString)")
+        let topic = "comments-\(expenseID.uuidString)"
+        // Remove any existing subscribed channel before registering new callbacks.
+        let stale = supabase.client.channel(topic)
+        await supabase.client.removeChannel(stale)
+
+        let channel = supabase.client.channel(topic)
         let stream  = channel.postgresChange(
             AnyAction.self,
             schema: "public",
             table:  "comments",
             filter: "expense_id=eq.\(expenseID.uuidString)"
         )
-        try await channel.subscribe()
+        try await channel.subscribeWithError()
+        let client = supabase.client
         return AsyncStream { continuation in
+            continuation.onTermination = { _ in
+                Task { await client.removeChannel(channel) }
+            }
             Task {
                 for await _ in stream { continuation.yield() }
                 continuation.finish()

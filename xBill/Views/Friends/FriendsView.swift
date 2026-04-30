@@ -1,3 +1,10 @@
+//
+//  FriendsView.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import SwiftUI
 
 // MARK: - FriendsView
@@ -43,6 +50,7 @@ struct FriendsView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
+                Color.bgSecondary.ignoresSafeArea()
                 Group {
                     if isLoading && ious.isEmpty {
                         LoadingOverlay(message: "Loading…")

@@ -1,3 +1,10 @@
+//
+//  AddExpenseViewModel.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import Foundation
 import Observation
 
@@ -111,6 +118,7 @@ final class AddExpenseViewModel {
             convertedAmount = (amount * Decimal(rate)).rounded(scale: 2)
             recomputeSplits()
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
@@ -161,6 +169,7 @@ final class AddExpenseViewModel {
                 )
             }
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }

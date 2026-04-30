@@ -1,3 +1,10 @@
+//
+//  AuthViewModel.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import Foundation
 import Observation
 
@@ -52,10 +59,11 @@ final class AuthViewModel {
         for await (event, session) in SupabaseManager.shared.auth.authStateChanges {
             switch event {
             case .initialSession, .signedIn, .tokenRefreshed, .userUpdated:
-                // Don't navigate into the app until the email is confirmed.
-                // emailConfirmedAt is nil for unconfirmed sign-ups even when a
-                // temporary session is issued by Supabase.
-                guard session?.user.emailConfirmedAt != nil else { break }
+                // Block unconfirmed email/password sign-ups only.
+                // OAuth providers (Apple, etc.) are pre-verified — emailConfirmedAt is nil for them
+                // but they must still be allowed through.
+                let isEmailProvider = session?.user.appMetadata["provider"] == "email"
+                guard session?.user.emailConfirmedAt != nil || !isEmailProvider else { break }
                 if currentUser == nil {
                     await loadCurrentUser()
                 }
@@ -79,6 +87,7 @@ final class AuthViewModel {
         do {
             currentUser = try await auth.signInWithEmail(email: email, password: password)
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Sign In Failed", message: error.localizedDescription)
         }
     }
@@ -106,6 +115,7 @@ final class AuthViewModel {
         do {
             currentUser = try await auth.signInWithApple(idToken: idToken, nonce: nonce)
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Sign In Failed", message: error.localizedDescription)
         }
     }

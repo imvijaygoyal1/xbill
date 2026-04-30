@@ -1,3 +1,10 @@
+//
+//  Group.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import Foundation
 
 // MARK: - BillGroup

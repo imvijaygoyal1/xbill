@@ -4,3 +4,12 @@
 # The function itself verifies identity using adminClient.auth.getUser(jwt).
 [functions.delete-account]
 verify_jwt = false
+
+# Apple Sign In — native iOS flow (signInWithIdToken).
+# For the hosted project, configure via Supabase dashboard → Auth → Providers → Apple.
+# These values are for local `supabase start` only.
+# client_id = App Bundle ID for native flows; secret = contents of .p8 private key.
+[auth.external.apple]
+enabled = true
+client_id = "com.vijaygoyal.xbill"
+secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"

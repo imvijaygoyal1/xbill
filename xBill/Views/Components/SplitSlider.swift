@@ -1,3 +1,10 @@
+//
+//  SplitSlider.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import SwiftUI
 
 /// A labeled slider for adjusting a split percentage (0–100).

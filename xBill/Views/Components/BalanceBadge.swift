@@ -1,3 +1,10 @@
+//
+//  BalanceBadge.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import SwiftUI
 
 /// Compact balance indicator: green when owed money, red when owing money.

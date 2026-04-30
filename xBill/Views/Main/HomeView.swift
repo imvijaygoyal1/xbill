@@ -1,3 +1,10 @@
+//
+//  HomeView.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import SwiftUI
 
 struct HomeView: View {
@@ -86,6 +93,44 @@ struct HomeView: View {
                                     .buttonStyle(.plain)
                                 }
                             }
+                            .padding(.horizontal, XBillSpacing.base)
+                        }
+                    }
+
+                    // Cross-Group Settlements
+                    if !vm.crossGroupSuggestions.isEmpty {
+                        VStack(alignment: .leading, spacing: XBillSpacing.sm) {
+                            Text("SIMPLIFY DEBTS")
+                                .font(.xbillUpperLabel)
+                                .tracking(1.08)
+                                .foregroundStyle(Color.textTertiary)
+                                .padding(.horizontal, XBillSpacing.base)
+
+                            LazyVStack(spacing: 0) {
+                                ForEach(vm.crossGroupSuggestions) { suggestion in
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(suggestion.fromName)
+                                                .font(.xbillBodyMedium)
+                                                .foregroundStyle(Color.textPrimary)
+                                            Text("→ \(suggestion.toName)")
+                                                .font(.xbillBodySmall)
+                                                .foregroundStyle(Color.textSecondary)
+                                        }
+                                        Spacer()
+                                        AmountBadge(amount: suggestion.amount,
+                                                    direction: .negative,
+                                                    currency: suggestion.currency)
+                                    }
+                                    .padding(.horizontal, XBillSpacing.base)
+                                    .padding(.vertical, XBillSpacing.sm)
+
+                                    if suggestion.id != vm.crossGroupSuggestions.last?.id {
+                                        Divider().padding(.leading, XBillSpacing.base)
+                                    }
+                                }
+                            }
+                            .asSharpCard()
                             .padding(.horizontal, XBillSpacing.base)
                         }
                     }

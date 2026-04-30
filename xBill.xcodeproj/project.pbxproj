@@ -25,7 +25,9 @@
 		169E0F2F71F2AC933FACE7DB /* ResetPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 745C32AE77CF03058CA5A0EF /* ResetPasswordView.swift */; };
 		187D161AEE815B7BD5BCD462 /* CacheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C536C5DB8C1ABAFD5A1E429E /* CacheService.swift */; };
 		1ED33E0BD52902791C3224C7 /* LoadingOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40A69C55FFF1DB3E06C04CB2 /* LoadingOverlay.swift */; };
+		1F84DDE27084D553E6C68558 /* AppLockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1AA80878C6019F39FCF7C81 /* AppLockView.swift */; };
 		1FA27BE13A2ED0B77F4BA3CF /* Split.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BE26925670AA40279463526 /* Split.swift */; };
+		2113A79F60A900AE0A4BFDBD /* xBillBalanceWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11E59EF823399BA4E3F85F90 /* xBillBalanceWidget.swift */; };
 		27C9F1CCE5A9662E1FF86F0D /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE32F30DD7CE24CD3A20BDD /* AppState.swift */; };
 		2BA01380F09AAD24964C4CA4 /* Receipt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26C33DD3A8F942B96FA9D543 /* Receipt.swift */; };
 		2CFDE350FBF34B8CCC7DBB4C /* OnboardingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5C4BA81091307A0810FA982 /* OnboardingUITests.swift */; };
@@ -53,6 +55,7 @@
 		65AD6368AEC53055BDD3969B /* ReceiptViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECF005101BCA70988BD71C7A /* ReceiptViewModel.swift */; };
 		66A524939E2352E9B1580268 /* AmountBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */; };
 		6EDA928318E8E22341427A26 /* AddIOUView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C79EEC6EC097063C28E154B5 /* AddIOUView.swift */; };
+		70CB70C2D5456FAA4C1E8B00 /* AppLockService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCD55A43BD566A836D7BC676 /* AppLockService.swift */; };
 		73CDD159049479799C4FEAA2 /* XBillTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51E90EC1B09543804ACB2689 /* XBillTextField.swift */; };
 		7F69EC25ABB4331BBB1050DE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C8DD986E4230E05B93E8DB84 /* Assets.xcassets */; };
 		812CFAA3B9BAAA85161FA26E /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4FA0DF138FAAA01522B668E /* ActivityView.swift */; };
@@ -69,16 +72,19 @@
 		988027AF52C6E1EAB234B285 /* BalanceHeroCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B613E685BD7816E9407BCC9 /* BalanceHeroCard.swift */; };
 		98DC99B2D9719939557DC8B9 /* SafariView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31FB8D895C2D14483536831 /* SafariView.swift */; };
 		9A20B11A79D09FC207D88F35 /* GroupListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1131C3DF2E6898248D0857CE /* GroupListView.swift */; };
+		9A76A87FA21BFD4F3ADA3740 /* P2FeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FB75CACE895B59BCDF118AD /* P2FeatureTests.swift */; };
 		9FCBA411853C06D848043A83 /* GroupStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120CE4CD8F77F9C169C04174 /* GroupStatsView.swift */; };
 		A03E9F6CA03D85C197D4BCCE /* BalanceBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F38393AE0CF6D1799617DF5B /* BalanceBadge.swift */; };
 		A39FA18B4B057799E1007694 /* GroupInviteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C7FA86BA6CFBFDE4B55D14 /* GroupInviteView.swift */; };
 		A3C97EE52AE95E47C7608669 /* XBillLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8774FF8110279703171745B /* XBillLayout.swift */; };
+		A78D12BBE20A1D293E0DB55F /* xBillWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7019A0E1C1F524DA0A45BBD /* xBillWidgetBundle.swift */; };
 		A94A95142FD3CDBEA126F517 /* CreateGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA2F6A9C1B5518B246E1F435 /* CreateGroupView.swift */; };
 		A9860DDF8612D3CE68AC6FB3 /* CategoryIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E65272EFDCFD007E43ADAD46 /* CategoryIconView.swift */; };
 		B23C8B565012DDE6432E4B9B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 584BAC14164D3737BAC27CC5 /* ContentView.swift */; };
 		B33FBBE5819AF4C6161CD460 /* QuickAddExpenseSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF35C40846E6F5E8F901117 /* QuickAddExpenseSheet.swift */; };
 		B5DAF1DF87B84590F7EE11DA /* GroupInvite.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBFE0C31221A637C053EB927 /* GroupInvite.swift */; };
 		B74AEE2665D15137C350A1AC /* XBillWordmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3009227F418A3B8AF412629 /* XBillWordmark.swift */; };
+		BAFBE47FC0F31702CF3AE9E8 /* xBillWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 00D3FF52404226E25568FE85 /* xBillWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C0A34302D61036B54C10B112 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9300CF88C633865DC505CDF7 /* HomeView.swift */; };
 		C32CC9D8E957EA4033C2E43F /* TermsOfServiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E5A79FC8CA0B5CB9744BDEC /* TermsOfServiceView.swift */; };
 		C345C3FCACF011DD4FBBBBE6 /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2516D590CE1CD48191C4DD /* AvatarView.swift */; };
@@ -106,6 +112,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		10DB64E81A19765A820810F4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AEB5E444CD20972898DE3D47 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 401CB2682ED66B85C3BA883B;
+			remoteInfo = xBillWidget;
+		};
 		8B4904A382CD76DFFBE6E1A0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = AEB5E444CD20972898DE3D47 /* Project object */;
@@ -122,7 +135,22 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		64C242903339C74E3BC6DF01 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BAFBE47FC0F31702CF3AE9E8 /* xBillWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		00D3FF52404226E25568FE85 /* xBillWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = xBillWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		03B23885DCEF8D3A2862BDCF /* GroupFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupFlowUITests.swift; sourceTree = "<group>"; };
 		05B3640249525E36A9F52772 /* AddExpenseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddExpenseView.swift; sourceTree = "<group>"; };
 		07FD702DF905B1648AC99BA8 /* Comment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Comment.swift; sourceTree = "<group>"; };
@@ -130,6 +158,7 @@
 		0901632BF0632E2ED30CC7CE /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		0AB8AF6F4AAD3693C507E55E /* AppError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppError.swift; sourceTree = "<group>"; };
 		1131C3DF2E6898248D0857CE /* GroupListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupListView.swift; sourceTree = "<group>"; };
+		11E59EF823399BA4E3F85F90 /* xBillBalanceWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = xBillBalanceWidget.swift; sourceTree = "<group>"; };
 		120CE4CD8F77F9C169C04174 /* GroupStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupStatsView.swift; sourceTree = "<group>"; };
 		15E8600431061D4E18C948CE /* ActivityViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityViewModel.swift; sourceTree = "<group>"; };
 		1D45105FFF4B5F811A38E58C /* GroupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupViewModel.swift; sourceTree = "<group>"; };
@@ -179,6 +208,7 @@
 		8D85C410EDC2CE37CB244E4B /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
 		8D986D57DDF158CEA66402A3 /* XBillColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillColors.swift; sourceTree = "<group>"; };
 		8E5A79FC8CA0B5CB9744BDEC /* TermsOfServiceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermsOfServiceView.swift; sourceTree = "<group>"; };
+		8FB75CACE895B59BCDF118AD /* P2FeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P2FeatureTests.swift; sourceTree = "<group>"; };
 		92AB5FEAE2D546E1998CAE05 /* VisionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionService.swift; sourceTree = "<group>"; };
 		9300CF88C633865DC505CDF7 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		97E234D4DA2614F1BCDCB0EF /* Expense.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Expense.swift; sourceTree = "<group>"; };
@@ -188,6 +218,7 @@
 		A34645B53CEA1FC51CD867B1 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		A9F05A200F1E19E50323CFDE /* JoinGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoinGroupView.swift; sourceTree = "<group>"; };
 		B15941156CC3FE45D87BA4FD /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		B1AA80878C6019F39FCF7C81 /* AppLockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockView.swift; sourceTree = "<group>"; };
 		BA2F6A9C1B5518B246E1F435 /* CreateGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateGroupView.swift; sourceTree = "<group>"; };
 		BA815E59A9392EC45FC52770 /* GroupFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupFlowTests.swift; sourceTree = "<group>"; };
 		BB4481148EB9CE5A694C43C5 /* SettleUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettleUpView.swift; sourceTree = "<group>"; };
@@ -207,11 +238,13 @@
 		D8774FF8110279703171745B /* XBillLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillLayout.swift; sourceTree = "<group>"; };
 		DA937D31A0181F43B8747D40 /* GroupDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupDetailView.swift; sourceTree = "<group>"; };
 		DCBBD52E262E694ADC799385 /* xBill.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = xBill.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DCD55A43BD566A836D7BC676 /* AppLockService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockService.swift; sourceTree = "<group>"; };
 		E22D97081A17583A65576DEE /* GroupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupService.swift; sourceTree = "<group>"; };
 		E3009227F418A3B8AF412629 /* XBillWordmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillWordmark.swift; sourceTree = "<group>"; };
 		E5685D1C7A9AB1D8C03FCA78 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		E5F57D9E8BA76933667996CC /* PaymentLinkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentLinkService.swift; sourceTree = "<group>"; };
 		E65272EFDCFD007E43ADAD46 /* CategoryIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryIconView.swift; sourceTree = "<group>"; };
+		E7019A0E1C1F524DA0A45BBD /* xBillWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = xBillWidgetBundle.swift; sourceTree = "<group>"; };
 		EB8ECB0D8B3E6EACF9A77C06 /* SpotlightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightService.swift; sourceTree = "<group>"; };
 		EBFE0C31221A637C053EB927 /* GroupInvite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupInvite.swift; sourceTree = "<group>"; };
 		ECF005101BCA70988BD71C7A /* ReceiptViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptViewModel.swift; sourceTree = "<group>"; };
@@ -242,6 +275,7 @@
 			isa = PBXGroup;
 			children = (
 				256F7DDB19351E2D8938CD52 /* ActivityService.swift */,
+				DCD55A43BD566A836D7BC676 /* AppLockService.swift */,
 				0901632BF0632E2ED30CC7CE /* AuthService.swift */,
 				C536C5DB8C1ABAFD5A1E429E /* CacheService.swift */,
 				778036DF9F61D09FB9AA6E3A /* CommentService.swift */,
@@ -282,6 +316,7 @@
 				F1D5D3B0302D3E094DE060F4 /* xBill */,
 				E81DF1FD3C8224431510E29F /* xBillTests */,
 				6ABDCA7D6D2D3386638893E7 /* xBillUITests */,
+				DBB8AF6443C9880E4317DFCC /* xBillWidget */,
 				B114A945853B40AA1B24B049 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -459,8 +494,18 @@
 				DCBBD52E262E694ADC799385 /* xBill.app */,
 				89057588D65EDF35173A2BDB /* xBillTests.xctest */,
 				28324ABF2241B36B3608474F /* xBillUITests.xctest */,
+				00D3FF52404226E25568FE85 /* xBillWidget.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		DBB8AF6443C9880E4317DFCC /* xBillWidget */ = {
+			isa = PBXGroup;
+			children = (
+				11E59EF823399BA4E3F85F90 /* xBillBalanceWidget.swift */,
+				E7019A0E1C1F524DA0A45BBD /* xBillWidgetBundle.swift */,
+			);
+			path = xBillWidget;
 			sourceTree = "<group>";
 		};
 		E323A04F57C8CEABF32318D2 /* Onboarding */ = {
@@ -475,6 +520,7 @@
 			isa = PBXGroup;
 			children = (
 				BA815E59A9392EC45FC52770 /* GroupFlowTests.swift */,
+				8FB75CACE895B59BCDF118AD /* P2FeatureTests.swift */,
 				6F7E985AB9EB58FE61DF4C83 /* SplitCalculatorTests.swift */,
 			);
 			path = xBillTests;
@@ -509,6 +555,7 @@
 				65DE4C77AA2091B9A7A9D557 /* Main */,
 				E323A04F57C8CEABF32318D2 /* Onboarding */,
 				A9156620D1F75FFFF78F2FF0 /* Profile */,
+				B1AA80878C6019F39FCF7C81 /* AppLockView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -541,10 +588,12 @@
 				8626D4412E9E57890046EE7C /* Sources */,
 				A14196E6A90B4048CF33DEF8 /* Resources */,
 				C1F90CAF15B1EA5A81F5550F /* Frameworks */,
+				64C242903339C74E3BC6DF01 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				0A529DC580905F3DF4CDEC11 /* PBXTargetDependency */,
 			);
 			name = xBill;
 			packageProductDependencies = (
@@ -553,6 +602,23 @@
 			productName = xBill;
 			productReference = DCBBD52E262E694ADC799385 /* xBill.app */;
 			productType = "com.apple.product-type.application";
+		};
+		401CB2682ED66B85C3BA883B /* xBillWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 81B3B992D11FB243D652D41D /* Build configuration list for PBXNativeTarget "xBillWidget" */;
+			buildPhases = (
+				EFA689D2E80BB3E8B953FEAD /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = xBillWidget;
+			packageProductDependencies = (
+			);
+			productName = xBillWidget;
+			productReference = 00D3FF52404226E25568FE85 /* xBillWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		68674688C6209147A38A4631 /* xBillUITests */ = {
 			isa = PBXNativeTarget;
@@ -606,6 +672,7 @@
 				399BD38A78F0E81424610458 /* xBill */,
 				2A8CCA5DB802F8C919BE5DE4 /* xBillTests */,
 				68674688C6209147A38A4631 /* xBillUITests */,
+				401CB2682ED66B85C3BA883B /* xBillWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -627,6 +694,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				02DB9838B626008A375E8BD5 /* GroupFlowTests.swift in Sources */,
+				9A76A87FA21BFD4F3ADA3740 /* P2FeatureTests.swift in Sources */,
 				3480BEBFF1A5006FEC9457CC /* SplitCalculatorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -644,6 +712,8 @@
 				6EDA928318E8E22341427A26 /* AddIOUView.swift in Sources */,
 				66A524939E2352E9B1580268 /* AmountBadge.swift in Sources */,
 				D0CC4E253D676DBD1E40A406 /* AppError.swift in Sources */,
+				70CB70C2D5456FAA4C1E8B00 /* AppLockService.swift in Sources */,
+				1F84DDE27084D553E6C68558 /* AppLockView.swift in Sources */,
 				27C9F1CCE5A9662E1FF86F0D /* AppState.swift in Sources */,
 				0DADFF1448B1418CB2BD6D79 /* AuthService.swift in Sources */,
 				168141EA2E00DFF2AED4E262 /* AuthView.swift in Sources */,
@@ -737,9 +807,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EFA689D2E80BB3E8B953FEAD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2113A79F60A900AE0A4BFDBD /* xBillBalanceWidget.swift in Sources */,
+				A78D12BBE20A1D293E0DB55F /* xBillWidgetBundle.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		0A529DC580905F3DF4CDEC11 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 401CB2682ED66B85C3BA883B /* xBillWidget */;
+			targetProxy = 10DB64E81A19765A820810F4 /* PBXContainerItemProxy */;
+		};
 		5B048021CD1D5C6F9D1EE8B7 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 399BD38A78F0E81424610458 /* xBill */;
@@ -859,6 +943,51 @@
 				TEST_TARGET_NAME = xBill;
 			};
 			name = Release;
+		};
+		1FD0CD73AFEB2911A4B40C90 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = xBillWidget/xBillWidget.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_STRICT_CONCURRENCY = complete;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = xBillWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vijaygoyal.xbill.widget;
+				SDKROOT = iphoneos;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		1FFE771BDC66AC239359AC26 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = xBillWidget/xBillWidget.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_STRICT_CONCURRENCY = complete;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = xBillWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vijaygoyal.xbill.widget;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
 		};
 		3B877C225883F347F52674B3 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1020,6 +1149,15 @@
 			buildConfigurations = (
 				0CFB3588FE0C35BD960A09D5 /* Debug */,
 				8BB2B8C5B50C091B63730356 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		81B3B992D11FB243D652D41D /* Build configuration list for PBXNativeTarget "xBillWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1FFE771BDC66AC239359AC26 /* Debug */,
+				1FD0CD73AFEB2911A4B40C90 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

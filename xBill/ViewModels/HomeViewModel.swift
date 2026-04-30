@@ -1,6 +1,14 @@
+//
+//  HomeViewModel.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import Foundation
 import Observation
 import SwiftUI
+import WidgetKit
 
 @Observable
 @MainActor
@@ -15,6 +23,7 @@ final class HomeViewModel {
     var totalOwed: Decimal = .zero
     var totalOwing: Decimal = .zero
     var recentExpenses: [RecentEntry] = []
+    var crossGroupSuggestions: [SettlementSuggestion] = []
     var isLoading: Bool = false
     var errorAlert: ErrorAlert?
 
@@ -22,6 +31,15 @@ final class HomeViewModel {
         var id: UUID { expense.id }
         let expense: Expense
         let members: [User]
+    }
+
+    private struct GroupBalanceData: Sendable {
+        let owed:     Decimal
+        let owing:    Decimal
+        let entries:  [RecentEntry]
+        let currency: String
+        let balances: [UUID: Decimal]
+        let names:    [UUID: String]
     }
 
     private let groupService = GroupService.shared
@@ -38,6 +56,7 @@ final class HomeViewModel {
         do {
             currentUser = try await auth.currentUser()
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
@@ -54,7 +73,7 @@ final class HomeViewModel {
                 SpotlightService.indexGroups(groups)
                 await computeBalances(for: user.id)
             } catch {
-                guard !(error is CancellationError) else { return }
+                guard !AppError.isSilent(error) else { return }
                 // Fall back to cache on network error
                 if groups.isEmpty { groups = CacheService.shared.loadGroups() }
                 self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
@@ -71,6 +90,7 @@ final class HomeViewModel {
             try await groupService.deleteGroup(groupId: group.id)
             groups.removeAll { $0.id == group.id }
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
@@ -80,6 +100,7 @@ final class HomeViewModel {
         do {
             archivedGroups = try await groupService.fetchArchivedGroups(for: user.id)
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
@@ -92,6 +113,7 @@ final class HomeViewModel {
             archivedGroups.removeAll { $0.id == group.id }
             await loadAll()
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
@@ -106,23 +128,63 @@ final class HomeViewModel {
         }
     }
 
+    // MARK: - Sample Data
+
+    func createSampleData(userID: UUID) async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            let group = try await groupService.createGroup(
+                name: "Sample Trip",
+                emoji: "🏖️",
+                currency: "USD",
+                createdBy: userID
+            )
+            let sampleExpenses: [(String, Decimal, Expense.Category)] = [
+                ("Airfare",             240.00, .transport),
+                ("Hotel (2 nights)",    180.00, .accommodation),
+                ("Dinner at La Palma",   65.00, .food),
+            ]
+            for (title, amount, category) in sampleExpenses {
+                var split = SplitInput(userID: userID, displayName: "You")
+                split.amount     = amount
+                split.isIncluded = true
+                _ = try? await expenseService.createExpense(
+                    groupID: group.id, title: title, amount: amount,
+                    currency: "USD", payerID: userID, category: category,
+                    notes: "Sample expense — feel free to delete", splits: [split]
+                )
+            }
+            groups.append(group)
+            CacheService.shared.saveGroups(groups)
+        } catch {
+            // Non-fatal: failing to create sample data should not block onboarding
+        }
+    }
+
     // MARK: - Balance + Recent Expenses
 
     private func computeBalances(for userID: UUID) async {
-        var owed  = Decimal.zero
-        var owing = Decimal.zero
-        var allEntries: [RecentEntry] = []
+        var owed             = Decimal.zero
+        var owing            = Decimal.zero
+        var allEntries:      [RecentEntry]             = []
+        var mergedByCurrency:[String: [UUID: Decimal]] = [:]
+        var allNames:        [UUID: String]            = [:]
 
-        await withTaskGroup(of: (Decimal, Decimal, [RecentEntry]).self) { taskGroup in
+        await withTaskGroup(of: GroupBalanceData.self) { taskGroup in
             for group in groups {
                 taskGroup.addTask {
-                    await self.balancesInGroup(group, userID: userID)
+                    await self.fullBalancesInGroup(group, userID: userID)
                 }
             }
-            for await (o, ow, entries) in taskGroup {
-                owed  += o
-                owing += ow
-                allEntries.append(contentsOf: entries)
+            for await data in taskGroup {
+                owed  += data.owed
+                owing += data.owing
+                allEntries.append(contentsOf: data.entries)
+                for (uid, bal) in data.balances {
+                    mergedByCurrency[data.currency, default: [:]][uid, default: .zero] += bal
+                }
+                allNames.merge(data.names) { old, _ in old }
             }
         }
 
@@ -132,11 +194,28 @@ final class HomeViewModel {
             .sorted { $0.expense.createdAt > $1.expense.createdAt }
             .prefix(10)
             .map { $0 }
+
+        // Cross-group debt simplification: merge balances across groups per currency
+        var suggestions: [SettlementSuggestion] = []
+        for (currency, balances) in mergedByCurrency {
+            let perCurrency = SplitCalculator.minimizeTransactions(
+                balances: balances, names: allNames, currency: currency
+            )
+            suggestions.append(contentsOf: perCurrency)
+        }
+        // Only surface suggestions that involve the current user to avoid noise
+        crossGroupSuggestions = suggestions.filter {
+            $0.fromUserID == userID || $0.toUserID == userID
+        }
+
+        CacheService.shared.saveBalance(netBalance: netBalance, totalOwed: totalOwed, totalOwing: totalOwing)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
-    private func balancesInGroup(_ group: BillGroup, userID: UUID) async -> (Decimal, Decimal, [RecentEntry]) {
+    private func fullBalancesInGroup(_ group: BillGroup, userID: UUID) async -> GroupBalanceData {
         guard let expenses = try? await expenseService.fetchExpenses(groupID: group.id) else {
-            return (.zero, .zero, [])
+            return GroupBalanceData(owed: .zero, owing: .zero, entries: [],
+                                   currency: group.currency, balances: [:], names: [:])
         }
         let members = (try? await groupService.fetchMembers(groupID: group.id)) ?? []
         var splitsMap: [UUID: [Split]] = [:]
@@ -145,10 +224,13 @@ final class HomeViewModel {
                 splitsMap[expense.id] = splits
             }
         }
-        let net   = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)[userID] ?? .zero
-        let owed  = net > .zero ? net  : .zero
-        let owing = net < .zero ? -net : .zero
-        let entries = expenses.map { RecentEntry(expense: $0, members: members) }
-        return (owed, owing, entries)
+        let balances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
+        let net      = balances[userID] ?? .zero
+        let owed     = net > .zero ? net  : .zero
+        let owing    = net < .zero ? -net : .zero
+        let entries  = expenses.map { RecentEntry(expense: $0, members: members) }
+        let names    = Dictionary(uniqueKeysWithValues: members.map { ($0.id, $0.displayName) })
+        return GroupBalanceData(owed: owed, owing: owing, entries: entries,
+                                currency: group.currency, balances: balances, names: names)
     }
 }

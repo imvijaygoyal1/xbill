@@ -231,6 +231,33 @@ final class GroupService: Sendable {
             .value
     }
 
+    // MARK: - Profile Lookup
+
+    /// Returns xBill profiles matching any of the provided email addresses.
+    /// Uses a SECURITY DEFINER RPC so callers cannot enumerate the profiles table directly.
+    func lookupProfilesByEmail(_ emails: [String]) async throws -> [User] {
+        struct Params: Encodable { let p_emails: [String] }
+        struct Row: Decodable {
+            let id: UUID
+            let email: String
+            let displayName: String
+            let avatarURL: String?
+            enum CodingKeys: String, CodingKey {
+                case id
+                case email
+                case displayName = "display_name"
+                case avatarURL   = "avatar_url"
+            }
+        }
+        let rows: [Row] = try await supabase.client
+            .rpc("lookup_profiles_by_email", params: Params(p_emails: emails))
+            .execute()
+            .value
+        return rows.map { User(id: $0.id, email: $0.email, displayName: $0.displayName,
+                               avatarURL: $0.avatarURL.flatMap { URL(string: $0) },
+                               createdAt: Date()) }
+    }
+
     // MARK: - Realtime
 
     /// Returns an AsyncStream that yields whenever the current user's group memberships or group metadata change.

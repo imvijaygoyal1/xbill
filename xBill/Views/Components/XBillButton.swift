@@ -1,3 +1,10 @@
+//
+//  XBillButton.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import SwiftUI
 
 enum XBillButtonStyle {
@@ -32,7 +39,14 @@ struct XBillButton: View {
     private var borderColor: Color {
         switch style {
         case .secondary: return .brandPrimary
+        case .ghost:     return Color.clayOatBorder
         default:         return .clear
+        }
+    }
+    private var cornerRadius: CGFloat {
+        switch style {
+        case .ghost: return XBillRadius.sharp  // clay: ghost buttons use 4pt
+        default:     return XBillRadius.md
         }
     }
 
@@ -53,12 +67,13 @@ struct XBillButton: View {
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(bgColor)
-            .clipShape(RoundedRectangle(cornerRadius: XBillRadius.md))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             .overlay(
-                RoundedRectangle(cornerRadius: XBillRadius.md)
-                    .stroke(borderColor, lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(borderColor, lineWidth: 1)
             )
         }
+        .buttonStyle(ClayButtonStyle())
         .disabled(isLoading)
     }
 }

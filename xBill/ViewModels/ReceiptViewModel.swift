@@ -1,3 +1,10 @@
+//
+//  ReceiptViewModel.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import Foundation
 import UIKit
 import Observation
@@ -122,6 +129,24 @@ final class ReceiptViewModel {
             input.isIncluded = input.amount > .zero
             return input
         }
+    }
+
+    // MARK: - Manual Entry
+
+    func startManually(members: [User] = []) {
+        self.members      = members
+        capturedImage     = nil
+        scannedReceipt    = Receipt(
+            id: UUID(), expenseID: nil, imageURL: nil,
+            merchant: nil, items: [], subtotal: nil,
+            tax: nil, tip: nil, total: nil,
+            currency: "USD", scannedAt: Date()
+        )
+        items             = []
+        merchantName      = ""
+        totalAmount       = ""
+        tipAmount         = ""
+        validationWarning = nil
     }
 
     // MARK: - Edit

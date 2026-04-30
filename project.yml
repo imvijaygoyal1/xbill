@@ -30,11 +30,6 @@ targets:
   xBill:
     type: application
     platform: iOS
-    entitlements:
-      path: xBill/xBill.entitlements
-      properties:
-        com.apple.developer.applesignin:
-          - Default
     sources:
       - path: xBill
         excludes:
@@ -49,6 +44,8 @@ targets:
     dependencies:
       - package: Supabase
         product: Supabase
+      - target: xBillWidget
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vijaygoyal.xbill
@@ -57,9 +54,42 @@ targets:
         debug:
           SWIFT_OPTIMIZATION_LEVEL: "-Onone"
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+          CODE_SIGN_ENTITLEMENTS: xBill/xBill.Debug.entitlements
         release:
           SWIFT_OPTIMIZATION_LEVEL: "-O"
           VALIDATE_PRODUCT: YES
+          CODE_SIGN_ENTITLEMENTS: xBill/xBill.entitlements
+
+  xBillWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: xBillWidget
+        excludes:
+          - "**/.DS_Store"
+          - "**/*.plist"
+          - "**/*.entitlements"
+    resources:
+      - path: xBillWidget
+        includes:
+          - "**/*.plist"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.vijaygoyal.xbill.widget
+        INFOPLIST_FILE: xBillWidget/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "6.0"
+        ENABLE_STRICT_CONCURRENCY: complete
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_ENTITLEMENTS: xBillWidget/xBillWidget.entitlements
+      configs:
+        debug:
+          SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+        release:
+          SWIFT_OPTIMIZATION_LEVEL: "-O"
 
   xBillTests:
     type: bundle.unit-test
@@ -90,6 +120,7 @@ schemes:
     build:
       targets:
         xBill: all
+        xBillWidget: all
         xBillTests: [test]
         xBillUITests: [test]
     run:

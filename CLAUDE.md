@@ -117,7 +117,8 @@
 ### Services
 - `xBill/Services/ExchangeRateService.swift` — `actor`; fetches from `open.er-api.com/v6/latest/{base}` (no key needed); 1-hour in-memory cache; `convert(amount:from:to:)` and `rate(from:to:)`; `commonCurrencies` static array of 20 codes
 - `xBill/Services/IOUService.swift` — `fetchIOUs(userID:)` (two queries: as lender + as borrower, deduplicated), `fetchUserByEmail(_:)`, `createIOU(...)`, `settleIOU(id:)`, `settleAllIOUs(with:currentUserID:)`, `deleteIOU(id:)`
-- `xBill/Services/CacheService.swift` — UserDefaults JSON cache (`.secondsSince1970` date strategy); `saveGroups/loadGroups`, `saveExpenses/loadExpenses(groupID:)`, `saveMembers/loadMembers(groupID:)`
+- `xBill/Services/CacheService.swift` — Prefers `UserDefaults(suiteName: "group.com.vijaygoyal.xbill")` (App Group for widget sharing), falls back to `.standard`; `nonisolated(unsafe)` static `defaults`; `saveGroups/loadGroups`, `saveExpenses/loadExpenses(groupID:)`, `saveMembers/loadMembers(groupID:)`; `saveBalance(netBalance:totalOwed:totalOwing:)` + load helpers for BalanceWidget
+- `xBill/Services/AppLockService.swift` — `@Observable @MainActor` singleton; `isEnabled` via `UserDefaults`, `isLocked: Bool`, `authenticate()` via `LAContext.deviceOwnerAuthentication`, `lock()` (no-op when not enabled); `biometryType`, `lockIconName`, `unlockLabel` helpers
 - `xBill/Services/CommentService.swift` — `fetchComments(expenseID:)`, `addComment(expenseID:userID:text:)`, `deleteComment(id:)`, `commentChanges(expenseID:) → AsyncStream<Void>` (Realtime subscription filtered by expense_id)
 - `xBill/Services/AuthService.swift` — `signUpWithEmail`, `signInWithEmail`, `signInWithApple` (CryptoKit SHA256 nonce), `signOut`, `fetchProfile`, `currentUser()`; `sendPasswordReset` includes `redirectTo: URL(string: "xbill://reset")!` so deep link triggers `.passwordRecovery` event; `deleteAccount()` calls `delete-account` Edge Function with JWT header then signs out — throws `AppError.unauthenticated` if no session; all table refs use `"profiles"` (not `"users"`)
 - `xBill/Services/GroupService.swift` — `fetchGroups(for:)` / `fetchArchivedGroups(for:)` (both two-step: `memberGroupIDs` → `groups` with server-side `is_archived` filter), `fetchMembers(groupID:)`, `createGroup(...)`, `addMember(groupId:userId:)`, `removeMember(groupId:userId:)`, `inviteMembers(emails:groupName:groupEmoji:inviterName:)`, `groupChanges(userID:) → AsyncStream<Void>` (subscribes to both `group_members` + `groups` tables), `createInvite(groupID:createdBy:)`, `fetchInvite(token:)`, `joinGroupViaInvite(token:) → UUID`
@@ -133,12 +134,21 @@
 
 ### ViewModels
 - `xBill/ViewModels/AuthViewModel.swift` — `@Observable @MainActor`; `currentUser: User?`, `confirmationEmailSent: Bool`, `isInPasswordRecovery: Bool`, `isLoading`, `error`, `pendingJoinRequest: InviteJoinRequest?`; `startListeningToAuthChanges()` handles `.passwordRecovery` event; `handlePasswordReset(newPassword:)` calls `supabase.auth.update`. `InviteJoinRequest` is a top-level `Identifiable` struct with `token: String`
-- `xBill/ViewModels/HomeViewModel.swift` — loads groups, computes net balance + `recentExpenses: [RecentEntry]` (top 10 across all groups, members co-fetched); `RecentEntry` is `{ expense, members }` identifiable struct; `archivedGroups: [BillGroup]` loaded via `loadArchivedGroups()`; `unarchiveGroup(_:)` unarchives and refreshes both lists (legacy swipe-action path from `GroupListView`); `groupsNavigationPath: NavigationPath` — bound to `GroupListView`'s `NavigationStack` for programmatic navigation (used by Spotlight); calls `SpotlightService.indexGroups` after successful network fetch
+- `xBill/ViewModels/HomeViewModel.swift` — loads groups, computes net balance + `recentExpenses: [RecentEntry]` (top 10 across all groups, members co-fetched); `RecentEntry` is `{ expense, members }` identifiable struct; `archivedGroups: [BillGroup]`; `crossGroupSuggestions: [SettlementSuggestion]` (cross-group debt, filtered to current user); `unarchiveGroup(_:)` unarchives and refreshes both lists; `groupsNavigationPath: NavigationPath`; `createSampleData(userID:)` creates demo group + 3 expenses; `fullBalancesInGroup` returns `GroupBalanceData` (owed, owing, entries, currency, rawBalances, names); `computeBalances` merges per-currency balance maps, calls `minimizeTransactions`, saves to CacheService, calls `WidgetCenter.shared.reloadAllTimelines()`
 - `xBill/ViewModels/GroupViewModel.swift` — loads members + expenses, computes balances + settlement suggestions, `recordSettlement()`; `archiveGroup()` / `unarchiveGroup()` set `isArchived` via `GroupService.updateGroup` and update `CacheService` immediately (remove/append to active-groups cache); `createDueRecurringInstances(currentUserID:)` fetches due recurring expenses, creates new instances, clears old `next_occurrence_date`
 - `xBill/ViewModels/AddExpenseViewModel.swift` — split calculation; `expenseCurrency` (defaults to group currency); `convertedAmount`/`exchangeRate` computed via `ExchangeRateService.shared`; `updateConversion()` called on currency/amount change; `finalAmount` = converted or raw; `save()` passes `originalAmount`/`originalCurrency` when foreign currency used
 - `xBill/ViewModels/ProfileViewModel.swift` — profile editing; `loadStats(userID:)` fetches groups + expenses concurrently via `withTaskGroup` to compute `totalGroupsCount`, `totalExpensesCount`, `lifetimePaid`; `saveProfile(avatarImage:)` uploads avatar via `AuthService.uploadAvatar` then calls `updateProfile`
 - `xBill/ViewModels/ActivityViewModel.swift` — loads activity feed via `ActivityService`; `load()` gets `currentUserID` from `AuthService` then fetches recent items
-- `xBill/ViewModels/ReceiptViewModel.swift` — receipt scan + review flow; `merchantName`, `totalAmount`, `tipAmount: String` mutable vars populated from `scannedReceipt` after scan so the review screen can bind editable fields; `toggleAssignAll(to:)` assigns all members if any unassigned, else unassigns all; `updateUnitPrice(itemID:unitPrice:)` replaces item while preserving `assignedUserIDs`; `hasUnassignedItems: Bool` computed property (true when members exist but any item has empty `assignedUserIDs`); `total(for:)` splits tax+tip only among members who have ≥1 item assigned (`participatingIDs` set), not all members
+- `xBill/ViewModels/ReceiptViewModel.swift` — receipt scan + review flow; `merchantName`, `totalAmount`, `tipAmount: String` mutable vars; `toggleAssignAll(to:)`, `updateUnitPrice`, `hasUnassignedItems`, `total(for:)`; **`startManually(members:)`** — creates blank Receipt, clears scan state, sets members; allows bypassing camera for manual line-item entry
+
+### Widget Extension
+- `xBillWidget/xBillWidgetBundle.swift` — `@main WidgetBundle` containing `xBillBalanceWidget`
+- `xBillWidget/xBillBalanceWidget.swift` — `StaticConfiguration` widget; `BalanceProvider` reads from shared `UserDefaults` (App Group); `BalanceEntry` has date/netBalance/totalOwed/totalOwing; `BalanceWidgetView` shows owed/owing in a simple layout; `.systemSmall`+`.systemMedium` families; refreshes every 30 minutes
+- `xBillWidget/Info.plist` — explicit plist with `NSExtensionPointIdentifier = com.apple.widgetkit-extension` (required for WidgetKit app extensions)
+- `xBillWidget/xBillWidget.entitlements` — App Group entitlement `group.com.vijaygoyal.xbill`
+
+### Views — App Lock
+- `xBill/Views/AppLockView.swift` — full-screen overlay shown when `AppLockService.shared.isLocked`; brandPrimary background; biometry icon + wordmark + unlock button; `task` auto-triggers authentication on appear; uses `ClayButtonStyle`
 
 ### Views — Auth
 - `xBill/Views/Auth/AuthView.swift` — `bgSecondary` background; `brandPrimary` wordmark icon; Sign In with Apple button; "Continue with Email" NavigationLink; fine print with two distinct `Button` links: "Terms of Service" presents `TermsOfServiceView()` sheet (`.large` detent, drag indicator visible), "Privacy Policy" opens `.safariSheet` to `XBillURLs.privacyPolicy`; both fire `HapticManager.selection()`
@@ -166,7 +176,7 @@
 - `xBill/Views/Groups/GroupInviteView.swift` — shows QR code (CoreImage `CIFilter.qrCodeGenerator`) + `ShareLink` for `xbill://join/<token>`; generates a new invite on appear; refresh button in toolbar
 - `xBill/Views/Groups/JoinGroupView.swift` — confirms and handles group join via invite token; fetches group name, shows confirmation card, calls `joinGroupViaInvite` RPC on confirm
 - `xBill/Views/Groups/SettleUpView.swift` — settlement suggestions with Venmo link + Mark Settled button
-- `xBill/Views/Groups/InviteMembersView.swift` — email invite list; calls `GroupService.inviteMembers` → `invite-member` Edge Function
+- `xBill/Views/Groups/InviteMembersView.swift` — email invite list; "Import from Contacts" button opens `CNContactPickerViewController` (no upfront permission needed); selected emails added to pending list; `lookupXBillUsers` checks DB via `GroupService.lookupProfilesByEmail`; "On xBill" badge on matching emails; calls `GroupService.inviteMembers` → `invite-member` Edge Function
 
 ### Views — Expenses
 - `xBill/Views/Friends/FriendsView.swift` — Friends tab; groups IOUs by other person; net balance per currency per friend; FAB to AddIOUView; navigates to `FriendDetailView`
@@ -201,6 +211,7 @@
 
 ### Tests
 - `xBillTests/SplitCalculatorTests.swift` — 17 tests: equal split (even/rounding/excluded/single), percentage (proportional/rounding), exact validation (pass/fail), net balances, single payer, circular debt, partially settled, two people, floating point precision (÷3), minimize transactions (basic/all-settled). Fixed 2026-04-29: added `recurrence: .none` to all `Expense` inits; removed stale `updatedAt:` arg; fixed `\.amount` key-path inference in `#expect`.
+- `xBillTests/P2FeatureTests.swift` — 18 tests across 5 suites: CrossGroupDebt (balance merging, currency separation, minimisation), AppLock (lock/no-op state transitions, MainActor), ManualReceipt (startManually creates blank receipt, assigns members, clears previous scan), CacheServiceBalance (.serialized, round-trip and zero-default), ContactDiscovery (email validation, dedup, lowercasing).
 - `xBillTests/GroupFlowTests.swift` — 27 tests across 6 suites: GroupFlowCachePattern (archive/unarchive array-manipulation logic, idempotency), BillGroupModel (Codable roundtrip, snake_case CodingKeys, Equatable, value-type semantics), GroupCreationLogic (onCreated append, canCreate guard, invite email trim), GroupArchiveLogic (balance-warning conditions, plural/singular, toolbar action context), CurrencyList (count=20, original 8 + 12 new, no duplicates), RealtimeContract (topic scoping). All tests are parallel-safe (no shared UserDefaults state).
 - `xBillUITests/OnboardingUITests.swift`
 - `xBillUITests/GroupFlowUITests.swift` — 14 XCUITests for group creation (form validation, Create button enable/disable, cancel, new group appears in list immediately), archive flow (toolbar menu, confirmation dialog, group moves to archived section on confirm), and unarchive flow (archived section expand/collapse, swipe-right Unarchive action, Unarchive from detail-view toolbar). All tests skip gracefully with `XCTSkip` when not signed in or when prerequisite data (groups, archived groups) is absent.
@@ -326,9 +337,52 @@ All ViewModels use `var errorAlert: ErrorAlert?` (defined in `AppError.swift`) i
 
 Deploy: `supabase db push && supabase functions deploy delete-account --project-ref <ref>`. Secrets required: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (auto-injected; add manually via `supabase secrets set` if missing).
 
+## P2 Features (implemented 2026-04-29)
+
+### Cross-Group Debt Simplification
+- `HomeViewModel` now accumulates raw `[UUID: Decimal]` balance maps from all groups via `fullBalancesInGroup(_:userID:)` (returning `GroupBalanceData` struct)
+- Merges per-currency balance maps and calls `SplitCalculator.minimizeTransactions` on each
+- Filters results to only the current user (`crossGroupSuggestions: [SettlementSuggestion]`)
+- `HomeView` shows "SIMPLIFY DEBTS" section when `crossGroupSuggestions` is non-empty
+
+### Face ID / Passcode Lock
+- `xBill/Services/AppLockService.swift` — `@Observable @MainActor` singleton; `isEnabled` (UserDefaults), `isLocked`, `authenticate()` via `LAContext.deviceOwnerAuthentication`, `lock()`
+- `xBill/Views/AppLockView.swift` — full-screen lock overlay; shows biometry icon + "Unlock" button; auto-triggers Face ID on appear
+- `ContentView` — `@State private var lockService = AppLockService.shared`; overlays `AppLockView` inside the `authVM.currentUser != nil` branch; `onChange(of: scenePhase)` calls `lockService.lock()` on `.background`
+- `ProfileView` — "SECURITY" section with Toggle for Face ID/Passcode
+- `Info.plist` — added `NSFaceIDUsageDescription`
+
+### Manual Line-Item Receipt Entry
+- `ReceiptViewModel.startManually(members:)` — creates a blank Receipt, clears items/scan state, assigns members
+- `ReceiptScanView` — "Enter Manually" button (pencil icon) in the no-image state; sets `showReview = true` after calling `startManually(members:)`
+
+### Onboarding Sample Data
+- `HomeViewModel.createSampleData(userID:)` — creates "Sample Trip 🏖️" group + 3 sample expenses (Airfare $240, Hotel $180, Dinner $65) paid by the current user; appends to groups and updates cache
+- `OnboardingView` — `onTrySampleData: (() async -> Void)? = nil` parameter; last page shows "Try with sample data" secondary button when callback is set; `isCreatingSample` state shows ProgressView
+- `ContentView` — passes `onTrySampleData` closure that calls `HomeViewModel().createSampleData(userID:)` with the current user's ID
+
+### Contact Discovery
+- `InviteMembersView` — `CNContactPickerViewController` wrapped as `ContactPickerRepresentable`; "Import from Contacts" button opens picker; selected contacts' emails are added to pending list and looked up in the DB; "On xBill" badge on matching emails
+- `GroupService.lookupProfilesByEmail([String]) async throws -> [User]` — calls `lookup_profiles_by_email` RPC
+- `supabase/migrations/018_lookup_profiles_by_email.sql` — `SECURITY DEFINER` RPC; excludes current user from results; granted only to `authenticated` role
+- `Info.plist` — added `NSContactsUsageDescription`
+
+### WidgetKit Balance Widget
+- `xBillWidget/xBillBalanceWidget.swift` — `StaticConfiguration` widget; `BalanceProvider` reads net/owed/owing from shared UserDefaults; refreshes every 30 min; `.systemSmall` + `.systemMedium` families
+- `xBillWidget/xBillWidgetBundle.swift` — `@main WidgetBundle`
+- `xBillWidget/Info.plist` — explicit plist with `NSExtension.NSExtensionPointIdentifier = com.apple.widgetkit-extension`
+- `xBillWidget/xBillWidget.entitlements` — App Group `group.com.vijaygoyal.xbill`
+- `project.yml` — `xBillWidget` target added (`app-extension`); embedded in xBill app; added to build scheme
+- `CacheService` — now uses `UserDefaults(suiteName: "group.com.vijaygoyal.xbill") ?? .standard`; `nonisolated(unsafe)` for Swift 6 Sendable; `saveBalance(netBalance:totalOwed:totalOwing:)` + load helpers for widget consumption
+- Both entitlements files — `com.apple.security.application-groups: [group.com.vijaygoyal.xbill]`
+- `HomeViewModel` — calls `WidgetCenter.shared.reloadAllTimelines()` after computing balances
+- **⚠️ REQUIRES**: Register App Group `group.com.vijaygoyal.xbill` in Apple Developer Portal → Identifiers before the widget can share data with the main app
+
 ## Known TODOs
+- **App Group registration** (for widget data sharing): register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Certificates, IDs & Profiles → Identifiers → App Groups
 - Deploy `invite-member` Edge Function: `supabase functions deploy invite-member` (after setting secrets `RESEND_API_KEY` + `INVITE_FROM_EMAIL`)
 - Deploy `delete-account` Edge Function: `supabase functions deploy delete-account`
+- Deploy migration 018: `supabase db push` (adds `lookup_profiles_by_email` RPC)
 - App Store Assets: screenshots, preview video, keyword strategy (only remaining P0 blocker)
 
 ## Expense Model Notes

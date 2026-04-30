@@ -1,4 +1,50 @@
+//
+//  InviteMembersView.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import SwiftUI
+import Contacts
+import ContactsUI
+
+// MARK: - ContactPickerRepresentable
+
+private struct ContactPickerRepresentable: UIViewControllerRepresentable {
+    let onPickedEmails: ([String]) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onPickedEmails: onPickedEmails) }
+
+    func makeUIViewController(context: Context) -> CNContactPickerViewController {
+        let picker = CNContactPickerViewController()
+        picker.displayedPropertyKeys = [CNContactEmailAddressesKey]
+        picker.predicateForEnablingContact = NSPredicate(format: "emailAddresses.@count > 0")
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ vc: CNContactPickerViewController, context: Context) {}
+
+    final class Coordinator: NSObject, CNContactPickerDelegate {
+        let onPickedEmails: ([String]) -> Void
+        init(onPickedEmails: @escaping ([String]) -> Void) {
+            self.onPickedEmails = onPickedEmails
+        }
+
+        func contactPicker(_ picker: CNContactPickerViewController, didSelect contacts: [CNContact]) {
+            let emails = contacts.flatMap { $0.emailAddresses.map { ($0.value as String).lowercased() } }
+            onPickedEmails(emails)
+        }
+
+        func contactPicker(_ picker: CNContactPickerViewController, didSelect contact: CNContact) {
+            let emails = contact.emailAddresses.map { ($0.value as String).lowercased() }
+            onPickedEmails(emails)
+        }
+    }
+}
+
+// MARK: - InviteMembersView
 
 struct InviteMembersView: View {
     let group: BillGroup
@@ -6,7 +52,10 @@ struct InviteMembersView: View {
 
     @State private var emailInput: String = ""
     @State private var pendingInvites: [String] = []
+    @State private var xBillUsers: [String: User] = [:]   // email → User (already on xBill)
     @State private var isLoading: Bool = false
+    @State private var isLookingUp: Bool = false
+    @State private var showContactPicker: Bool = false
     @State private var error: AppError?
 
     @Environment(\.dismiss) private var dismiss
@@ -29,6 +78,14 @@ struct InviteMembersView: View {
                         Button("Add") { addEmail() }
                             .disabled(!isValidEmail)
                     }
+
+                    Button {
+                        showContactPicker = true
+                    } label: {
+                        Label("Import from Contacts", systemImage: "person.crop.circle.badge.plus")
+                            .foregroundStyle(Color.brandPrimary)
+                    }
+                    .disabled(isLookingUp)
                 } header: {
                     Text("Invite by email")
                 } footer: {
@@ -38,7 +95,19 @@ struct InviteMembersView: View {
                 if !pendingInvites.isEmpty {
                     Section("Pending Invites") {
                         ForEach(pendingInvites, id: \.self) { email in
-                            Label(email, systemImage: "envelope")
+                            HStack {
+                                Label(email, systemImage: "envelope")
+                                Spacer()
+                                if xBillUsers[email] != nil {
+                                    Text("On xBill")
+                                        .font(.xbillCaption)
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background(Color.brandAccent)
+                                        .clipShape(Capsule())
+                                }
+                            }
                         }
                         .onDelete { indexSet in
                             pendingInvites.remove(atOffsets: indexSet)
@@ -53,11 +122,22 @@ struct InviteMembersView: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Send \(pendingInvites.count) Invite\(pendingInvites.count == 1 ? "" : "s")") {
-                        Task { await sendInvites() }
+                    if isLoading {
+                        ProgressView()
+                    } else {
+                        Button("Send \(pendingInvites.count) Invite\(pendingInvites.count == 1 ? "" : "s")") {
+                            Task { await sendInvites() }
+                        }
+                        .disabled(pendingInvites.isEmpty)
                     }
-                    .disabled(pendingInvites.isEmpty || isLoading)
                 }
+            }
+            .sheet(isPresented: $showContactPicker) {
+                ContactPickerRepresentable { emails in
+                    showContactPicker = false
+                    addEmails(emails)
+                }
+                .ignoresSafeArea()
             }
         }
         .errorAlert(error: $error)
@@ -68,6 +148,24 @@ struct InviteMembersView: View {
         guard !trimmed.isEmpty, !pendingInvites.contains(trimmed) else { return }
         pendingInvites.append(trimmed)
         emailInput = ""
+        Task { await lookupXBillUsers([trimmed]) }
+    }
+
+    private func addEmails(_ emails: [String]) {
+        let newEmails = emails.filter { !pendingInvites.contains($0) }
+        pendingInvites.append(contentsOf: newEmails)
+        if !newEmails.isEmpty {
+            Task { await lookupXBillUsers(newEmails) }
+        }
+    }
+
+    private func lookupXBillUsers(_ emails: [String]) async {
+        isLookingUp = true
+        defer { isLookingUp = false }
+        let found = (try? await GroupService.shared.lookupProfilesByEmail(emails)) ?? []
+        for user in found {
+            xBillUsers[user.email] = user
+        }
     }
 
     private func sendInvites() async {

@@ -1,3 +1,10 @@
+//
+//  AppError.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import Foundation
 
 // MARK: - ErrorAlert
@@ -47,5 +54,10 @@ enum AppError: LocalizedError, Equatable {
     static func from(_ error: Error) -> AppError {
         if let appError = error as? AppError { return appError }
         return .unknown(error.localizedDescription)
+    }
+
+    /// Returns true if this error should be silently ignored and never shown to the user.
+    static func isSilent(_ error: Error) -> Bool {
+        error is CancellationError
     }
 }

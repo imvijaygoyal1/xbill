@@ -1,3 +1,10 @@
+//
+//  Comment.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import Foundation
 
 struct Comment: Codable, Identifiable, Sendable {

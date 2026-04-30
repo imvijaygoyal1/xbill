@@ -4,6 +4,8 @@
 <dict>
 	<key>CFBundleDisplayName</key>
 	<string>xBill</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 Vijay Goyal. All rights reserved.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -33,6 +35,10 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>xBill uses your camera to scan receipts.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>xBill uses your contacts to find friends who are already on xBill.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>xBill uses Face ID to protect your expense data.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>xBill accesses your photo library to import receipt images.</string>
 	<key>SUPABASE_ANON_KEY</key>

@@ -1,3 +1,10 @@
+//
+//  FoundationModelService.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+
 import Foundation
 #if canImport(FoundationModels)
 import FoundationModels
@@ -5,7 +12,7 @@ import FoundationModels
 
 // MARK: - FoundationModelService
 // Uses Apple's on-device language model (Apple Intelligence) to parse
-// receipt OCR text into structured JSON. Free, private, no API key needed.
+// receipt OCR text into structured output. Free, private, no API key.
 // Requires iOS 26.0+ on an Apple Intelligence capable device.
 
 @available(iOS 26.0, *)
@@ -26,52 +33,76 @@ final class FoundationModelService: Sendable {
     // MARK: - Parse
 
     func parseReceipt(ocrText: String) async throws -> ParsedReceiptJSON {
+        // Reject low-quality OCR before hitting the model
+        let lineCount = ocrText.components(separatedBy: .newlines)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count
+        guard lineCount >= 3 else {
+            throw AppError.validationFailed("Too little text detected — scan quality too low for AI parsing.")
+        }
+
         #if canImport(FoundationModels)
-        let instructions = """
-        You are a receipt data extractor. Given raw OCR text from a receipt, \
-        extract structured data and return ONLY valid JSON — no markdown, no explanation.
-
-        Rules:
-        - items: include only purchasable line items with a name and price.
-          Skip: payment methods (CASH, VISA), loyalty points, receipt numbers, \
-          addresses, dates, "THANK YOU", order numbers, server names.
-        - quantity: if a line says "2x", "2 @", or "QTY 2", set quantity; \
-          unit_price = total_price / quantity.
-        - subtotal: sum of items before tax and tip.
-        - tax: lines with TAX, GST, HST, VAT.
-        - tip: lines with TIP, GRATUITY, SERVICE CHARGE, SVCHRG.
-        - total: final charged amount — prefer TOTAL DUE or GRAND TOTAL over SUBTOTAL.
-        - currency: infer from symbol ($=USD, £=GBP, €=EUR, ₹=INR). Default USD.
-        - confidence: 0.0–1.0, lower if text is ambiguous or items don't sum to total.
-
-        JSON schema (use null for unknown; never omit keys):
-        {"merchant":<string|null>,"items":[{"name":<string>,"quantity":<int>,"unit_price":<number>,"total_price":<number>}],"subtotal":<number|null>,"tax":<number|null>,"tip":<number|null>,"total":<number|null>,"currency":<string>,"confidence":<number>}
-        """
-        let session  = LanguageModelSession(instructions: instructions)
-        let response = try await session.respond(to: ocrText)
-        return try decodeJSON(from: response.content)
+        return try await parseWithStructuredOutput(ocrText: ocrText)
         #else
         throw AppError.unknown("FoundationModels not available on this platform.")
         #endif
     }
 
-    // MARK: - JSON Decoding
+    // MARK: - Structured Output (iOS 26+ @Generable)
 
-    private func decodeJSON(from text: String) throws -> ParsedReceiptJSON {
-        var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if cleaned.hasPrefix("```") {
-            cleaned = cleaned
-                .replacingOccurrences(of: "```json", with: "")
-                .replacingOccurrences(of: "```", with: "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        guard let data = cleaned.data(using: .utf8) else {
-            throw AppError.unknown("Could not encode model response as UTF-8.")
-        }
-        do {
-            return try JSONDecoder().decode(ParsedReceiptJSON.self, from: data)
-        } catch {
-            throw AppError.serverError("Receipt parsing failed — model returned unexpected format.")
-        }
+    #if canImport(FoundationModels)
+    private func parseWithStructuredOutput(ocrText: String) async throws -> ParsedReceiptJSON {
+        let instructions = """
+        You are a receipt data extractor. Given raw OCR text from a receipt, extract structured data.
+
+        Rules:
+        - items: purchasable line items only (name + price). Skip: payment methods, loyalty points, receipt numbers, addresses, dates, "THANK YOU", server names.
+        - quantity: if a line says "2x", "2 @", or "QTY 2", set quantity; unit_price = total_price / quantity.
+        - tax: lines with TAX, GST, HST, VAT.
+        - tip: lines with TIP, GRATUITY, SERVICE CHARGE.
+        - total: final charged amount — prefer GRAND TOTAL or TOTAL DUE over plain TOTAL.
+        - currency: infer from symbol ($=USD, £=GBP, €=EUR, ₹=INR, ¥=JPY). Default USD.
+        - confidence: 0.0–1.0, lower if ambiguous or items don't sum to total.
+        """
+        let session  = LanguageModelSession(instructions: instructions)
+        let response = try await session.respond(to: ocrText, generating: ReceiptGenerable.self)
+        let g        = response.content
+        return ParsedReceiptJSON(
+            merchant:   g.merchant,
+            items:      g.items.map { ParsedItemJSON(name: $0.name, quantity: $0.quantity,
+                                                      unitPrice: $0.unitPrice, totalPrice: $0.totalPrice) },
+            subtotal:   g.subtotal,
+            tax:        g.tax,
+            tip:        g.tip,
+            total:      g.total,
+            currency:   g.currency.isEmpty ? "USD" : g.currency,
+            confidence: g.confidence
+        )
     }
+    #endif
 }
+
+// MARK: - @Generable types (structured output schema for Foundation Models)
+
+#if canImport(FoundationModels)
+@available(iOS 26.0, *)
+@Generable
+private struct ReceiptGenerable {
+    var merchant:   String?
+    var items:      [ItemGenerable]
+    var subtotal:   Double?
+    var tax:        Double?
+    var tip:        Double?
+    var total:      Double?
+    var currency:   String
+    var confidence: Double
+}
+
+@available(iOS 26.0, *)
+@Generable
+private struct ItemGenerable {
+    var name:       String
+    var quantity:   Int
+    var unitPrice:  Double
+    var totalPrice: Double
+}
+#endif
