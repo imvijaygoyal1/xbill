@@ -8,15 +8,17 @@
 import SwiftUI
 import UIKit
 import CoreSpotlight
+import UserNotifications
 
-// MARK: - AppDelegate (handles APNs device token + quick actions)
+// MARK: - AppDelegate (handles APNs device token + quick actions + notification routing)
 
-class AppDelegate: NSObject, UIApplicationDelegate {
+class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
 
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
         registerShortcutItems()
 
         // Handle cold-launch from a shortcut (return false so performActionFor is NOT called again)
@@ -42,6 +44,31 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
         // Non-critical — push notifications degrade gracefully
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound, .badge])
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let userInfo = response.notification.request.content.userInfo
+        if let groupIDString = userInfo["groupId"] as? String,
+           let groupID = UUID(uuidString: groupIDString) {
+            Task { @MainActor in
+                AppState.shared.pendingNotificationTarget = .group(groupID)
+            }
+        }
+        completionHandler()
     }
 
     func application(

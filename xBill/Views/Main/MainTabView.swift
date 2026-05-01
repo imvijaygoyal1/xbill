@@ -103,6 +103,20 @@ struct MainTabView: View {
             }
             appState.spotlightTarget = nil
         }
+        // Handle push notification tap → navigate to group
+        .task(id: appState.pendingNotificationTarget) {
+            guard let target = appState.pendingNotificationTarget else { return }
+            if homeVM.groups.isEmpty { await homeVM.loadAll() }
+            switch target {
+            case .group(let id):
+                if let group = homeVM.groups.first(where: { $0.id == id }) {
+                    selectedTab = .groups
+                    homeVM.groupsNavigationPath = NavigationPath()
+                    homeVM.groupsNavigationPath.append(group)
+                }
+            }
+            appState.pendingNotificationTarget = nil
+        }
     }
 }
 

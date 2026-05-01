@@ -12,30 +12,27 @@ serve(async (req) => {
   }
 
   try {
-    const { expenseId, groupId, payerName, expenseTitle, amount, currency } = await req.json()
+    const {
+      settlementId,
+      groupId,
+      groupName,
+      fromUserID,
+      fromName,
+      toUserID,
+      amount,
+      currency,
+    } = await req.json()
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Fetch all group members
-    const { data: members, error: membersError } = await supabase
-      .from('group_members')
-      .select('user_id')
-      .eq('group_id', groupId)
-
-    if (membersError || !members?.length) {
-      return new Response(JSON.stringify({ sent: 0 }), { headers: corsHeaders })
-    }
-
-    const memberIDs = members.map((m: { user_id: string }) => m.user_id)
-
-    // Fetch device tokens from device_tokens table (user_id retained for badge + exclusion)
+    // Push only the creditor (toUserID) — they are being paid
     const { data: tokenRows } = await supabase
       .from('device_tokens')
-      .select('token, user_id')
-      .in('user_id', memberIDs)
+      .select('token')
+      .eq('user_id', toUserID)
 
     if (!tokenRows?.length) {
       return new Response(JSON.stringify({ sent: 0 }), { headers: corsHeaders })
@@ -48,22 +45,30 @@ serve(async (req) => {
 
     const jwt = await generateAPNsJWT(teamId, keyId, pem)
 
+    // Badge: count unsettled splits for the creditor
+    const { count: badgeCount } = await supabase
+      .from('splits')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', toUserID)
+      .eq('is_settled', false)
+    const badge = badgeCount ?? 1
+
+    const payload = {
+      aps: {
+        alert: {
+          title: `${fromName} settled up`,
+          body:  `Paid you ${formatCurrency(amount, currency)} in ${groupName}`,
+        },
+        sound: 'default',
+        badge,
+      },
+      settlementId,
+      groupId,
+    }
+
     let sent = 0
-    for (const row of (tokenRows as { token: string; user_id: string }[])) {
+    for (const row of (tokenRows as { token: string }[])) {
       try {
-        const badge = await getUnreadCount(supabase, row.user_id)
-        const payload = {
-          aps: {
-            alert: {
-              title: `${payerName} added an expense`,
-              body:  `${expenseTitle} — ${formatCurrency(amount, currency)}`,
-            },
-            sound: 'default',
-            badge,
-          },
-          expenseId,
-          groupId,
-        }
         const res = await fetch(`https://api.push.apple.com/3/device/${row.token}`, {
           method: 'POST',
           headers: {
@@ -93,19 +98,6 @@ serve(async (req) => {
 })
 
 // ---------------------------------------------------------------------------
-// Unread badge count — counts unsettled splits for a given user
-// ---------------------------------------------------------------------------
-
-async function getUnreadCount(supabase: ReturnType<typeof createClient>, userID: string): Promise<number> {
-  const { count } = await supabase
-    .from('splits')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userID)
-    .eq('is_settled', false)
-  return count ?? 1
-}
-
-// ---------------------------------------------------------------------------
 // APNs JWT (ES256) using Web Crypto API
 // ---------------------------------------------------------------------------
 
@@ -124,7 +116,6 @@ async function generateAPNsJWT(teamId: string, keyId: string, privateKeyPem: str
   const payloadB64 = toBase64Url(payload)
   const signingInput = `${headerB64}.${payloadB64}`
 
-  // Strip PEM headers and decode
   const pemBody = privateKeyPem
     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
     .replace(/-----END PRIVATE KEY-----/g, '')

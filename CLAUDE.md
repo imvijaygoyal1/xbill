@@ -72,14 +72,18 @@
 15. `015_recurring_expenses.sql` — Adds `recurrence text DEFAULT 'none'` + `next_occurrence_date timestamptz` to expenses; recreates RPC with new optional params
 16. `016_create_device_tokens_table.sql` — Creates `public.device_tokens (id, user_id → auth.users cascade, token, platform DEFAULT 'apns', created_at)`; RLS enabled; "Users manage own tokens" policy. (Migration 010 only added a `device_token` column to `profiles` — this is the actual table.)
 17. `017_fix_user_delete_constraints.sql` — Changes `groups.created_by` and `expenses.paid_by` FK constraints from `ON DELETE RESTRICT` to `ON DELETE SET NULL` (with columns made nullable). Fixes auth user deletion being blocked when the user had created groups or paid for expenses.
+18. `018_lookup_profiles_by_email.sql` — `SECURITY DEFINER` RPC `lookup_profiles_by_email`; excludes current user; granted only to `authenticated` role
+19. `019_device_tokens_unique.sql` — Adds `UNIQUE (user_id, token)` constraint to `device_tokens` to prevent duplicate rows and enable safe upserts.
 
 ## File Map
 
 ### Entry Point
-- `xBill/xBillApp.swift` — `@main`, creates `AuthViewModel`, passes to `ContentView`, starts auth listener + loads current user; `.onOpenURL` passes deep links to `supabase.auth.session(from:)` for email confirmation + password reset
+- `xBill/xBillApp.swift` — `@main`, creates `AuthViewModel`, passes to `ContentView`, starts auth listener + loads current user; `.onOpenURL` passes deep links to `supabase.auth.session(from:)` for email confirmation + password reset; `AppDelegate` conforms to `UNUserNotificationCenterDelegate` (`@preconcurrency` for Swift 6 compatibility): `willPresent` returns `.banner + .sound + .badge` (foreground pushes show), `didReceive` sets `AppState.shared.pendingNotificationTarget` for tap-to-navigate
 
 ### Edge Functions
 - `supabase/functions/invite-member/index.ts` — Deno; calls Resend API to send group invite emails; expects `{ groupName, groupEmoji, inviterName, emails[] }`; returns `{ sent, failed[] }`
+- `supabase/functions/notify-expense/index.ts` — Reads tokens from `device_tokens` table (not `profiles`); per-recipient badge count via `getUnreadCount` (unsettled splits count); expects `{ expenseId, groupId, payerName, expenseTitle, amount, currency }`
+- `supabase/functions/notify-settlement/index.ts` — Pushes creditor (toUserID) when a settlement is recorded; expects `{ settlementId, groupId, groupName, fromUserID, fromName, toUserID, amount, currency }`; badge = unsettled splits for creditor
 
 ### Design System
 - `xBill/Views/Components/XBillWordmark.swift` — `XBillWordmark` view: "xBill" in `.heavy` 22pt `brandPrimary`, tracking -0.8 + kerning -0.5; used as `.principal` toolbar item in `HomeView`
@@ -93,7 +97,7 @@
 31 named color sets with light/dark variants: `BrandPrimary`, `BrandAccent`, `BrandSurface`, `BrandDeep`, `BgPrimary`, `BgSecondary`, `BgTertiary`, `BgCard`, `TextPrimary`, `TextSecondary`, `TextTertiary`, `TextInverse`, `MoneyPositive`, `MoneyNegative`, `MoneySettled`, `MoneyTotal`, `MoneyPositiveBg`, `MoneyNegativeBg`, `MoneySettledBg`, `Separator`, `TabBarBg`, `NavBarBg`, `InputBg`, `InputBorder`, `CatFood`, `CatTravel`, `CatHome`, `CatEntertain`, `CatHealth`, `CatShopping`, `CatOther`
 
 ### Core
-- `xBill/Core/AppState.swift` — `@Observable final class AppState: @unchecked Sendable` singleton (`AppState.shared`); `pendingQuickAction: QuickAction?` (.addExpense/.scanReceipt) set by AppDelegate; `spotlightTarget: SpotlightTarget?` (.group(UUID)) set by Spotlight NSUserActivity handler in xBillApp; consumed by MainTabView via `.task(id:)`
+- `xBill/Core/AppState.swift` — `@Observable final class AppState: @unchecked Sendable` singleton (`AppState.shared`); `pendingQuickAction: QuickAction?` (.addExpense/.scanReceipt) set by AppDelegate; `spotlightTarget: SpotlightTarget?` (.group(UUID)) set by Spotlight NSUserActivity handler in xBillApp; `pendingNotificationTarget: NotificationTarget?` (.group(UUID)) set by `UNUserNotificationCenterDelegate.didReceive` on push notification tap; all three consumed by MainTabView via `.task(id:)`
 - `xBill/Core/SupabaseClient.swift` — `SupabaseManager.shared`; reads URL/key from `Bundle.main.infoDictionary`; graceful fallback to placeholder (no crash) when credentials missing
 - `xBill/Core/AppError.swift` — `AppError` enum: `.network`, `.auth`, `.database`, `.confirmationRequired`, `.unknown`; `static func from(_ error: Error) -> AppError`
 - `xBill/Core/Constants/XBillURLs.swift` — `enum XBillURLs` with `privacyPolicy`, `termsOfService`, and `landingPage` static `URL` constants; always reference these instead of hardcoding URL strings
@@ -131,7 +135,8 @@
 - `xBill/Services/FoundationModelService.swift` — `@available(iOS 26.0, *)`. `parseReceipt(ocrText:language:)` — `language` is BCP-47 tag from `NLLanguageRecognizer` (e.g. "fr", "de"), injected into the system prompt for non-English receipt accuracy. `@Generable` schema adds `transactionDate: String?` ("YYYY-MM-DD" format); re-parsed by `VisionService.extractTransactionDate`. Minimum quality check: rejects OCR text with < 3 lines. Returns `ParsedReceiptJSON` (now includes `transactionDate: String?`). Falls through to heuristics on failure.
 - `xBill/Services/NotificationStore.swift` — local-first notification persistence; `merge([NotificationItem])` deduplicates by id, caps at 100 items; `lastViewedAt()` / `markAllRead()` for unread tracking; `unreadCount()` returns items newer than lastViewedAt; uses `CacheService.defaults` (App Group UserDefaults); `clearAll()` for test teardown
 - `xBill/Services/ActivityService.swift` — returns `[NotificationItem]`; fetches expenses per group in parallel, merges into `NotificationStore`, returns combined list sorted newest-first
-- `xBill/Services/NotificationService.swift` — Local push notifications
+- `xBill/Services/NotificationService.swift` — Local push notifications (settlement reminders only; `scheduleExpenseAddedNotification` removed in Phase 3)
+- `xBill/Services/ExpenseService.swift` — `notifyExpenseAdded(...)` and `notifySettlementRecorded(...)` both invoke Edge Functions as fire-and-forget `Task`s
 - `xBill/Services/ExportService.swift` — `@MainActor`; `generateCSV(group:expenses:memberNames:) -> Data`; `generatePDF(group:expenses:memberNames:balances:) -> Data` (PDFKit A4 report with summary, balances, expense table); `writeTemp(data:filename:) throws -> URL` for share sheet
 
 ### ViewModels

@@ -267,6 +267,19 @@ final class GroupViewModel {
             )
             NotificationStore.shared.merge([note])
 
+            Task {
+                await expenseService.notifySettlementRecorded(
+                    settlementID: suggestion.id,
+                    groupID:      group.id,
+                    groupName:    group.name,
+                    fromUserID:   suggestion.fromUserID,
+                    fromName:     suggestion.fromName,
+                    toUserID:     suggestion.toUserID,
+                    amount:       suggestion.amount,
+                    currency:     suggestion.currency
+                )
+            }
+
             await load()
         } catch {
             guard !AppError.isSilent(error) else { return }

@@ -168,6 +168,34 @@ final class ExpenseService: Sendable {
             .invoke("notify-expense", options: .init(body: payload))
     }
 
+    func notifySettlementRecorded(
+        settlementID: UUID,
+        groupID:      UUID,
+        groupName:    String,
+        fromUserID:   UUID,
+        fromName:     String,
+        toUserID:     UUID,
+        amount:       Decimal,
+        currency:     String
+    ) async {
+        struct Payload: Encodable {
+            let settlementId, groupId, groupName, fromUserID, fromName, toUserID, currency: String
+            let amount: Double
+        }
+        let payload = Payload(
+            settlementId: settlementID.uuidString,
+            groupId:      groupID.uuidString,
+            groupName:    groupName,
+            fromUserID:   fromUserID.uuidString,
+            fromName:     fromName,
+            toUserID:     toUserID.uuidString,
+            currency:     currency,
+            amount:       NSDecimalNumber(decimal: amount).doubleValue
+        )
+        _ = try? await supabase.client.functions
+            .invoke("notify-settlement", options: .init(body: payload))
+    }
+
     // MARK: - Delete
 
     func deleteExpense(id: UUID) async throws {

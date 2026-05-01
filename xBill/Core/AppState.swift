@@ -33,4 +33,12 @@ final class AppState: @unchecked Sendable {
     }
 
     var spotlightTarget: SpotlightTarget?
+
+    // MARK: - Push Notification Navigation
+
+    enum NotificationTarget: Equatable, Sendable {
+        case group(UUID)
+    }
+
+    var pendingNotificationTarget: NotificationTarget?
 }

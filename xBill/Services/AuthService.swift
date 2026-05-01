@@ -37,11 +37,18 @@ final class AuthService: Sendable {
         return try await fetchProfile(userID: session.user.id)
     }
 
-    func signInWithApple(idToken: String, nonce: String) async throws -> User {
+    func signInWithApple(idToken: String, nonce: String, displayName: String?) async throws -> User {
         let session = try await supabase.auth.signInWithIdToken(
             credentials: .init(provider: .apple, idToken: idToken, nonce: nonce)
         )
-        // Profile is created by DB trigger on first sign-in; just fetch it
+        // Apple only provides fullName on the very first authorization.
+        // Upsert it immediately so the trigger's fallback ("User") is overwritten.
+        if let name = displayName, !name.isEmpty {
+            try? await supabase.table("profiles")
+                .update(DisplayNamePayload(displayName: name))
+                .eq("id", value: session.user.id)
+                .execute()
+        }
         return try await fetchProfile(userID: session.user.id)
     }
 
@@ -112,13 +119,26 @@ final class AuthService: Sendable {
 
     func updateDeviceToken(_ token: String) async throws {
         guard let userID = await currentUserID else { return }
-        struct Payload: Encodable {
-            let deviceToken: String
-            enum CodingKeys: String, CodingKey { case deviceToken = "device_token" }
+        struct TokenRow: Encodable {
+            let userID: UUID
+            let token: String
+            let platform: String
+            enum CodingKeys: String, CodingKey {
+                case userID   = "user_id"
+                case token
+                case platform
+            }
         }
-        try await supabase.table("profiles")
-            .update(Payload(deviceToken: token))
-            .eq("id", value: userID)
+        // Replace all existing tokens for this user with the fresh token.
+        // Uses delete+insert instead of upsert because device_tokens has no
+        // single-column unique constraint on user_id alone (one user can have
+        // multiple devices, but we treat one active token per user for now).
+        try await supabase.table("device_tokens")
+            .delete()
+            .eq("user_id", value: userID)
+            .execute()
+        try await supabase.table("device_tokens")
+            .insert(TokenRow(userID: userID, token: token, platform: "apns"))
             .execute()
     }
 
@@ -181,6 +201,11 @@ private struct ProfileUpsertPayload: Encodable {
         case email
         case displayName = "display_name"
     }
+}
+
+private struct DisplayNamePayload: Encodable {
+    let displayName: String
+    enum CodingKeys: String, CodingKey { case displayName = "display_name" }
 }
 
 private struct UserUpdatePayload: Encodable {
