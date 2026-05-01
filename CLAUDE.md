@@ -111,7 +111,8 @@
 - `xBill/Models/Split.swift` — `struct Split`; `SplitStrategy` has `.equal`, `.percentage`, `.exact`, `.shares`; `SplitInput` has `shares: Int` (default 1) for weighted sharing
 - `xBill/Models/Settlement.swift` — `struct SettlementSuggestion: Identifiable` (fromName, toName, amount, currency)
 - `xBill/Models/Receipt.swift` — `struct Receipt` for OCR-scanned receipts
-- `xBill/Models/ActivityItem.swift` — `struct ActivityItem: Identifiable, Sendable` (id, expenseTitle, amount, currency, category, payerName, groupName, groupEmoji, createdAt)
+- `xBill/Models/ActivityItem.swift` — legacy stub; replaced by `NotificationItem`
+- `xBill/Models/NotificationItem.swift` — `struct NotificationItem: Identifiable, Sendable, Codable` (id, eventType, title, subtitle, amount, currency, category, createdAt, isRead); `NotificationEventType` enum (.expenseAdded, .settlementMade); static factory methods `.expense(...)` and `.settlement(...)`
 - `xBill/Models/ReceiptJSON.swift` — `ParsedReceiptJSON` + `ParsedItemJSON` (Decodable); shared output schema for both FoundationModelService and heuristic parser
 
 ### Services
@@ -128,7 +129,8 @@
 - `xBill/Services/PaymentLinkService.swift` — Venmo deep-link URL generation
 - `xBill/Services/VisionService.swift` — Two-tier receipt parsing. Tier 1: `FoundationModelService` (iOS 26+, Apple Intelligence, ~90–95% accuracy). Tier 2: improved heuristics with spatial bounding-box grouping (iOS 17+, ~75–80%). Both return `ScanResult(receipt:confidence:tier:validationWarning:)`. Validates items+tax+tip ≈ total within $0.02, including delta amount in the warning (e.g. "$0.30 unaccounted for"). Key internals: CoreImage preprocessing (resize to 1200px + CIPhotoEffectNoir grayscale + CIColorControls contrast 1.4/brightness 0.05); `usesLanguageCorrection = false`; adaptive row threshold (60% of median Y gap, clamped 0.012…0.045); `extractAmount` handles European format (1.234,56), comma-decimal (12,50), skips parenthetical/negative amounts; `detectCurrency` covers £/€/₹/¥/₩; `isMetadata` check runs BEFORE price extraction with expanded keyword list; priority-based total detection (grandTotalCandidate from ["grand total","total due","amount due","balance due","total amount"] wins over regularTotalCandidate from plain "total", filters "savings"/"card"); merchant = first non-metadata, non-price row (len≥3).
 - `xBill/Services/FoundationModelService.swift` — `@available(iOS 26.0, *)`. Uses `LanguageModelSession(instructions:)` + `session.respond(to: ocrText, generating: ReceiptGenerable.self)` for structured output via `@Generable` types (`ReceiptGenerable` + `ItemGenerable`). Minimum quality check: rejects OCR text with < 3 lines before hitting the model. Returns `ParsedReceiptJSON`. Falls through to heuristics on failure. If `@Generable` macro unavailable at compile time, falls back to JSON-based approach.
-- `xBill/Services/ActivityService.swift` — `fetchRecentActivity(userID:limit:)` fetches all groups, then expenses+members per group in parallel, builds `[ActivityItem]` sorted by `createdAt` desc (default limit 50)
+- `xBill/Services/NotificationStore.swift` — local-first notification persistence; `merge([NotificationItem])` deduplicates by id, caps at 100 items; `lastViewedAt()` / `markAllRead()` for unread tracking; `unreadCount()` returns items newer than lastViewedAt; uses `CacheService.defaults` (App Group UserDefaults); `clearAll()` for test teardown
+- `xBill/Services/ActivityService.swift` — returns `[NotificationItem]`; fetches expenses per group in parallel, merges into `NotificationStore`, returns combined list sorted newest-first
 - `xBill/Services/NotificationService.swift` — Local push notifications
 - `xBill/Services/ExportService.swift` — `@MainActor`; `generateCSV(group:expenses:memberNames:) -> Data`; `generatePDF(group:expenses:memberNames:balances:) -> Data` (PDFKit A4 report with summary, balances, expense table); `writeTemp(data:filename:) throws -> URL` for share sheet
 
@@ -138,7 +140,7 @@
 - `xBill/ViewModels/GroupViewModel.swift` — loads members + expenses, computes balances + settlement suggestions, `recordSettlement()`; `archiveGroup()` / `unarchiveGroup()` set `isArchived` via `GroupService.updateGroup` and update `CacheService` immediately (remove/append to active-groups cache); `createDueRecurringInstances(currentUserID:)` fetches due recurring expenses, creates new instances, clears old `next_occurrence_date`
 - `xBill/ViewModels/AddExpenseViewModel.swift` — split calculation; `expenseCurrency` (defaults to group currency); `convertedAmount`/`exchangeRate` computed via `ExchangeRateService.shared`; `updateConversion()` called on currency/amount change; `finalAmount` = converted or raw; `save()` passes `originalAmount`/`originalCurrency` when foreign currency used
 - `xBill/ViewModels/ProfileViewModel.swift` — profile editing; `loadStats(userID:)` fetches groups + expenses concurrently via `withTaskGroup` to compute `totalGroupsCount`, `totalExpensesCount`, `lifetimePaid`; `saveProfile(avatarImage:)` uploads avatar via `AuthService.uploadAvatar` then calls `updateProfile`
-- `xBill/ViewModels/ActivityViewModel.swift` — loads activity feed via `ActivityService`; `load()` gets `currentUserID` from `AuthService` then fetches recent items
+- `xBill/ViewModels/ActivityViewModel.swift` — `items: [NotificationItem]`; `unreadCount: Int` synced from `NotificationStore`; `markAllRead()` clears badge; `hasUnread: Bool` computed
 - `xBill/ViewModels/ReceiptViewModel.swift` — receipt scan + review flow; `merchantName`, `totalAmount`, `tipAmount: String` mutable vars; `toggleAssignAll(to:)`, `updateUnitPrice`, `hasUnassignedItems`, `total(for:)`; **`startManually(members:)`** — creates blank Receipt, clears scan state, sets members; allows bypassing camera for manual line-item entry
 
 ### Widget Extension
@@ -164,9 +166,9 @@
 
 ### Views — Main
 - `xBill/Views/Main/ContentView.swift` — animated transition priority: `ResetPasswordView` → (logged in) `OnboardingView` (first launch only) or `MainTabView` → `AuthView`; `@AppStorage("hasCompletedOnboarding")` controls onboarding gate
-- `xBill/Views/Main/MainTabView.swift` — 5 tabs: Home / Groups / Friends / Activity / Profile; shares `homeVM` between Home and Groups tabs; Friends tab passes `homeVM.currentUser?.id`; tab bar uses `.ultraThinMaterial` glassmorphic background; handles `AppState.shared.pendingQuickAction` via `.task(id:)` → switches to Groups tab + shows `QuickAddExpenseSheet`; handles `AppState.shared.spotlightTarget` via `.task(id:)` → navigates to group via `homeVM.groupsNavigationPath`
+- `xBill/Views/Main/MainTabView.swift` — 5 tabs: Home / Groups / Friends / Activity / Profile; Activity tab uses `bell.fill` icon + `.badge(activityVM.unreadCount > 0 ? activityVM.unreadCount : 0)` for unread notification count; shares `homeVM` between Home and Groups tabs; Friends tab passes `homeVM.currentUser?.id`; tab bar uses `.ultraThinMaterial` glassmorphic background; handles `AppState.shared.pendingQuickAction` via `.task(id:)` → switches to Groups tab + shows `QuickAddExpenseSheet`; handles `AppState.shared.spotlightTarget` via `.task(id:)` → navigates to group via `homeVM.groupsNavigationPath`
 - `xBill/Views/Main/HomeView.swift` — `BalanceHeroCard` + quick stats row + horizontal `ScrollView` of `GroupChipView` chips + "RECENT EXPENSES" `LazyVStack`; no nav bar `+` button; FAB only; `.inline` title
-- `xBill/Views/Main/ActivityView.swift` — sections grouped by date ("TODAY"/"YESTERDAY"/date); `AmountBadge(.total)` trailing; single-line subtitle "Group · Paid by Name"
+- `xBill/Views/Main/ActivityView.swift` — renamed to "Notifications" in nav title; `bell.fill` icon; sections grouped by date; unread blue dot per row; "Mark All Read" toolbar button when `vm.hasUnread`; `onAppear` auto-marks read; `NotificationRowView` shows different icon per eventType (CategoryIconView for expenses, checkmark for settlements); `AmountBadge(.total/.settled)` per type; full a11y label
 
 ### Views — Groups
 - `xBill/Views/Groups/CreateGroupView.swift` — 4×5 emoji grid picker (20 emojis), currency picker (uses `ExchangeRateService.commonCurrencies`), invite email field (wired: sends invite via `GroupService.inviteMembers` after group creation if non-empty, non-fatal error)
@@ -212,6 +214,7 @@
 ### Tests
 - `xBillTests/SplitCalculatorTests.swift` — 17 tests: equal split (even/rounding/excluded/single), percentage (proportional/rounding), exact validation (pass/fail), net balances, single payer, circular debt, partially settled, two people, floating point precision (÷3), minimize transactions (basic/all-settled). Fixed 2026-04-29: added `recurrence: .none` to all `Expense` inits; removed stale `updatedAt:` arg; fixed `\.amount` key-path inference in `#expect`.
 - `xBillTests/P2FeatureTests.swift` — 18 tests across 5 suites: CrossGroupDebt (balance merging, currency separation, minimisation), AppLock (lock/no-op state transitions, MainActor), ManualReceipt (startManually creates blank receipt, assigns members, clears previous scan), CacheServiceBalance (.serialized, round-trip and zero-default), ContactDiscovery (email validation, dedup, lowercasing).
+- `xBillTests/P1NotificationTests.swift` — 16 tests across 4 suites: NotificationStore (.serialized, merge dedup, read-state preservation, sort order, unread count, markAllRead, 100-item cap), NotificationItemFactory (expense + settlement factory field mapping), ActivityViewModelUnread (hasUnread flag, markAllRead zeros VM), NotificationItemCodable (expense + settlement JSON round-trip).
 - `xBillTests/GroupFlowTests.swift` — 27 tests across 6 suites: GroupFlowCachePattern (archive/unarchive array-manipulation logic, idempotency), BillGroupModel (Codable roundtrip, snake_case CodingKeys, Equatable, value-type semantics), GroupCreationLogic (onCreated append, canCreate guard, invite email trim), GroupArchiveLogic (balance-warning conditions, plural/singular, toolbar action context), CurrencyList (count=20, original 8 + 12 new, no duplicates), RealtimeContract (topic scoping). All tests are parallel-safe (no shared UserDefaults state).
 - `xBillUITests/OnboardingUITests.swift`
 - `xBillUITests/GroupFlowUITests.swift` — 14 XCUITests for group creation (form validation, Create button enable/disable, cancel, new group appears in list immediately), archive flow (toolbar menu, confirmation dialog, group moves to archived section on confirm), and unarchive flow (archived section expand/collapse, swipe-right Unarchive action, Unarchive from detail-view toolbar). All tests skip gracefully with `XCTSkip` when not signed in or when prerequisite data (groups, archived groups) is absent.
@@ -336,6 +339,18 @@ All ViewModels use `var errorAlert: ErrorAlert?` (defined in `AppError.swift`) i
 **FK constraints** (`017_fix_user_delete_constraints.sql`): `groups.created_by` and `expenses.paid_by` were `ON DELETE RESTRICT` which blocked auth user deletion. Changed to `ON DELETE SET NULL` with nullable columns so groups and expenses persist after the creator/payer is deleted.
 
 Deploy: `supabase db push && supabase functions deploy delete-account --project-ref <ref>`. Secrets required: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (auto-injected; add manually via `supabase secrets set` if missing).
+
+## P1 Features (implemented 2026-04-30)
+
+### In-App Notification Center
+- **`NotificationItem`** (`Models/NotificationItem.swift`) — `Codable, Sendable` model replacing `ActivityItem`; `NotificationEventType` enum: `.expenseAdded` and `.settlementMade`; static factories `NotificationItem.expense(...)` and `NotificationItem.settlement(...)`
+- **`NotificationStore`** (`Services/NotificationStore.swift`) — local-first persistence via App Group UserDefaults; `merge(_:)` deduplicates by id and caps at 100 items; `lastViewedAt()` / `markAllRead()` timestamp-based read tracking; `unreadCount()` = items newer than lastViewedAt; `clearAll()` for test teardown
+- **`ActivityService`** — now returns `[NotificationItem]`; merges DB-fetched expense items into store on each fetch (preserving read state for existing items)
+- **`ActivityViewModel`** — `unreadCount: Int`, `markAllRead()`, `hasUnread: Bool` computed
+- **`ActivityView`** — title changed to "Notifications", `bell.fill` tab icon; unread blue dot per row; "Mark All Read" toolbar button; auto-marks read on appear
+- **`MainTabView`** — `.badge(activityVM.unreadCount > 0 ? activityVM.unreadCount : 0)` on Activity tab
+- **`GroupViewModel.recordSettlement()`** — writes `NotificationItem.settlement(...)` to `NotificationStore` after each successful settle-up
+- **Settlement events** are write-side local notifications — generated when the current user records a settlement; persist across app restarts
 
 ## P2 Features (implemented 2026-04-29)
 

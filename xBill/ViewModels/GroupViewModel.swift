@@ -260,6 +260,13 @@ final class GroupViewModel {
                 try await taskGroup.waitForAll()
             }
 
+            let note = NotificationItem.settlement(
+                suggestion: suggestion,
+                groupName: group.name,
+                groupEmoji: group.emoji
+            )
+            NotificationStore.shared.merge([note])
+
             await load()
         } catch {
             guard !AppError.isSilent(error) else { return }

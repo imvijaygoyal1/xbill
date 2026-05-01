@@ -37,7 +37,8 @@ struct MainTabView: View {
                 .tag(Tab.friends)
 
             ActivityView(vm: activityVM)
-                .tabItem { Label("Activity", systemImage: "bolt.fill") }
+                .tabItem { Label("Activity", systemImage: "bell.fill") }
+                .badge(activityVM.unreadCount > 0 ? activityVM.unreadCount : 0)
                 .tag(Tab.activity)
 
             ProfileView(vm: profileVM, onSignOut: {
