@@ -158,16 +158,18 @@ final class AddExpenseViewModel {
             isSaved = true
 
             let payerName = members.first(where: { $0.id == payerID })?.displayName ?? "Someone"
-            Task {
-                await expenseService.notifyExpenseAdded(
-                    expenseID:    expense.id,
-                    groupID:      group.id,
-                    payerID:      payerID,
-                    payerName:    payerName,
-                    expenseTitle: expense.title,
-                    amount:       expense.amount,
-                    currency:     expense.currency
-                )
+            if UserDefaults.standard.bool(forKey: "prefPushExpense") {
+                Task {
+                    await expenseService.notifyExpenseAdded(
+                        expenseID:    expense.id,
+                        groupID:      group.id,
+                        payerID:      payerID,
+                        payerName:    payerName,
+                        expenseTitle: expense.title,
+                        amount:       expense.amount,
+                        currency:     expense.currency
+                    )
+                }
             }
         } catch {
             guard !AppError.isSilent(error) else { return }

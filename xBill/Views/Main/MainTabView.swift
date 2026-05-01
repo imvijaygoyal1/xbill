@@ -17,6 +17,8 @@ struct MainTabView: View {
     @State private var selectedTab: Tab = .home
     @State private var showQuickAddExpense = false
     @State private var quickActionScan = false
+    @State private var showNotificationPrompt = false
+    @AppStorage("hasPromptedNotificationPermission") private var hasPromptedNotification = false
 
     enum Tab: Hashable {
         case home, groups, friends, activity, profile
@@ -68,9 +70,22 @@ struct MainTabView: View {
             await homeVM.loadCurrentUser()
             await homeVM.loadAll()
             await profileVM.load()
-            let granted = (try? await NotificationService.shared.requestAuthorization()) ?? false
-            if granted {
+            let status = await NotificationService.shared.authorizationStatus()
+            if status == .authorized || status == .provisional {
                 UIApplication.shared.registerForRemoteNotifications()
+            } else if status == .notDetermined && !hasPromptedNotification {
+                showNotificationPrompt = true
+            }
+        }
+        .sheet(isPresented: $showNotificationPrompt) {
+            NotificationPermissionView {
+                hasPromptedNotification = true
+                showNotificationPrompt  = false
+                let granted = (try? await NotificationService.shared.requestAuthorization()) ?? false
+                if granted { UIApplication.shared.registerForRemoteNotifications() }
+            } onSkip: {
+                hasPromptedNotification = true
+                showNotificationPrompt  = false
             }
         }
         // Handle quick actions (warm start and cold start after load)

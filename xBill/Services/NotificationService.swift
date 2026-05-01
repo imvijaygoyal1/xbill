@@ -46,21 +46,6 @@ final class NotificationService: Sendable {
         try await UNUserNotificationCenter.current().add(request)
     }
 
-    func scheduleExpenseAddedNotification(expenseTitle: String, payerName: String, amount: Decimal, currency: String) async throws {
-        let content = UNMutableNotificationContent()
-        content.title = "\(payerName) added an expense"
-        content.body = "\(expenseTitle) — \(amount.formatted(currencyCode: currency))"
-        content.sound = .default
-
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-        let request = UNNotificationRequest(
-            identifier: "expense-\(UUID().uuidString)",
-            content: content,
-            trigger: trigger
-        )
-        try await UNUserNotificationCenter.current().add(request)
-    }
-
     // MARK: - Cancel
 
     func cancelNotification(identifier: String) {

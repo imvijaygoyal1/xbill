@@ -11,6 +11,7 @@ struct ExpenseDetailView: View {
     let expense: Expense
     let members: [User]
     let currency: String
+    let groupName: String
     let currentUserID: UUID
     var onUpdated: ((Expense) -> Void)? = nil
     var onDeleted: (() -> Void)? = nil
@@ -367,10 +368,15 @@ struct ExpenseDetailView: View {
         isPostingComment = true
         defer { isPostingComment = false }
         do {
+            let commenterName = members.first(where: { $0.id == currentUserID })?.displayName ?? "Someone"
             let comment = try await CommentService.shared.addComment(
-                expenseID: expense.id,
-                userID: currentUserID,
-                text: text
+                expenseID:     expense.id,
+                userID:        currentUserID,
+                text:          text,
+                expenseTitle:  expense.title,
+                groupID:       expense.groupID,
+                groupName:     groupName,
+                commenterName: commenterName
             )
             comments.append(comment)
             newCommentText = ""
@@ -392,6 +398,7 @@ struct ExpenseDetailView: View {
             ),
             members: [],
             currency: "USD",
+            groupName: "Weekend Trip",
             currentUserID: UUID()
         )
     }

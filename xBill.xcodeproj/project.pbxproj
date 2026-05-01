@@ -68,6 +68,7 @@
 		93522898B078BAD54AEF6D79 /* ReceiptScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19018B425F735551B80FBD2 /* ReceiptScanView.swift */; };
 		94B3ED8E12786F3662AEF0CE /* Comment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07FD702DF905B1648AC99BA8 /* Comment.swift */; };
 		957C65C01366B052F4AB7D3D /* Group.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2EC2F7533797B1D64E4E904 /* Group.swift */; };
+		96FC246B7C94AE28102FC61B /* NotificationPermissionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01D544840EC744D0076622E6 /* NotificationPermissionView.swift */; };
 		97823306D5CE81B8F66405C0 /* FriendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DC11A250D3881C3E524BF6 /* FriendsView.swift */; };
 		984FECBE4D755678387F5E88 /* XBillURLs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49346A72F30D057EC2177A69 /* XBillURLs.swift */; };
 		988027AF52C6E1EAB234B285 /* BalanceHeroCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B613E685BD7816E9407BCC9 /* BalanceHeroCard.swift */; };
@@ -154,6 +155,7 @@
 
 /* Begin PBXFileReference section */
 		00D3FF52404226E25568FE85 /* xBillWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = xBillWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		01D544840EC744D0076622E6 /* NotificationPermissionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPermissionView.swift; sourceTree = "<group>"; };
 		023CBAFE1DFA06C72477422C /* NotificationItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationItem.swift; sourceTree = "<group>"; };
 		03B23885DCEF8D3A2862BDCF /* GroupFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupFlowUITests.swift; sourceTree = "<group>"; };
 		05B3640249525E36A9F52772 /* AddExpenseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddExpenseView.swift; sourceTree = "<group>"; };
@@ -368,6 +370,7 @@
 				584BAC14164D3737BAC27CC5 /* ContentView.swift */,
 				9300CF88C633865DC505CDF7 /* HomeView.swift */,
 				27D9E1730D9145BAD6267A23 /* MainTabView.swift */,
+				01D544840EC744D0076622E6 /* NotificationPermissionView.swift */,
 			);
 			path = Main;
 			sourceTree = "<group>";
@@ -771,6 +774,7 @@
 				576C47087977896127F88C03 /* MainTabView.swift in Sources */,
 				CF7BB5EDBB1D51E7878487CB /* NetworkMonitor.swift in Sources */,
 				B47BAFF8822A6ED9F62109C2 /* NotificationItem.swift in Sources */,
+				96FC246B7C94AE28102FC61B /* NotificationPermissionView.swift in Sources */,
 				E50C54F5DD08930BE0AAF3CF /* NotificationService.swift in Sources */,
 				381348AB57FBCAB61DC0B7BD /* NotificationStore.swift in Sources */,
 				118066442D50980FE03E3C82 /* OfflineBanner.swift in Sources */,

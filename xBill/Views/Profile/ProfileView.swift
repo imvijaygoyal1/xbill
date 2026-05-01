@@ -57,6 +57,10 @@ struct ProfileView: View {
     @State private var showPrivacy        = false
     @State private var showTerms          = false
 
+    @AppStorage("prefPushExpense")    private var prefPushExpense    = true
+    @AppStorage("prefPushSettlement") private var prefPushSettlement = true
+    @AppStorage("prefPushComment")    private var prefPushComment    = true
+
     var body: some View {
         NavigationStack {
             List {
@@ -126,6 +130,38 @@ struct ProfileView: View {
                     .listRowBackground(Color.bgCard)
                 } header: {
                     Text("PAYMENT HANDLES")
+                        .font(.xbillUpperLabel)
+                        .tracking(1.08)
+                        .foregroundStyle(Color.textTertiary)
+                }
+
+                // Notifications
+                Section {
+                    Toggle(isOn: $prefPushExpense) {
+                        Label("New Expenses", systemImage: "plus.circle")
+                            .font(.xbillBodyMedium)
+                            .foregroundStyle(Color.textPrimary)
+                    }
+                    .tint(Color.brandPrimary)
+                    .listRowBackground(Color.bgCard)
+
+                    Toggle(isOn: $prefPushSettlement) {
+                        Label("Settlements", systemImage: "checkmark.seal")
+                            .font(.xbillBodyMedium)
+                            .foregroundStyle(Color.textPrimary)
+                    }
+                    .tint(Color.brandPrimary)
+                    .listRowBackground(Color.bgCard)
+
+                    Toggle(isOn: $prefPushComment) {
+                        Label("Comments", systemImage: "bubble.left")
+                            .font(.xbillBodyMedium)
+                            .foregroundStyle(Color.textPrimary)
+                    }
+                    .tint(Color.brandPrimary)
+                    .listRowBackground(Color.bgCard)
+                } header: {
+                    Text("NOTIFICATIONS")
                         .font(.xbillUpperLabel)
                         .tracking(1.08)
                         .foregroundStyle(Color.textTertiary)

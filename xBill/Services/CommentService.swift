@@ -26,7 +26,15 @@ final class CommentService: Sendable {
 
     // MARK: - Create
 
-    func addComment(expenseID: UUID, userID: UUID, text: String) async throws -> Comment {
+    func addComment(
+        expenseID:     UUID,
+        userID:        UUID,
+        text:          String,
+        expenseTitle:  String,
+        groupID:       UUID,
+        groupName:     String,
+        commenterName: String
+    ) async throws -> Comment {
         struct Payload: Encodable {
             let expenseID: UUID
             let userID: UUID
@@ -37,12 +45,59 @@ final class CommentService: Sendable {
                 case text
             }
         }
-        return try await supabase.table("comments")
+        let comment: Comment = try await supabase.table("comments")
             .insert(Payload(expenseID: expenseID, userID: userID, text: text))
             .select()
             .single()
             .execute()
             .value
+        if UserDefaults.standard.bool(forKey: "prefPushComment") {
+            Task {
+                await notifyComment(
+                    expenseID:     expenseID,
+                    expenseTitle:  expenseTitle,
+                    groupID:       groupID,
+                    groupName:     groupName,
+                    commenterID:   userID,
+                    commenterName: commenterName,
+                    commentText:   text
+                )
+            }
+        }
+        return comment
+    }
+
+    private func notifyComment(
+        expenseID:     UUID,
+        expenseTitle:  String,
+        groupID:       UUID,
+        groupName:     String,
+        commenterID:   UUID,
+        commenterName: String,
+        commentText:   String
+    ) async {
+        struct Payload: Encodable {
+            let expenseId, expenseTitle, groupId, groupName: String
+            let commenterID, commenterName, commentText: String
+            let isDevelopment: Bool
+        }
+        #if DEBUG
+        let dev = true
+        #else
+        let dev = false
+        #endif
+        let payload = Payload(
+            expenseId:     expenseID.uuidString,
+            expenseTitle:  expenseTitle,
+            groupId:       groupID.uuidString,
+            groupName:     groupName,
+            commenterID:   commenterID.uuidString,
+            commenterName: commenterName,
+            commentText:   commentText,
+            isDevelopment: dev
+        )
+        _ = try? await supabase.client.functions
+            .invoke("notify-comment", options: .init(body: payload))
     }
 
     // MARK: - Delete

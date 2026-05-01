@@ -19,6 +19,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotifi
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        UserDefaults.standard.register(defaults: [
+            "prefPushExpense":    true,
+            "prefPushSettlement": true,
+            "prefPushComment":    true,
+        ])
         registerShortcutItems()
 
         // Handle cold-launch from a shortcut (return false so performActionFor is NOT called again)

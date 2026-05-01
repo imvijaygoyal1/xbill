@@ -216,6 +216,7 @@ struct GroupDetailView: View {
                                 expense: expense,
                                 members: vm.members,
                                 currency: vm.group.currency,
+                                groupName: vm.group.name,
                                 currentUserID: currentUserID,
                                 onUpdated: { updated in Task { await vm.updateExpense(updated) } },
                                 onDeleted: { Task { await vm.deleteExpense(expense) } }
