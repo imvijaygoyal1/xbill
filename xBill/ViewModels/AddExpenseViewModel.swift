@@ -162,6 +162,7 @@ final class AddExpenseViewModel {
                 await expenseService.notifyExpenseAdded(
                     expenseID:    expense.id,
                     groupID:      group.id,
+                    payerID:      payerID,
                     payerName:    payerName,
                     expenseTitle: expense.title,
                     amount:       expense.amount,

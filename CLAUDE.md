@@ -82,8 +82,8 @@
 
 ### Edge Functions
 - `supabase/functions/invite-member/index.ts` — Deno; calls Resend API to send group invite emails; expects `{ groupName, groupEmoji, inviterName, emails[] }`; returns `{ sent, failed[] }`
-- `supabase/functions/notify-expense/index.ts` — Reads tokens from `device_tokens` table (not `profiles`); per-recipient badge count via `getUnreadCount` (unsettled splits count); expects `{ expenseId, groupId, payerName, expenseTitle, amount, currency }`
-- `supabase/functions/notify-settlement/index.ts` — Pushes creditor (toUserID) when a settlement is recorded; expects `{ settlementId, groupId, groupName, fromUserID, fromName, toUserID, amount, currency }`; badge = unsettled splits for creditor
+- `supabase/functions/notify-expense/index.ts` — Reads tokens from `device_tokens`; excludes sender (`payerId`); per-recipient badge via `getUnreadCount`; JWT cached 55 min; `apns-expiration: +1h`; stale token cleanup on 410/400; sandbox URL when `isDevelopment: true`; expects `{ expenseId, groupId, payerId, payerName, expenseTitle, amount, currency, isDevelopment }`
+- `supabase/functions/notify-settlement/index.ts` — Pushes creditor (toUserID) only; same JWT cache, expiration, stale cleanup, sandbox URL logic; expects `{ settlementId, groupId, groupName, fromUserID, fromName, toUserID, amount, currency, isDevelopment }`
 
 ### Design System
 - `xBill/Views/Components/XBillWordmark.swift` — `XBillWordmark` view: "xBill" in `.heavy` 22pt `brandPrimary`, tracking -0.8 + kerning -0.5; used as `.principal` toolbar item in `HomeView`

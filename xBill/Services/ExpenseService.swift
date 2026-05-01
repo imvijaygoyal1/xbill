@@ -147,22 +147,31 @@ final class ExpenseService: Sendable {
     func notifyExpenseAdded(
         expenseID:    UUID,
         groupID:      UUID,
+        payerID:      UUID,
         payerName:    String,
         expenseTitle: String,
         amount:       Decimal,
         currency:     String
     ) async {
         struct Payload: Encodable {
-            let expenseId, groupId, payerName, expenseTitle, currency: String
+            let expenseId, groupId, payerId, payerName, expenseTitle, currency: String
             let amount: Double
+            let isDevelopment: Bool
         }
+        #if DEBUG
+        let dev = true
+        #else
+        let dev = false
+        #endif
         let payload = Payload(
-            expenseId:    expenseID.uuidString,
-            groupId:      groupID.uuidString,
-            payerName:    payerName,
-            expenseTitle: expenseTitle,
-            currency:     currency,
-            amount:       NSDecimalNumber(decimal: amount).doubleValue
+            expenseId:     expenseID.uuidString,
+            groupId:       groupID.uuidString,
+            payerId:       payerID.uuidString,
+            payerName:     payerName,
+            expenseTitle:  expenseTitle,
+            currency:      currency,
+            amount:        NSDecimalNumber(decimal: amount).doubleValue,
+            isDevelopment: dev
         )
         _ = try? await supabase.client.functions
             .invoke("notify-expense", options: .init(body: payload))
@@ -181,16 +190,23 @@ final class ExpenseService: Sendable {
         struct Payload: Encodable {
             let settlementId, groupId, groupName, fromUserID, fromName, toUserID, currency: String
             let amount: Double
+            let isDevelopment: Bool
         }
+        #if DEBUG
+        let dev = true
+        #else
+        let dev = false
+        #endif
         let payload = Payload(
-            settlementId: settlementID.uuidString,
-            groupId:      groupID.uuidString,
-            groupName:    groupName,
-            fromUserID:   fromUserID.uuidString,
-            fromName:     fromName,
-            toUserID:     toUserID.uuidString,
-            currency:     currency,
-            amount:       NSDecimalNumber(decimal: amount).doubleValue
+            settlementId:  settlementID.uuidString,
+            groupId:       groupID.uuidString,
+            groupName:     groupName,
+            fromUserID:    fromUserID.uuidString,
+            fromName:      fromName,
+            toUserID:      toUserID.uuidString,
+            currency:      currency,
+            amount:        NSDecimalNumber(decimal: amount).doubleValue,
+            isDevelopment: dev
         )
         _ = try? await supabase.client.functions
             .invoke("notify-settlement", options: .init(body: payload))

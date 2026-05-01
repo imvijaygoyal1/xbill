@@ -6,13 +6,37 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// ---------------------------------------------------------------------------
+// APNs JWT cache — reuse for up to 55 minutes to avoid per-request P-256 ops
+// ---------------------------------------------------------------------------
+
+let cachedJWT: string | null = null
+let jwtExpiresAt = 0
+
+async function getAPNsJWT(teamId: string, keyId: string, pem: string): Promise<string> {
+  const now = Math.floor(Date.now() / 1000)
+  if (cachedJWT && now < jwtExpiresAt) return cachedJWT
+  cachedJWT = await generateAPNsJWT(teamId, keyId, pem)
+  jwtExpiresAt = now + 55 * 60
+  return cachedJWT
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { expenseId, groupId, payerName, expenseTitle, amount, currency } = await req.json()
+    const {
+      expenseId,
+      groupId,
+      payerId,
+      payerName,
+      expenseTitle,
+      amount,
+      currency,
+      isDevelopment,
+    } = await req.json()
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -31,7 +55,7 @@ serve(async (req) => {
 
     const memberIDs = members.map((m: { user_id: string }) => m.user_id)
 
-    // Fetch device tokens from device_tokens table (user_id retained for badge + exclusion)
+    // Fetch device tokens — user_id retained for sender exclusion and badge
     const { data: tokenRows } = await supabase
       .from('device_tokens')
       .select('token, user_id')
@@ -45,14 +69,21 @@ serve(async (req) => {
     const keyId    = Deno.env.get('APNS_KEY_ID')!
     const pem      = Deno.env.get('APNS_PRIVATE_KEY')!
     const bundleId = 'com.vijaygoyal.xbill'
+    const apnsHost = isDevelopment
+      ? 'https://api.sandbox.push.apple.com'
+      : 'https://api.push.apple.com'
+    const expiration = String(Math.floor(Date.now() / 1000) + 3600)
 
-    const jwt = await generateAPNsJWT(teamId, keyId, pem)
+    const jwt = await getAPNsJWT(teamId, keyId, pem)
 
     let sent = 0
     for (const row of (tokenRows as { token: string; user_id: string }[])) {
+      // Don't notify the person who added the expense
+      if (row.user_id === payerId) continue
+
       try {
         const badge = await getUnreadCount(supabase, row.user_id)
-        const payload = {
+        const apnsPayload = {
           aps: {
             alert: {
               title: `${payerName} added an expense`,
@@ -64,19 +95,28 @@ serve(async (req) => {
           expenseId,
           groupId,
         }
-        const res = await fetch(`https://api.push.apple.com/3/device/${row.token}`, {
+        const res = await fetch(`${apnsHost}/3/device/${row.token}`, {
           method: 'POST',
           headers: {
-            authorization:    `bearer ${jwt}`,
-            'apns-topic':     bundleId,
-            'apns-push-type': 'alert',
-            'content-type':   'application/json',
+            authorization:     `bearer ${jwt}`,
+            'apns-topic':      bundleId,
+            'apns-push-type':  'alert',
+            'apns-expiration': expiration,
+            'content-type':    'application/json',
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(apnsPayload),
         })
-        if (res.ok) sent++
+
+        if (res.ok) {
+          sent++
+        } else if (res.status === 410 || res.status === 400) {
+          const body = await res.json().catch(() => ({}))
+          if (body.reason === 'Unregistered' || body.reason === 'BadDeviceToken') {
+            await supabase.from('device_tokens').delete().eq('token', row.token)
+          }
+        }
       } catch {
-        // Skip failed tokens silently
+        // Network error — skip this token silently
       }
     }
 
@@ -124,7 +164,6 @@ async function generateAPNsJWT(teamId: string, keyId: string, privateKeyPem: str
   const payloadB64 = toBase64Url(payload)
   const signingInput = `${headerB64}.${payloadB64}`
 
-  // Strip PEM headers and decode
   const pemBody = privateKeyPem
     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
     .replace(/-----END PRIVATE KEY-----/g, '')
@@ -139,7 +178,7 @@ async function generateAPNsJWT(teamId: string, keyId: string, privateKeyPem: str
     ['sign']
   )
 
-  const encoder  = new TextEncoder()
+  const encoder   = new TextEncoder()
   const signature = await crypto.subtle.sign(
     { name: 'ECDSA', hash: { name: 'SHA-256' } },
     privateKey,
