@@ -15,7 +15,8 @@ final class ReceiptViewModel {
 
     // MARK: - State
 
-    var capturedImage:     UIImage?
+    /// All pages captured from the document camera (or a single image from photo library).
+    var capturedPages:     [UIImage] = []
     var scannedReceipt:    Receipt?
     var isScanning:        Bool     = false
     var errorAlert:        ErrorAlert?
@@ -23,6 +24,7 @@ final class ReceiptViewModel {
     var confidence:        Double   = 0.0
     var validationWarning: String?  = nil
     var parsingTier:       String   = ""
+    var suggestedCategory: Expense.Category? = nil
 
     var items:        [ReceiptItem] = []
     var members:      [User]        = []
@@ -31,6 +33,9 @@ final class ReceiptViewModel {
     var merchantName: String = ""
     var totalAmount:  String = ""
     var tipAmount:    String = ""
+
+    /// First page image, used for display in the scan preview.
+    var capturedImage: UIImage? { capturedPages.first }
 
     private let vision = VisionService.shared
 
@@ -59,18 +64,19 @@ final class ReceiptViewModel {
 
     // MARK: - Scan
 
-    func scan(image: UIImage) async {
-        capturedImage     = image
+    /// Processes one or more captured pages (Gap 6: multi-page support).
+    func scan(pages: [UIImage]) async {
         isScanning        = true
         validationWarning = nil
         defer { isScanning = false }
         do {
-            let result        = try await vision.scanReceipt(from: image)
+            let result        = try await vision.scanMultiPage(from: pages)
             scannedReceipt    = result.receipt
             items             = result.receipt.items
             confidence        = result.confidence
             validationWarning = result.validationWarning
             parsingTier       = result.tier
+            suggestedCategory = result.suggestedCategory
             merchantName      = result.receipt.merchant ?? ""
             if let tip   = result.receipt.tip   { tipAmount   = "\(tip)"   }
             if let total = result.receipt.total  { totalAmount = "\(total)" }
@@ -110,7 +116,6 @@ final class ReceiptViewModel {
                 return total + item.totalPrice / Decimal(item.assignedUserIDs.count)
             }
 
-        // Only members with ≥1 item assigned share the tax+tip
         let participatingIDs = Set(items.flatMap(\.assignedUserIDs))
         guard participatingIDs.contains(userID), !participatingIDs.isEmpty else {
             return itemShare.rounded
@@ -135,18 +140,19 @@ final class ReceiptViewModel {
 
     func startManually(members: [User] = []) {
         self.members      = members
-        capturedImage     = nil
+        capturedPages     = []
         scannedReceipt    = Receipt(
             id: UUID(), expenseID: nil, imageURL: nil,
             merchant: nil, items: [], subtotal: nil,
             tax: nil, tip: nil, total: nil,
-            currency: "USD", scannedAt: Date()
+            currency: "USD", transactionDate: nil, scannedAt: Date()
         )
         items             = []
         merchantName      = ""
         totalAmount       = ""
         tipAmount         = ""
         validationWarning = nil
+        suggestedCategory = nil
     }
 
     // MARK: - Edit

@@ -11,11 +11,11 @@ import VisionKit
 import PhotosUI
 
 // MARK: - DocumentCameraView
-// Wraps VNDocumentCameraViewController — automatically detects receipt boundary
-// and applies perspective correction before returning the image.
+// Wraps VNDocumentCameraViewController — automatically detects receipt boundary,
+// applies perspective correction, and captures ALL pages (Gap 6: multi-page support).
 
 private struct DocumentCameraView: UIViewControllerRepresentable {
-    @Binding var scannedImage: UIImage?
+    @Binding var scannedPages: [UIImage]
     @Binding var isPresented:  Bool
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -36,7 +36,8 @@ private struct DocumentCameraView: UIViewControllerRepresentable {
             _ controller: VNDocumentCameraViewController,
             didFinishWith scan: VNDocumentCameraScan
         ) {
-            parent.scannedImage = scan.imageOfPage(at: 0)
+            // Capture every page so multi-page receipts are fully processed
+            parent.scannedPages = (0..<scan.pageCount).map { scan.imageOfPage(at: $0) }
             parent.isPresented  = false
         }
 
@@ -76,6 +77,13 @@ struct ReceiptScanView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .padding(.horizontal)
 
+                    // Multi-page badge
+                    if vm.capturedPages.count > 1 {
+                        Text("\(vm.capturedPages.count) pages captured")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
                     if vm.isScanning {
                         VStack(spacing: 8) {
                             ProgressView()
@@ -97,7 +105,7 @@ struct ReceiptScanView: View {
                             }
 
                             Button {
-                                vm.capturedImage  = nil
+                                vm.capturedPages  = []
                                 vm.scannedReceipt = nil
                                 vm.items          = []
                             } label: {
@@ -181,7 +189,7 @@ struct ReceiptScanView: View {
                 }
             }
             .fullScreenCover(isPresented: $showCamera) {
-                DocumentCameraView(scannedImage: $vm.capturedImage, isPresented: $showCamera)
+                DocumentCameraView(scannedPages: $vm.capturedPages, isPresented: $showCamera)
                     .ignoresSafeArea()
             }
             .onChange(of: selectedPhoto) { _, item in
@@ -189,14 +197,14 @@ struct ReceiptScanView: View {
                 Task {
                     if let data  = try? await item.loadTransferable(type: Data.self),
                        let image = UIImage(data: data) {
-                        vm.capturedImage = image
+                        vm.capturedPages = [image]
                     }
                     selectedPhoto = nil
                 }
             }
-            .onChange(of: vm.capturedImage) { _, image in
-                guard let image else { return }
-                Task { await vm.scan(image: image) }
+            .onChange(of: vm.capturedPages) { _, pages in
+                guard !pages.isEmpty else { return }
+                Task { await vm.scan(pages: pages) }
             }
         }
         .onAppear { vm.members = members }

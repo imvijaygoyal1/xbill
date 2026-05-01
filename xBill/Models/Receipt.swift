@@ -20,6 +20,7 @@ struct Receipt: Codable, Identifiable, Equatable, Sendable {
     var tip: Decimal?
     var total: Decimal?
     var currency: String
+    var transactionDate: Date?
     var scannedAt: Date
 
     var computedTotal: Decimal {
@@ -37,6 +38,7 @@ struct Receipt: Codable, Identifiable, Equatable, Sendable {
         case tip
         case total
         case currency
+        case transactionDate = "transaction_date"
         case scannedAt = "scanned_at"
     }
 }

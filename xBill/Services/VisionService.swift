@@ -8,10 +8,11 @@
 import Foundation
 import Vision
 import UIKit
+import CoreImage
+import NaturalLanguage
 
 // MARK: - OCRLine
 
-/// A single block of text extracted from Vision, with its normalized position.
 struct OCRLine: Sendable {
     let text:       String
     let midX:       CGFloat   // 0 = left edge, 1 = right edge
@@ -26,6 +27,7 @@ struct ScanResult: Sendable {
     let confidence:        Double
     let tier:              String    // "Apple Intelligence" or "Heuristic"
     let validationWarning: String?
+    let suggestedCategory: Expense.Category?
 }
 
 // MARK: - VisionService
@@ -34,26 +36,75 @@ final class VisionService: Sendable {
     static let shared = VisionService()
     private init() {}
 
-    // MARK: - Public Entry Point
+    // Receipt domain vocabulary injected into Vision to improve recognition accuracy.
+    private static let receiptCustomWords: [String] = [
+        "SUBTOTAL", "TAX", "TIP", "GRATUITY", "TOTAL", "GRAND TOTAL",
+        "TOTAL DUE", "AMOUNT DUE", "BALANCE DUE", "SERVICE CHARGE",
+        "GST", "HST", "VAT", "INCL", "EXCL", "COMP", "VOID",
+        "QTY", "EACH", "SVC", "SVCHRG", "SURCHARGE", "CASHBACK",
+        "VISA", "MASTERCARD", "AMEX", "CONTACTLESS", "CHIP"
+    ]
+
+    // MARK: - Public Entry Points
 
     func scanReceipt(from image: UIImage) async throws -> ScanResult {
-        let ocrLines  = try await recognizeText(in: image)
-        let rows      = groupIntoRows(ocrLines)
-        let ocrText   = rows.map { $0.map(\.text).joined(separator: " ") }.joined(separator: "\n")
+        try checkImageQuality(image)
+        return try await processScan(images: [image])
+    }
 
-        // Tier 1 — Apple Foundation Models (iOS 18.1+, Apple Intelligence device)
+    /// Processes all pages from a multi-page document scan, combining OCR results.
+    func scanMultiPage(from images: [UIImage]) async throws -> ScanResult {
+        guard !images.isEmpty else {
+            throw AppError.validationFailed("No pages captured.")
+        }
+        if let first = images.first { try checkImageQuality(first) }
+        return try await processScan(images: images)
+    }
+
+    // MARK: - Core Pipeline
+
+    private func processScan(images: [UIImage]) async throws -> ScanResult {
+        let pageCount = Double(images.count)
+
+        // OCR each page; shift Y so pages stack vertically without overlap
+        var allLines: [OCRLine] = []
+        for (pageIndex, image) in images.enumerated() {
+            let pageLines = try await recognizeText(in: image)
+            let offset    = Double(pageIndex)
+            allLines += pageLines.map { line in
+                OCRLine(text:       line.text,
+                        midX:       line.midX,
+                        midY:       (line.midY + offset) / pageCount,
+                        confidence: line.confidence)
+            }
+        }
+
+        // Adjust spatial threshold proportionally to number of pages
+        let rowThreshold = CGFloat(0.025 / pageCount)
+        let rows         = groupIntoRows(allLines, threshold: rowThreshold)
+        let ocrText      = rows.map { $0.map(\.text).joined(separator: " ") }.joined(separator: "\n")
+
+        let txDate       = extractTransactionDate(from: ocrText)
+        let detectedLang = detectLanguage(from: ocrText)
+
+        // Tier 1 — Apple Foundation Models (iOS 26+, Apple Intelligence device)
         if #available(iOS 26.0, *) {
             let fm = FoundationModelService.shared
             if fm.isAvailable {
                 do {
-                    let parsed  = try await fm.parseReceipt(ocrText: ocrText)
-                    let receipt = convert(parsed)
-                    let warning = validate(receipt, parsed: parsed)
+                    let parsed  = try await fm.parseReceipt(ocrText: ocrText, language: detectedLang)
+                    var receipt = convert(parsed)
+                    // Prefer AI-extracted date (clean string); fall back to NSDataDetector hit
+                    receipt.transactionDate = parsed.transactionDate
+                        .flatMap { extractTransactionDate(from: $0) } ?? txDate
+                    let warning  = validate(receipt, parsed: parsed)
+                    let category = suggestCategory(merchant: receipt.merchant, items: receipt.items)
                     return ScanResult(
                         receipt:           receipt,
                         confidence:        parsed.confidence,
                         tier:              "Apple Intelligence",
-                        validationWarning: warning
+                        validationWarning: warning,
+                        suggestedCategory: category
                     )
                 } catch {
                     // Fall through to heuristics
@@ -62,17 +113,95 @@ final class VisionService: Sendable {
         }
 
         // Tier 2 — Improved heuristics (all devices, iOS 17+)
-        let receipt = parseWithHeuristics(rows: rows)
-        let warning = validateHeuristic(receipt)
+        var receipt      = parseWithHeuristics(rows: rows)
+        receipt.transactionDate = txDate
+        let warning      = validateHeuristic(receipt)
+        let category     = suggestCategory(merchant: receipt.merchant, items: receipt.items)
         return ScanResult(
             receipt:           receipt,
             confidence:        warning == nil ? 0.75 : 0.55,
             tier:              "Heuristic",
-            validationWarning: warning
+            validationWarning: warning,
+            suggestedCategory: category
         )
     }
 
-    // MARK: - OCR with Bounding Boxes
+    // MARK: - Gap 2: Image Quality Gate
+
+    /// Throws a user-facing `AppError.validationFailed` if the image is too dark,
+    /// too blurry, or contains no detectable text. All checks use free on-device APIs.
+    private func checkImageQuality(_ image: UIImage) throws {
+        guard let cgImage = image.cgImage else { return }
+        let ciImage = CIImage(cgImage: cgImage)
+        let context = CIContext(options: [.useSoftwareRenderer: false])
+
+        // Exposure: average luminance < 12% → too dark for OCR
+        if let luminance = averageLuminance(ciImage, context: context), luminance < 0.12 {
+            throw AppError.validationFailed("Image is too dark — move to better lighting and try again.")
+        }
+
+        // Blur: average Laplacian edge energy < 2% → too blurry for OCR
+        if let edgeEnergy = laplacianEdgeEnergy(ciImage, context: context), edgeEnergy < 0.02 {
+            throw AppError.validationFailed("Image is too blurry — hold the camera steady and retake.")
+        }
+
+        // Text presence: fast rectangle scan before the expensive accurate OCR
+        if !hasTextRegions(cgImage: cgImage) {
+            throw AppError.validationFailed("No text detected — make sure the receipt is clearly visible.")
+        }
+    }
+
+    private func averageLuminance(_ image: CIImage, context: CIContext) -> Float? {
+        guard let filter = CIFilter(name: "CIAreaAverage") else { return nil }
+        filter.setValue(image, forKey: kCIInputImageKey)
+        filter.setValue(CIVector(cgRect: image.extent), forKey: kCIInputExtentKey)
+        guard let output = filter.outputImage else { return nil }
+        var pixel = [Float](repeating: 0, count: 4)
+        context.render(output, toBitmap: &pixel, rowBytes: 16,
+                       bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+                       format: .RGBAf, colorSpace: nil)
+        return (pixel[0] + pixel[1] + pixel[2]) / 3.0
+    }
+
+    // Average edge response via CIEdges on a downscaled grayscale image.
+    private func laplacianEdgeEnergy(_ image: CIImage, context: CIContext) -> Float? {
+        // Downscale for speed (max 512px on longest side)
+        let scale  = min(512.0 / max(image.extent.width, image.extent.height), 1.0)
+        let scaled = scale < 1.0
+            ? image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            : image
+
+        guard let grayFilter = CIFilter(name: "CIPhotoEffectNoir") else { return nil }
+        grayFilter.setValue(scaled, forKey: kCIInputImageKey)
+        guard let grayImage = grayFilter.outputImage else { return nil }
+
+        guard let edgesFilter = CIFilter(name: "CIEdges") else { return nil }
+        edgesFilter.setValue(grayImage, forKey: kCIInputImageKey)
+        edgesFilter.setValue(1.0, forKey: kCIInputIntensityKey)
+        guard let edgeImage = edgesFilter.outputImage else { return nil }
+
+        guard let avgFilter = CIFilter(name: "CIAreaAverage") else { return nil }
+        avgFilter.setValue(edgeImage, forKey: kCIInputImageKey)
+        avgFilter.setValue(CIVector(cgRect: grayImage.extent), forKey: kCIInputExtentKey)
+        guard let avgOutput = avgFilter.outputImage else { return nil }
+
+        var pixel = [Float](repeating: 0, count: 4)
+        context.render(avgOutput, toBitmap: &pixel, rowBytes: 16,
+                       bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+                       format: .RGBAf, colorSpace: nil)
+        return pixel[0]
+    }
+
+    // Fast text-rectangle scan — no AI, just detects regions with text-like structure.
+    private func hasTextRegions(cgImage: CGImage) -> Bool {
+        let request = VNDetectTextRectanglesRequest()
+        request.reportCharacterBoxes = false
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        try? handler.perform([request])
+        return (request.results?.isEmpty == false)
+    }
+
+    // MARK: - Gap 3: Enhanced OCR Configuration
 
     private func recognizeText(in image: UIImage) async throws -> [OCRLine] {
         guard let cgImage = image.cgImage else {
@@ -86,22 +215,30 @@ final class VisionService: Sendable {
                     return
                 }
                 let observations = request.results as? [VNRecognizedTextObservation] ?? []
+                // Use top 3 candidates per observation; pick highest-confidence non-empty string
                 let lines: [OCRLine] = observations.compactMap { obs in
-                    guard let candidate = obs.topCandidates(1).first,
-                          !candidate.string.trimmingCharacters(in: .whitespaces).isEmpty
-                    else { return nil }
-                    // Vision bounding box: origin is bottom-left; flip Y for top-down reading order
+                    let candidates = obs.topCandidates(3)
+                    guard let best = candidates.first(where: {
+                        !$0.string.trimmingCharacters(in: .whitespaces).isEmpty
+                    }) else { return nil }
                     return OCRLine(
-                        text:       candidate.string,
+                        text:       best.string,
                         midX:       obs.boundingBox.midX,
                         midY:       1 - obs.boundingBox.midY,
-                        confidence: candidate.confidence
+                        confidence: best.confidence
                     )
                 }
                 continuation.resume(returning: lines)
             }
-            request.recognitionLevel    = .accurate
+
+            request.recognitionLevel       = .accurate
             request.usesLanguageCorrection = true
+            // Filter tiny footnotes (loyalty text, legal disclaimers < 1.5% of image height)
+            request.minimumTextHeight      = 0.015
+            // Inject receipt domain vocabulary so Vision prefers known terms over phonetic guesses
+            request.customWords            = Self.receiptCustomWords
+            // Prefer device locales first, always include English as fallback
+            request.recognitionLanguages   = preferredRecognitionLanguages()
 
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
             do {
@@ -112,13 +249,19 @@ final class VisionService: Sendable {
         }
     }
 
+    private func preferredRecognitionLanguages() -> [String] {
+        var langs = Array(Locale.preferredLanguages.prefix(3))
+        if !langs.contains(where: { $0.hasPrefix("en") }) {
+            langs.append("en-US")
+        }
+        return langs
+    }
+
     // MARK: - Spatial Grouping
 
-    /// Groups OCR lines that share approximately the same vertical position into rows,
-    /// then sorts each row left-to-right. Threshold ≈ 2.5% of image height.
     private func groupIntoRows(_ lines: [OCRLine], threshold: CGFloat = 0.025) -> [[OCRLine]] {
-        var sorted    = lines.sorted { $0.midY < $1.midY }
-        var rows:     [[OCRLine]] = []
+        var sorted = lines.sorted { $0.midY < $1.midY }
+        var rows: [[OCRLine]] = []
 
         while !sorted.isEmpty {
             let anchor = sorted.removeFirst()
@@ -133,6 +276,82 @@ final class VisionService: Sendable {
             rows.append(row.sorted { $0.midX < $1.midX })
         }
         return rows
+    }
+
+    // MARK: - Gap 5: Language Detection (NaturalLanguage)
+
+    /// Returns BCP-47 language tag (e.g. "fr", "de") or nil if undetermined.
+    /// Used to give Apple Intelligence cultural context for non-English receipts.
+    private func detectLanguage(from text: String) -> String? {
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(text)
+        guard let dominant = recognizer.dominantLanguage,
+              dominant != .undetermined else { return nil }
+        return dominant.rawValue
+    }
+
+    // MARK: - Gap 4: Transaction Date Extraction
+
+    /// Scans OCR text for the first plausible transaction date using NSDataDetector.
+    /// Rejects future dates (> tomorrow) and dates more than 5 years old.
+    private func extractTransactionDate(from text: String) -> Date? {
+        guard let detector = try? NSDataDetector(
+            types: NSTextCheckingResult.CheckingType.date.rawValue
+        ) else { return nil }
+
+        let range   = NSRange(text.startIndex..., in: text)
+        let matches = detector.matches(in: text, options: [], range: range)
+
+        let now         = Date()
+        let fiveYearsAgo = Calendar.current.date(byAdding: .year, value: -5, to: now) ?? now
+        let tomorrow    = Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now
+
+        // Prefer the date closest to today (most likely the actual transaction date)
+        return matches
+            .compactMap(\.date)
+            .filter { $0 >= fiveYearsAgo && $0 <= tomorrow }
+            .min(by: { abs($0.timeIntervalSinceNow) < abs($1.timeIntervalSinceNow) })
+    }
+
+    // MARK: - Gap 5: Auto-Category from Merchant / Items
+
+    /// Keyword-based category suggestion; on-device, no network.
+    private func suggestCategory(merchant: String?, items: [ReceiptItem]) -> Expense.Category? {
+        let searchText = ([merchant] + items.map(\.name))
+            .compactMap { $0 }
+            .joined(separator: " ")
+            .lowercased()
+
+        let matchers: [(Expense.Category, [String])] = [
+            (.food,          ["restaurant", "cafe", "coffee", "pizza", "sushi", "burger",
+                              "food", "diner", "grill", "bar", "pub", "kitchen", "bakery",
+                              "deli", "bistro", "starbucks", "mcdonald", "chipotle", "subway",
+                              "doordash", "ubereats", "grubhub", "tavern", "brasserie"]),
+            (.transport,     ["uber", "lyft", "taxi", "gas", "fuel", "parking", "transit",
+                              "airline", "flight", "amtrak", "station", "airport", "car rental",
+                              "hertz", "avis", "enterprise", "metro", "train", "bus", "petrol"]),
+            (.health,        ["pharmacy", "cvs", "walgreens", "hospital", "clinic", "drug",
+                              "medical", "dental", "optometry", "health", "vitamin", "rite aid",
+                              "chemist", "apotheke"]),
+            (.accommodation, ["hotel", "airbnb", "hostel", "inn", "resort", "motel", "lodging",
+                              "marriott", "hilton", "hyatt", "sheraton", "suite", "bnb"]),
+            (.entertainment, ["cinema", "movie", "theater", "concert", "ticketmaster",
+                              "spotify", "netflix", "amc", "regal", "imax", "bowling",
+                              "museum", "arcade", "games", "event"]),
+            (.shopping,      ["amazon", "walmart", "target", "costco", "mall", "store",
+                              "shop", "market", "best buy", "apple store", "ikea",
+                              "zara", "gap", "nordstrom", "h&m", "supermarket"]),
+            (.utilities,     ["electric", "water", "internet", "phone", "broadband",
+                              "utility", "comcast", "verizon", "at&t", "gas bill",
+                              "energy", "power bill"]),
+        ]
+
+        for (category, keywords) in matchers {
+            if keywords.contains(where: { searchText.contains($0) }) {
+                return category
+            }
+        }
+        return nil
     }
 
     // MARK: - Tier 2: Improved Heuristics
@@ -160,18 +379,15 @@ final class VisionService: Sendable {
             let fullText = row.map(\.text).joined(separator: " ")
             let lower    = fullText.lowercased()
 
-            // Skip metadata lines
             if isMetadata(lower) { continue }
 
-            // Split row into left column (name) and right column (price)
-            let leftText  = row.filter { $0.midX < 0.55 }.map(\.text).joined(separator: " ")
-            let rightText = row.filter { $0.midX >= 0.55 }.map(\.text).joined(separator: " ")
+            let leftText    = row.filter { $0.midX < 0.55 }.map(\.text).joined(separator: " ")
+            let rightText   = row.filter { $0.midX >= 0.55 }.map(\.text).joined(separator: " ")
             let priceSource = rightText.isEmpty ? fullText : rightText
 
             guard let amount = extractDecimal(from: priceSource), amount > .zero else { continue }
 
             if lower.contains("total") && !lower.contains("sub") && !lower.contains("subtotal") {
-                // Prefer larger total value (handles "TOTAL" before "GRAND TOTAL")
                 if let existing = total { total = max(existing, amount) } else { total = amount }
             } else if lower.contains("tax") || lower.contains("gst")
                         || lower.contains("hst") || lower.contains("vat") {
@@ -180,15 +396,12 @@ final class VisionService: Sendable {
                         || lower.contains("service charge") || lower.contains("svchrg") {
                 tip = amount
             } else if lower.contains("subtotal") || lower.contains("sub total") {
-                // Skip — subtotal is not an item
                 continue
             } else {
-                // Line item — use left column as name; if empty fall back to full line minus price
                 var name = leftText.isEmpty ? stripPrice(from: fullText) : leftText
                 name = name.trimmingCharacters(in: .whitespacesAndNewlines)
                 if name.isEmpty || name.count < 2 { continue }
 
-                // Detect quantity prefix: "2x", "2 @", "QTY 2"
                 let (qty, unitPrice) = parseQuantity(from: name, totalPrice: amount)
                 let cleanName        = stripQuantityPrefix(from: name)
                 items.append(ReceiptItem(name: cleanName, quantity: qty, unitPrice: unitPrice))
@@ -196,17 +409,18 @@ final class VisionService: Sendable {
         }
 
         return Receipt(
-            id:        UUID(),
-            expenseID: nil,
-            imageURL:  nil,
-            merchant:  merchant,
-            items:     items,
-            subtotal:  nil,
-            tax:       tax,
-            tip:       tip,
-            total:     total,
-            currency:  currency,
-            scannedAt: Date()
+            id:              UUID(),
+            expenseID:       nil,
+            imageURL:        nil,
+            merchant:        merchant,
+            items:           items,
+            subtotal:        nil,
+            tax:             tax,
+            tip:             tip,
+            total:           total,
+            currency:        currency,
+            transactionDate: nil,   // set by processScan after return
+            scannedAt:       Date()
         )
     }
 
@@ -231,8 +445,7 @@ final class VisionService: Sendable {
             if let match = regex.firstMatch(in: text, range: range),
                let qRange = Range(match.range(at: 1), in: text),
                let qty = Int(text[qRange]), qty > 1 {
-                let unit = totalPrice / Decimal(qty)
-                return (qty, unit)
+                return (qty, totalPrice / Decimal(qty))
             }
         }
         return (1, totalPrice)
@@ -242,7 +455,7 @@ final class VisionService: Sendable {
         let patterns = [#"^\d+\s*[xX@]\s*"#, #"^[Qq][Tt][Yy]\s*\d+\s*"#]
         for pattern in patterns {
             if let regex = try? NSRegularExpression(pattern: pattern) {
-                let range = NSRange(text.startIndex..., in: text)
+                let range  = NSRange(text.startIndex..., in: text)
                 let result = regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
                 if result != text { return result.trimmingCharacters(in: .whitespaces) }
             }
@@ -278,23 +491,23 @@ final class VisionService: Sendable {
             )
         }
         return Receipt(
-            id:        UUID(),
-            expenseID: nil,
-            imageURL:  nil,
-            merchant:  parsed.merchant,
-            items:     items,
-            subtotal:  parsed.subtotal.map { Decimal($0) },
-            tax:       parsed.tax.map       { Decimal($0) },
-            tip:       parsed.tip.map       { Decimal($0) },
-            total:     parsed.total.map     { Decimal($0) },
-            currency:  parsed.currency,
-            scannedAt: Date()
+            id:              UUID(),
+            expenseID:       nil,
+            imageURL:        nil,
+            merchant:        parsed.merchant,
+            items:           items,
+            subtotal:        parsed.subtotal.map { Decimal($0) },
+            tax:             parsed.tax.map       { Decimal($0) },
+            tip:             parsed.tip.map       { Decimal($0) },
+            total:           parsed.total.map     { Decimal($0) },
+            currency:        parsed.currency,
+            transactionDate: nil,   // set by processScan after return
+            scannedAt:       Date()
         )
     }
 
     // MARK: - Validation
 
-    /// Validates that items + tax + tip ≈ total. Returns a warning string if mismatch > $0.02.
     private func validate(_ receipt: Receipt, parsed: ParsedReceiptJSON) -> String? {
         guard let total = receipt.total else { return nil }
         let itemsSum = receipt.items.reduce(Decimal.zero) { $0 + $1.totalPrice }
@@ -309,11 +522,15 @@ final class VisionService: Sendable {
 
     private func validateHeuristic(_ receipt: Receipt) -> String? {
         validate(receipt, parsed: ParsedReceiptJSON(
-            merchant: nil, items: [], subtotal: nil,
-            tax:      receipt.tax.map    { NSDecimalNumber(decimal: $0).doubleValue },
-            tip:      receipt.tip.map    { NSDecimalNumber(decimal: $0).doubleValue },
-            total:    receipt.total.map  { NSDecimalNumber(decimal: $0).doubleValue },
-            currency: receipt.currency, confidence: 0
+            merchant:        nil,
+            items:           [],
+            subtotal:        nil,
+            tax:             receipt.tax.map   { NSDecimalNumber(decimal: $0).doubleValue },
+            tip:             receipt.tip.map   { NSDecimalNumber(decimal: $0).doubleValue },
+            total:           receipt.total.map { NSDecimalNumber(decimal: $0).doubleValue },
+            currency:        receipt.currency,
+            confidence:      0,
+            transactionDate: nil
         ))
     }
 }

@@ -63,6 +63,14 @@ struct ReceiptReviewView: View {
             }
 
             Section("Extras") {
+                // Gap 4: Transaction date extracted by NSDataDetector from OCR text
+                if let txDate = vm.scannedReceipt?.transactionDate {
+                    LabeledContent("Receipt Date") {
+                        Text(txDate, style: .date).foregroundStyle(.secondary)
+                    }
+                    .accessibilityLabel("Receipt date: \(txDate.formatted(date: .long, time: .omitted))")
+                }
+
                 if let tax = vm.scannedReceipt?.tax {
                     LabeledContent("Tax") {
                         Text(tax.formatted(currencyCode: currency)).foregroundStyle(.secondary)
@@ -145,6 +153,18 @@ struct ReceiptReviewView: View {
                     .background(confidenceColor.opacity(0.15))
                     .foregroundStyle(confidenceColor)
                     .clipShape(Capsule())
+            }
+
+            // Suggested category chip (Gap 5: auto-category from merchant/items)
+            if let category = vm.suggestedCategory {
+                HStack(spacing: 6) {
+                    Image(systemName: category.systemImage)
+                        .font(.caption)
+                    Text("Suggested: \(category.displayName)")
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Suggested category: \(category.displayName)")
             }
         }
     }

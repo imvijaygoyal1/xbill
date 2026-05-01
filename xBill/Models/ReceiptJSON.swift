@@ -18,11 +18,13 @@ struct ParsedReceiptJSON: Decodable, Sendable {
     let tax:        Double?
     let tip:        Double?
     let total:      Double?
-    let currency:   String
-    let confidence: Double
+    let currency:        String
+    let confidence:      Double
+    let transactionDate: String?
 
     enum CodingKeys: String, CodingKey {
         case merchant, items, subtotal, tax, tip, total, currency, confidence
+        case transactionDate = "transaction_date"
     }
 }
 
