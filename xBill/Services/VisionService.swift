@@ -18,6 +18,15 @@ struct OCRLine: Sendable {
     let midX:       CGFloat   // 0 = left edge, 1 = right edge
     let midY:       CGFloat   // 0 = top of image, 1 = bottom (Y-flipped from Vision)
     let confidence: Float
+    let alternates: [String]  // other OCR candidate strings for this observation (Gap 7)
+
+    init(text: String, midX: CGFloat, midY: CGFloat, confidence: Float, alternates: [String] = []) {
+        self.text       = text
+        self.midX       = midX
+        self.midY       = midY
+        self.confidence = confidence
+        self.alternates = alternates
+    }
 }
 
 // MARK: - ScanResult
@@ -28,6 +37,13 @@ struct ScanResult: Sendable {
     let tier:              String    // "Apple Intelligence" or "Heuristic"
     let validationWarning: String?
     let suggestedCategory: Expense.Category?
+}
+
+// Internal helper for Gap 7: bundles a parsed item with the alternate prices
+// extracted from OCR candidate strings for that row, enabling constraint-solving.
+private struct ParsedItem: Sendable {
+    var item:            ReceiptItem
+    var candidatePrices: [Decimal]
 }
 
 // MARK: - VisionService
@@ -75,7 +91,8 @@ final class VisionService: Sendable {
                 OCRLine(text:       line.text,
                         midX:       line.midX,
                         midY:       (line.midY + offset) / pageCount,
-                        confidence: line.confidence)
+                        confidence: line.confidence,
+                        alternates: line.alternates)   // preserve alternates for Gap 7
             }
         }
 
@@ -113,10 +130,25 @@ final class VisionService: Sendable {
         }
 
         // Tier 2 — Improved heuristics (all devices, iOS 17+)
-        var receipt      = parseWithHeuristics(rows: rows)
+        let (parsedReceipt, candidates) = parseWithHeuristics(rows: rows)
+        var receipt = parsedReceipt
         receipt.transactionDate = txDate
-        let warning      = validateHeuristic(receipt)
-        let category     = suggestCategory(merchant: receipt.merchant, items: receipt.items)
+
+        // Gap 7: Attempt constraint-solving when math fails and delta is small enough
+        // to be a single-digit OCR misread rather than a structural parse failure.
+        var mutableCandidates = candidates
+        let warning: String?
+        if let total = receipt.total,
+           validateHeuristic(receipt) != nil,
+           reconcile(candidates: &mutableCandidates, total: total,
+                     tax: receipt.tax ?? .zero, tip: receipt.tip ?? .zero) {
+            receipt.items = mutableCandidates.map(\.item)
+            warning = nil
+        } else {
+            warning = validateHeuristic(receipt)
+        }
+
+        let category = suggestCategory(merchant: receipt.merchant, items: receipt.items)
         return ScanResult(
             receipt:           receipt,
             confidence:        warning == nil ? 0.75 : 0.55,
@@ -201,10 +233,56 @@ final class VisionService: Sendable {
         return (request.results?.isEmpty == false)
     }
 
+    // MARK: - Gap 1: Core Image Pre-Processing Pipeline
+
+    /// Applies grayscale, contrast boost, and sharpening before OCR.
+    /// Produces cleaner text edges which reduces character misreads.
+    /// Each step has a graceful fallback — if a filter is unavailable the
+    /// pipeline continues with whatever it has so far.
+    private func preprocessForOCR(_ image: UIImage) -> UIImage {
+        guard let cgImage = image.cgImage else { return image }
+        var current = CIImage(cgImage: cgImage)
+
+        // 1. Resize to max 1200px — bounds memory and processing time
+        let maxDim: CGFloat = 1200
+        let longestSide = max(current.extent.width, current.extent.height)
+        if longestSide > maxDim {
+            let scale = maxDim / longestSide
+            current = current.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        }
+
+        // 2. Grayscale — receipt text is monochrome; colour channels add noise
+        if let f = CIFilter(name: "CIPhotoEffectNoir") {
+            f.setValue(current, forKey: kCIInputImageKey)
+            if let out = f.outputImage { current = out }
+        }
+
+        // 3. Contrast 1.4× + brightness +0.05 — darkens ink, lightens paper background
+        if let f = CIFilter(name: "CIColorControls") {
+            f.setValue(current, forKey: kCIInputImageKey)
+            f.setValue(1.4 as CGFloat, forKey: kCIInputContrastKey)
+            f.setValue(0.05 as CGFloat, forKey: kCIInputBrightnessKey)
+            if let out = f.outputImage { current = out }
+        }
+
+        // 4. Sharpness 0.4 — reinforces text edges for higher-confidence character recognition
+        if let f = CIFilter(name: "CISharpenLuminance") {
+            f.setValue(current, forKey: kCIInputImageKey)
+            f.setValue(0.4 as CGFloat, forKey: kCIInputSharpnessKey)
+            if let out = f.outputImage { current = out }
+        }
+
+        let context = CIContext(options: [.useSoftwareRenderer: false])
+        guard let outputCG = context.createCGImage(current, from: current.extent) else { return image }
+        return UIImage(cgImage: outputCG)
+    }
+
     // MARK: - Gap 3: Enhanced OCR Configuration
 
     private func recognizeText(in image: UIImage) async throws -> [OCRLine] {
-        guard let cgImage = image.cgImage else {
+        // Gap 1: preprocess before extracting cgImage for OCR
+        let processed = preprocessForOCR(image)
+        guard let cgImage = processed.cgImage else {
             throw AppError.validationFailed("Cannot process image — invalid format.")
         }
 
@@ -215,17 +293,19 @@ final class VisionService: Sendable {
                     return
                 }
                 let observations = request.results as? [VNRecognizedTextObservation] ?? []
-                // Use top 3 candidates per observation; pick highest-confidence non-empty string
+                // Gap 3: top 3 candidates — best goes into text, rest stored as alternates for Gap 7
                 let lines: [OCRLine] = observations.compactMap { obs in
                     let candidates = obs.topCandidates(3)
                     guard let best = candidates.first(where: {
                         !$0.string.trimmingCharacters(in: .whitespaces).isEmpty
                     }) else { return nil }
+                    let alts = candidates.dropFirst().map(\.string)
                     return OCRLine(
                         text:       best.string,
                         midX:       obs.boundingBox.midX,
                         midY:       1 - obs.boundingBox.midY,
-                        confidence: best.confidence
+                        confidence: best.confidence,
+                        alternates: Array(alts)
                     )
                 }
                 continuation.resume(returning: lines)
@@ -356,8 +436,8 @@ final class VisionService: Sendable {
 
     // MARK: - Tier 2: Improved Heuristics
 
-    private func parseWithHeuristics(rows: [[OCRLine]]) -> Receipt {
-        var items:    [ReceiptItem] = []
+    private func parseWithHeuristics(rows: [[OCRLine]]) -> (receipt: Receipt, candidates: [ParsedItem]) {
+        var parsedItems: [ParsedItem] = []
         var total:    Decimal?
         var tax:      Decimal?
         var tip:      Decimal?
@@ -381,8 +461,10 @@ final class VisionService: Sendable {
 
             if isMetadata(lower) { continue }
 
-            let leftText    = row.filter { $0.midX < 0.55 }.map(\.text).joined(separator: " ")
-            let rightText   = row.filter { $0.midX >= 0.55 }.map(\.text).joined(separator: " ")
+            let leftLines   = row.filter { $0.midX < 0.55 }
+            let rightLines  = row.filter { $0.midX >= 0.55 }
+            let leftText    = leftLines.map(\.text).joined(separator: " ")
+            let rightText   = rightLines.map(\.text).joined(separator: " ")
             let priceSource = rightText.isEmpty ? fullText : rightText
 
             guard let amount = extractDecimal(from: priceSource), amount > .zero else { continue }
@@ -404,16 +486,26 @@ final class VisionService: Sendable {
 
                 let (qty, unitPrice) = parseQuantity(from: name, totalPrice: amount)
                 let cleanName        = stripQuantityPrefix(from: name)
-                items.append(ReceiptItem(name: cleanName, quantity: qty, unitPrice: unitPrice))
+
+                // Gap 7: collect alternate prices from OCR candidate strings for this row's
+                // price column — used by the reconciliation pass if math doesn't close.
+                let priceLines = rightLines.isEmpty ? row : rightLines
+                let altPrices: [Decimal] = priceLines
+                    .flatMap(\.alternates)
+                    .compactMap { extractDecimal(from: $0) }
+                    .filter { $0 > .zero && $0 != amount }
+
+                let item = ReceiptItem(name: cleanName, quantity: qty, unitPrice: unitPrice)
+                parsedItems.append(ParsedItem(item: item, candidatePrices: altPrices))
             }
         }
 
-        return Receipt(
+        let receipt = Receipt(
             id:              UUID(),
             expenseID:       nil,
             imageURL:        nil,
             merchant:        merchant,
-            items:           items,
+            items:           parsedItems.map(\.item),
             subtotal:        nil,
             tax:             tax,
             tip:             tip,
@@ -422,6 +514,44 @@ final class VisionService: Sendable {
             transactionDate: nil,   // set by processScan after return
             scannedAt:       Date()
         )
+        return (receipt, parsedItems)
+    }
+
+    // MARK: - Gap 7: Constraint-Solving Reconciliation
+
+    /// Attempts to fix a math mismatch by substituting alternate OCR price candidates.
+    /// Only tries when `|delta| ≤ $2.00` — larger gaps indicate a structural parse failure,
+    /// not a single-digit OCR misread. Returns `true` and mutates `candidates` on success.
+    @discardableResult
+    private func reconcile(candidates: inout [ParsedItem],
+                           total: Decimal, tax: Decimal, tip: Decimal) -> Bool {
+        let itemsSum = candidates.reduce(Decimal.zero) { $0 + $1.item.totalPrice }
+        let delta    = total - (itemsSum + tax + tip)
+
+        // Skip if delta is trivially small (already passes) or too large to be a digit error
+        let absDelta = delta < 0 ? -delta : delta
+        guard absDelta > Decimal(string: "0.02")!,
+              absDelta <= Decimal(string: "2.00")! else { return false }
+
+        for i in candidates.indices {
+            let original = candidates[i].item
+            for altPrice in candidates[i].candidatePrices {
+                let altTotal  = altPrice * Decimal(original.quantity)
+                // New delta if we swap this item's price
+                let newDelta  = delta + original.totalPrice - altTotal
+                var absNew    = newDelta < 0 ? -newDelta : newDelta
+                var rounded   = Decimal()
+                NSDecimalRound(&rounded, &absNew, 2, .bankers)
+                if rounded <= Decimal(string: "0.02")! {
+                    var corrected = ReceiptItem(id: original.id, name: original.name,
+                                               quantity: original.quantity, unitPrice: altPrice)
+                    corrected.assignedUserIDs = original.assignedUserIDs
+                    candidates[i].item = corrected
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     // MARK: - Heuristic Helpers
