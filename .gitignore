@@ -1,0 +1,15 @@
+# Supabase credentials — never commit
+Secrets.xcconfig
+
+# macOS
+.DS_Store
+
+# Xcode derived data
+xcuserdata/
+DerivedData/
+*.xccheckout
+*.moved-aside
+
+# CocoaPods / SPM caches
+Pods/
+.build/

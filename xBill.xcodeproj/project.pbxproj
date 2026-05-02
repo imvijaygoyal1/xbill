@@ -98,6 +98,7 @@
 		C0A34302D61036B54C10B112 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9300CF88C633865DC505CDF7 /* HomeView.swift */; };
 		C32CC9D8E957EA4033C2E43F /* TermsOfServiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E5A79FC8CA0B5CB9744BDEC /* TermsOfServiceView.swift */; };
 		C345C3FCACF011DD4FBBBBE6 /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2516D590CE1CD48191C4DD /* AvatarView.swift */; };
+		C58704A0F34205927C5EFF48 /* SecurityFixTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B54708E8A101CDBA935A0CB1 /* SecurityFixTests.swift */; };
 		C890F505DE688EB3DD73C89E /* ExchangeRateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F41CFA2B1CB435C590ECF374 /* ExchangeRateService.swift */; };
 		CB3C903B5EE8C407F8544C45 /* Settlement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6254841C9BA8DCEF16494B86 /* Settlement.swift */; };
 		CF7BB5EDBB1D51E7878487CB /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCE2A2449DE087F7C0D3279 /* NetworkMonitor.swift */; };
@@ -243,6 +244,7 @@
 		B1AA80878C6019F39FCF7C81 /* AppLockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockView.swift; sourceTree = "<group>"; };
 		B38345EDA277CDE0B30C7222 /* NotificationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationStore.swift; sourceTree = "<group>"; };
 		B49EE121E1BA0D36C58241E5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B54708E8A101CDBA935A0CB1 /* SecurityFixTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityFixTests.swift; sourceTree = "<group>"; };
 		BA2F6A9C1B5518B246E1F435 /* CreateGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateGroupView.swift; sourceTree = "<group>"; };
 		BA815E59A9392EC45FC52770 /* GroupFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupFlowTests.swift; sourceTree = "<group>"; };
 		BB4481148EB9CE5A694C43C5 /* SettleUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettleUpView.swift; sourceTree = "<group>"; };
@@ -556,6 +558,7 @@
 				BA815E59A9392EC45FC52770 /* GroupFlowTests.swift */,
 				97C0585EEB30C03384B5CDAE /* P1NotificationTests.swift */,
 				8FB75CACE895B59BCDF118AD /* P2FeatureTests.swift */,
+				B54708E8A101CDBA935A0CB1 /* SecurityFixTests.swift */,
 				6F7E985AB9EB58FE61DF4C83 /* SplitCalculatorTests.swift */,
 			);
 			path = xBillTests;
@@ -742,6 +745,7 @@
 				02DB9838B626008A375E8BD5 /* GroupFlowTests.swift in Sources */,
 				B1451440BEDFB9AAAA50BE94 /* P1NotificationTests.swift in Sources */,
 				9A76A87FA21BFD4F3ADA3740 /* P2FeatureTests.swift in Sources */,
+				C58704A0F34205927C5EFF48 /* SecurityFixTests.swift in Sources */,
 				3480BEBFF1A5006FEC9457CC /* SplitCalculatorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -954,8 +958,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoZGhhemV2aWdiY2htd3plc29rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NzI0MjgsImV4cCI6MjA5MTI0ODQyOH0.oQYwbO2Fz5ZwqF6TPr1YMnpM5n3kb1GEpZY9Ja3RUtM;
-				SUPABASE_URL = "https://rhdhazevigbchmwzesok.supabase.co";
 				SUPPORTS_MAC_DESIGNED_FOR_IPAD = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1138,8 +1140,6 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoZGhhemV2aWdiY2htd3plc29rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NzI0MjgsImV4cCI6MjA5MTI0ODQyOH0.oQYwbO2Fz5ZwqF6TPr1YMnpM5n3kb1GEpZY9Ja3RUtM;
-				SUPABASE_URL = "https://rhdhazevigbchmwzesok.supabase.co";
 				SUPPORTS_MAC_DESIGNED_FOR_IPAD = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_EMIT_LOC_STRINGS = YES;

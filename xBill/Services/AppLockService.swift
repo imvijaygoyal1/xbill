@@ -13,13 +13,30 @@ import Observation
 @MainActor
 final class AppLockService {
     static let shared = AppLockService()
-    private init() {}
+    private init() { migrateFromUserDefaultsIfNeeded() }
 
     var isLocked: Bool = false
 
+    // L1 fix: store in Keychain (device-bound, backup-excluded) rather than UserDefaults.
+    // A backup restore to a different device won't carry this flag.
     var isEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: "appLockEnabled") }
-        set { UserDefaults.standard.set(newValue, forKey: "appLockEnabled") }
+        get {
+            (try? KeychainManager.shared.string(forKey: KeychainManager.Keys.appLockEnabled)) == "true"
+        }
+        set {
+            try? KeychainManager.shared.save(newValue ? "true" : "false",
+                                             forKey: KeychainManager.Keys.appLockEnabled)
+        }
+    }
+
+    // One-time migration: read old UserDefaults flag, persist to Keychain, then clear.
+    private nonisolated func migrateFromUserDefaultsIfNeeded() {
+        let ud = UserDefaults.standard
+        guard ud.object(forKey: "appLockEnabled") != nil else { return }
+        let wasEnabled = ud.bool(forKey: "appLockEnabled")
+        try? KeychainManager.shared.save(wasEnabled ? "true" : "false",
+                                         forKey: KeychainManager.Keys.appLockEnabled)
+        ud.removeObject(forKey: "appLockEnabled")
     }
 
     // MARK: - Biometry

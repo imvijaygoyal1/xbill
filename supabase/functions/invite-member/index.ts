@@ -1,7 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const FROM_EMAIL = Deno.env.get("INVITE_FROM_EMAIL") ?? "noreply@yourdomain.com";
+
+// H4 + M4: restrict CORS to project origin
+const corsHeaders = {
+  "Access-Control-Allow-Origin": SUPABASE_URL,
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+}
 
 interface InviteRequest {
   groupName: string;
@@ -10,14 +18,24 @@ interface InviteRequest {
   emails: string[];
 }
 
+// H4: verify the caller is an authenticated Supabase user
+async function requireAuth(req: Request): Promise<boolean> {
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader?.startsWith('Bearer ')) return false
+  const jwt = authHeader.replace('Bearer ', '')
+  const adminClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+  const { data: { user }, error } = await adminClient.auth.getUser(jwt)
+  return !error && !!user
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-      },
-    });
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  // H4: reject unauthenticated callers
+  if (!(await requireAuth(req))) {
+    return json({ error: "Unauthorized" }, 401);
   }
 
   try {
@@ -92,7 +110,7 @@ function json(data: unknown, status = 200) {
     status,
     headers: {
       "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
+      ...corsHeaders,
     },
   });
 }

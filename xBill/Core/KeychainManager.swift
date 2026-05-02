@@ -94,6 +94,7 @@ extension KeychainManager {
         static let sessionToken      = "session_token"
         static let refreshToken      = "refresh_token"
         static let cacheEncryptionKey = "cache_encryption_key"
+        static let appLockEnabled    = "app_lock_enabled"
     }
 
     /// Returns the AES-256 key used to encrypt UserDefaults cache entries.

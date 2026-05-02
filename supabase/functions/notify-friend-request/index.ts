@@ -54,13 +54,9 @@ serve(async (req) => {
 
   try {
     const {
-      expenseId,
-      expenseTitle,
-      groupId,
-      groupName,
-      commenterID,
-      commenterName,
-      commentText,
+      toUserID,
+      fromName,
+      fromUserID,
       isDevelopment,
     } = await req.json()
 
@@ -69,36 +65,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Fetch all participants (users with splits on this expense)
-    const { data: splits } = await supabase
-      .from('splits')
-      .select('user_id')
-      .eq('expense_id', expenseId)
-
-    if (!splits?.length) {
-      return new Response(JSON.stringify({ sent: 0 }), { headers: corsHeaders })
-    }
-
-    // Also include the expense payer (they may not have their own split row)
-    const { data: expenseRow } = await supabase
-      .from('expenses')
-      .select('paid_by')
-      .eq('id', expenseId)
-      .single()
-
-    const participantSet = new Set<string>(splits.map((s: { user_id: string }) => s.user_id))
-    if (expenseRow?.paid_by) participantSet.add(expenseRow.paid_by)
-    participantSet.delete(commenterID)  // Don't notify the commenter
-
-    if (!participantSet.size) {
-      return new Response(JSON.stringify({ sent: 0 }), { headers: corsHeaders })
-    }
-
-    // Fetch device tokens for all participants
     const { data: tokenRows } = await supabase
       .from('device_tokens')
-      .select('token, user_id')
-      .in('user_id', [...participantSet])
+      .select('token')
+      .eq('user_id', toUserID)
 
     if (!tokenRows?.length) {
       return new Response(JSON.stringify({ sent: 0 }), { headers: corsHeaders })
@@ -115,27 +85,21 @@ serve(async (req) => {
 
     const jwt = await getAPNsJWT(teamId, keyId, pem)
 
-    // Truncate comment preview to 60 chars
-    const preview = commentText.length > 60
-      ? `${commentText.substring(0, 60)}…`
-      : commentText
+    const apnsPayload = {
+      aps: {
+        alert: {
+          title: 'Friend Request',
+          body:  `${fromName} wants to split expenses with you`,
+        },
+        sound: 'default',
+        badge: 1,
+      },
+      fromUserID,
+    }
 
     let sent = 0
-    for (const row of (tokenRows as { token: string; user_id: string }[])) {
+    for (const row of (tokenRows as { token: string }[])) {
       try {
-        const badge = await getUnreadCount(supabase, row.user_id)
-        const apnsPayload = {
-          aps: {
-            alert: {
-              title: `${commenterName} commented on ${expenseTitle}`,
-              body:  preview,
-            },
-            sound: 'default',
-            badge,
-          },
-          expenseId,
-          groupId,
-        }
         const res = await fetch(`${apnsHost}/3/device/${row.token}`, {
           method: 'POST',
           headers: {
@@ -172,19 +136,6 @@ serve(async (req) => {
     )
   }
 })
-
-// ---------------------------------------------------------------------------
-// Unread badge count — counts unsettled splits for a given user
-// ---------------------------------------------------------------------------
-
-async function getUnreadCount(supabase: ReturnType<typeof createClient>, userID: string): Promise<number> {
-  const { count } = await supabase
-    .from('splits')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userID)
-    .eq('is_settled', false)
-  return count ?? 1
-}
 
 // ---------------------------------------------------------------------------
 // APNs JWT (ES256) using Web Crypto API

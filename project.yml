@@ -9,6 +9,9 @@ options:
   developmentLanguage: en
 
 settings:
+  configFiles:
+    debug: Secrets.xcconfig
+    release: Secrets.xcconfig
   base:
     SWIFT_VERSION: "6.0"
     ENABLE_STRICT_CONCURRENCY: complete
@@ -17,9 +20,7 @@ settings:
     TARGETED_DEVICE_FAMILY: "1"        # iPhone only
     SUPPORTS_MAC_DESIGNED_FOR_IPAD: NO
     SWIFT_EMIT_LOC_STRINGS: YES
-    DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
-    SUPABASE_URL: "https://rhdhazevigbchmwzesok.supabase.co"
-    SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoZGhhemV2aWdiY2htd3plc29rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NzI0MjgsImV4cCI6MjA5MTI0ODQyOH0.oQYwbO2Fz5ZwqF6TPr1YMnpM5n3kb1GEpZY9Ja3RUtM"
+    GCC_GENERATE_DEBUGGING_SYMBOLS: YES
 
 packages:
   Supabase:
@@ -41,6 +42,7 @@ targets:
           - "**/*.storyboard"
           - "**/*.xib"
           - "**/*.plist"
+          - "**/*.xcprivacy"
     dependencies:
       - package: Supabase
         product: Supabase
@@ -55,10 +57,12 @@ targets:
           SWIFT_OPTIMIZATION_LEVEL: "-Onone"
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
           CODE_SIGN_ENTITLEMENTS: xBill/xBill.Debug.entitlements
+          DEBUG_INFORMATION_FORMAT: dwarf
         release:
           SWIFT_OPTIMIZATION_LEVEL: "-O"
           VALIDATE_PRODUCT: YES
           CODE_SIGN_ENTITLEMENTS: xBill/xBill.entitlements
+          DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
 
   xBillWidget:
     type: app-extension
@@ -73,6 +77,7 @@ targets:
       - path: xBillWidget
         includes:
           - "**/*.plist"
+          - "**/*.xcprivacy"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vijaygoyal.xbill.widget

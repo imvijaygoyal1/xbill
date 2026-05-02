@@ -32,7 +32,7 @@
 
 ## Supabase
 - **Project URL:** `https://rhdhazevigbchmwzesok.supabase.co`
-- **Anon key:** stored in `project.yml` under `SUPABASE_URL` / `SUPABASE_ANON_KEY` build settings
+- **Anon key:** stored in `Secrets.xcconfig` (gitignored) under `SUPABASE_URL` / `SUPABASE_ANON_KEY` build settings — NOT in `project.yml` (C1 fix)
 - **Credentials injection:** `xBill/Info.plist` template uses `$(SUPABASE_URL)` / `$(SUPABASE_ANON_KEY)` — do NOT use `GENERATE_INFOPLIST_FILE: YES` (it ignores custom build settings)
 - **Auth:** Email/password + Sign In with Apple; email confirmation is ON in Supabase dashboard
 - **Push migrations:** `supabase db push` from `/Users/vijaygoyal/MyiOSApp/xBill`
@@ -421,6 +421,34 @@ Deploy: `supabase db push && supabase functions deploy delete-account --project-
 - `PrivacyInfo.xcprivacy` added to both `xBill/` and `xBillWidget/` targets (required since May 2024). Declares: `NSPrivacyTracking: false`, collected data types (email, name, financial info, photos/videos, contacts, device ID), `UserDefaults` required-reason `CA92.1`. **Contacts added 2026-05-02** (automated scanner blocker).
 - `ITSAppUsesNonExemptEncryption: false` added to `Info.plist` (app uses only standard OS TLS — no custom crypto).
 - `delete-account` Edge Function: **ACTIVE (v6)** — deployed 2026-04-16. Not a pending TODO.
+
+## Security — Additional Fixes (2026-05-02)
+
+### C1 — Supabase credentials moved out of project.yml ✅
+- Created `Secrets.xcconfig` (gitignored) — holds `SUPABASE_URL` + `SUPABASE_ANON_KEY`.
+- Created `Secrets.xcconfig.example` (committed) — template with placeholder values.
+- Created `.gitignore` — excludes `Secrets.xcconfig` from git.
+- Updated `project.yml`: removed credentials from `settings.base`; added `settings.configFiles` pointing to `Secrets.xcconfig` for both debug and release configurations.
+- Info.plist continues to reference `$(SUPABASE_URL)` / `$(SUPABASE_ANON_KEY)` build settings — no Swift changes needed.
+
+### H1 — JWT auth guard on 4 notification Edge Functions ✅
+- All four functions (`notify-expense`, `notify-settlement`, `notify-comment`, `notify-friend-request`) now call `requireAuth(req)` before processing. `requireAuth` extracts `Authorization: Bearer <jwt>`, calls `adminClient.auth.getUser(jwt)`, returns 401 on failure. No iOS client changes needed — `supabase.functions.invoke()` automatically sends the user JWT when authenticated.
+
+### H4 — JWT auth guard on invite-member Edge Function ✅
+- `invite-member/index.ts` now calls `requireAuth(req)` at the top of the handler, returning 401 for unauthenticated requests. Prevents unauthenticated email spam via xBill's Resend account.
+
+### M1 — search_profiles no longer returns email column ✅
+- **`supabase/migrations/021_fix_search_profiles_no_email.sql`** — `CREATE OR REPLACE FUNCTION search_profiles` removes `email` from RETURNS TABLE and SELECT list. Email is still used in the `WHERE` clause so searching by email address still works; the address is just never sent back.
+- **`xBill/Services/FriendService.swift`** — `searchProfiles` `Row` struct drops the `email` field; User constructed with `email: ""` (display-only, never shown from search results).
+
+### M4 — CORS wildcard replaced on all Edge Functions ✅
+- All 5 Edge Functions: `corsHeaders['Access-Control-Allow-Origin']` changed from `'*'` to `SUPABASE_URL` (the project's own domain). Mobile app calls are unaffected (iOS does not send Origin headers).
+
+### L1 — appLockEnabled moved from UserDefaults to Keychain ✅
+- **`xBill/Services/AppLockService.swift`** — `isEnabled` getter/setter now reads/writes `KeychainManager.Keys.appLockEnabled` via `KeychainManager.shared`. Key uses `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` — backup-excluded, device-bound.
+- **Migration path**: `migrateFromUserDefaultsIfNeeded()` (called from `init()`) reads the old `appLockEnabled` UserDefaults key, writes it to Keychain, then removes the UserDefaults key. Silent no-op on fresh installs.
+- **`xBill/Core/KeychainManager.swift`** — Added `Keys.appLockEnabled = "app_lock_enabled"`.
+- **`xBillTests/SecurityFixTests.swift`** (new) — 14 new tests: `AppLockKeychainTests` (5, `.serialized`), `SearchProfilesEmailTests` (3), `KeychainManagerBoolTests` (4). All pass.
 
 ## Security — Hard Blockers Fixed (2026-05-02)
 

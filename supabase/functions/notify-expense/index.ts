@@ -1,8 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const ALLOWED_ORIGIN = SUPABASE_URL  // M4: restrict CORS to project origin
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -21,9 +24,32 @@ async function getAPNsJWT(teamId: string, keyId: string, pem: string): Promise<s
   return cachedJWT
 }
 
+// ---------------------------------------------------------------------------
+// H1: verify the caller is an authenticated Supabase user
+// ---------------------------------------------------------------------------
+
+async function requireAuth(req: Request): Promise<string | null> {
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader?.startsWith('Bearer ')) return null
+  const jwt = authHeader.replace('Bearer ', '')
+  const adminClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+  const { data: { user }, error } = await adminClient.auth.getUser(jwt)
+  if (error || !user) return null
+  return user.id
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
+  }
+
+  // H1: reject unauthenticated callers
+  const callerID = await requireAuth(req)
+  if (!callerID) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
   try {
@@ -39,7 +65,7 @@ serve(async (req) => {
     } = await req.json()
 
     const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
+      SUPABASE_URL,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
