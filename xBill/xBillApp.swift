@@ -25,6 +25,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotifi
             "prefPushComment":    true,
         ])
         registerShortcutItems()
+        // One-time cleanup: remove expense Spotlight entries — expense titles contain
+        // financial data visible from the lock screen, bypassing App Lock.
+        if !UserDefaults.standard.bool(forKey: "spotlightExpensesCleared_v1") {
+            SpotlightService.removeAllExpenses()
+            UserDefaults.standard.set(true, forKey: "spotlightExpensesCleared_v1")
+        }
 
         // Handle cold-launch from a shortcut (return false so performActionFor is NOT called again)
         if let shortcutItem = launchOptions?[.shortcutItem] as? UIApplicationShortcutItem {
@@ -153,12 +159,19 @@ struct xBillApp: App {
                 .task { await authVM.loadCurrentUser() }
                 .task { await authVM.startListeningToAuthChanges() }
                 .onOpenURL { url in
-                    if url.scheme == "xbill", url.host == "join" {
+                    guard url.scheme == "xbill" else { return }
+                    switch url.host {
+                    case "join":
                         let token = url.lastPathComponent
                         if !token.isEmpty {
                             authVM.pendingJoinRequest = InviteJoinRequest(token: token)
                         }
-                    } else {
+                    case "add":
+                        let idString = url.lastPathComponent
+                        if let uuid = UUID(uuidString: idString) {
+                            AppState.shared.pendingAddFriendUserID = uuid
+                        }
+                    default:
                         Task {
                             try? await SupabaseManager.shared.auth.session(from: url)
                         }

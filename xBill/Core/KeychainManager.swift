@@ -7,6 +7,7 @@
 
 import Foundation
 import Security
+import CryptoKit
 
 // MARK: - KeychainManager
 
@@ -35,6 +36,8 @@ final class KeychainManager: Sendable {
 
         var attributes = query
         attributes[kSecValueData] = data
+        // ThisDeviceOnly: excludes item from backups and prevents migration to another device.
+        attributes[kSecAttrAccessible] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
 
         let status = SecItemAdd(attributes as CFDictionary, nil)
         guard status == errSecSuccess else {
@@ -88,7 +91,20 @@ final class KeychainManager: Sendable {
 
 extension KeychainManager {
     enum Keys {
-        static let sessionToken = "session_token"
-        static let refreshToken = "refresh_token"
+        static let sessionToken      = "session_token"
+        static let refreshToken      = "refresh_token"
+        static let cacheEncryptionKey = "cache_encryption_key"
+    }
+
+    /// Returns the AES-256 key used to encrypt UserDefaults cache entries.
+    /// Generates and persists a new key on first call.
+    func cacheEncryptionKey() throws -> SymmetricKey {
+        if let data = try? data(forKey: Keys.cacheEncryptionKey) {
+            return SymmetricKey(data: data)
+        }
+        let key = SymmetricKey(size: .bits256)
+        let keyData = key.withUnsafeBytes { Data($0) }
+        try save(keyData, forKey: Keys.cacheEncryptionKey)
+        return key
     }
 }

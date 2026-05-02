@@ -29,6 +29,7 @@ final class SupabaseManager: Sendable {
             supabaseKey: resolvedKey,
             options: SupabaseClientOptions(
                 auth: SupabaseClientOptions.AuthOptions(
+                    storage: KeychainSessionStorage(),
                     emitLocalSessionAsInitialSession: true
                 )
             )

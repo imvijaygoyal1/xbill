@@ -57,6 +57,9 @@ final class AppLockService {
         let context = LAContext()
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            // Device has no passcode — App Lock cannot function; disable it automatically
+            // so users are not permanently locked out of the app.
+            isEnabled = false
             isLocked = false
             return
         }

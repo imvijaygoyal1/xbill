@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CryptoKit
 
 // MARK: - CacheService
 // Persists groups, expenses, and members to UserDefaults for offline reading.
@@ -90,15 +91,39 @@ final class CacheService: Sendable {
         Decimal(CacheService.defaults.double(forKey: CacheService.totalOwingKey))
     }
 
+    // MARK: - Encryption helpers
+    //
+    // Sensitive keys (groups, expenses, members, notifications) are AES-GCM encrypted
+    // before writing to the App Group UserDefaults container. The encryption key lives
+    // in Keychain with kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly so it is never
+    // included in device backups and cannot be migrated to another device.
+    //
+    // Balance summary keys (widget-readable) are intentionally left unencrypted: they
+    // contain only 3 decimal numbers already visible in the widget on the home screen.
+
+    static func encrypt(_ data: Data) -> Data? {
+        guard let key = try? KeychainManager.shared.cacheEncryptionKey() else { return nil }
+        return try? AES.GCM.seal(data, using: key).combined
+    }
+
+    static func decrypt(_ data: Data) -> Data? {
+        guard let key = try? KeychainManager.shared.cacheEncryptionKey() else { return nil }
+        guard let box = try? AES.GCM.SealedBox(combined: data) else { return nil }
+        return try? AES.GCM.open(box, using: key)
+    }
+
     // MARK: - Helpers
 
     private func save<T: Encodable>(_ value: T, key: String) {
-        guard let data = try? encoder.encode(value) else { return }
+        guard let plain = try? encoder.encode(value) else { return }
+        let data = CacheService.encrypt(plain) ?? plain
         CacheService.defaults.set(data, forKey: key)
     }
 
     private func load<T: Decodable>(_ type: T.Type, key: String) -> T? {
-        guard let data = CacheService.defaults.data(forKey: key) else { return nil }
+        guard let raw = CacheService.defaults.data(forKey: key) else { return nil }
+        // Attempt decryption; fall back to raw for seamless migration from unencrypted cache.
+        let data = CacheService.decrypt(raw) ?? raw
         return try? decoder.decode(type, from: data)
     }
 }

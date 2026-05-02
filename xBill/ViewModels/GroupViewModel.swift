@@ -59,7 +59,6 @@ final class GroupViewModel {
                 expenses = fetchedExpenses
                 CacheService.shared.saveMembers(fetchedMembers, groupID: group.id)
                 CacheService.shared.saveExpenses(fetchedExpenses, groupID: group.id)
-                SpotlightService.indexExpenses(fetchedExpenses, groupName: group.name, groupEmoji: group.emoji)
                 await computeBalances()
             } catch {
                 guard !AppError.isSilent(error) else { return }

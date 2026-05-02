@@ -43,28 +43,14 @@ enum SpotlightService {
         ) { _ in }
     }
 
-    // MARK: - Expenses
+    // MARK: - Expense index cleanup
 
-    static func indexExpenses(_ expenses: [Expense], groupName: String, groupEmoji: String) {
-        let items = expenses.map { expense -> CSSearchableItem in
-            let attr = CSSearchableItemAttributeSet(contentType: .content)
-            attr.title = expense.title
-            attr.contentDescription = "\(expense.category.displayName) · \(groupEmoji) \(groupName)"
-            attr.keywords = [expense.title, expense.category.displayName, groupName, "expense", "xbill"]
-            let item = CSSearchableItem(
-                uniqueIdentifier: "expense:\(expense.id.uuidString)",
-                domainIdentifier: expenseDomain,
-                attributeSet: attr
-            )
-            item.expirationDate = .distantFuture
-            return item
-        }
-        CSSearchableIndex.default().indexSearchableItems(items) { _ in }
-    }
-
-    static func removeExpense(id: UUID) {
+    /// Removes all previously indexed expense items. Expense titles contain financial data
+    /// (amounts, categories) which would be visible in Spotlight from the lock screen,
+    /// bypassing App Lock. Groups are indexed instead — they contain only name and emoji.
+    static func removeAllExpenses() {
         CSSearchableIndex.default().deleteSearchableItems(
-            withIdentifiers: ["expense:\(id.uuidString)"]
+            withDomainIdentifiers: [expenseDomain]
         ) { _ in }
     }
 }

@@ -74,17 +74,19 @@
 17. `017_fix_user_delete_constraints.sql` — Changes `groups.created_by` and `expenses.paid_by` FK constraints from `ON DELETE RESTRICT` to `ON DELETE SET NULL` (with columns made nullable). Fixes auth user deletion being blocked when the user had created groups or paid for expenses.
 18. `018_lookup_profiles_by_email.sql` — `SECURITY DEFINER` RPC `lookup_profiles_by_email`; excludes current user; granted only to `authenticated` role
 19. `019_device_tokens_unique.sql` — Adds `UNIQUE (user_id, token)` constraint to `device_tokens` to prevent duplicate rows and enable safe upserts.
+20. `020_friends_table.sql` — `friends` table (requester_id, addressee_id, status: pending/accepted/blocked); RLS (both parties select/delete, requester inserts, addressee updates); `send_friend_request(p_addressee_id)` idempotent RPC; `respond_to_friend_request(p_requester_id, p_accept)` RPC; `search_profiles(p_query)` RPC (ilike on email + display_name, max 20 results, excludes self).
 
 ## File Map
 
 ### Entry Point
-- `xBill/xBillApp.swift` — `@main`, creates `AuthViewModel`, passes to `ContentView`, starts auth listener + loads current user; `.onOpenURL` passes deep links to `supabase.auth.session(from:)` for email confirmation + password reset; `AppDelegate` conforms to `UNUserNotificationCenterDelegate` (`@preconcurrency` for Swift 6 compatibility): `willPresent` returns `.banner + .sound + .badge` (foreground pushes show), `didReceive` sets `AppState.shared.pendingNotificationTarget` for tap-to-navigate
+- `xBill/xBillApp.swift` — `@main`, creates `AuthViewModel`, passes to `ContentView`, starts auth listener + loads current user; `.onOpenURL` dispatches on `url.host`: `"join"` → sets `authVM.pendingJoinRequest`; `"add"` → sets `AppState.shared.pendingAddFriendUserID` (QR/deep-link add-friend flow); default → passes to `supabase.auth.session(from:)` for auth redirects; `AppDelegate` conforms to `UNUserNotificationCenterDelegate`: `willPresent` returns `.banner + .sound + .badge`, `didReceive` sets `AppState.shared.pendingNotificationTarget`
 
 ### Edge Functions
 - `supabase/functions/invite-member/index.ts` — Deno; calls Resend API to send group invite emails; expects `{ groupName, groupEmoji, inviterName, emails[] }`; returns `{ sent, failed[] }`
 - `supabase/functions/notify-expense/index.ts` — Reads tokens from `device_tokens`; excludes sender (`payerId`); per-recipient badge via `getUnreadCount`; JWT cached 55 min; `apns-expiration: +1h`; stale token cleanup on 410/400; sandbox URL when `isDevelopment: true`; expects `{ expenseId, groupId, payerId, payerName, expenseTitle, amount, currency, isDevelopment }`
 - `supabase/functions/notify-settlement/index.ts` — Pushes creditor (toUserID) only; same JWT cache, expiration, stale cleanup, sandbox URL logic; expects `{ settlementId, groupId, groupName, fromUserID, fromName, toUserID, amount, currency, isDevelopment }`
 - `supabase/functions/notify-comment/index.ts` — Pushes all expense participants (splits + payer) except commenter; 60-char comment preview; same JWT cache, expiration, stale cleanup, sandbox URL; expects `{ expenseId, expenseTitle, groupId, groupName, commenterID, commenterName, commentText, isDevelopment }`
+- `supabase/functions/notify-friend-request/index.ts` — Pushes the addressee when they receive a friend request; same JWT cache, stale-token cleanup, sandbox URL patterns; expects `{ toUserID, fromName, fromUserID, isDevelopment }`; fired fire-and-forget from `FriendService.sendFriendRequest`
 
 ### Design System
 - `xBill/Views/Components/XBillWordmark.swift` — `XBillWordmark` view: "xBill" in `.heavy` 22pt `brandPrimary`, tracking -0.8 + kerning -0.5; used as `.principal` toolbar item in `HomeView`
@@ -98,7 +100,7 @@
 31 named color sets with light/dark variants: `BrandPrimary`, `BrandAccent`, `BrandSurface`, `BrandDeep`, `BgPrimary`, `BgSecondary`, `BgTertiary`, `BgCard`, `TextPrimary`, `TextSecondary`, `TextTertiary`, `TextInverse`, `MoneyPositive`, `MoneyNegative`, `MoneySettled`, `MoneyTotal`, `MoneyPositiveBg`, `MoneyNegativeBg`, `MoneySettledBg`, `Separator`, `TabBarBg`, `NavBarBg`, `InputBg`, `InputBorder`, `CatFood`, `CatTravel`, `CatHome`, `CatEntertain`, `CatHealth`, `CatShopping`, `CatOther`
 
 ### Core
-- `xBill/Core/AppState.swift` — `@Observable final class AppState: @unchecked Sendable` singleton (`AppState.shared`); `pendingQuickAction: QuickAction?` (.addExpense/.scanReceipt) set by AppDelegate; `spotlightTarget: SpotlightTarget?` (.group(UUID)) set by Spotlight NSUserActivity handler in xBillApp; `pendingNotificationTarget: NotificationTarget?` (.group(UUID)) set by `UNUserNotificationCenterDelegate.didReceive` on push notification tap; all three consumed by MainTabView via `.task(id:)`
+- `xBill/Core/AppState.swift` — `@Observable final class AppState: @unchecked Sendable` singleton (`AppState.shared`); `pendingQuickAction: QuickAction?` (.addExpense/.scanReceipt) set by AppDelegate; `spotlightTarget: SpotlightTarget?` (.group(UUID)) set by Spotlight NSUserActivity handler in xBillApp; `pendingNotificationTarget: NotificationTarget?` (.group(UUID)) set by `UNUserNotificationCenterDelegate.didReceive` on push notification tap; `pendingAddFriendUserID: UUID?` set when `xbill://add/<userID>` deep link is opened; all four consumed by MainTabView via `.task(id:)`
 - `xBill/Core/SupabaseClient.swift` — `SupabaseManager.shared`; reads URL/key from `Bundle.main.infoDictionary`; graceful fallback to placeholder (no crash) when credentials missing
 - `xBill/Core/AppError.swift` — `AppError` enum: `.network`, `.auth`, `.database`, `.confirmationRequired`, `.unknown`; `static func from(_ error: Error) -> AppError`
 - `xBill/Core/Constants/XBillURLs.swift` — `enum XBillURLs` with `privacyPolicy`, `termsOfService`, and `landingPage` static `URL` constants; always reference these instead of hardcoding URL strings
@@ -110,6 +112,7 @@
 - `xBill/Models/IOU.swift` — `struct IOU` (id, createdBy, lenderID, borrowerID, amount, currency, description, isSettled, createdAt)
 - `xBill/Models/Comment.swift` — `struct Comment: Codable, Identifiable, Sendable` (id, expenseID, userID, text, createdAt)
 - `xBill/Models/GroupInvite.swift` — `struct GroupInvite: Codable, Identifiable, Sendable` (token, groupID, createdBy, expiresAt); `inviteURL` computed property → `xbill://join/<token>`
+- `xBill/Models/Friend.swift` — `struct Friend: Codable, Identifiable, Sendable` → matches `friends` table (id, requesterID, addresseeID, status: FriendStatus, createdAt); `enum FriendStatus: String, Codable` (.pending/.accepted/.blocked)
 - `xBill/Models/User.swift` — `struct User: Codable, Identifiable` → matches `profiles` table (id, email, displayName, avatarURL, createdAt)
 - `xBill/Models/Group.swift` — `struct BillGroup: Codable, Identifiable` (NOT `Group` — would clash with `SwiftUI.Group`); `struct GroupMember`
 - `xBill/Models/Expense.swift` — `struct Expense`, `enum Expense.Category` (with `displayName`, `systemImage`, `allCases`)
@@ -122,6 +125,7 @@
 
 ### Services
 - `xBill/Services/ExchangeRateService.swift` — `actor`; fetches from `open.er-api.com/v6/latest/{base}` (no key needed); 1-hour in-memory cache; `convert(amount:from:to:)` and `rate(from:to:)`; `commonCurrencies` static array of 20 codes
+- `xBill/Services/FriendService.swift` — `final class FriendService: Sendable`; `fetchFriends(userID:)`, `fetchPendingReceived(userID:)`, `fetchPendingSent(userID:)`, `sendFriendRequest(to:)` (calls `send_friend_request` RPC + fires `notify-friend-request` push as fire-and-forget), `acceptRequest(from:)`, `declineRequest(from:)`, `removeFriend(id:currentUserID:)`, `searchProfiles(query:)` (partial ilike, uses `search_profiles` RPC from migration 020), `lookupByContactEmails([String])` (reuses migration 018 RPC), `friendshipStatus(currentUserID:otherUserID:)`, `fetchMutualGroupIDs(currentUserID:friendID:)` (parallel fetch of group_members for both users, returns intersection)
 - `xBill/Services/IOUService.swift` — `fetchIOUs(userID:)` (two queries: as lender + as borrower, deduplicated), `fetchUserByEmail(_:)`, `createIOU(...)`, `settleIOU(id:)`, `settleAllIOUs(with:currentUserID:)`, `deleteIOU(id:)`
 - `xBill/Services/CacheService.swift` — Prefers `UserDefaults(suiteName: "group.com.vijaygoyal.xbill")` (App Group for widget sharing), falls back to `.standard`; `nonisolated(unsafe)` static `defaults`; `saveGroups/loadGroups`, `saveExpenses/loadExpenses(groupID:)`, `saveMembers/loadMembers(groupID:)`; `saveBalance(netBalance:totalOwed:totalOwing:)` + load helpers for BalanceWidget
 - `xBill/Services/AppLockService.swift` — `@Observable @MainActor` singleton; `isEnabled` via `UserDefaults`, `isLocked: Bool`, `authenticate()` via `LAContext.deviceOwnerAuthentication`, `lock()` (no-op when not enabled); `biometryType`, `lockIconName`, `unlockLabel` helpers
@@ -175,7 +179,7 @@
 ### Views — Main
 - `xBill/Views/Main/ContentView.swift` — animated transition priority: `ResetPasswordView` → (logged in) `OnboardingView` (first launch only) or `MainTabView` → `AuthView`; `@AppStorage("hasCompletedOnboarding")` controls onboarding gate
 - `xBill/Views/Main/NotificationPermissionView.swift` — Pre-prompt sheet (see Services section above)
-- `xBill/Views/Main/MainTabView.swift` — 5 tabs: Home / Groups / Friends / Activity / Profile; Activity tab uses `bell.fill` icon + `.badge(activityVM.unreadCount > 0 ? activityVM.unreadCount : 0)` for unread notification count; shares `homeVM` between Home and Groups tabs; Friends tab passes `homeVM.currentUser?.id`; tab bar uses `.ultraThinMaterial` glassmorphic background; handles `AppState.shared.pendingQuickAction` via `.task(id:)` → switches to Groups tab + shows `QuickAddExpenseSheet`; handles `AppState.shared.spotlightTarget` via `.task(id:)` → navigates to group via `homeVM.groupsNavigationPath`
+- `xBill/Views/Main/MainTabView.swift` — 5 tabs: Home / Groups / Friends / Activity / Profile; Friends tab passes `homeVM.currentUser?.id` + `homeVM.groups`; four `.task(id:)` handlers: pendingQuickAction (groups tab + QuickAddExpenseSheet), spotlightTarget (group navigation), pendingNotificationTarget (group navigation), pendingAddFriendUserID (Friends tab + AddFriendView with preloaded user from `FriendService.searchProfiles`); `addFriendPreloadedUser: User?` + `showAddFriendFromQR: Bool` state for QR deep-link sheet
 - `xBill/Views/Main/HomeView.swift` — `BalanceHeroCard` + quick stats row + horizontal `ScrollView` of `GroupChipView` chips + "RECENT EXPENSES" `LazyVStack`; no nav bar `+` button; FAB only; `.inline` title
 - `xBill/Views/Main/ActivityView.swift` — renamed to "Notifications" in nav title; `bell.fill` icon; sections grouped by date; unread blue dot per row; "Mark All Read" toolbar button when `vm.hasUnread`; `onAppear` auto-marks read; `NotificationRowView` shows different icon per eventType (CategoryIconView for expenses, checkmark for settlements); `AmountBadge(.total/.settled)` per type; full a11y label
 
@@ -189,17 +193,19 @@
 - `xBill/Views/Groups/SettleUpView.swift` — settlement suggestions with Venmo link + Mark Settled button
 - `xBill/Views/Groups/InviteMembersView.swift` — email invite list; "Import from Contacts" button opens `CNContactPickerViewController` (no upfront permission needed); selected emails added to pending list; `lookupXBillUsers` checks DB via `GroupService.lookupProfilesByEmail`; "On xBill" badge on matching emails; calls `GroupService.inviteMembers` → `invite-member` Edge Function
 
-### Views — Expenses
-- `xBill/Views/Friends/FriendsView.swift` — Friends tab; groups IOUs by other person; net balance per currency per friend; FAB to AddIOUView; navigates to `FriendDetailView`
-- `xBill/Views/Friends/FriendDetailView.swift` — (defined in FriendsView.swift) outstanding + settled IOU sections; "Settle All" button
-- `xBill/Views/Friends/AddIOUView.swift` — email search to find user; amount + currency picker; "I owe / they owe" toggle; calls `IOUService.createIOU`
+### Views — Friends
+- `xBill/Views/Friends/FriendsView.swift` — Friends tab; accepts `currentUserID` + `allGroups: [BillGroup]` (from `homeVM.groups`); loads accepted friends from `FriendService` + IOUs from `IOUService` in parallel; three List sections: Requests (inbound pending, inline accept/decline), Outstanding (friends with unsettled IOUs), All Clear (settled/no-IOU friends); toolbar `person.badge.plus` button → `AddFriendView`; FAB → `AddIOUView`; empty state shows contact suggestions via `lookupByContactEmails`; `FriendDetailView` receives `allGroups` for mutual-group display
+- `xBill/Views/Friends/FriendDetailView.swift` — (defined in FriendsView.swift) outstanding + settled IOU sections; "Settle All" button; "Shared Groups" section showing mutual groups (loaded via `FriendService.fetchMutualGroupIDs` on `.task`); accepts `allGroups: [BillGroup]` default-empty parameter
+- `xBill/Views/Friends/AddFriendView.swift` — discovery-only sheet; three sections: (1) partial search → debounced 350ms → `FriendService.searchProfiles`; (2) "Import from Contacts" → `ContactPickerRepresentable` → `lookupByContactEmails`; (3) invite non-users via `ShareLink`; button states: Add / Pending / (already friends); accepts optional `preloadedUser` for QR deep-link pre-population
+- `xBill/Views/Friends/AddIOUView.swift` — now shows friend picker from `FriendService.fetchFriends()` as primary selection; "Add by email" is secondary fallback; keeps email search for non-friends; `preselectedFriend` and `preselectedFriendID` params unchanged
 - `xBill/Views/Expenses/AddExpenseView.swift` — `bgSecondary` sheet; hero amount `TextField`; currency picker `Menu` next to currency symbol; conversion preview when foreign currency; "Repeat" section with `Expense.Recurrence` picker (Does not repeat / Weekly / Monthly / Yearly); `ExchangeRateService.commonCurrencies` populates the currency picker
 - `xBill/Views/Expenses/ExpenseDetailView.swift` — expense detail with split breakdown + Comments section (realtime); `currentUserID: UUID` required; comment input bar via `safeAreaInset(edge: .bottom)`
 - `xBill/Views/Expenses/ReceiptScanView.swift` — accepts `members: [User]` + `onConfirmed: ([SplitInput]) -> Void`; `DocumentCameraView` now binds to `$vm.capturedPages: [UIImage]` and captures ALL pages (`0..<scan.pageCount`) for multi-page receipt support; photo library sets `vm.capturedPages = [image]`; `onChange(of: vm.capturedPages)` triggers `vm.scan(pages:)`; "Scan Again" clears `vm.capturedPages`; multi-page badge shown when `capturedPages.count > 1`; quality errors (Gap 2) surface via existing `.errorAlert(item:)` binding
 - `xBill/Views/Expenses/ReceiptReviewView.swift` — item review, member chip assignment, per-person totals; confidence header now includes suggested category chip (Gap 5) from `vm.suggestedCategory`; Extras section shows "Receipt Date" row (Gap 4) from `vm.scannedReceipt?.transactionDate` formatted with `.date` style; merchant name editable via `XBillTextField`; tip and total editable; tax read-only; "Use These Splits" calls `onConfirmed`; file-private `ItemRow` with inline price + stepper + member chips
 
 ### Views — Profile
-- `xBill/Views/Profile/ProfileView.swift` — `bgSecondary` page; Payment Handles section (`venmoHandle`/`paypalEmail` in `ProfileViewModel`, not persisted to DB); `xbillSmallAmount` for Total Paid; `XBillButton(.ghost)` sign out with `moneyNegative` foreground; footer section with "Terms of Service" + "Privacy Policy" links (`.safariSheet` to `XBillURLs.termsOfService`/`privacyPolicy`) + app version string
+- `xBill/Views/Profile/ProfileView.swift` — `bgSecondary` page; header row now has QR code icon button (`qrcode` SF Symbol) → `showMyQR` sheet presenting `MyQRCodeView`; Payment Handles section; `xbillSmallAmount` for Total Paid; `XBillButton(.ghost)` sign out; footer section with ToS + Privacy links + version
+- `xBill/Views/Profile/MyQRCodeView.swift` — displays QR code for `xbill://add/<userID>` deep link using `CIFilter.qrCodeGenerator` (same pattern as `GroupInviteView`); `ShareLink` for the URL; `.interpolation(.none)` on the QR image to prevent blurring
 
 ### Views — Components
 - `xBill/Views/Components/AvatarView.swift` — circular avatar; deterministic bg color from name hash (brandPrimary first); `XBillIcon.avatarMd` default; `textInverse` initials
@@ -211,6 +217,7 @@
 - `xBill/Views/Components/XBillTextField.swift` — `inputBg`/`inputBorder` styled text field; focus-animated border turns `brandPrimary`
 - `xBill/Views/Components/CategoryIconView.swift` — emoji icon in category-colored rounded square; extends `Expense.Category` with `.emoji` and `.categoryBackground`
 - `xBill/Views/Components/OfflineBanner.swift` — orange banner shown via `safeAreaInset(edge:.top)` in HomeView and GroupDetailView when `NetworkMonitor.shared.isConnected == false`
+- `xBill/Views/Components/ContactPickerView.swift` — `ContactPickerRepresentable: UIViewControllerRepresentable` wrapping `CNContactPickerViewController`; shared component used by both `InviteMembersView` and `AddFriendView`; `onPickedEmails: ([String]) -> Void` callback; handles both single and multi-contact selection
 - `xBill/Views/Components/FABButton.swift` — 56pt `brandPrimary` circle FAB with shadow and haptic
 - `xBill/Views/Components/GroupChipView.swift` — compact 110pt card for horizontal group scroll in HomeView
 - `xBill/Views/Components/ExpenseRowView.swift` — expense list row; `showAmountBadge: Bool = false` — when true shows `AmountBadge(.total)` instead of plain amount text
@@ -249,6 +256,7 @@
 - Scheme: `xbill://`; registered in `Info.plist` under `CFBundleURLTypes`
 - All Supabase auth links (confirmation, password reset) redirect to `xbill://auth/callback`
 - Group invite links: `xbill://join/<token>` — parsed in `xBillApp.onOpenURL`; sets `authVM.pendingJoinRequest`; `MainTabView` shows `JoinGroupView` sheet via `sheet(item: $authVM.pendingJoinRequest)`
+- Add-friend links: `xbill://add/<userID>` — parsed in `xBillApp.onOpenURL`; sets `AppState.shared.pendingAddFriendUserID`; `MainTabView` resolves user via `FriendService.searchProfiles`, switches to Friends tab, shows `AddFriendView` with `preloadedUser`; QR code generated in `MyQRCodeView` (ProfileView)
 - Set in Supabase dashboard: **Authentication → URL Configuration → Site URL + Redirect URLs**
 
 ### Sign In with Apple
@@ -406,9 +414,36 @@ Deploy: `supabase db push && supabase functions deploy delete-account --project-
 ## Known TODOs
 - **App Group registration** (for widget data sharing): register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Certificates, IDs & Profiles → Identifiers → App Groups
 - Deploy `invite-member` Edge Function: `supabase functions deploy invite-member` (after setting secrets `RESEND_API_KEY` + `INVITE_FROM_EMAIL`)
-- Deploy `delete-account` Edge Function: `supabase functions deploy delete-account`
-- Deploy migration 018: `supabase db push` (adds `lookup_profiles_by_email` RPC)
+- Deploy `notify-friend-request` Edge Function: `supabase functions deploy notify-friend-request`
 - App Store Assets: screenshots, preview video, keyword strategy (only remaining P0 blocker)
+
+## App Store Compliance
+- `PrivacyInfo.xcprivacy` added to both `xBill/` and `xBillWidget/` targets (required since May 2024). Declares: `NSPrivacyTracking: false`, collected data types (email, name, financial info, photos/videos, contacts, device ID), `UserDefaults` required-reason `CA92.1`. **Contacts added 2026-05-02** (automated scanner blocker).
+- `ITSAppUsesNonExemptEncryption: false` added to `Info.plist` (app uses only standard OS TLS — no custom crypto).
+- `delete-account` Edge Function: **ACTIVE (v6)** — deployed 2026-04-16. Not a pending TODO.
+
+## Security — Hard Blockers Fixed (2026-05-02)
+
+### M5 — Privacy manifest Contacts gap ✅
+- Added `NSPrivacyCollectedDataTypeContacts` to `xBill/PrivacyInfo.xcprivacy`. App uses `CNContactPickerViewController`; omission would cause automated scanner rejection at upload time.
+
+### M3 — App Lock silent bypass ✅
+- **`xBill/Services/AppLockService.swift`** — `authenticate()` now sets `isEnabled = false` (in addition to `isLocked = false`) when `canEvaluatePolicy` fails. Devices with no passcode auto-disable App Lock rather than appearing protected while unlocking silently.
+
+### M2 — Spotlight exposes financial data ✅
+- **`xBill/Services/SpotlightService.swift`** — Removed `indexExpenses` and `removeExpense`; replaced with `removeAllExpenses()` (deletes by domain). Expense titles contain amounts and categories visible from lock screen.
+- **`xBill/ViewModels/GroupViewModel.swift`** — Removed `SpotlightService.indexExpenses(...)` call.
+- **`xBill/xBillApp.swift`** — One-time startup migration: calls `SpotlightService.removeAllExpenses()` guarded by `spotlightExpensesCleared_v1` UserDefaults flag.
+
+### H2 — Session tokens in device-only Keychain ✅
+- **`xBill/Core/KeychainSessionStorage.swift`** (new) — Implements `AuthLocalStorage` using `KeychainManager`. `KeychainManager.save` now sets `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` — sessions are never in backups and cannot be migrated to another device.
+- **`xBill/Core/SupabaseClient.swift`** — `SupabaseClientOptions.AuthOptions(storage: KeychainSessionStorage(), ...)`. Replaces SDK default which used `kSecAttrAccessibleAfterFirstUnlock` (backup-eligible).
+
+### H3 — Financial data encrypted in App Group UserDefaults ✅
+- **`xBill/Core/KeychainManager.swift`** — Added `cacheEncryptionKey()`: generates/persists a `SymmetricKey(size: .bits256)` in Keychain with `ThisDeviceOnly` access.
+- **`xBill/Services/CacheService.swift`** — Added `static encrypt/decrypt` (AES-GCM via CryptoKit). Private `save<T>` and `load<T>` helpers now encrypt before write and decrypt after read. Balance keys (`xbill_net_balance/owed/owing`) intentionally left unencrypted — widget-readable summary data.
+- **`xBill/Services/NotificationStore.swift`** — `loadAll` and `merge` updated to call `CacheService.decrypt/encrypt`. Smooth migration: `decrypt` falls back to raw data if stored value was written unencrypted (first launch after update).
+- **All 74 existing tests pass** after these changes.
 
 ## Expense Model Notes
 - `Expense.payerID` CodingKey maps to `"paid_by"` (DB column name, not `"payer_id"`)

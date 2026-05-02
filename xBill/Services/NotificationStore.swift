@@ -35,9 +35,9 @@ final class NotificationStore: @unchecked Sendable {
     // MARK: - Items
 
     func loadAll() -> [NotificationItem] {
-        guard let data  = CacheService.defaults.data(forKey: itemsKey),
-              let items = try? decoder.decode([NotificationItem].self, from: data)
-        else { return [] }
+        guard let raw = CacheService.defaults.data(forKey: itemsKey) else { return [] }
+        let data = CacheService.decrypt(raw) ?? raw
+        guard let items = try? decoder.decode([NotificationItem].self, from: data) else { return [] }
         return items
     }
 
@@ -49,7 +49,8 @@ final class NotificationStore: @unchecked Sendable {
         let toAdd       = newItems.filter { !existingIDs.contains($0.id) }
         existing.insert(contentsOf: toAdd, at: 0)
         existing = Array(existing.sorted { $0.createdAt > $1.createdAt }.prefix(maxCount))
-        guard let data = try? encoder.encode(existing) else { return }
+        guard let plain = try? encoder.encode(existing) else { return }
+        let data = CacheService.encrypt(plain) ?? plain
         CacheService.defaults.set(data, forKey: itemsKey)
     }
 
