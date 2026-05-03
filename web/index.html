@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>xBill - Split Bills Effortlessly</title>
+  <meta name="description" content="xBill helps friends and groups split shared expenses, scan receipts, manage IOUs, and settle up clearly.">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f0e1a;
+      color: #ffffff;
+    }
+    .page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+    }
+    main {
+      width: min(100%, 760px);
+      text-align: center;
+    }
+    .logo {
+      font-size: clamp(48px, 11vw, 80px);
+      line-height: 1;
+      font-weight: 800;
+      margin-bottom: 18px;
+    }
+    .logo span { color: #7f77dd; }
+    h1 {
+      font-size: clamp(34px, 7vw, 60px);
+      line-height: 1.04;
+      margin: 0 auto 20px;
+      max-width: 720px;
+    }
+    .tagline {
+      font-size: 19px;
+      line-height: 1.55;
+      color: #d8d5ff;
+      max-width: 610px;
+      margin: 0 auto 34px;
+    }
+    .actions {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 38px;
+    }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      border-radius: 999px;
+      padding: 0 22px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .button.primary {
+      background: #7f77dd;
+      color: #ffffff;
+    }
+    .button.secondary {
+      color: #d8d5ff;
+      border: 1px solid rgba(216, 213, 255, 0.34);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .features {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 34px;
+    }
+    .feature {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 16px;
+      padding: 18px 14px;
+      min-height: 118px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+    }
+    .feature strong { font-size: 15px; }
+    .feature span {
+      color: #c8c3ff;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+    footer {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      flex-wrap: wrap;
+      color: #c8c3ff;
+    }
+    footer a {
+      color: #d8d5ff;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    footer a:hover { text-decoration: underline; }
+    @media (max-width: 760px) {
+      .page { padding: 32px 18px; }
+      .features { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 480px) {
+      .features { grid-template-columns: 1fr; }
+      .button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <main>
+      <div class="logo">x<span>Bill</span></div>
+      <h1>Split bills, scan receipts, and settle up clearly.</h1>
+      <p class="tagline">
+        xBill helps friends and groups track shared expenses, manage IOUs,
+        and understand who owes whom without a spreadsheet.
+      </p>
+
+      <div class="actions">
+        <a class="button primary" href="https://xbill.vijaygoyal.org/invite">Open Invite Page</a>
+        <a class="button secondary" href="https://xbill.vijaygoyal.org/privacy">Privacy Policy</a>
+      </div>
+
+      <section class="features" aria-label="xBill features">
+        <div class="feature"><strong>Groups</strong><span>Organize trips, homes, meals, and events.</span></div>
+        <div class="feature"><strong>Receipts</strong><span>Scan itemized receipts and review splits.</span></div>
+        <div class="feature"><strong>IOUs</strong><span>Track friend-to-friend debts outside groups.</span></div>
+        <div class="feature"><strong>Balances</strong><span>See settlement suggestions by currency.</span></div>
+      </section>
+
+      <footer>
+        <a href="https://xbill.vijaygoyal.org/invite">Invite</a>
+        <a href="https://xbill.vijaygoyal.org/privacy">Privacy Policy</a>
+        <a href="https://xbill.vijaygoyal.org/terms">Terms of Service</a>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

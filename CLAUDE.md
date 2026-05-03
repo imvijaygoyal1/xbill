@@ -12,6 +12,8 @@
 - **Architecture:** SwiftUI + `@Observable` + Supabase (PostgreSQL + Auth + Realtime)
 - **Project path:** `/Users/vijaygoyal/MyiOSApp/xBill`
 - **Project generation:** `xcodegen generate` (from `project.yml`)
+- **Architecture doc:** `ARCHITECTURE.md`
+- **App Store review plan:** `APPSTORE_REVIEW_PLAN.md`
 
 ## Simulator
 - **iPhone 17 Pro:** `DA97985A-F7CC-44F6-8281-9DD24C22B978` ← primary test device
@@ -39,6 +41,34 @@
 - **URL scheme:** `xbill://` — registered in `Info.plist` (`CFBundleURLTypes`); Supabase dashboard Site URL + Redirect URL set to `xbill://auth/callback`
 - **Resend SMTP:** configured in Supabase dashboard (Auth → SMTP) using `smtp.resend.com:465`, username `resend`, password = Resend API key
 - **Edge Functions:** `supabase/functions/invite-member/index.ts` — sends group invite emails via Resend API; secrets: `RESEND_API_KEY`, `INVITE_FROM_EMAIL`
+
+## App Store Review Notes
+- Review-sensitive work is tracked in `APPSTORE_REVIEW_PLAN.md`; consult it before any submission-oriented change.
+- Current known blockers/risks include account deletion retention/anonymization scope, contact-email discovery disclosures, third-party network disclosures, receipt upload/privacy-label consistency, App Group UserDefaults required-reason review, App Store Connect privacy-label reconciliation, and reviewer demo access.
+- Friend invite sharing uses `XBillURLs.appInvite` (`https://xbill.vijaygoyal.org/invite`), not a placeholder App Store URL.
+- Public web pages are hosted on Cloudflare Pages project `xbill` (domains: `xbill.pages.dev`, `xbill.vijaygoyal.org`; production branch label `main`; no Git connection/direct upload). Deploy source lives in `web/`: `web/index.html`, `web/invite/index.html`, `web/privacy/index.html`, `web/terms/index.html`.
+- Verified 2026-05-03: `/`, `/invite`, `/privacy`, and `/terms` all return valid raw HTML; `/privacy` and `/terms` may redirect to trailing-slash URLs before `HTTP 200`.
+- Do not submit until App Store Connect privacy labels, `PrivacyInfo.xcprivacy`, in-app legal links, and backend data flows have been reconciled.
+
+## Public Web / Cloudflare Pages
+- **Cloudflare Pages project:** `xbill`
+- **Domains:** `https://xbill.vijaygoyal.org`, `https://xbill.pages.dev`
+- **Deployment mode:** direct upload / no Git connection. Future agents cannot deploy by pushing this repo unless Cloudflare is reconfigured.
+- **Deployable source folder:** `web/`
+  - `web/index.html` → `https://xbill.vijaygoyal.org/`
+  - `web/invite/index.html` → `https://xbill.vijaygoyal.org/invite`
+  - `web/privacy/index.html` → `https://xbill.vijaygoyal.org/privacy`
+  - `web/terms/index.html` → `https://xbill.vijaygoyal.org/terms`
+- **Important:** Cloudflare direct upload replaces the deployed asset bundle. Upload the whole `web/` folder so `/privacy` and `/terms` are not accidentally removed when changing `/invite`.
+- **Post-deploy verification:**
+  ```
+  curl -L -I https://xbill.vijaygoyal.org
+  curl -L -I https://xbill.vijaygoyal.org/invite
+  curl -L -I https://xbill.vijaygoyal.org/privacy
+  curl -L -I https://xbill.vijaygoyal.org/terms
+  curl -L https://xbill.vijaygoyal.org/privacy | head
+  ```
+- **Expected:** all endpoints end at `HTTP 200` and content starts with `<!DOCTYPE html>`. If output contains `Cocoa HTML Writer`, `<p class="p1">`, or `&lt;!DOCTYPE`, the page was saved as rich text and must be replaced with raw HTML.
 
 ## Database Schema
 
@@ -472,6 +502,27 @@ Deploy: `supabase db push && supabase functions deploy delete-account --project-
 - **`xBill/Services/CacheService.swift`** — Added `static encrypt/decrypt` (AES-GCM via CryptoKit). Private `save<T>` and `load<T>` helpers now encrypt before write and decrypt after read. Balance keys (`xbill_net_balance/owed/owing`) intentionally left unencrypted — widget-readable summary data.
 - **`xBill/Services/NotificationStore.swift`** — `loadAll` and `merge` updated to call `CacheService.decrypt/encrypt`. Smooth migration: `decrypt` falls back to raw data if stored value was written unencrypted (first launch after update).
 - **All 74 existing tests pass** after these changes.
+
+## Security — Low Findings Fixed (2026-05-02)
+
+### C2 — Apple developer credentials removed from generate_apple_secret.js ✅
+- `generate_apple_secret.js` — `TEAM_ID`, `KEY_ID`, `CLIENT_ID`, `KEY_FILE` replaced with placeholder strings; the existing guard at line 16 will reject placeholders and prompt the user to fill them in before running.
+
+### L2 — PayPal username alphanumeric validation ✅
+- **`xBill/Services/PaymentLinkService.swift`** — `paypalLink(to:amount:currency:)` now guards with a regex `^[a-zA-Z0-9._-]+$` before building the URL; returns `nil` for usernames containing spaces, `@`, `%`, path characters, or empty strings.
+- **`xBillTests/SecurityFixTests.swift`** — 7 new tests in `L2 — PayPal username validation` suite covering valid/invalid username cases.
+
+### L3 — Deno std pinned version upgraded ✅
+- All 5 Edge Functions (`notify-expense`, `notify-settlement`, `notify-comment`, `notify-friend-request`, `invite-member`) updated from `std@0.168.0` to `std@0.224.0`.
+
+### L4 — GCC_GENERATE_DEBUGGING_SYMBOLS made per-config ✅
+- **`project.yml`** — Removed `GCC_GENERATE_DEBUGGING_SYMBOLS: YES` from global `settings.base`. Added explicit `GCC_GENERATE_DEBUGGING_SYMBOLS: YES` to the `debug` config and `GCC_GENERATE_DEBUGGING_SYMBOLS: NO` to the `release` config. Any future config added requires an explicit opt-in.
+
+### L5 — APNs userInfo trimmed to routing-only IDs ✅
+- **`notify-expense/index.ts`** — Removed `expenseId` from the APNs payload `userInfo`; `groupId` retained for notification-tap navigation.
+- **`notify-settlement/index.ts`** — Removed `settlementId` from the APNs payload `userInfo`; `groupId` retained.
+- **`notify-comment/index.ts`** — Removed `expenseId` from the APNs payload `userInfo`; `groupId` retained.
+- **`notify-friend-request/index.ts`** — `fromUserID` retained (needed to preload `AddFriendView` on notification tap); no other IDs removed.
 
 ## Expense Model Notes
 - `Expense.payerID` CodingKey maps to `"paid_by"` (DB column name, not `"payer_id"`)
