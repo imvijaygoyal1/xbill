@@ -15,9 +15,9 @@ struct XBillActionCard: View {
         Button(action: action) {
             HStack(spacing: AppSpacing.md) {
                 Image(systemName: icon)
-                    .font(.appTitle)
+                    .font(.appIcon)
                     .foregroundStyle(AppColors.primary)
-                    .frame(width: AppSpacing.xl, height: AppSpacing.xl)
+                    .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                     .background(AppColors.surfaceSoft)
                     .clipShape(Circle())
                 VStack(alignment: .leading, spacing: AppSpacing.xs) {
@@ -35,7 +35,7 @@ struct XBillActionCard: View {
                     .font(.appCaptionMedium)
                     .foregroundStyle(AppColors.textTertiary)
             }
-            .frame(minHeight: AppSpacing.tapTarget)
+            .frame(minHeight: 64)
         }
         .buttonStyle(.plain)
         .xbillCard()

@@ -21,25 +21,41 @@ struct BalanceHeroCard: View {
                 Text(label.uppercased())
                     .font(.appCaptionMedium)
                     .tracking(1.08)
-                    .foregroundStyle(AppColors.primaryLight)
+                    .foregroundStyle(AppColors.textSecondary)
 
                 Text(amount.formatted(currencyCode: currency))
                     .font(.appAmount)
-                    .foregroundStyle(AppColors.textInverse)
+                    .foregroundStyle(isPositive ? AppColors.moneyPositive : AppColors.moneyNegative)
                     .contentTransition(.numericText())
+                    .monospacedDigit()
 
                 Text(subtitle)
                     .font(.appCaption)
-                    .foregroundStyle(AppColors.textInverse.opacity(0.82))
+                    .foregroundStyle(AppColors.textSecondary)
             }
             Spacer(minLength: AppSpacing.sm)
-            XBillWalletIllustration(size: 72)
+            Image(systemName: isPositive ? "arrow.down.left.circle.fill" : "arrow.up.right.circle.fill")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(isPositive ? AppColors.moneyPositive : AppColors.moneyNegative)
+                .frame(width: 56, height: 56)
+                .background((isPositive ? AppColors.moneyPositiveBg : AppColors.moneyNegativeBg))
+                .clipShape(Circle())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, AppSpacing.lg)
-        .padding(.vertical, AppSpacing.md)
-        .background(AppGradient.hero(for: colorScheme))
-        .clipShape(RoundedRectangle(cornerRadius: AppRadius.hero, style: .continuous))
+        .padding(.vertical, AppSpacing.lg)
+        .background(AppColors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.xxl, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppRadius.xxl, style: .continuous)
+                .stroke(AppColors.border, lineWidth: 1)
+        )
+        .shadow(
+            color: AppShadow.card(colorScheme: colorScheme).color,
+            radius: AppShadow.card(colorScheme: colorScheme).radius,
+            x: AppShadow.card(colorScheme: colorScheme).x,
+            y: AppShadow.card(colorScheme: colorScheme).y
+        )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label): \(amount.formatted(currencyCode: currency)), \(subtitle)")
     }

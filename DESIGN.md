@@ -167,6 +167,7 @@ Completed fixes:
 - `AppTypography` includes icon, tab label, and badge tokens for tab/FAB chrome.
 - Canonical buttons expose disabled and loading behavior.
 - Home density was tightened: smaller personalized header, reduced balance hero padding, smaller group chips, and tokenized FAB/content bottom spacing.
+- Home dashboard was sharpened in place: calmer surface-based balance card, reusable metric cards, tokenized section headers/status chips, more complete group cards, icon-led settled messaging, and polished surface-based bottom tabs.
 - Top navigation chrome now uses adaptive `AppColors.background`; near-black styling is reserved for the custom bottom tab bar.
 - Group Details uses `XBillSegmentedControl` for Expenses/Balances/Settle Up.
 - Add Expense uses a sticky full-width `Save Expense` action and 44pt+ category/share controls.
@@ -189,6 +190,7 @@ Validation performed:
 - Login UI regression validation: `xcodebuild test -scheme xBill -destination 'id=DA97985A-F7CC-44F6-8281-9DD24C22B978' -only-testing:xBillUITests/OnboardingUITests` passed 6 tests on 2026-05-04, including auth header identifiers and visible illustration accessibility identifiers
 - Visual asset system validation: `xcodegen generate`; Debug simulator build succeeded; installed and launched on simulator `DA97985A-F7CC-44F6-8281-9DD24C22B978`
 - Header/scroll consistency validation: `xcodegen generate`; Debug simulator build succeeded; installed and launched on simulator `DA97985A-F7CC-44F6-8281-9DD24C22B978`
+- Home dashboard validation: `xcodegen generate`; Debug simulator build succeeded; `xcodebuild test -scheme xBill -destination 'id=DA97985A-F7CC-44F6-8281-9DD24C22B978' -only-testing:xBillTests` passed on 2026-05-04; installed/launched on simulator and screenshot-checked Home for text overlap and add-button placement. `swiftformat` and `swiftlint` were not installed in the environment.
 
 Remaining visual debt:
 
@@ -211,7 +213,7 @@ Remaining visual debt:
 - balance < 0: `You've got balances to settle`
 - balance == 0: `All settled. Nice!`
 
-Emoji may be included in user-facing labels, but helpers should keep pure logic easy to test.
+Helpers should keep pure, icon-free text; visual status icons belong in reusable UI components.
 
 `HomeHeader`:
 

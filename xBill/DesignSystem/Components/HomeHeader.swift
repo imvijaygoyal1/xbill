@@ -16,17 +16,24 @@ struct HomeHeader: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.xs) {
-            Text("Hi, \(firstName) 👋")
-                .font(.appH2)
-                .foregroundStyle(AppColors.textPrimary)
-            Text(GreetingHelper.greeting(for: date))
-                .font(.appCaption)
-                .foregroundStyle(AppColors.textSecondary)
+        HStack(alignment: .center, spacing: AppSpacing.md) {
+            VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                Text("Hi, \(firstName)")
+                    .font(.appH2)
+                    .foregroundStyle(AppColors.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                Text(GreetingHelper.greeting(for: date))
+                    .font(.appBody)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+            Spacer(minLength: AppSpacing.sm)
             if let balance {
-                Text(BalanceMessageHelper.message(for: balance))
-                    .font(.appCaption)
-                    .foregroundStyle(balance >= .zero ? AppColors.success : AppColors.error)
+                XBillStatusChip(
+                    text: BalanceMessageHelper.message(for: balance),
+                    icon: balance == .zero ? "checkmark.circle.fill" : balance > .zero ? "arrow.down.left.circle.fill" : "arrow.up.right.circle.fill",
+                    color: balance == .zero ? AppColors.moneySettled : balance > .zero ? AppColors.moneyPositive : AppColors.moneyNegative
+                )
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

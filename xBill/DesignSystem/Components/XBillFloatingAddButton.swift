@@ -19,7 +19,7 @@ struct XBillFloatingAddButton: View {
             Image(systemName: systemImage)
                 .font(.appH2)
                 .foregroundStyle(AppColors.textInverse)
-                .frame(width: 60, height: 60)
+                .frame(width: 56, height: 56)
                 .background(AppColors.primary)
                 .clipShape(Circle())
                 .shadow(color: shadow.color, radius: shadow.radius, x: shadow.x, y: shadow.y)
