@@ -45,10 +45,10 @@ struct AddFriendView: View {
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
-            .background(Color.bgSecondary.ignoresSafeArea())
+            .background(AppColors.background.ignoresSafeArea())
             .navigationTitle("Add Friend")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color.navBarBg, for: .navigationBar)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -76,16 +76,11 @@ struct AddFriendView: View {
 
     private var searchSection: some View {
         Section {
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField("Name or email", text: $searchText)
-                    .autocapitalization(.none)
-                    .autocorrectionDisabled()
-                    .onChange(of: searchText) { _, new in scheduleSearch(query: new) }
-                if isSearching {
-                    ProgressView().scaleEffect(0.8)
-                }
+            XBillSearchBar(placeholder: "Name or email", text: $searchText)
+                .onChange(of: searchText) { _, new in scheduleSearch(query: new) }
+            if isSearching {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
             }
 
             if !searchResults.isEmpty {
@@ -94,13 +89,29 @@ struct AddFriendView: View {
                 }
             } else if !searchText.isEmpty && !isSearching {
                 inviteRow
+            } else if searchText.isEmpty && contactSuggestions.isEmpty && preloadedUser == nil {
+                XBillEmptyState(
+                    icon: "person.crop.circle.badge.plus",
+                    title: "Find friends",
+                    message: "Search by name or email, or import from contacts.",
+                    illustration: .friends
+                )
+                .listRowInsets(EdgeInsets())
             }
 
             Button {
                 showContactPicker = true
             } label: {
-                Label("Import from Contacts", systemImage: "person.crop.circle.badge.plus")
-                    .foregroundStyle(Color.brandPrimary)
+                HStack(spacing: AppSpacing.sm) {
+                    XBillAvatarPlaceholder(name: "+", size: 32)
+                    Text("Import from Contacts")
+                        .font(.appTitle)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.appCaptionMedium)
+                }
+                .foregroundStyle(Color.brandPrimary)
+                .frame(minHeight: AppSpacing.tapTarget)
             }
         } header: {
             Text("Find people")
@@ -155,10 +166,10 @@ struct AddFriendView: View {
         if sentRequestIDs.contains(user.id) {
             Text("Pending")
                 .font(.xbillCaption.bold())
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Color.bgTertiary)
+                .foregroundStyle(AppColors.textSecondary)
+                .padding(.horizontal, AppSpacing.md)
+                .frame(minHeight: AppSpacing.tapTarget)
+                .background(AppColors.surfaceSoft)
                 .clipShape(Capsule())
         } else {
             Button {
@@ -166,10 +177,10 @@ struct AddFriendView: View {
             } label: {
                 Text("Add")
                     .font(.xbillCaption.bold())
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.brandPrimary)
+                    .foregroundStyle(AppColors.textInverse)
+                    .padding(.horizontal, AppSpacing.md)
+                    .frame(minHeight: AppSpacing.tapTarget)
+                    .background(AppColors.primary)
                     .clipShape(Capsule())
             }
             .buttonStyle(.plain)

@@ -22,31 +22,31 @@ struct XBillButton: View {
 
     private var bgColor: Color {
         switch style {
-        case .primary:     return .brandPrimary
+        case .primary:     return AppColors.primary
         case .secondary:   return .clear
         case .ghost:       return .clear
-        case .destructive: return .moneyNegative
+        case .destructive: return AppColors.error
         }
     }
     private var fgColor: Color {
         switch style {
-        case .primary:     return .textInverse
-        case .secondary:   return .brandPrimary
-        case .ghost:       return .brandPrimary
-        case .destructive: return .textInverse
+        case .primary:     return AppColors.textInverse
+        case .secondary:   return AppColors.primary
+        case .ghost:       return AppColors.primary
+        case .destructive: return AppColors.textInverse
         }
     }
     private var borderColor: Color {
         switch style {
-        case .secondary: return .brandPrimary
-        case .ghost:     return Color.clayOatBorder
+        case .secondary: return AppColors.primary
+        case .ghost:     return AppColors.border
         default:         return .clear
         }
     }
     private var cornerRadius: CGFloat {
         switch style {
-        case .ghost: return XBillRadius.sharp  // clay: ghost buttons use 4pt
-        default:     return XBillRadius.md
+        case .ghost: return AppRadius.sm
+        default:     return AppRadius.md
         }
     }
 
@@ -65,7 +65,7 @@ struct XBillButton: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 52)
+            .frame(minHeight: AppSpacing.controlHeight)
             .background(bgColor)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             .overlay(
@@ -73,7 +73,7 @@ struct XBillButton: View {
                     .stroke(borderColor, lineWidth: 1)
             )
         }
-        .buttonStyle(ClayButtonStyle())
+        .buttonStyle(.plain)
         .disabled(isLoading)
     }
 }

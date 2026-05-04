@@ -23,28 +23,28 @@ struct OnboardingView: View {
             icon: "dollarsign.circle.fill",
             title: "Welcome to xBill",
             description: "The easiest way to split expenses with friends, roommates, and travel buddies — no awkward money talks required.",
-            swatchColor: Color.clayUbe,          // Ube 800 — brand purple
+            swatchColor: AppColors.primary,
             onSwatch: true
         ),
         OnboardingPage(
             icon: "person.3.fill",
             title: "Create Groups",
             description: "Organise expenses by trip, household, or occasion. Everyone in the group can add expenses and see what they owe at a glance.",
-            swatchColor: Color.clayMatchaDark,   // Matcha 800 — deep green
+            swatchColor: AppColors.success,
             onSwatch: true
         ),
         OnboardingPage(
             icon: "camera.viewfinder",
             title: "Scan Receipts",
             description: "Point your camera at any receipt. xBill reads the items, splits the total, and assigns shares automatically using on-device AI.",
-            swatchColor: Color.claySlushieDark,  // Slushie 800 — deep teal
+            swatchColor: AppColors.primaryDark,
             onSwatch: true
         ),
         OnboardingPage(
             icon: "chart.bar.fill",
             title: "Stay Balanced",
             description: "See live balances across all your groups. Settle up with one tap and track your spending history over time.",
-            swatchColor: Color.clayLemon,        // Lemon 500 — warm gold (light → dark text)
+            swatchColor: AppColors.warning,
             onSwatch: false
         )
     ]
@@ -72,8 +72,8 @@ struct OnboardingView: View {
                         ForEach(0..<pages.count, id: \.self) { i in
                             Capsule()
                                 .fill(i == currentPage
-                                      ? (pages[currentPage].onSwatch ? Color.white : Color.clayUbe)
-                                      : Color.white.opacity(0.35))
+                                      ? (pages[currentPage].onSwatch ? AppColors.textInverse : AppColors.primary)
+                                      : AppColors.textInverse.opacity(0.35))
                                 .frame(width: i == currentPage ? 24 : 8, height: 8)
                                 .animation(.spring(response: 0.3), value: currentPage)
                         }
@@ -84,8 +84,8 @@ struct OnboardingView: View {
                             Button("Skip") { onComplete() }
                                 .font(.xbillButtonMedium)
                                 .foregroundStyle(pages[currentPage].onSwatch
-                                                 ? Color.white.opacity(0.7)
-                                                 : Color.clayCharcoal)
+                                                 ? AppColors.textInverse.opacity(0.7)
+                                                 : AppColors.textSecondary)
 
                             Spacer()
 
@@ -96,12 +96,12 @@ struct OnboardingView: View {
                                     .font(.xbillButtonLarge)
                                     .foregroundStyle(pages[currentPage].onSwatch
                                                      ? pages[currentPage].swatchColor
-                                                     : Color.white)
+                                                     : AppColors.textInverse)
                                     .frame(width: 120, height: 48)
                                     .background(pages[currentPage].onSwatch
-                                                ? Color.white
-                                                : Color.clayUbe)
-                                    .clipShape(RoundedRectangle(cornerRadius: XBillRadius.md))
+                                                ? AppColors.textInverse
+                                                : AppColors.primary)
+                                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
                             }
                             .buttonStyle(ClayButtonStyle())
                         }
@@ -113,10 +113,10 @@ struct OnboardingView: View {
                             } label: {
                                 Text("Get Started")
                                     .font(.xbillButtonLarge)
-                                    .foregroundStyle(Color.white)
+                                    .foregroundStyle(AppColors.textInverse)
                                     .frame(maxWidth: .infinity, minHeight: 52)
-                                    .background(Color.clayUbe)
-                                    .clipShape(RoundedRectangle(cornerRadius: XBillRadius.md))
+                                    .background(AppColors.primary)
+                                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
                             }
                             .buttonStyle(ClayButtonStyle())
                             .padding(.horizontal, XBillSpacing.xl)
@@ -136,7 +136,7 @@ struct OnboardingView: View {
                                     } else {
                                         Text("Try with sample data")
                                             .font(.xbillButtonMedium)
-                                            .foregroundStyle(Color.clayUbe)
+                                            .foregroundStyle(AppColors.primary)
                                             .frame(maxWidth: .infinity, minHeight: 44)
                                     }
                                 }
@@ -158,20 +158,17 @@ struct OnboardingView: View {
         VStack(spacing: XBillSpacing.xl) {
             Spacer()
 
-            Image(systemName: page.icon)
-                .font(.system(size: 80))
-                .foregroundStyle(page.onSwatch ? Color.white : Color.clayUbe)
-                .accessibilityHidden(true)
+            onboardingVisual(for: page)
 
             VStack(spacing: XBillSpacing.md) {
                 Text(page.title)
                     .font(.xbillLargeTitle)
-                    .foregroundStyle(page.onSwatch ? Color.white : Color.textPrimary)
+                    .foregroundStyle(page.onSwatch ? AppColors.textInverse : AppColors.textPrimary)
                     .multilineTextAlignment(.center)
 
                 Text(page.description)
                     .font(.xbillBodyMedium)
-                    .foregroundStyle(page.onSwatch ? Color.white.opacity(0.8) : Color.textSecondary)
+                    .foregroundStyle(page.onSwatch ? AppColors.textInverse.opacity(0.8) : AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, XBillSpacing.xl)
             }
@@ -180,6 +177,18 @@ struct OnboardingView: View {
             Spacer()
         }
         .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func onboardingVisual(for page: OnboardingPage) -> some View {
+        switch page.icon {
+        case "camera.viewfinder":
+            XBillReceiptIcon(size: 132)
+        case "chart.bar.fill":
+            XBillWalletIllustration(size: 148)
+        default:
+            XBillSplitBillIllustration(size: 184)
+        }
     }
 }
 

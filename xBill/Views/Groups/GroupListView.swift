@@ -11,6 +11,24 @@ struct GroupListView: View {
     @Bindable var vm: HomeViewModel
     @State private var showCreateGroup = false
     @State private var showArchived = false
+    @State private var searchText = ""
+
+    private var filteredGroups: [BillGroup] {
+        filter(vm.groups)
+    }
+
+    private var filteredArchivedGroups: [BillGroup] {
+        filter(vm.archivedGroups)
+    }
+
+    private func filter(_ groups: [BillGroup]) -> [BillGroup] {
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return groups }
+        return groups.filter {
+            $0.name.lowercased().contains(q) ||
+            $0.currency.lowercased().contains(q)
+        }
+    }
 
     var body: some View {
         NavigationStack(path: $vm.groupsNavigationPath) {
@@ -31,7 +49,8 @@ struct GroupListView: View {
             }
             .navigationTitle("Groups")
             .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(Color.navBarBg, for: .navigationBar)
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search groups")
+            .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -58,17 +77,18 @@ struct GroupListView: View {
     private var groupList: some View {
         List {
             // Active groups
-            if !vm.groups.isEmpty {
+            if !filteredGroups.isEmpty {
                 Section {
-                    ForEach(vm.groups) { group in
+                    ForEach(filteredGroups) { group in
                         NavigationLink(value: group) {
                             groupRow(group, isArchived: false)
                         }
-                        .listRowBackground(Color.bgCard)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                     }
                     .onDelete { indexSet in
                         for i in indexSet {
-                            let group = vm.groups[i]
+                            let group = filteredGroups[i]
                             Task { await vm.deleteGroup(group) }
                         }
                     }
@@ -76,14 +96,15 @@ struct GroupListView: View {
             }
 
             // Archived groups — collapsible section
-            if !vm.archivedGroups.isEmpty {
+            if !filteredArchivedGroups.isEmpty {
                 Section {
                     if showArchived {
-                        ForEach(vm.archivedGroups) { group in
+                        ForEach(filteredArchivedGroups) { group in
                             NavigationLink(value: group) {
                                 groupRow(group, isArchived: true)
                             }
-                            .listRowBackground(Color.bgCard)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                             .swipeActions(edge: .leading) {
                                 Button {
                                     Task { await vm.unarchiveGroup(group) }
@@ -96,14 +117,14 @@ struct GroupListView: View {
                     }
                 } header: {
                     HStack {
-                        Text("ARCHIVED (\(vm.archivedGroups.count))")
-                            .font(.xbillUpperLabel)
+                            Text("ARCHIVED (\(filteredArchivedGroups.count))")
+                            .font(.appCaptionMedium)
                             .tracking(1.08)
-                            .foregroundStyle(Color.textSecondary)
+                            .foregroundStyle(AppColors.textSecondary)
                         Spacer()
                         Image(systemName: showArchived ? "chevron.up" : "chevron.down")
                             .font(.caption)
-                            .foregroundStyle(Color.textTertiary)
+                            .foregroundStyle(AppColors.textTertiary)
                     }
                     .contentShape(Rectangle())
                     .onTapGesture { showArchived.toggle() }
@@ -112,8 +133,8 @@ struct GroupListView: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
-        .background(Color.bgSecondary)
-        .listRowSeparatorTint(Color.separator)
+        .background(AppColors.background)
+        .listRowSeparatorTint(AppColors.border)
         .navigationDestination(for: BillGroup.self) { group in
             if let userID = vm.currentUser?.id {
                 GroupDetailView(
@@ -129,32 +150,12 @@ struct GroupListView: View {
     }
 
     private func groupRow(_ group: BillGroup, isArchived: Bool) -> some View {
-        HStack(spacing: XBillSpacing.md) {
-            Text(group.emoji)
-                .font(.title2)
-                .frame(width: 44, height: 44)
-                .background(Color.brandSurface)
-                .clipShape(Circle())
-                .opacity(isArchived ? 0.6 : 1)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(group.name)
-                    .font(.xbillBodyLarge)
-                    .foregroundStyle(isArchived ? Color.textSecondary : Color.textPrimary)
-                Text("\(group.currency) · \(group.createdAt.shortFormatted)")
-                    .font(.xbillBodySmall)
-                    .foregroundStyle(Color.textTertiary)
-            }
-
-            Spacer()
-
-            if isArchived {
-                Image(systemName: "archivebox")
-                    .font(.caption)
-                    .foregroundStyle(Color.textTertiary)
-            }
-        }
-        .padding(.vertical, XBillSpacing.xs)
+        XBillGroupCard(
+            group: group,
+            subtitle: "\(group.currency) · \(group.createdAt.shortFormatted)",
+            trailing: isArchived ? "Archived" : nil
+        )
+        .opacity(isArchived ? 0.72 : 1)
     }
 }
 

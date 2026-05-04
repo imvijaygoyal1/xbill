@@ -17,30 +17,7 @@ struct ExpenseRowView: View {
     }
 
     var body: some View {
-        HStack(spacing: XBillSpacing.md) {
-            CategoryIconView(category: expense.category)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(expense.title)
-                    .font(.xbillBodyMedium)
-                    .foregroundStyle(Color.textPrimary)
-                    .lineLimit(1)
-                Text("\(name(for: expense.payerID)) paid · \(expense.createdAt.relativeFormatted)")
-                    .font(.xbillCaption)
-                    .foregroundStyle(Color.textTertiary)
-                    .lineLimit(1)
-            }
-
-            Spacer()
-
-            if showAmountBadge {
-                AmountBadge(amount: expense.amount, direction: .total, currency: expense.currency)
-            } else {
-                Text(expense.amount.formatted(currencyCode: expense.currency))
-                    .font(.xbillSmallAmount)
-                    .foregroundStyle(Color.textPrimary)
-            }
-        }
+        XBillExpenseRow(expense: expense, members: members, showAmountBadge: showAmountBadge)
         .padding(.vertical, XBillSpacing.xs)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(expense.title), paid by \(name(for: expense.payerID)), \(expense.amount.formatted(currencyCode: expense.currency))")

@@ -47,6 +47,9 @@ final class PaymentLinkService: Sendable {
 
     /// https://paypal.me/<username>/<amount><currency>
     private func paypalLink(to username: String, amount: Decimal, currency: String) -> URL? {
+        guard username.range(of: "^[a-zA-Z0-9._-]+$", options: .regularExpression) != nil else {
+            return nil
+        }
         let path = "https://paypal.me/\(username)/\(amount)\(currency)"
         return URL(string: path)
     }

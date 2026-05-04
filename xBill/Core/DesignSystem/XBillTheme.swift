@@ -14,11 +14,11 @@ import SwiftUI
 enum XBillTheme {
 
     // MARK: - Colors
-    static let background   = Color.bgSecondary      // warm cream #faf9f7
-    static let surface      = Color.bgCard            // white card surface
-    static let primaryBrand = Color.brandPrimary      // Ube 800 #43089f
-    static let accentMint   = Color.brandAccent       // Matcha 600 #078a52
-    static let accentCoral  = Color.clayPomegranate   // Pomegranate 400 #fc7981
+    static let background   = AppColors.background
+    static let surface      = AppColors.surface
+    static let primaryBrand = AppColors.primary
+    static let accentMint   = AppColors.success
+    static let accentCoral  = AppColors.error
 
     // MARK: - Clay shadow (multi-layer: cast + inset highlight + edge)
     static let shadowColor:  Color   = .black.opacity(0.10)
@@ -38,22 +38,7 @@ struct ClayCard: ViewModifier {
     var dashed: Bool = false
 
     func body(content: Content) -> some View {
-        content
-            .background(XBillTheme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: XBillTheme.cardRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: XBillTheme.cardRadius)
-                    .stroke(
-                        Color.clayOatBorder,
-                        style: dashed
-                            ? StrokeStyle(lineWidth: 1, dash: [6, 4])
-                            : StrokeStyle(lineWidth: 1)
-                    )
-            )
-            // Layer 1: downward cast
-            .shadow(color: .black.opacity(0.10), radius: 1, x: 0, y: 1)
-            // Layer 2: edge softener
-            .shadow(color: .black.opacity(0.05), radius: 1, x: 0, y: -1)
+        content.xbillCard(padding: 0)
     }
 }
 

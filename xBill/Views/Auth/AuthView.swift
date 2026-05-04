@@ -14,142 +14,49 @@ struct AuthView: View {
     @State private var currentNonce: String?
     @State private var showPrivacy = false
     @State private var showTerms   = false
+    @State private var showEmailAuth = false
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.bgSecondary.ignoresSafeArea()
+                AppColors.background.ignoresSafeArea()
 
-                VStack(spacing: XBillSpacing.xxl) {
-                    // MARK: Wordmark — Ube swatch hero section
-                    VStack(spacing: XBillSpacing.sm) {
-                        Image(systemName: "dollarsign.circle.fill")
-                            .font(.system(size: 72))
-                            .foregroundStyle(.white)
-                            .accessibilityHidden(true)
-                        Text("xBill")
-                            .font(.xbillLargeTitle)
-                            .foregroundStyle(.white)
-                        Text("Split expenses, not friendships.")
-                            .font(.xbillBodyMedium)
-                            .foregroundStyle(Color.clayUbeLight)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, XBillSpacing.xxxl)
-                    .swatchSection(Color.clayUbe, radius: XBillRadius.card)
-                    .padding(.horizontal, XBillSpacing.base)
-                    .padding(.top, 60)
+                ScrollView {
+                    VStack(spacing: AppSpacing.lg) {
+                        brandHeader
+                            .padding(.top, AppSpacing.xl)
+                            .padding(.horizontal, AppSpacing.md)
 
-                    // MARK: Confirmation Banner
-                    if vm.confirmationEmailSent {
-                        HStack(spacing: XBillSpacing.md) {
-                            Image(systemName: "envelope.badge.fill")
-                                .foregroundStyle(Color.brandPrimary)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Check your email")
-                                    .font(.xbillLabel)
-                                    .foregroundStyle(Color.textPrimary)
-                                Text("Tap the link we sent to **\(vm.email)** to confirm your account, then sign in.")
-                                    .font(.xbillCaption)
-                                    .foregroundStyle(Color.textSecondary)
-                            }
-                        }
-                        .padding(XBillSpacing.base)
-                        .background(Color.brandSurface)
-                        .clipShape(RoundedRectangle(cornerRadius: XBillRadius.md))
-                        .padding(.horizontal, XBillSpacing.xl)
-                    }
-
-                    Spacer()
-
-                    // MARK: Auth Buttons
-                    VStack(spacing: XBillSpacing.md) {
-                        SignInWithAppleButton(.signIn) { request in
-                            let nonce = Self.randomNonceString()
-                            currentNonce = nonce
-                            request.requestedScopes = [.fullName, .email]
-                            request.nonce = Self.sha256(nonce)
-                        } onCompletion: { result in
-                            switch result {
-                            case .success(let authorization):
-                                guard
-                                    let nonce = currentNonce,
-                                    let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
-                                    let tokenData = credential.identityToken,
-                                    let token = String(data: tokenData, encoding: .utf8)
-                                else {
-                                    vm.errorAlert = ErrorAlert(title: "Sign In Failed", message: "Apple Sign In credential invalid.")
-                                    return
-                                }
-                                Task { await vm.signInWithApple(idToken: token, nonce: nonce) }
-                            case .failure(let error):
-                                let nsError = error as NSError
-                                if nsError.code != ASAuthorizationError.canceled.rawValue {
-                                    vm.errorAlert = ErrorAlert(title: "Sign In Failed", message: error.localizedDescription)
+                        // MARK: Confirmation Banner
+                        if vm.confirmationEmailSent {
+                            HStack(spacing: AppSpacing.md) {
+                                Image(systemName: "envelope.badge.fill")
+                                    .foregroundStyle(AppColors.primary)
+                                VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                                    Text("Check your email")
+                                        .font(.appTitle)
+                                        .foregroundStyle(AppColors.textPrimary)
+                                    Text("Tap the link we sent to \(vm.email) to confirm your account, then sign in.")
+                                        .font(.appCaption)
+                                        .foregroundStyle(AppColors.textSecondary)
                                 }
                             }
+                            .xbillCard()
+                            .padding(.horizontal, AppSpacing.md)
                         }
-                        .signInWithAppleButtonStyle(.black)
-                        .frame(height: 52)
-                        .clipShape(RoundedRectangle(cornerRadius: XBillRadius.md))
 
-                        NavigationLink {
-                            EmailAuthView(vm: vm)
-                        } label: {
-                            Label("Continue with Email", systemImage: "envelope.fill")
-                                .font(.xbillButtonLarge)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 52)
-                                .background(Color.brandPrimary)
-                                .foregroundStyle(Color.textInverse)
-                                .clipShape(RoundedRectangle(cornerRadius: XBillRadius.md))
-                        }
+                        authCard
+                            .padding(.horizontal, AppSpacing.md)
+
+                        legalLinks
+                            .padding(.horizontal, AppSpacing.lg)
+                            .padding(.bottom, AppSpacing.xxl)
                     }
-                    .padding(.horizontal, XBillSpacing.xl)
-
-                    HStack(spacing: 4) {
-                        Text("By continuing, you agree to our")
-                            .font(.xbillCaption)
-                            .foregroundStyle(Color.textTertiary)
-
-                        Button {
-                            showTerms = true
-                            HapticManager.selection()
-                        } label: {
-                            Text("Terms of Service")
-                                .font(.xbillCaption)
-                                .foregroundStyle(Color.brandPrimary)
-                                .underline()
-                        }
-                        .buttonStyle(.plain)
-
-                        Text("and")
-                            .font(.xbillCaption)
-                            .foregroundStyle(Color.textTertiary)
-
-                        Button {
-                            showPrivacy = true
-                            HapticManager.selection()
-                        } label: {
-                            Text("Privacy Policy")
-                                .font(.xbillCaption)
-                                .foregroundStyle(Color.brandPrimary)
-                                .underline()
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity)
-                    .padding(.top, 8)
-                    .padding(.bottom, XBillSpacing.xxxl)
-                    .sheet(isPresented: $showTerms) {
-                        TermsOfServiceView()
-                            .presentationDetents([.large])
-                            .presentationDragIndicator(.visible)
-                    }
-                    .safariSheet(isPresented: $showPrivacy, url: XBillURLs.privacyPolicy)
                 }
+            }
+            .navigationDestination(isPresented: $showEmailAuth) {
+                EmailAuthView(vm: vm)
             }
         }
         .overlay {
@@ -158,6 +65,131 @@ struct AuthView: View {
             }
         }
         .errorAlert(item: $vm.errorAlert)
+    }
+
+    // MARK: - Content
+
+    private var brandHeader: some View {
+        VStack(spacing: AppSpacing.md) {
+            XBillHeroCard {
+                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                    HStack(spacing: AppSpacing.sm) {
+                        Image(systemName: "dollarsign.circle.fill")
+                            .font(.appH1)
+                            .foregroundStyle(AppColors.textInverse)
+                            .accessibilityHidden(true)
+                        Text("xBill")
+                            .font(.appDisplay)
+                            .foregroundStyle(AppColors.textInverse)
+                    }
+                    Text("Split expenses, not friendships.")
+                        .font(.appBody)
+                        .foregroundStyle(AppColors.textInverse.opacity(0.86))
+                }
+            }
+        }
+    }
+
+    private var authCard: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                Text("Welcome back")
+                    .font(.appH2)
+                    .foregroundStyle(AppColors.textPrimary)
+                Text("Sign in to split expenses with your groups and friends.")
+                    .font(.appBody)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+
+            SignInWithAppleButton(.signIn) { request in
+                let nonce = Self.randomNonceString()
+                currentNonce = nonce
+                request.requestedScopes = [.fullName, .email]
+                request.nonce = Self.sha256(nonce)
+            } onCompletion: { result in
+                handleAppleCompletion(result)
+            }
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: AppSpacing.controlHeight)
+            .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
+
+            XBillPrimaryButton(title: "Continue with Email", icon: "envelope.fill") {
+                HapticManager.selection()
+                showEmailAuth = true
+            }
+        }
+        .xbillCard()
+    }
+
+    private var legalLinks: some View {
+        VStack(spacing: AppSpacing.xs) {
+            Text("By continuing, you agree to xBill's")
+                .font(.appCaption)
+                .foregroundStyle(AppColors.textSecondary)
+                .multilineTextAlignment(.center)
+
+            HStack(spacing: AppSpacing.sm) {
+                Button {
+                    showTerms = true
+                    HapticManager.selection()
+                } label: {
+                    Text("Terms of Service")
+                        .font(.appCaption)
+                        .foregroundStyle(AppColors.primary)
+                        .underline()
+                        .frame(minHeight: AppSpacing.tapTarget)
+                }
+                .buttonStyle(.plain)
+
+                Text("and")
+                    .font(.appCaption)
+                    .foregroundStyle(AppColors.textSecondary)
+
+                Button {
+                    showPrivacy = true
+                    HapticManager.selection()
+                } label: {
+                    Text("Privacy Policy")
+                        .font(.appCaption)
+                        .foregroundStyle(AppColors.primary)
+                        .underline()
+                        .frame(minHeight: AppSpacing.tapTarget)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .sheet(isPresented: $showTerms) {
+            TermsOfServiceView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+        .safariSheet(isPresented: $showPrivacy, url: XBillURLs.privacyPolicy)
+    }
+
+    private func handleAppleCompletion(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let authorization):
+            guard
+                let nonce = currentNonce,
+                let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                let tokenData = credential.identityToken,
+                let token = String(data: tokenData, encoding: .utf8)
+            else {
+                vm.errorAlert = ErrorAlert(title: "Sign In Failed", message: "Apple Sign In credential invalid.")
+                return
+            }
+            let nameParts = [credential.fullName?.givenName, credential.fullName?.familyName]
+                .compactMap { $0 }
+                .joined(separator: " ")
+                .trimmingCharacters(in: .whitespaces)
+            Task { await vm.signInWithApple(idToken: token, nonce: nonce, displayName: nameParts.isEmpty ? nil : nameParts) }
+        case .failure(let error):
+            let nsError = error as NSError
+            if nsError.code != ASAuthorizationError.canceled.rawValue {
+                vm.errorAlert = ErrorAlert(title: "Sign In Failed", message: error.localizedDescription)
+            }
+        }
     }
 
     // MARK: - Nonce Helpers

@@ -2,8 +2,13 @@
 -- Email is still used in the WHERE clause for searching, but is no longer
 -- returned in results, preventing any authenticated user from enumerating
 -- all registered email addresses via wildcard queries.
+--
+-- DROP required because PostgreSQL disallows CREATE OR REPLACE when the
+-- return type (OUT parameters) changes.
 
-CREATE OR REPLACE FUNCTION public.search_profiles(p_query text)
+DROP FUNCTION IF EXISTS public.search_profiles(text);
+
+CREATE FUNCTION public.search_profiles(p_query text)
 RETURNS TABLE(
     id           uuid,
     display_name text,

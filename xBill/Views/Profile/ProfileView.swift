@@ -56,6 +56,7 @@ struct ProfileView: View {
     @State private var showAvatarPicker   = false
     @State private var showPrivacy        = false
     @State private var showTerms          = false
+    @State private var showMyQR           = false
 
     @AppStorage("prefPushExpense")    private var prefPushExpense    = true
     @AppStorage("prefPushSettlement") private var prefPushSettlement = true
@@ -66,23 +67,14 @@ struct ProfileView: View {
             List {
                 // Avatar & name header
                 Section {
-                    HStack(spacing: XBillSpacing.base) {
-                        AvatarView(name: vm.initials, url: vm.user?.avatarURL, size: XBillIcon.avatarLg)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(vm.user?.displayName ?? "—")
-                                .font(.xbillLargeTitle)
-                                .foregroundStyle(Color.textPrimary)
-                            Text(vm.user?.email ?? "")
-                                .font(.xbillBodySmall)
-                                .foregroundStyle(Color.textSecondary)
-                        }
-                        Spacer()
-                        Button("Edit") { isEditing = true }
-                            .font(.xbillButtonSmall)
-                            .foregroundStyle(Color.brandPrimary)
-                    }
-                    .padding(.vertical, XBillSpacing.sm)
-                    .listRowBackground(Color.bgCard)
+                    XBillProfileCard(
+                        user: vm.user,
+                        initials: vm.initials,
+                        onEdit: { isEditing = true },
+                        onQR: { showMyQR = true }
+                    )
+                    .listRowInsets(EdgeInsets(top: AppSpacing.sm, leading: AppSpacing.md, bottom: AppSpacing.sm, trailing: AppSpacing.md))
+                    .listRowBackground(Color.clear)
                 }
 
                 // Stats
@@ -238,11 +230,11 @@ struct ProfileView: View {
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
-            .background(Color.bgSecondary)
-            .listRowSeparatorTint(Color.separator)
+            .background(AppColors.background)
+            .listRowSeparatorTint(AppColors.border)
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(Color.navBarBg, for: .navigationBar)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .task { await vm.load() }
             .refreshable { await vm.load() }
@@ -277,7 +269,7 @@ struct ProfileView: View {
     private var editSheet: some View {
         NavigationStack {
             ZStack {
-                Color.bgSecondary.ignoresSafeArea()
+                AppColors.background.ignoresSafeArea()
 
                 VStack(spacing: XBillSpacing.xl) {
                     // Avatar picker
@@ -346,6 +338,11 @@ struct ProfileView: View {
             .sheet(isPresented: $showAvatarPicker) {
                 ImagePicker(selectedImage: $selectedAvatar, isPresented: $showAvatarPicker)
                     .ignoresSafeArea()
+            }
+            .sheet(isPresented: $showMyQR) {
+                if let userID = vm.user?.id {
+                    MyQRCodeView(userID: userID, displayName: vm.user?.displayName ?? "")
+                }
             }
         }
     }

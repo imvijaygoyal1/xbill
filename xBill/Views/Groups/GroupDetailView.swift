@@ -51,7 +51,7 @@ struct GroupDetailView: View {
             }
             .navigationTitle(vm.group.name)
             .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(Color.navBarBg, for: .navigationBar)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .tint(Color.brandPrimary)
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search expenses")
@@ -132,8 +132,8 @@ struct GroupDetailView: View {
             // FAB — only on Expenses tab when online
             if selectedTab == 0 && NetworkMonitor.shared.isConnected {
                 FABButton { showAddExpense = true }
-                    .padding(.bottom, 24)
-                    .padding(.trailing, 20)
+                    .padding(.bottom, AppSpacing.floatingActionBottomPadding)
+                    .padding(.trailing, AppSpacing.md)
             }
         }
     }
@@ -142,19 +142,18 @@ struct GroupDetailView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
-            // Segmented picker
-            Picker("View", selection: $selectedTab) {
-                Text("Expenses").tag(0)
-                Text("Balances").tag(1)
-                Text("Settle Up").tag(2)
-            }
-            .pickerStyle(.segmented)
-            .tint(Color.brandPrimary)
-            .padding(.horizontal, XBillSpacing.base)
-            .padding(.vertical, XBillSpacing.sm)
-            .background(Color.bgCard)
+            groupSummaryHeader
 
-            Color.separator.frame(height: 0.5)
+            // Segmented picker
+            XBillSegmentedControl(
+                options: [(0, "Expenses"), (1, "Balances"), (2, "Settle Up")],
+                selection: $selectedTab
+            )
+            .padding(.horizontal, AppSpacing.md)
+            .padding(.vertical, AppSpacing.sm)
+            .background(AppColors.surface)
+
+            AppColors.border.frame(height: 0.5)
 
             // Category filter strip (expenses tab only)
             if selectedTab == 0 {
@@ -165,7 +164,8 @@ struct GroupDetailView: View {
                         }
                         ForEach(Expense.Category.allCases, id: \.self) { cat in
                             ExpenseFilterChip(
-                                label: "\(cat.emoji) \(cat.displayName)",
+                                label: cat.displayName,
+                                category: cat,
                                 isSelected: filterCategory == cat
                             ) {
                                 filterCategory = filterCategory == cat ? nil : cat
@@ -175,9 +175,9 @@ struct GroupDetailView: View {
                     .padding(.horizontal, XBillSpacing.base)
                     .padding(.vertical, XBillSpacing.xs)
                 }
-                .background(Color.bgCard)
+                .background(AppColors.surface)
 
-                Color.separator.frame(height: 0.5)
+                AppColors.border.frame(height: 0.5)
             }
 
             // Tab content
@@ -187,7 +187,28 @@ struct GroupDetailView: View {
             default: settleUpTabEmbedded
             }
         }
-        .background(Color.bgSecondary)
+        .background(AppColors.background)
+    }
+
+    private var groupSummaryHeader: some View {
+        HStack(spacing: AppSpacing.md) {
+            XBillAvatarPlaceholder(name: vm.group.emoji, size: 56)
+            VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                Text(vm.group.name)
+                    .font(.appH2)
+                    .foregroundStyle(AppColors.textPrimary)
+                    .lineLimit(1)
+                HStack(spacing: AppSpacing.sm) {
+                    XBillAvatarStack(users: vm.members, maxVisible: 4, size: 28)
+                    Text("\(vm.members.count) member\(vm.members.count == 1 ? "" : "s")")
+                        .font(.appCaption)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+            }
+            Spacer()
+        }
+        .padding(AppSpacing.md)
+        .background(AppColors.background)
     }
 
     // MARK: - Expenses Tab
@@ -399,21 +420,28 @@ struct GroupDetailView: View {
 
 private struct ExpenseFilterChip: View {
     let label: String
+    var category: Expense.Category? = nil
     let isSelected: Bool
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
-            Text(label)
-                .font(.xbillLabel)
-                .foregroundStyle(isSelected ? Color.brandPrimary : Color.textSecondary)
-                .padding(.horizontal, XBillSpacing.md)
-                .padding(.vertical, XBillSpacing.xs)
-                .background(isSelected ? Color.brandSurface : Color.bgTertiary)
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(isSelected ? Color.brandPrimary : Color.clear, lineWidth: 1.5))
+            HStack(spacing: XBillSpacing.xs) {
+                if let category {
+                    XBillCategoryIcon(category: category, size: 22)
+                }
+                Text(label)
+                    .font(.xbillLabel)
+                    .foregroundStyle(isSelected ? Color.brandPrimary : Color.textSecondary)
+            }
+            .padding(.horizontal, XBillSpacing.md)
+            .padding(.vertical, XBillSpacing.xs)
+            .background(isSelected ? Color.brandSurface : Color.bgTertiary)
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(isSelected ? Color.brandPrimary : Color.clear, lineWidth: 1.5))
         }
         .buttonStyle(.plain)
+        .frame(minHeight: AppSpacing.tapTarget)
     }
 }
 

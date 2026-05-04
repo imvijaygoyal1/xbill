@@ -41,4 +41,9 @@ final class AppState: @unchecked Sendable {
     }
 
     var pendingNotificationTarget: NotificationTarget?
+
+    // MARK: - Add Friend via QR / Deep Link
+
+    /// Set when the app is opened via xbill://add/<userID>. MainTabView resolves this.
+    var pendingAddFriendUserID: UUID?
 }

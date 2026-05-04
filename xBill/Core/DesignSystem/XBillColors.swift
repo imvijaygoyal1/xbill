@@ -9,81 +9,70 @@ import SwiftUI
 
 extension Color {
 
-    // MARK: - Brand (maps to asset catalog — updated to clay palette)
-    static let brandPrimary     = Color("BrandPrimary")   // Ube 800 #43089f
-    static let brandAccent      = Color("BrandAccent")    // Matcha 600 #078a52
-    static let brandSurface     = Color("BrandSurface")
-    static let brandDeep        = Color("BrandDeep")
+    // MARK: - Brand (fintech purple palette)
+    static var brandPrimary: Color { AppColors.primary }
+    static var brandAccent: Color { AppColors.success }
+    static var brandSurface: Color { AppColors.surfaceSoft }
+    static var brandDeep: Color { AppColors.primaryDark }
 
-    // MARK: - Background hierarchy (clay canvas)
-    static let bgPrimary        = Color("BgPrimary")      // white
-    static let bgSecondary      = Color("BgSecondary")    // warm cream #faf9f7
-    static let bgTertiary       = Color("BgTertiary")
-    static let bgCard           = Color("BgCard")         // white card surface
+    // MARK: - Background hierarchy (soft lavender canvas)
+    static var bgPrimary: Color { AppColors.background }
+    static var bgSecondary: Color { AppColors.background }
+    static var bgTertiary: Color { AppColors.surfaceSoft }
+    static var bgCard: Color { AppColors.surface }
 
-    // MARK: - Text (clay: black / warm silver)
-    static let textPrimary      = Color("TextPrimary")    // Clay Black #000000
-    static let textSecondary    = Color("TextSecondary")  // Warm Silver #9f9b93
-    static let textTertiary     = Color("TextTertiary")
-    static let textInverse      = Color("TextInverse")
+    // MARK: - Text
+    static var textPrimary: Color { AppColors.textPrimary }
+    static var textSecondary: Color { AppColors.textSecondary }
+    static var textTertiary: Color { AppColors.textTertiary }
+    static var textInverse: Color { AppColors.textInverse }
 
-    // MARK: - Semantic money colors (clay swatch mapped)
-    static let moneyPositive    = Color("MoneyPositive")  // Matcha 600 #078a52
-    static let moneyNegative    = Color("MoneyNegative")  // Pomegranate 400 #fc7981
-    static let moneySettled     = Color("MoneySettled")   // Warm Silver #9f9b93
-    static let moneyTotal       = Color("MoneyTotal")
+    // MARK: - Semantic money colors
+    static var moneyPositive: Color { AppColors.moneyPositive }
+    static var moneyNegative: Color { AppColors.moneyNegative }
+    static var moneySettled: Color { AppColors.moneySettled }
+    static var moneyTotal: Color { AppColors.moneyTotal }
 
     // MARK: - Semantic money backgrounds
-    static let moneyPositiveBg  = Color("MoneyPositiveBg")
-    static let moneyNegativeBg  = Color("MoneyNegativeBg")
-    static let moneySettledBg   = Color("MoneySettledBg")
+    static var moneyPositiveBg: Color { AppColors.moneyPositiveBg }
+    static var moneyNegativeBg: Color { AppColors.moneyNegativeBg }
+    static var moneySettledBg: Color { AppColors.moneySettledBg }
 
-    // MARK: - UI chrome (clay: oat borders)
-    static let separator        = Color("Separator")      // Oat Border #dad4c8
-    static let tabBarBg         = Color("TabBarBg")
-    static let navBarBg         = Color("NavBarBg")
-    static let inputBg          = Color("InputBg")        // warm cream #faf9f7
-    static let inputBorder      = Color("InputBorder")    // #717989
+    // MARK: - UI chrome
+    static var separator: Color { AppColors.border }
+    static var tabBarBg: Color { AppColors.blackNav }
+    static var navBarBg: Color { AppColors.background }
+    static var inputBg: Color { AppColors.inputBackground }
+    static var inputBorder: Color { AppColors.inputBorder }
 
     // MARK: - Category icon backgrounds
-    static let catFood          = Color("CatFood")
-    static let catTravel        = Color("CatTravel")
-    static let catHome          = Color("CatHome")
-    static let catEntertain     = Color("CatEntertain")
-    static let catHealth        = Color("CatHealth")
-    static let catShopping      = Color("CatShopping")
-    static let catOther         = Color("CatOther")
+    static var catFood: Color { AppColors.adaptive(light: "#FFF0E8", dark: "#352820") }
+    static var catTravel: Color { AppColors.surfaceSoft }
+    static var catHome: Color { AppColors.moneyPositiveBg }
+    static var catEntertain: Color { AppColors.moneyNegativeBg }
+    static var catHealth: Color { AppColors.adaptive(light: "#E8F3FF", dark: "#1C2A3A") }
+    static var catShopping: Color { AppColors.adaptive(light: "#FFF8E8", dark: "#332C1B") }
+    static var catOther: Color { AppColors.moneySettledBg }
 
-    // MARK: - Clay Swatch Palette (named, direct hex)
-    // Matcha (Green)
-    static let clayMatchaLight  = Color(hex: "#84e7a5")  // Matcha 300
-    static let clayMatcha       = Color(hex: "#078a52")  // Matcha 600 — primary green
-    static let clayMatchaDark   = Color(hex: "#02492a")  // Matcha 800
+    // MARK: - Purple fintech swatch (direct hex — replaces old clay names)
+    static var clayUbeLight: Color { AppColors.primaryLight }
+    static var clayUbe: Color { AppColors.primary }
+    static var clayUbeDark: Color { AppColors.primaryDark }
 
-    // Slushie (Cyan)
-    static let claySlushie      = Color(hex: "#3bd3fd")  // Slushie 500
-    static let claySlushieDark  = Color(hex: "#0089ad")  // Slushie 800
-
-    // Lemon (Gold)
-    static let clayLemonLight   = Color(hex: "#f8cc65")  // Lemon 400
-    static let clayLemon        = Color(hex: "#fbbd41")  // Lemon 500 — primary gold
-    static let clayLemonDark    = Color(hex: "#d08a11")  // Lemon 700
-
-    // Ube (Purple)
-    static let clayUbeLight     = Color(hex: "#c1b0ff")  // Ube 300 — soft lavender
-    static let clayUbe          = Color(hex: "#43089f")  // Ube 800 — primary purple
-    static let clayUbeDark      = Color(hex: "#32037d")  // Ube 900
-
-    // Pomegranate (Pink)
-    static let clayPomegranate  = Color(hex: "#fc7981")  // Pomegranate 400
-
-    // Blueberry (Navy)
-    static let clayBlueberry    = Color(hex: "#01418d")  // Blueberry 800
-
-    // MARK: - Clay Neutrals
-    static let clayCanvas       = Color(hex: "#faf9f7")  // Warm Cream — the canvas
-    static let clayOatBorder    = Color(hex: "#dad4c8")  // Oat Border
-    static let clayOatLight     = Color(hex: "#eee9df")  // Oat Light (secondary border)
-    static let claySilver       = Color(hex: "#9f9b93")  // Warm Silver — secondary text
-    static let clayCharcoal     = Color(hex: "#55534e")  // Warm Charcoal — tertiary text
+    // MARK: - Retained clay names mapped to new palette (backward compat)
+    static var clayMatcha: Color { AppColors.success }
+    static var clayMatchaLight: Color { AppColors.moneyPositiveBg }
+    static var clayMatchaDark: Color { AppColors.success }
+    static var claySlushie: Color { AppColors.primaryLight }
+    static var claySlushieDark: Color { AppColors.primaryDark }
+    static var clayLemonLight: Color { AppColors.warning.opacity(0.55) }
+    static var clayLemon: Color { AppColors.warning }
+    static var clayLemonDark: Color { AppColors.warning }
+    static var clayPomegranate: Color { AppColors.error }
+    static var clayBlueberry: Color { AppColors.blackNav }
+    static var clayCanvas: Color { AppColors.background }
+    static var clayOatBorder: Color { AppColors.border }
+    static var clayOatLight: Color { AppColors.surfaceSoft }
+    static var claySilver: Color { AppColors.textSecondary }
+    static var clayCharcoal: Color { AppColors.textPrimary }
 }

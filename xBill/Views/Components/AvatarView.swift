@@ -20,12 +20,6 @@ struct AvatarView: View {
             .uppercased()
     }
 
-    private var bgColor: Color {
-        let colors: [Color] = [.brandPrimary, .brandAccent, .moneyPositive, .brandDeep, .catEntertain]
-        let index = abs(name.hashValue) % colors.count
-        return colors[index]
-    }
-
     var body: some View {
         Group {
             if let url {
@@ -48,12 +42,7 @@ struct AvatarView: View {
     }
 
     private var initialsView: some View {
-        ZStack {
-            bgColor
-            Text(initials)
-                .font(.system(size: size * 0.36, weight: .semibold))
-                .foregroundStyle(Color.textInverse)
-        }
+        XBillAvatarPlaceholder(name: initials, size: size)
     }
 }
 

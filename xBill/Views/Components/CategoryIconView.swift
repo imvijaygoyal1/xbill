@@ -42,11 +42,7 @@ struct CategoryIconView: View {
     var size: CGFloat = XBillIcon.categorySize
 
     var body: some View {
-        Text(category.emoji)
-            .font(.system(size: size * 0.5))
-            .frame(width: size, height: size)
-            .background(category.categoryBackground)
-            .clipShape(RoundedRectangle(cornerRadius: XBillRadius.sm))
+        XBillCategoryIcon(category: category, size: size)
     }
 }
 

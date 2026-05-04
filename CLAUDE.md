@@ -2,7 +2,7 @@
 
 > **IMPORTANT FOR CLAUDE:** After every code change to this project, update this file to reflect the change. New file → add to File Map. New pattern → update Key Patterns. This file must always stay current.
 > **After every feature implementation, run `xcodegen generate` if new Swift files were added, then build + install on simulator DA97985A-F7CC-44F6-8281-9DD24C22B978.**
-> **Native patterns:** Before writing any SwiftUI view, read `NATIVE_PATTERNS.md`. It defines the required conventions for navigation, lists, SF Symbols, typography, colors, controls, sheets, empty states, swipe actions, animations, accessibility, haptics, safe area, and performance. Every rule in that file is non-negotiable.
+> **Native patterns:** Before writing any SwiftUI view, read `NATIVE_PATTERNS.md`. It defines the required conventions for navigation, lists, SF Symbols, typography, colors, controls, sheets, empty states, swipe actions, animations, accessibility, haptics, safe area, and performance. The xBill branded redesign in `DESIGN.md` overrides native defaults only where explicitly documented; keep Apple behavior for navigation, sheets, accessibility, inputs, and data-flow safety.
 
 ## App Identity
 - **Name:** xBill
@@ -13,6 +13,7 @@
 - **Project path:** `/Users/vijaygoyal/MyiOSApp/xBill`
 - **Project generation:** `xcodegen generate` (from `project.yml`)
 - **Architecture doc:** `ARCHITECTURE.md`
+- **Design system plan:** `DESIGN.md`
 - **App Store review plan:** `APPSTORE_REVIEW_PLAN.md`
 
 ## Simulator
@@ -36,6 +37,8 @@
 - **Project URL:** `https://rhdhazevigbchmwzesok.supabase.co`
 - **Anon key:** stored in `Secrets.xcconfig` (gitignored) under `SUPABASE_URL` / `SUPABASE_ANON_KEY` build settings — NOT in `project.yml` (C1 fix)
 - **Credentials injection:** `xBill/Info.plist` template uses `$(SUPABASE_URL)` / `$(SUPABASE_ANON_KEY)` — do NOT use `GENERATE_INFOPLIST_FILE: YES` (it ignores custom build settings)
+- **XcodeGen config:** `project.yml` must keep `configFiles` at the top level with `Debug: Secrets.xcconfig` and `Release: Secrets.xcconfig`. Do not nest it under `settings`; nested config files are ignored by generated Xcode projects.
+- **Important xcconfig URL escaping:** In `.xcconfig`, `//` starts a comment, so write Supabase URLs as `https:/$()/rhdhazevigbchmwzesok.supabase.co`, not `https://rhdhazevigbchmwzesok.supabase.co`. If this regresses, the built app receives `SUPABASE_URL = https:` and sign-in fails with "A server with the specified hostname could not be found."
 - **Auth:** Email/password + Sign In with Apple; email confirmation is ON in Supabase dashboard
 - **Push migrations:** `supabase db push` from `/Users/vijaygoyal/MyiOSApp/xBill`
 - **URL scheme:** `xbill://` — registered in `Info.plist` (`CFBundleURLTypes`); Supabase dashboard Site URL + Redirect URL set to `xbill://auth/callback`
@@ -46,7 +49,8 @@
 - Review-sensitive work is tracked in `APPSTORE_REVIEW_PLAN.md`; consult it before any submission-oriented change.
 - Current known blockers/risks include account deletion retention/anonymization scope, contact-email discovery disclosures, third-party network disclosures, receipt upload/privacy-label consistency, App Group UserDefaults required-reason review, App Store Connect privacy-label reconciliation, and reviewer demo access.
 - Friend invite sharing uses `XBillURLs.appInvite` (`https://xbill.vijaygoyal.org/invite`), not a placeholder App Store URL.
-- Public web pages are hosted on Cloudflare Pages project `xbill` (domains: `xbill.pages.dev`, `xbill.vijaygoyal.org`; production branch label `main`; no Git connection/direct upload). Deploy source lives in `web/`: `web/index.html`, `web/invite/index.html`, `web/privacy/index.html`, `web/terms/index.html`.
+- Public web pages for the app's stable custom domain are hosted on Cloudflare Pages project `xbill` (domains: `xbill.pages.dev`, `xbill.vijaygoyal.org`; production branch label `main`; direct upload/no Git connection). Deploy source lives in this repo under `web/`: `web/index.html`, `web/invite/index.html`, `web/privacy/index.html`, `web/terms/index.html`.
+- A separate Git-backed Cloudflare Pages web repo also exists at `/Users/vijaygoyal/Documents/xbill-web`, remote `github.com:imvijaygoyal1/xbill-web`, Pages URL `https://xbill-web.pages.dev`. It contains root-level static files: `index.html`, `invite/index.html`, `privacy/index.html`, `terms/index.html`. Latest verified fixed commit: `4d24915 Fix static pages rendering`.
 - Verified 2026-05-03: `/`, `/invite`, `/privacy`, and `/terms` all return valid raw HTML; `/privacy` and `/terms` may redirect to trailing-slash URLs before `HTTP 200`.
 - Do not submit until App Store Connect privacy labels, `PrivacyInfo.xcprivacy`, in-app legal links, and backend data flows have been reconciled.
 
@@ -69,6 +73,14 @@
   curl -L https://xbill.vijaygoyal.org/privacy | head
   ```
 - **Expected:** all endpoints end at `HTTP 200` and content starts with `<!DOCTYPE html>`. If output contains `Cocoa HTML Writer`, `<p class="p1">`, or `&lt;!DOCTYPE`, the page was saved as rich text and must be replaced with raw HTML.
+- **Redirect rule warning:** do not add `_redirects` with `/* /index.html 200` for this static site. Cloudflare detects it as an infinite loop because `/index.html` can match the same catch-all rule again. These pages use directory `index.html` files, so Cloudflare Pages automatically serves `/invite`, `/privacy`, and `/terms` without a catch-all.
+- **Git-backed web repo:** `/Users/vijaygoyal/Documents/xbill-web` is a separate repo for Cloudflare Pages Git deployment experiments. It is not the iOS app repo. Current structure is:
+  - `index.html`
+  - `invite/index.html`
+  - `privacy/index.html`
+  - `terms/index.html`
+- **Git-backed verification:** `git ls-remote origin main` should show `4d24915...` or newer. `https://xbill-web.pages.dev/privacy` may first return `308 Location: /privacy/`, then `HTTP 200` when followed with `curl -L -I`; that trailing-slash redirect is normal and is not the previous infinite-loop error.
+- **Routing rule history:** commit `dda384d` in `xbill-web` added `_redirects` for `/privacy` plus a catch-all rule and caused Cloudflare's "Infinite loop detected" warning/error. Commit `4d24915` removed `_redirects` and replaced Cocoa/Rich Text HTML with raw static HTML files.
 
 ## Database Schema
 
@@ -119,6 +131,23 @@
 - `supabase/functions/notify-friend-request/index.ts` — Pushes the addressee when they receive a friend request; same JWT cache, stale-token cleanup, sandbox URL patterns; expects `{ toUserID, fromName, fromUserID, isDevelopment }`; fired fire-and-forget from `FriendService.sendFriendRequest`
 
 ### Design System
+- **Current redesign direction:** xBill is migrating to a canonical Manhattan-disciplined playful fintech design system under `xBill/DesignSystem`. Before redesign work, read `DESIGN.md` and the Design System Architecture section in `ARCHITECTURE.md`.
+- **Canonical target:** `xBill/DesignSystem/Tokens` for all colors, typography, spacing, radius, shadow, and gradient decisions; `xBill/DesignSystem/Components` for repeated UI; `xBill/Helpers` for greeting/balance message logic; `xBill/PreviewData` for realistic previews.
+- **Migration rule:** do not add one-off styling in screens. Existing `xBill/Core/DesignSystem` and `xBill/Views/Components` APIs are legacy/compatibility surfaces during migration; wrap or alias them into the canonical system rather than creating another styling layer.
+- **Required target components:** `XBillScreenBackground`, `XBillHeroCard`, `XBillBalanceCard`, `XBillActionCard`, `XBillGroupCard`, `XBillExpenseRow`, `XBillFriendRow`, `XBillProfileCard`, `XBillEmptyState`, `XBillPrimaryButton`, `XBillSecondaryButton`, `XBillBlackButton`, `XBillTextField`, `XBillSearchBar`, `XBillSegmentedControl`, `XBillTabBar`, `XBillFloatingAddButton`, `XBillAvatarStack`, `XBillIconPickerGrid`, `XBillQRCodeCard`, and `HomeHeader`.
+- **Audit rule:** after UI migration, search for hardcoded `Color(hex:)`, raw `Color.white`/`Color.black`, screen-local `.font(.system(size:))`, hardcoded numeric padding/radius/shadows, and screen-local gradients.
+- `xBill/DesignSystem/Tokens/AppColors.swift` — canonical adaptive light/dark palette for primary purple, soft lavender/dark navy backgrounds, surfaces, text, borders, money colors, and input colors.
+- `xBill/DesignSystem/Tokens/AppTypography.swift` — canonical SF Pro font tokens: display, h1, h2, title, body, caption, amount, icon, tab label, and badge styles.
+- `xBill/DesignSystem/Tokens/AppSpacing.swift` — canonical spacing scale plus `tapTarget = 44`, `controlHeight = 52`, `tabBarHeight`, and `floatingActionBottomPadding`.
+- `xBill/DesignSystem/Tokens/AppRadius.swift` — canonical radius scale.
+- `xBill/DesignSystem/Tokens/AppShadow.swift` — canonical adaptive card/hero/FAB shadow values plus legacy shadow compatibility helpers.
+- `xBill/DesignSystem/Tokens/AppGradient.swift` — canonical hero and soft primary gradients.
+- `xBill/DesignSystem/Components/` — canonical redesign components: screen background, hero/balance/action/group/profile cards, rows, empty state, buttons, search bar, segmented control, custom tab bar, floating add button, avatar stack, icon picker, QR card, SwiftUI-only visual assets, and `HomeHeader`.
+- `xBill/DesignSystem/Components/XBillVisualAssets.swift` — reusable SwiftUI-only visuals: `XBillLogoMark`, `XBillReceiptIcon`, `XBillSplitBillIllustration`, `XBillEmptyStateIllustration`, `XBillWalletIllustration`, `XBillAvatarPlaceholder`, `XBillCategoryIcon`, and `XBillQRPlaceholderFrame`. Uses shapes, SF Symbols, gradients, tokenized colors/spacing/radius, and no PNG/JPG assets. Applied across onboarding, balance hero cards, group cards/chips, empty states, profile avatars, icon picker, group detail avatar stack/category filters, Add Expense category chips, Add Friend contact actions, Add IOU amount card, and QR card framing.
+- **2026-05-04 UI hardening:** top navigation chrome should use `AppColors.background`; reserve `AppColors.blackNav` for `XBillTabBar`. Sticky save actions are required for Add Expense and Add IOU. Empty Friends state must not show the Add IOU FAB because it overlaps the Add Friend CTA and there is no IOU target yet.
+- `xBill/Helpers/GreetingHelper.swift` — time-of-day greeting helper for `HomeHeader`.
+- `xBill/Helpers/BalanceMessageHelper.swift` — net-balance message helper for Home.
+- `xBill/PreviewData/PreviewData.swift` — shared mock users, groups, and expenses for component previews.
 - `xBill/Views/Components/XBillWordmark.swift` — `XBillWordmark` view: "xBill" in `.heavy` 22pt `brandPrimary`, tracking -0.8 + kerning -0.5; used as `.principal` toolbar item in `HomeView`
 - `xBill/Core/DesignSystem/XBillTheme.swift` — `XBillTheme` enum (clay-inspired theme): `background` (warm cream `#faf9f7`), `surface` (white), `primaryBrand` (Ube 800), `accentMint` (Matcha 600), `accentCoral` (Pomegranate 400); clay multi-layer shadow; `cardRadius = 24`, `sectionRadius = 40`; `ClayCard` ViewModifier (white, 24pt corners, oat border `#dad4c8`, multi-layer shadow, optional dashed border); `ClayButtonStyle` (press: scaleEffect 0.94 + rotationEffect -3° + hard offset shadow); `SwatchSection` modifier for full-width colored sections; `View.asClayCard()` + `View.asSharpCard()` (alias) + `View.swatchSection(_:radius:)` extensions
 - `xBill/Core/DesignSystem/XBillColors.swift` — `Color` extension with asset catalog tokens + clay swatch palette: `clayMatcha` (#078a52), `claySlushie` (#3bd3fd), `clayLemon` (#fbbd41), `clayUbe` (#43089f), `clayPomegranate` (#fc7981), `clayBlueberry` (#01418d), `clayCanvas` (#faf9f7), `clayOatBorder` (#dad4c8), `claySilver` (#9f9b93), plus light/dark swatch variants
@@ -195,8 +224,8 @@
 - `xBill/Views/AppLockView.swift` — full-screen overlay shown when `AppLockService.shared.isLocked`; brandPrimary background; biometry icon + wordmark + unlock button; `task` auto-triggers authentication on appear; uses `ClayButtonStyle`
 
 ### Views — Auth
-- `xBill/Views/Auth/AuthView.swift` — `bgSecondary` background; `brandPrimary` wordmark icon; Sign In with Apple button; "Continue with Email" NavigationLink; fine print with two distinct `Button` links: "Terms of Service" presents `TermsOfServiceView()` sheet (`.large` detent, drag indicator visible), "Privacy Policy" opens `.safariSheet` to `XBillURLs.privacyPolicy`; both fire `HapticManager.selection()`
-- `xBill/Views/Auth/EmailAuthView.swift` — `XBillTextField` fields; `XBillButton(style:.primary)` submit; `bgSecondary` background; "Forgot password?" button (sign-in mode only) presents `ForgotPasswordView` sheet with `prefillEmail: vm.email`
+- `xBill/Views/Auth/AuthView.swift` — adaptive `AppColors.background`; compact `XBillHeroCard` brand header; rounded auth card with Sign In with Apple and `XBillPrimaryButton` email continuation; legal links are split into accessible controls so they do not overflow on small widths; Terms presents `TermsOfServiceView()` sheet and Privacy opens `.safariSheet` to `XBillURLs.privacyPolicy`.
+- `xBill/Views/Auth/EmailAuthView.swift` — rounded email/password card with explanatory heading, `XBillTextField` fields, `XBillPrimaryButton` submit with loading/disabled state, create-account/sign-in toggle, and "Forgot password?" sheet with `prefillEmail: vm.email`.
 - `xBill/Views/Auth/ForgotPasswordView.swift` — two-step sheet (form → success); calls `AuthService.shared.sendPasswordReset`; inline error display; 30s resend cooldown via `Task`-based sleep loop (no `Timer`); shows success state even for "user not found" errors (account enumeration prevention); `HapticManager.success()/error()` feedback; private `HintRow` and `ResendButtonView` subviews
 - `xBill/Views/Auth/ResetPasswordView.swift` — shown when app opened from password reset link; new + confirm password fields; calls `authVM.handlePasswordReset(newPassword:)`
 
@@ -238,14 +267,15 @@
 - `xBill/Views/Profile/MyQRCodeView.swift` — displays QR code for `xbill://add/<userID>` deep link using `CIFilter.qrCodeGenerator` (same pattern as `GroupInviteView`); `ShareLink` for the URL; `.interpolation(.none)` on the QR image to prevent blurring
 
 ### Views — Components
-- `xBill/Views/Components/AvatarView.swift` — circular avatar; deterministic bg color from name hash (brandPrimary first); `XBillIcon.avatarMd` default; `textInverse` initials
+- **Migration note:** these components are the current reusable surface, but the redesign target is `xBill/DesignSystem/Components`. When touching these files for redesign work, either move the component, create a canonical wrapper, or document a temporary compatibility alias.
+- `xBill/Views/Components/AvatarView.swift` — circular avatar; remote images via `AsyncImage`; fallback delegates to `XBillAvatarPlaceholder` for tokenized gradient avatar visuals.
 - `xBill/Views/Components/BalanceBadge.swift` — green (owed to you) / red (you owe) badge (legacy; prefer `AmountBadge` for new screens)
 - `xBill/Views/Components/AmountBadge.swift` — colored pill badge with `AmountDirection` (.positive/.negative/.settled/.total); uses design system money tokens
-- `xBill/Views/Components/BalanceHeroCard.swift` — `Color.brandPrimary` hero card for balance display at top of screens; `.xbillHeroAmount` monospaced number
+- `xBill/Views/Components/BalanceHeroCard.swift` — tokenized gradient hero card for balance display at top of screens; includes `XBillWalletIllustration`; `.xbillHeroAmount` monospaced number
 - `xBill/Views/Components/XBillCard.swift` — generic card wrapper; delegates to `SharpCard` modifier (18pt corners, hairline border, drop shadow)
 - `xBill/Views/Components/XBillButton.swift` — design-system button with `.primary/.secondary/.ghost/.destructive` styles; fires `HapticManager.impact` on tap
 - `xBill/Views/Components/XBillTextField.swift` — `inputBg`/`inputBorder` styled text field; focus-animated border turns `brandPrimary`
-- `xBill/Views/Components/CategoryIconView.swift` — emoji icon in category-colored rounded square; extends `Expense.Category` with `.emoji` and `.categoryBackground`
+- `xBill/Views/Components/CategoryIconView.swift` — compatibility wrapper around `XBillCategoryIcon`; `Expense.Category` still exposes `.emoji` and `.categoryBackground` for legacy labels.
 - `xBill/Views/Components/OfflineBanner.swift` — orange banner shown via `safeAreaInset(edge:.top)` in HomeView and GroupDetailView when `NetworkMonitor.shared.isConnected == false`
 - `xBill/Views/Components/ContactPickerView.swift` — `ContactPickerRepresentable: UIViewControllerRepresentable` wrapping `CNContactPickerViewController`; shared component used by both `InviteMembersView` and `AddFriendView`; `onPickedEmails: ([String]) -> Void` callback; handles both single and multi-contact selection
 - `xBill/Views/Components/FABButton.swift` — 56pt `brandPrimary` circle FAB with shadow and haptic
@@ -262,7 +292,7 @@
 - `xBillTests/P2FeatureTests.swift` — 18 tests across 5 suites: CrossGroupDebt (balance merging, currency separation, minimisation), AppLock (lock/no-op state transitions, MainActor), ManualReceipt (startManually creates blank receipt, assigns members, clears previous scan), CacheServiceBalance (.serialized, round-trip and zero-default), ContactDiscovery (email validation, dedup, lowercasing).
 - `xBillTests/P1NotificationTests.swift` — 16 tests across 4 suites: NotificationStore (.serialized, merge dedup, read-state preservation, sort order, unread count, markAllRead, 100-item cap), NotificationItemFactory (expense + settlement factory field mapping), ActivityViewModelUnread (hasUnread flag, markAllRead zeros VM), NotificationItemCodable (expense + settlement JSON round-trip).
 - `xBillTests/GroupFlowTests.swift` — 27 tests across 6 suites: GroupFlowCachePattern (archive/unarchive array-manipulation logic, idempotency), BillGroupModel (Codable roundtrip, snake_case CodingKeys, Equatable, value-type semantics), GroupCreationLogic (onCreated append, canCreate guard, invite email trim), GroupArchiveLogic (balance-warning conditions, plural/singular, toolbar action context), CurrencyList (count=20, original 8 + 12 new, no duplicates), RealtimeContract (topic scoping). All tests are parallel-safe (no shared UserDefaults state).
-- `xBillUITests/OnboardingUITests.swift`
+- `xBillUITests/OnboardingUITests.swift` — 6 focused login/onboarding XCUITests for the redesigned pre-auth entry screen, accessible legal links, email sign-up form content, sign-in validation, sign-in/sign-up toggling, and forgot-password visibility. Launches with `--uitesting --reset-state`; DEBUG app launch handling clears UserDefaults and Keychain session data so each test starts unauthenticated.
 - `xBillUITests/GroupFlowUITests.swift` — 14 XCUITests for group creation (form validation, Create button enable/disable, cancel, new group appears in list immediately), archive flow (toolbar menu, confirmation dialog, group moves to archived section on confirm), and unarchive flow (archived section expand/collapse, swipe-right Unarchive action, Unarchive from detail-view toolbar). All tests skip gracefully with `XCTSkip` when not signed in or when prerequisite data (groups, archived groups) is absent.
 
 ## Key Patterns
@@ -281,6 +311,23 @@
 5. Auth state listener: guards `session?.user.emailConfirmedAt != nil` before calling `loadCurrentUser()`; `.passwordRecovery` event sets `isInPasswordRecovery = true`
 6. Password reset: user taps email link → `xbill://auth/callback` opens app → `.onOpenURL` calls `supabase.auth.session(from:)` → listener fires `.passwordRecovery` → `ResetPasswordView` shown
 7. Sign-out: `AuthService.signOut()` → Supabase `.signedOut` event → listener clears `currentUser` + `isInPasswordRecovery` → `ContentView` transitions back to `AuthView`
+
+### UI Test Auth State
+- UI tests should launch with `--uitesting --reset-state` when they need an unauthenticated app. In DEBUG builds, `xBillApp.AppDelegate` responds by clearing the app's UserDefaults domain and deleting xBill Keychain generic-password entries through `KeychainManager.deleteAllForUITesting()`.
+- Current focused login validation command:
+  ```
+  DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test -scheme xBill -destination 'id=DA97985A-F7CC-44F6-8281-9DD24C22B978' -only-testing:xBillUITests/OnboardingUITests
+  ```
+- Verified 2026-05-04: `OnboardingUITests` executed 6 tests with 0 failures on simulator `DA97985A-F7CC-44F6-8281-9DD24C22B978`.
+
+### Auth Configuration Troubleshooting
+- If email/password or Apple sign-in reports "A server with the specified hostname could not be found," first inspect the compiled app Info.plist, not the source plist:
+  ```
+  plutil -extract SUPABASE_URL raw ~/Library/Developer/Xcode/DerivedData/xBill-gigdzmkxlvnxfwffqeafujuupnja/Build/Products/Debug-iphonesimulator/xBill.app/Info.plist
+  plutil -extract SUPABASE_ANON_KEY raw ~/Library/Developer/Xcode/DerivedData/xBill-gigdzmkxlvnxfwffqeafujuupnja/Build/Products/Debug-iphonesimulator/xBill.app/Info.plist | wc -c
+  ```
+- Expected result: the URL is the full Supabase hostname and the anon key length is non-zero. If the URL prints only `https:`, fix `Secrets.xcconfig` to use `https:/$()/...`, regenerate with `xcodegen generate`, rebuild, reinstall, and relaunch.
+- Keep `Secrets.xcconfig.example` synchronized with the escaping rule whenever credential setup docs change.
 
 ### Deep Link URL Scheme
 - Scheme: `xbill://`; registered in `Info.plist` under `CFBundleURLTypes`

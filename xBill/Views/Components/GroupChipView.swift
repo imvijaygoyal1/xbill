@@ -11,25 +11,21 @@ struct GroupChipView: View {
     let group: BillGroup
 
     var body: some View {
-        VStack(alignment: .leading, spacing: XBillSpacing.sm) {
-            Text(group.emoji)
-                .font(.title2)
-                .frame(width: 44, height: 44)
-                .background(Color.brandSurface)
-                .clipShape(Circle())
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            XBillAvatarPlaceholder(name: group.emoji, size: AppSpacing.tapTarget)
 
             Text(group.name)
-                .font(.xbillLabel)
-                .foregroundStyle(Color.textPrimary)
+                .font(.appCaptionMedium)
+                .foregroundStyle(AppColors.textPrimary)
                 .lineLimit(1)
 
             Text(group.currency)
-                .font(.xbillCaption)
-                .foregroundStyle(Color.textTertiary)
+                .font(.appCaption)
+                .foregroundStyle(AppColors.textSecondary)
         }
-        .padding(XBillSpacing.md)
-        .frame(width: 110)
-        .asSharpCard()
+        .frame(width: 116, alignment: .leading)
+        .frame(minHeight: 132, alignment: .leading)
+        .xbillCard(padding: AppSpacing.md)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(group.name) group, \(group.currency)")
         .accessibilityAddTraits(.isButton)

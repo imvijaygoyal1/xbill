@@ -109,11 +109,11 @@ final class AuthViewModel {
         }
     }
 
-    func signInWithApple(idToken: String, nonce: String) async {
+    func signInWithApple(idToken: String, nonce: String, displayName: String?) async {
         isLoading = true
         defer { isLoading = false }
         do {
-            currentUser = try await auth.signInWithApple(idToken: idToken, nonce: nonce)
+            currentUser = try await auth.signInWithApple(idToken: idToken, nonce: nonce, displayName: displayName)
         } catch {
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Sign In Failed", message: error.localizedDescription)

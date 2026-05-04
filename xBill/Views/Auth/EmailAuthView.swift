@@ -17,10 +17,19 @@ struct EmailAuthView: View {
 
     var body: some View {
         ZStack {
-            Color.bgSecondary.ignoresSafeArea()
+            AppColors.background.ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: XBillSpacing.lg) {
+                VStack(alignment: .leading, spacing: AppSpacing.md) {
+                    VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                        Text(vm.isSigningUp ? "Create your account" : "Sign in with email")
+                            .font(.appH2)
+                            .foregroundStyle(AppColors.textPrimary)
+                        Text(vm.isSigningUp ? "Use your name, email, and a secure password." : "Enter your xBill email and password.")
+                            .font(.appBody)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+
                     // Display Name (sign-up only)
                     if vm.isSigningUp {
                         XBillTextField(placeholder: "Your name", text: $vm.displayName)
@@ -48,17 +57,18 @@ struct EmailAuthView: View {
 
                         if !vm.confirmPassword.isEmpty && !vm.passwordsMatch {
                             Text("Passwords don't match.")
-                                .font(.xbillCaption)
-                                .foregroundStyle(Color.moneyNegative)
+                                .font(.appCaption)
+                                .foregroundStyle(AppColors.error)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
 
                     // Submit
-                    XBillButton(
+                    XBillPrimaryButton(
                         title: vm.isSigningUp ? "Create Account" : "Sign In",
-                        style: .primary,
-                        isLoading: vm.isLoading
+                        icon: vm.isSigningUp ? "person.badge.plus" : "arrow.right",
+                        isLoading: vm.isLoading,
+                        isDisabled: !vm.canSubmit
                     ) {
                         focusedField = nil
                         Task {
@@ -66,14 +76,16 @@ struct EmailAuthView: View {
                             else              { await vm.signIn() }
                         }
                     }
-                    .disabled(!vm.canSubmit)
 
                     // Toggle sign-in / sign-up
                     Button { vm.toggleMode() } label: {
                         Text(vm.isSigningUp ? "Already have an account? **Sign In**" : "No account? **Create one**")
-                            .font(.xbillBodySmall)
-                            .foregroundStyle(Color.textSecondary)
+                            .font(.appCaption)
+                            .foregroundStyle(AppColors.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: AppSpacing.tapTarget)
                     }
+                    .buttonStyle(.plain)
 
                     // Forgot password (sign-in only)
                     if !vm.isSigningUp {
@@ -82,19 +94,22 @@ struct EmailAuthView: View {
                             HapticManager.selection()
                         } label: {
                             Text("Forgot password?")
-                                .font(.xbillCaption)
-                                .foregroundStyle(Color.brandPrimary)
+                                .font(.appCaption)
+                                .foregroundStyle(AppColors.primary)
                                 .underline()
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: AppSpacing.tapTarget)
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(XBillSpacing.xl)
+                .xbillCard()
+                .padding(AppSpacing.md)
             }
         }
         .navigationTitle(vm.isSigningUp ? "Create Account" : "Sign In")
         .navigationBarTitleDisplayMode(.large)
-        .toolbarBackground(Color.navBarBg, for: .navigationBar)
+        .toolbarBackground(AppColors.background, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .errorAlert(item: $vm.errorAlert)
         .sheet(isPresented: $showForgotPassword) {

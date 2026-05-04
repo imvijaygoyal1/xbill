@@ -18,6 +18,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotifi
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--reset-state") {
+            if let bundleID = Bundle.main.bundleIdentifier {
+                UserDefaults.standard.removePersistentDomain(forName: bundleID)
+            }
+            KeychainManager.shared.deleteAllForUITesting()
+        }
+        #endif
+
         UNUserNotificationCenter.current().delegate = self
         UserDefaults.standard.register(defaults: [
             "prefPushExpense":    true,

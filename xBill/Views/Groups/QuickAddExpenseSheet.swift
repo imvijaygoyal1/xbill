@@ -26,7 +26,7 @@ struct QuickAddExpenseSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.bgSecondary.ignoresSafeArea()
+                AppColors.background.ignoresSafeArea()
 
                 if groups.isEmpty {
                     EmptyStateView(
@@ -75,7 +75,7 @@ struct QuickAddExpenseSheet: View {
             }
             .navigationTitle(startWithScan ? "Scan Receipt" : "Add Expense")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color.navBarBg, for: .navigationBar)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

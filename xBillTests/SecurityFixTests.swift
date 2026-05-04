@@ -181,6 +181,63 @@ struct SearchProfilesEmailTests {
     }
 }
 
+// MARK: - L2: PayPal username alphanumeric validation
+
+@Suite("L2 — PayPal username validation")
+struct PayPalUsernameValidationTests {
+
+    private let service = PaymentLinkService.shared
+
+    private func makeSettlement(name: String) -> SettlementSuggestion {
+        SettlementSuggestion(id: UUID(), fromUserID: UUID(), fromName: "Alice",
+                             toUserID: UUID(), toName: name,
+                             amount: 25.00, currency: "USD")
+    }
+
+    @Test("Valid alphanumeric username returns a URL")
+    func validAlphanumeric() {
+        let url = service.paymentLink(for: makeSettlement(name: "john123"), method: .paypal)
+        #expect(url != nil)
+        #expect(url?.absoluteString.contains("paypal.me/john123") == true)
+    }
+
+    @Test("Username with allowed special chars (dot, hyphen, underscore) returns a URL")
+    func validWithAllowedSpecialChars() {
+        let url = service.paymentLink(for: makeSettlement(name: "john.doe-42_a"), method: .paypal)
+        #expect(url != nil)
+    }
+
+    @Test("Username with space returns nil")
+    func spaceInUsername() {
+        let url = service.paymentLink(for: makeSettlement(name: "john doe"), method: .paypal)
+        #expect(url == nil)
+    }
+
+    @Test("Username with path traversal returns nil")
+    func pathTraversalCharacters() {
+        let url = service.paymentLink(for: makeSettlement(name: "../evil"), method: .paypal)
+        #expect(url == nil)
+    }
+
+    @Test("Empty username returns nil")
+    func emptyUsername() {
+        let url = service.paymentLink(for: makeSettlement(name: ""), method: .paypal)
+        #expect(url == nil)
+    }
+
+    @Test("Username with @ symbol returns nil")
+    func atSymbolInUsername() {
+        let url = service.paymentLink(for: makeSettlement(name: "user@example"), method: .paypal)
+        #expect(url == nil)
+    }
+
+    @Test("Username with percent-encoded char returns nil")
+    func percentEncodedUsername() {
+        let url = service.paymentLink(for: makeSettlement(name: "user%20name"), method: .paypal)
+        #expect(url == nil)
+    }
+}
+
 // MARK: - KeychainManager helpers
 
 @Suite("KeychainManager — Bool persistence")

@@ -85,6 +85,16 @@ final class KeychainManager: Sendable {
             throw AppError.unknown("Keychain delete failed: \(status)")
         }
     }
+
+    #if DEBUG
+    func deleteAllForUITesting() {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+    #endif
 }
 
 // MARK: - Keys

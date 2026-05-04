@@ -7,6 +7,31 @@ like it shipped with iOS, not like a web app wrapped in SwiftUI.
 
 ---
 
+## 0. xBill Redesign Override
+
+The branded redesign plan in `DESIGN.md` is now the visual source of truth. These native patterns still govern navigation, sheets, accessibility, haptics, safe areas, platform controls, and data-flow behavior, but branded design-system components may replace default visual styling where `DESIGN.md` explicitly requires it.
+
+Use this priority order:
+
+1. Preserve existing app behavior, navigation, privacy constraints, and data models.
+2. Use canonical tokens/components from `xBill/DesignSystem`.
+3. Keep Apple-native interaction patterns unless the xBill design system defines a reusable branded component.
+4. Do not add one-off visual styling inside screens.
+
+Allowed branded exceptions during/after redesign:
+
+- Custom `XBillTabBar` for the black/near-black bottom navigation, if native `TabView` cannot satisfy the visual requirement.
+- Custom full-width buttons, cards, empty states, search bar, segmented control, floating add button, avatar stack, QR card, and row components when implemented in `xBill/DesignSystem/Components`.
+- `ScrollView` + card stacks for highly composed dashboard surfaces such as Home, Onboarding, Profile headers, Add Expense, and QR Code. Data-heavy editable lists may still use `List` where swipe actions, deletion, native row behavior, or accessibility make it the better control.
+
+Non-negotiable constraints:
+
+- No hardcoded colors, font sizes, spacing, radii, shadows, or gradients in screen files.
+- All tap targets must be at least 44pt.
+- QR codes must remain black on white in both light and dark mode.
+- Dark mode must come from adaptive tokens/components, not duplicate screens.
+- SF Symbols remain the default icon system for UI chrome.
+
 ## 1. Navigation & Structure
 
 ### NavigationStack (one per tab — already in CLAUDE.md)
@@ -54,7 +79,7 @@ Never push a sheet onto a NavigationStack (no `NavigationLink` that opens a moda
 
 ## 2. Lists & Tables
 
-### Always use `List`, never `ScrollView + LazyVStack` for data rows
+### Prefer `List` for native data rows unless a canonical card component is required
 ```swift
 // CORRECT
 List(expenses) { expense in
@@ -71,13 +96,15 @@ List(expenses) { expense in
 // .listStyle(.plain)        // for flat feeds (ActivityView)
 // .listStyle(.sidebar)      // never — iPad sidebar only
 
-// WRONG — loses swipe actions, context menus, and system animations
+// Avoid for editable native data lists — loses swipe actions, context menus, and system animations
 ScrollView {
     LazyVStack {
         ForEach(expenses) { ExpenseRowView(expense: $0) }
     }
 }
 ```
+
+Use canonical card stacks instead when the redesigned screen is intentionally composed as branded dashboard content and does not need native row editing behavior.
 
 ### Section headers use system style — no custom styling
 ```swift
@@ -223,12 +250,12 @@ Button("Cancel", role: .cancel) { dismiss() }
 Button("Delete", role: .destructive) { viewModel.delete() }
 // role: .destructive auto-applies red tint
 
-// WRONG — custom button shapes/colors instead of system styles
+// Avoid screen-local custom button shapes/colors instead of system styles or design-system components
 Button("Save") { ... }
     .background(Color.brandPrimary)
     .foregroundColor(.white)
     .clipShape(RoundedRectangle(cornerRadius: 12))
-// Exception: XBillButton in Components/ for branded full-width CTAs only
+// Exception: canonical XBill* button components in DesignSystem/Components
 ```
 
 ### Toggles, Steppers, Pickers

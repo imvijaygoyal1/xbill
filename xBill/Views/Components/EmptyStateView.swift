@@ -13,24 +13,17 @@ struct EmptyStateView: View {
     let message: String
     var actionLabel: String? = nil
     var action: (() -> Void)? = nil
+    var illustration: XBillEmptyStateIllustration.Kind? = nil
 
     var body: some View {
-        if let actionLabel, let action {
-            ContentUnavailableView {
-                Label(title, systemImage: icon)
-            } description: {
-                Text(message)
-            } actions: {
-                Button(actionLabel, action: action)
-                    .buttonStyle(.borderedProminent)
-            }
-        } else {
-            ContentUnavailableView {
-                Label(title, systemImage: icon)
-            } description: {
-                Text(message)
-            }
-        }
+        XBillEmptyState(
+            icon: icon,
+            title: title,
+            message: message,
+            actionLabel: actionLabel,
+            action: action,
+            illustration: illustration
+        )
     }
 }
 

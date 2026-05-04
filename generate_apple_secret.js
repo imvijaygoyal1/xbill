@@ -7,10 +7,10 @@ const crypto = require('crypto');
 const fs = require('fs');
 
 // ── Fill these in ──────────────────────────────────────────────
-const TEAM_ID   = '7B5U5LACV3';
-const KEY_ID    = 'F4377VXK5F';
-const CLIENT_ID = 'com.vijaygoyal.xbill';
-const KEY_FILE  = '/Users/vijaygoyal/Downloads/AuthKey_F4377VXK5F.p8';
+const TEAM_ID   = 'YOUR_TEAM_ID';     // 10-char Apple Team ID, e.g. 'AB12CD34EF'
+const KEY_ID    = 'YOUR_KEY_ID';      // Key ID from Apple Developer Portal
+const CLIENT_ID = 'com.example.app'; // Your app's Bundle ID
+const KEY_FILE  = '/path/to/AuthKey_XXXXXXXXXX.p8'; // Local path to the downloaded .p8
 // ──────────────────────────────────────────────────────────────
 
 if (TEAM_ID === 'YOUR_TEAM_ID' || KEY_ID === 'YOUR_KEY_ID' || KEY_FILE.includes('XXXXXXXXXX')) {

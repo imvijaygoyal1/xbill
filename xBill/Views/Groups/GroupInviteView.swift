@@ -91,8 +91,11 @@ struct GroupInviteView: View {
                     .frame(width: 200, height: 200)
                     .padding(XBillSpacing.base)
                     .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: XBillRadius.lg))
-                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
+                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
+                            .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                    )
             }
         }
     }

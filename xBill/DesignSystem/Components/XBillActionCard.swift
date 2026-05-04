@@ -1,0 +1,43 @@
+//
+//  XBillActionCard.swift
+//  xBill
+//
+
+import SwiftUI
+
+struct XBillActionCard: View {
+    let icon: String
+    let title: String
+    let subtitle: String?
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: AppSpacing.md) {
+                Image(systemName: icon)
+                    .font(.appTitle)
+                    .foregroundStyle(AppColors.primary)
+                    .frame(width: AppSpacing.xl, height: AppSpacing.xl)
+                    .background(AppColors.surfaceSoft)
+                    .clipShape(Circle())
+                VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                    Text(title)
+                        .font(.appTitle)
+                        .foregroundStyle(AppColors.textPrimary)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.appCaption)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.appCaptionMedium)
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+            .frame(minHeight: AppSpacing.tapTarget)
+        }
+        .buttonStyle(.plain)
+        .xbillCard()
+    }
+}

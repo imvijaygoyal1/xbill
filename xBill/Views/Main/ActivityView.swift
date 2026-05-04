@@ -27,7 +27,7 @@ struct ActivityView: View {
             }
             .navigationTitle("Notifications")
             .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(Color.navBarBg, for: .navigationBar)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 if vm.hasUnread {
@@ -84,8 +84,8 @@ struct ActivityView: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
-        .background(Color.bgSecondary)
-        .listRowSeparatorTint(Color.separator)
+        .background(AppColors.background)
+        .listRowSeparatorTint(AppColors.border)
     }
 }
 

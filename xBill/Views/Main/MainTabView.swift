@@ -18,10 +18,22 @@ struct MainTabView: View {
     @State private var showQuickAddExpense = false
     @State private var quickActionScan = false
     @State private var showNotificationPrompt = false
+    @State private var addFriendPreloadedUser: User? = nil
+    @State private var showAddFriendFromQR = false
     @AppStorage("hasPromptedNotificationPermission") private var hasPromptedNotification = false
 
     enum Tab: Hashable {
         case home, groups, friends, activity, profile
+    }
+
+    private var tabItems: [(Tab, String, String)] {
+        [
+            (.home, "Home", "house.fill"),
+            (.groups, "Groups", "person.3.fill"),
+            (.friends, "Friends", "person.2.fill"),
+            (.activity, "Alerts", "bell.fill"),
+            (.profile, "Profile", "person.fill")
+        ]
     }
 
     var body: some View {
@@ -34,8 +46,8 @@ struct MainTabView: View {
                 .tabItem { Label("Groups", systemImage: "person.3.fill") }
                 .tag(Tab.groups)
 
-            FriendsView(currentUserID: homeVM.currentUser?.id ?? UUID())
-                .tabItem { Label("Friends", systemImage: "dollarsign.arrow.trianglehead.counterclockwise.rotate.90") }
+            FriendsView(currentUserID: homeVM.currentUser?.id ?? UUID(), allGroups: homeVM.groups)
+                .tabItem { Label("Friends", systemImage: "person.2.fill") }
                 .tag(Tab.friends)
 
             ActivityView(vm: activityVM)
@@ -49,10 +61,15 @@ struct MainTabView: View {
             .tabItem { Label("Profile", systemImage: "person.fill") }
             .tag(Tab.profile)
         }
-        .tint(Color.brandPrimary)
-        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
-        .toolbarBackground(.visible, for: .tabBar)
-        .toolbarColorScheme(.light, for: .tabBar)
+        .tint(AppColors.primary)
+        .toolbar(.hidden, for: .tabBar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            XBillTabBar(
+                tabs: tabItems,
+                selection: $selectedTab,
+                badgeCounts: [.activity: activityVM.unreadCount]
+            )
+        }
         .sheet(item: $authVM.pendingJoinRequest) { request in
             JoinGroupView(token: request.token) {
                 await homeVM.loadAll()
@@ -131,6 +148,24 @@ struct MainTabView: View {
                 }
             }
             appState.pendingNotificationTarget = nil
+        }
+        // Handle xbill://add/<userID> deep link → open AddFriendView pre-loaded
+        .task(id: appState.pendingAddFriendUserID) {
+            guard let userID = appState.pendingAddFriendUserID else { return }
+            if let profile = try? await FriendService.shared.searchProfiles(query: userID.uuidString).first {
+                addFriendPreloadedUser = profile
+            }
+            selectedTab = .friends
+            showAddFriendFromQR = true
+            appState.pendingAddFriendUserID = nil
+        }
+        .sheet(isPresented: $showAddFriendFromQR) {
+            if let user = homeVM.currentUser {
+                AddFriendView(
+                    currentUserID: user.id,
+                    preloadedUser: addFriendPreloadedUser
+                ) { }
+            }
         }
     }
 }

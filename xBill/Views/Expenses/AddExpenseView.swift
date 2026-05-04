@@ -31,7 +31,7 @@ struct AddExpenseView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.bgSecondary.ignoresSafeArea()
+                AppColors.background.ignoresSafeArea()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: XBillSpacing.xl) {
@@ -195,6 +195,7 @@ struct AddExpenseView: View {
                                                     } label: {
                                                         Image(systemName: "minus.circle")
                                                             .foregroundStyle(input.shares > 1 ? Color.brandPrimary : Color.textTertiary)
+                                                            .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                                                     }
                                                     .buttonStyle(.plain)
                                                     Text("\(input.shares)×")
@@ -207,6 +208,7 @@ struct AddExpenseView: View {
                                                     } label: {
                                                         Image(systemName: "plus.circle")
                                                             .foregroundStyle(Color.brandPrimary)
+                                                            .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                                                     }
                                                     .buttonStyle(.plain)
                                                 }
@@ -257,24 +259,30 @@ struct AddExpenseView: View {
                         Spacer(minLength: XBillSpacing.xxxl)
                     }
                     .padding(.top, XBillSpacing.base)
+                    .padding(.bottom, AppSpacing.floatingActionBottomPadding)
                 }
             }
             .navigationTitle("Add Expense")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color.navBarBg, for: .navigationBar)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .foregroundStyle(Color.brandPrimary)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { Task { await save() } }
-                        .font(.xbillButtonMedium)
-                        .foregroundStyle(Color.brandPrimary)
-                        .disabled(!vm.canSave || vm.isLoading)
-                        .overlay { if vm.isLoading { ProgressView() } }
+            }
+            .safeAreaInset(edge: .bottom) {
+                XBillPrimaryButton(
+                    title: "Save Expense",
+                    icon: "checkmark",
+                    isLoading: vm.isLoading,
+                    isDisabled: !vm.canSave
+                ) {
+                    Task { await save() }
                 }
+                .padding(AppSpacing.md)
+                .background(.ultraThinMaterial)
             }
             .sheet(isPresented: $showReceiptScan) {
                 ReceiptScanView(
@@ -361,8 +369,7 @@ private struct CategoryChipView: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: XBillSpacing.xs) {
-                Text(category.emoji)
-                    .font(.system(size: 13))
+                XBillCategoryIcon(category: category, size: 24)
                 Text(category.displayName)
                     .font(.xbillLabel)
                     .foregroundStyle(isSelected ? Color.brandPrimary : Color.textSecondary)
@@ -374,6 +381,7 @@ private struct CategoryChipView: View {
             .overlay(Capsule().stroke(isSelected ? Color.brandPrimary : Color.clear, lineWidth: 1.5))
         }
         .buttonStyle(.plain)
+        .frame(minHeight: AppSpacing.tapTarget)
     }
 }
 

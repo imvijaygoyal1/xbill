@@ -30,62 +30,40 @@ struct CreateGroupView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                // Name
-                Section("Group Name") {
-                    TextField("e.g. Weekend Trip", text: $name)
-                        .autocorrectionDisabled()
-                }
+            XBillScreenBackground {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: AppSpacing.lg) {
+                        formSection("Group Name") {
+                            XBillTextField(placeholder: "e.g. Weekend Trip", text: $name)
+                                .autocorrectionDisabled()
+                        }
 
-                // Emoji picker
-                Section("Icon") {
-                    LazyVGrid(
-                        columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5),
-                        spacing: 8
-                    ) {
-                        ForEach(emojis, id: \.self) { emoji in
-                            Text(emoji)
-                                .font(.title2)
-                                .frame(width: 52, height: 52)
-                                .liquidGlass(
-                                    fallback: selectedEmoji == emoji
-                                        ? Color.accentColor.opacity(0.18)
-                                        : Color(.systemGray6),
-                                    in: RoundedRectangle(cornerRadius: 10)
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .strokeBorder(
-                                            selectedEmoji == emoji ? Color.accentColor : Color.clear,
-                                            lineWidth: 2
-                                        )
-                                )
-                                .onTapGesture { selectedEmoji = emoji }
+                        formSection("Icon") {
+                            XBillIconPickerGrid(icons: emojis, selectedIcon: $selectedEmoji)
+                        }
+
+                        formSection("Currency") {
+                            Picker("Currency", selection: $currency) {
+                                ForEach(currencies, id: \.self) { code in
+                                    Text(code).tag(code)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .tint(AppColors.primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(minHeight: AppSpacing.tapTarget)
+                        }
+
+                        formSection("Invite by Email") {
+                            XBillTextField(placeholder: "friend@email.com", text: $inviteEmail, keyboardType: .emailAddress)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                            Text("You can also invite people after the group is created.")
+                                .font(.appCaption)
+                                .foregroundStyle(AppColors.textSecondary)
                         }
                     }
-                    .padding(.vertical, 4)
-                }
-
-                // Currency
-                Section("Currency") {
-                    Picker("Currency", selection: $currency) {
-                        ForEach(currencies, id: \.self) { code in
-                            Text(code).tag(code)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-
-                // Invite
-                Section {
-                    TextField("friend@email.com", text: $inviteEmail)
-                        .keyboardType(.emailAddress)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                } header: {
-                    Text("Invite by Email")
-                } footer: {
-                    Text("You can also invite people after the group is created.")
+                    .padding(AppSpacing.md)
                 }
             }
             .navigationTitle("New Group")
@@ -107,6 +85,17 @@ struct CreateGroupView: View {
             }
         }
         .errorAlert(error: $error)
+    }
+
+    private func formSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            Text(title.uppercased())
+                .font(.appCaptionMedium)
+                .tracking(1.08)
+                .foregroundStyle(AppColors.textSecondary)
+            content()
+        }
+        .xbillCard()
     }
 
     // MARK: - Action

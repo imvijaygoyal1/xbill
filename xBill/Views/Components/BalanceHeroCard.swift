@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct BalanceHeroCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let label: String
     let amount: Decimal
     let subtitle: String
@@ -15,26 +16,30 @@ struct BalanceHeroCard: View {
     var isPositive: Bool = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: XBillSpacing.xs) {
-            Text(label.uppercased())
-                .font(.xbillUpperLabel)
-                .tracking(1.08)
-                .foregroundStyle(Color.brandAccent)
+        HStack(alignment: .center, spacing: AppSpacing.md) {
+            VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                Text(label.uppercased())
+                    .font(.appCaptionMedium)
+                    .tracking(1.08)
+                    .foregroundStyle(AppColors.primaryLight)
 
-            Text(amount.formatted(currencyCode: currency))
-                .font(.xbillHeroAmount)
-                .foregroundStyle(Color.textInverse)
-                .contentTransition(.numericText())
+                Text(amount.formatted(currencyCode: currency))
+                    .font(.appAmount)
+                    .foregroundStyle(AppColors.textInverse)
+                    .contentTransition(.numericText())
 
-            Text(subtitle)
-                .font(.xbillCaption)
-                .foregroundStyle(Color.brandAccent.opacity(0.8))
+                Text(subtitle)
+                    .font(.appCaption)
+                    .foregroundStyle(AppColors.textInverse.opacity(0.82))
+            }
+            Spacer(minLength: AppSpacing.sm)
+            XBillWalletIllustration(size: 72)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, XBillSpacing.xl)
-        .padding(.vertical, XBillSpacing.lg)
-        .background(Color.brandPrimary)
-        .clipShape(RoundedRectangle(cornerRadius: XBillRadius.card))
+        .padding(.horizontal, AppSpacing.lg)
+        .padding(.vertical, AppSpacing.md)
+        .background(AppGradient.hero(for: colorScheme))
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.hero, style: .continuous))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label): \(amount.formatted(currencyCode: currency)), \(subtitle)")
     }

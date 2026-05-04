@@ -15,6 +15,7 @@ This plan tracks issues that can block or slow App Store review. It is intention
 - Plan:
   - After the App Store listing exists, either keep `/invite` as the stable redirect/landing route or update the website to include the real App Store link.
   - Add a pre-submission grep check for `id0000000000`, `placeholder`, `example.com`, and local/test URLs.
+  - Keep the app pointed at the stable custom domain `xbill.vijaygoyal.org`; do not switch Swift constants to a generated `*.pages.dev` URL unless the custom domain is intentionally retired.
 
 ### 2. Validate Privacy Policy URL and Content
 
@@ -95,6 +96,9 @@ This plan tracks issues that can block or slow App Store review. It is intention
 ## Pre-Submission Checklist
 
 - Confirm Cloudflare Pages direct-upload source in `web/` is current and deploy the whole folder, not a single subfolder.
+- If using the separate Git-backed web repo at `/Users/vijaygoyal/Documents/xbill-web`, confirm it contains only raw static page files and no `_redirects` catch-all. Expected files: `index.html`, `invite/index.html`, `privacy/index.html`, `terms/index.html`.
+- Do not use `_redirects` rule `/* /index.html 200` for this static site. Cloudflare Pages can flag it as an infinite loop; directory `index.html` routing already handles `/invite`, `/privacy`, and `/terms`.
+- Treat Cloudflare `308` redirects from `/privacy` to `/privacy/` or `/terms` to `/terms/` as normal if `curl -L -I` ends at `HTTP 200`.
 - Verify public pages:
   `curl -L -I https://xbill.vijaygoyal.org`,
   `curl -L -I https://xbill.vijaygoyal.org/invite`,

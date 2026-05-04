@@ -8,10 +8,11 @@ options:
   groupSortPosition: top
   developmentLanguage: en
 
+configFiles:
+  Debug: Secrets.xcconfig
+  Release: Secrets.xcconfig
+
 settings:
-  configFiles:
-    debug: Secrets.xcconfig
-    release: Secrets.xcconfig
   base:
     SWIFT_VERSION: "6.0"
     ENABLE_STRICT_CONCURRENCY: complete
@@ -20,7 +21,6 @@ settings:
     TARGETED_DEVICE_FAMILY: "1"        # iPhone only
     SUPPORTS_MAC_DESIGNED_FOR_IPAD: NO
     SWIFT_EMIT_LOC_STRINGS: YES
-    GCC_GENERATE_DEBUGGING_SYMBOLS: YES
 
 packages:
   Supabase:
@@ -58,11 +58,13 @@ targets:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
           CODE_SIGN_ENTITLEMENTS: xBill/xBill.Debug.entitlements
           DEBUG_INFORMATION_FORMAT: dwarf
+          GCC_GENERATE_DEBUGGING_SYMBOLS: YES
         release:
           SWIFT_OPTIMIZATION_LEVEL: "-O"
           VALIDATE_PRODUCT: YES
           CODE_SIGN_ENTITLEMENTS: xBill/xBill.entitlements
           DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+          GCC_GENERATE_DEBUGGING_SYMBOLS: NO
 
   xBillWidget:
     type: app-extension

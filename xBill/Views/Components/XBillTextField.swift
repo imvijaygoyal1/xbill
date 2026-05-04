@@ -24,16 +24,16 @@ struct XBillTextField: View {
                     .keyboardType(keyboardType)
             }
         }
-        .font(.xbillBodyLarge)
-        .foregroundStyle(Color.textPrimary)
-        .padding(.horizontal, XBillSpacing.base)
-        .frame(height: 52)
-        .background(Color.inputBg)
-        .clipShape(RoundedRectangle(cornerRadius: XBillRadius.md))
+        .font(.appBody)
+        .foregroundStyle(AppColors.textPrimary)
+        .padding(.horizontal, AppSpacing.md)
+        .frame(minHeight: AppSpacing.controlHeight)
+        .background(AppColors.inputBackground)
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: XBillRadius.md)
+            RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous)
                 .stroke(
-                    isFocused ? Color.brandPrimary : Color.inputBorder,
+                    isFocused ? AppColors.primary : AppColors.inputBorder,
                     lineWidth: isFocused ? 1.5 : 1
                 )
         )
@@ -50,5 +50,5 @@ struct XBillTextField: View {
         XBillTextField(placeholder: "Password", text: $text, isSecure: true)
     }
     .padding()
-    .background(Color.bgSecondary)
+    .background(AppColors.background)
 }

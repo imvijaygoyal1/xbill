@@ -13,7 +13,6 @@ struct XBillCard<Content: View>: View {
 
     var body: some View {
         content()
-            .padding(padding)
-            .asSharpCard()
+            .xbillCard(padding: padding)
     }
 }

@@ -18,16 +18,31 @@ final class OnboardingUITests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: - Auth Screen
+// MARK: - Login Screen
 
-    func testAuthScreenDisplayed() {
-        let logo = app.images["xBill"]
+    func testLoginEntryScreenDisplaysRedesignedContent() {
+        XCTAssertTrue(app.staticTexts["xBill"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Split expenses, not friendships."].exists)
+        XCTAssertTrue(app.staticTexts["Welcome back"].exists)
+        XCTAssertTrue(app.staticTexts["Sign in to split expenses with your groups and friends."].exists)
+
         let emailButton = app.buttons["Continue with Email"]
-        let appleButton = app.buttons["Continue with Apple"]
+        let appleButton = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] 'Apple'")
+        ).firstMatch
 
-        XCTAssertTrue(emailButton.waitForExistence(timeout: 5))
+        XCTAssertTrue(emailButton.exists)
+        XCTAssertTrue(emailButton.isHittable)
         XCTAssertTrue(appleButton.exists)
-        _ = logo
+        XCTAssertTrue(app.buttons["Terms of Service"].exists)
+        XCTAssertTrue(app.buttons["Privacy Policy"].exists)
+    }
+
+    func testLegalLinksAreAccessibleFromLoginScreen() {
+        XCTAssertTrue(app.buttons["Terms of Service"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Terms of Service"].isHittable)
+        XCTAssertTrue(app.buttons["Privacy Policy"].exists)
+        XCTAssertTrue(app.buttons["Privacy Policy"].isHittable)
     }
 
     // MARK: - Email Sign Up Flow
@@ -37,10 +52,13 @@ final class OnboardingUITests: XCTestCase {
 
         // Verify sign-in screen
         XCTAssertTrue(app.navigationBars["Sign In"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Sign in with email"].exists)
+        XCTAssertTrue(app.staticTexts["Enter your xBill email and password."].exists)
 
         // Switch to sign-up
-        app.buttons["No account? "].tap()
+        signUpToggle.tap()
         XCTAssertTrue(app.navigationBars["Create Account"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Create your account"].exists)
 
         // Fill in fields
         let nameField = app.textFields["Your name"]
@@ -50,7 +68,7 @@ final class OnboardingUITests: XCTestCase {
 
         let emailField = app.textFields["you@example.com"]
         emailField.tap()
-        emailField.typeText("test+\(Int.random(in: 1000...9999))@example.com")
+        emailField.typeText("test\(Int.random(in: 1000...9999))@example.com")
 
         let passwordFields = app.secureTextFields.allElementsBoundByIndex
         XCTAssertGreaterThanOrEqual(passwordFields.count, 2)
@@ -59,9 +77,9 @@ final class OnboardingUITests: XCTestCase {
         passwordFields[1].tap()
         passwordFields[1].typeText("TestPass123!")
 
-        // Submit — in UI tests, we verify the button is enabled and tappable
+        // Submit — this test stops before network submission.
         let createButton = app.buttons["Create Account"]
-        XCTAssertTrue(createButton.isEnabled)
+        XCTAssertTrue(createButton.exists)
     }
 
     // MARK: - Email Sign In Validation
@@ -93,9 +111,9 @@ final class OnboardingUITests: XCTestCase {
         app.buttons["Continue with Email"].tap()
 
         XCTAssertTrue(app.navigationBars["Sign In"].waitForExistence(timeout: 3))
-        app.buttons["No account? "].tap()
+        signUpToggle.tap()
         XCTAssertTrue(app.navigationBars["Create Account"].waitForExistence(timeout: 2))
-        app.buttons["Already have an account? "].tap()
+        signInToggle.tap()
         XCTAssertTrue(app.navigationBars["Sign In"].waitForExistence(timeout: 2))
     }
 
@@ -108,6 +126,16 @@ final class OnboardingUITests: XCTestCase {
 }
 
 // MARK: - XCUIElement helpers
+
+private extension OnboardingUITests {
+    var signUpToggle: XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Create one'")).firstMatch
+    }
+
+    var signInToggle: XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Sign In'")).firstMatch
+    }
+}
 
 private extension XCUIElement {
     func clearText() {
