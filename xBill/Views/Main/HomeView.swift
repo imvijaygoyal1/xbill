@@ -16,12 +16,7 @@ struct HomeView: View {
             ZStack(alignment: .bottomTrailing) {
                 AppColors.background.ignoresSafeArea()
                 scrollContent
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .principal) {
-                            XBillWordmark()
-                        }
-                    }
+                    .toolbar(.hidden, for: .navigationBar)
                     .toolbarBackground(AppColors.background, for: .navigationBar)
                     .toolbarBackground(.visible, for: .navigationBar)
                     .safeAreaInset(edge: .top) {
@@ -50,18 +45,25 @@ struct HomeView: View {
         if vm.isLoading && vm.groups.isEmpty {
             LoadingOverlay(message: "Loading groups…")
         } else if vm.groups.isEmpty {
-            EmptyStateView(
-                icon: "person.3.fill",
-                title: "No Groups Yet",
-                message: "Create a group to start splitting expenses with friends.",
-                actionLabel: "Create Group",
-                action: { showCreateGroup = true }
-            )
+            XBillScreenContainer(bottomPadding: AppSpacing.floatingActionBottomPadding) {
+                HomeHeader(user: vm.currentUser, balance: vm.netBalance)
+                EmptyStateView(
+                    icon: "person.3.fill",
+                    title: "No Groups Yet",
+                    message: "Create a group to start splitting expenses with friends.",
+                    actionLabel: "Create Group",
+                    action: { showCreateGroup = true },
+                    illustration: .groups
+                )
+            }
         } else {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: AppSpacing.md) {
+            XBillScrollView(
+                horizontalPadding: 0,
+                bottomPadding: AppSpacing.floatingActionBottomPadding + AppSpacing.lg,
+                spacing: AppSpacing.md
+            ) {
                     HomeHeader(user: vm.currentUser, balance: vm.netBalance)
-                        .padding(.horizontal, AppSpacing.md)
+                        .padding(.horizontal, AppSpacing.lg)
 
                     // Balance hero card
                     BalanceHeroCard(
@@ -70,14 +72,14 @@ struct HomeView: View {
                         subtitle: "\(vm.groups.count) group\(vm.groups.count == 1 ? "" : "s")",
                         isPositive: vm.netBalance >= .zero
                     )
-                    .padding(.horizontal, AppSpacing.md)
+                    .padding(.horizontal, AppSpacing.lg)
 
                     // Quick stats
                     HStack(spacing: AppSpacing.sm) {
                         quickStatCard(label: "Owed to you", amount: vm.totalOwed, direction: .positive)
                         quickStatCard(label: "You owe",     amount: vm.totalOwing, direction: .negative)
                     }
-                    .padding(.horizontal, AppSpacing.md)
+                    .padding(.horizontal, AppSpacing.lg)
 
                     XBillActionCard(
                         icon: "person.badge.plus",
@@ -86,7 +88,7 @@ struct HomeView: View {
                     ) {
                         showCreateGroup = true
                     }
-                    .padding(.horizontal, AppSpacing.md)
+                    .padding(.horizontal, AppSpacing.lg)
 
                     // My Groups — horizontal chips
                     VStack(alignment: .leading, spacing: XBillSpacing.sm) {
@@ -94,7 +96,7 @@ struct HomeView: View {
                             .font(.appCaptionMedium)
                             .tracking(1.08)
                             .foregroundStyle(AppColors.textSecondary)
-                            .padding(.horizontal, AppSpacing.md)
+                            .padding(.horizontal, AppSpacing.lg)
 
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: AppSpacing.sm) {
@@ -105,7 +107,7 @@ struct HomeView: View {
                                     .buttonStyle(.plain)
                                 }
                             }
-                            .padding(.horizontal, AppSpacing.md)
+                            .padding(.horizontal, AppSpacing.lg)
                         }
                     }
 
@@ -116,7 +118,7 @@ struct HomeView: View {
                                 .font(.appCaptionMedium)
                                 .tracking(1.08)
                                 .foregroundStyle(AppColors.textSecondary)
-                                .padding(.horizontal, AppSpacing.md)
+                                .padding(.horizontal, AppSpacing.lg)
 
                             LazyVStack(spacing: 0) {
                                 ForEach(vm.crossGroupSuggestions) { suggestion in
@@ -143,7 +145,7 @@ struct HomeView: View {
                                 }
                             }
                             .asSharpCard()
-                            .padding(.horizontal, XBillSpacing.base)
+                            .padding(.horizontal, AppSpacing.lg)
                         }
                     }
 
@@ -154,7 +156,7 @@ struct HomeView: View {
                                 .font(.appCaptionMedium)
                                 .tracking(1.08)
                                 .foregroundStyle(AppColors.textSecondary)
-                                .padding(.horizontal, AppSpacing.md)
+                                .padding(.horizontal, AppSpacing.lg)
 
                             LazyVStack(spacing: 0) {
                                 ForEach(vm.recentExpenses) { entry in
@@ -169,12 +171,9 @@ struct HomeView: View {
                                 }
                             }
                             .asSharpCard()
-                            .padding(.horizontal, XBillSpacing.base)
+                            .padding(.horizontal, AppSpacing.lg)
                         }
                     }
-                }
-                .padding(.top, AppSpacing.md)
-                .padding(.bottom, AppSpacing.floatingActionBottomPadding + AppSpacing.lg)
             }
             .background(AppColors.background)
             .navigationDestination(for: BillGroup.self) { group in

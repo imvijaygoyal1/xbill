@@ -156,6 +156,8 @@ Add a control-height token for the 44pt minimum tap target.
 - QR cards force black QR content on a white surface regardless of color scheme.
 - Tab bar owns black/near-black styling, selected state, badge support, and 44pt targets.
 - Visual assets are SwiftUI-only and reusable. Do not add external PNG/JPG assets for logo marks, receipts, wallet art, split-bill illustrations, avatars, category icons, empty states, or QR frames.
+- Page titles use `XBillPageHeader` or `HomeHeader`; do not add custom screen-local title stacks.
+- Screen scrolling uses `XBillScreenContainer` / `XBillScrollView` where practical, with content bottom padding for tab bars and sticky CTAs.
 
 ## Implementation Update — 2026-05-04 UI Hardening
 
@@ -173,6 +175,8 @@ Completed fixes:
 - Friends empty state no longer shows the Add IOU FAB over the Add Friend CTA.
 - Added SwiftUI-only reusable visuals: logo mark, receipt icon, split-bill illustration, empty-state illustration, wallet illustration, avatar placeholder, category icon, and QR placeholder frame.
 - Applied visuals across onboarding, Home hero cards, Groups cards/chips, Friends and Notifications empty states, Profile avatar fallback, New Group icon picker, Group Details avatar stack/category filters, Add Expense category chips, Add Friend contact rows, Add IOU amount card, and QR code card frame.
+- Added `XBillIllustrationKit`, `XBillPageHeader`, `XBillScreenContainer`, and `XBillScrollView` to standardize visible illustration scale, screen titles, scroll spacing, and sticky bottom CTA clearance.
+- Normalized main-tab title behavior for Home, Groups, Friends, Notifications, and Profile; modal/detail/form screens now use consistent custom headers/back placement where migrated.
 
 Validation performed:
 
@@ -184,6 +188,7 @@ Validation performed:
 - Final full build after documentation updates: succeeded
 - Login UI regression validation: `xcodebuild test -scheme xBill -destination 'id=DA97985A-F7CC-44F6-8281-9DD24C22B978' -only-testing:xBillUITests/OnboardingUITests` passed 6 tests on 2026-05-04
 - Visual asset system validation: `xcodegen generate`; Debug simulator build succeeded; installed and launched on simulator `DA97985A-F7CC-44F6-8281-9DD24C22B978`
+- Header/scroll consistency validation: `xcodegen generate`; Debug simulator build succeeded; installed and launched on simulator `DA97985A-F7CC-44F6-8281-9DD24C22B978`
 
 Remaining visual debt:
 

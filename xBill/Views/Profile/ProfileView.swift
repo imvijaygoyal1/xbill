@@ -65,6 +65,13 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    XBillPageHeader(title: "Profile")
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+
                 // Avatar & name header
                 Section {
                     XBillProfileCard(
@@ -232,8 +239,7 @@ struct ProfileView: View {
             .scrollContentBackground(.hidden)
             .background(AppColors.background)
             .listRowSeparatorTint(AppColors.border)
-            .navigationTitle("Profile")
-            .navigationBarTitleDisplayMode(.large)
+            .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .task { await vm.load() }
@@ -268,10 +274,21 @@ struct ProfileView: View {
 
     private var editSheet: some View {
         NavigationStack {
-            ZStack {
-                AppColors.background.ignoresSafeArea()
+            XBillScreenContainer(
+                horizontalPadding: AppSpacing.lg,
+                bottomPadding: AppSpacing.floatingActionBottomPadding
+            ) {
+                    XBillPageHeader(
+                        title: "Edit Profile",
+                        subtitle: "Update your display name and avatar.",
+                        showsBackButton: true,
+                        backAction: {
+                            selectedAvatar = nil
+                            isEditing = false
+                        }
+                    )
+                    .padding(.horizontal, -AppSpacing.lg)
 
-                VStack(spacing: XBillSpacing.xl) {
                     // Avatar picker
                     Button {
                         showAvatarPicker = true
@@ -307,34 +324,26 @@ struct ProfileView: View {
                     .padding(.horizontal, XBillSpacing.xl)
 
                     Spacer()
-                }
-                .padding(.top, XBillSpacing.xl)
-            }
-            .navigationTitle("Edit Profile")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        selectedAvatar = nil
-                        isEditing      = false
-                    }
-                    .foregroundStyle(Color.brandPrimary)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        Task {
-                            await vm.saveProfile(avatarImage: selectedAvatar)
-                            if vm.isSaved {
-                                selectedAvatar = nil
-                                isEditing      = false
-                            }
+            } stickyBottom: {
+                XBillPrimaryButton(
+                    title: "Save",
+                    icon: "checkmark",
+                    isLoading: vm.isLoading,
+                    isDisabled: vm.isLoading
+                ) {
+                    Task {
+                        await vm.saveProfile(avatarImage: selectedAvatar)
+                        if vm.isSaved {
+                            selectedAvatar = nil
+                            isEditing = false
                         }
                     }
-                    .disabled(vm.isLoading)
-                    .overlay { if vm.isLoading { ProgressView() } }
-                    .foregroundStyle(Color.brandPrimary)
                 }
+                .padding(AppSpacing.md)
+                .background(.ultraThinMaterial)
             }
+            .navigationBarBackButtonHidden()
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showAvatarPicker) {
                 ImagePicker(selectedImage: $selectedAvatar, isPresented: $showAvatarPicker)
                     .ignoresSafeArea()

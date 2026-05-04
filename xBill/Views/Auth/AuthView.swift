@@ -18,42 +18,35 @@ struct AuthView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                AppColors.background.ignoresSafeArea()
+            XBillScreenContainer(
+                horizontalPadding: AppSpacing.lg,
+                bottomPadding: AppSpacing.xxl
+            ) {
+                brandHeader
 
-                ScrollView {
-                    VStack(spacing: AppSpacing.lg) {
-                        brandHeader
-                            .padding(.top, AppSpacing.xl)
-                            .padding(.horizontal, AppSpacing.md)
-
-                        // MARK: Confirmation Banner
-                        if vm.confirmationEmailSent {
-                            HStack(spacing: AppSpacing.md) {
-                                Image(systemName: "envelope.badge.fill")
-                                    .foregroundStyle(AppColors.primary)
-                                VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                                    Text("Check your email")
-                                        .font(.appTitle)
-                                        .foregroundStyle(AppColors.textPrimary)
-                                    Text("Tap the link we sent to \(vm.email) to confirm your account, then sign in.")
-                                        .font(.appCaption)
-                                        .foregroundStyle(AppColors.textSecondary)
-                                }
-                            }
-                            .xbillCard()
-                            .padding(.horizontal, AppSpacing.md)
-                        }
-
-                        authCard
-                            .padding(.horizontal, AppSpacing.md)
-
-                        legalLinks
-                            .padding(.horizontal, AppSpacing.lg)
-                            .padding(.bottom, AppSpacing.xxl)
-                    }
+                XBillSplitBillIllustration(size: 220)
                     .frame(maxWidth: .infinity)
+
+                // MARK: Confirmation Banner
+                if vm.confirmationEmailSent {
+                    HStack(spacing: AppSpacing.md) {
+                        Image(systemName: "envelope.badge.fill")
+                            .foregroundStyle(AppColors.primary)
+                        VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                            Text("Check your email")
+                                .font(.appTitle)
+                                .foregroundStyle(AppColors.textPrimary)
+                            Text("Tap the link we sent to \(vm.email) to confirm your account, then sign in.")
+                                .font(.appCaption)
+                                .foregroundStyle(AppColors.textSecondary)
+                        }
+                    }
+                    .xbillCard()
                 }
+
+                authCard
+
+                legalLinks
             }
             .navigationDestination(isPresented: $showEmailAuth) {
                 EmailAuthView(vm: vm)
@@ -70,24 +63,18 @@ struct AuthView: View {
     // MARK: - Content
 
     private var brandHeader: some View {
-        VStack(spacing: AppSpacing.md) {
-            XBillHeroCard {
-                VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                    HStack(spacing: AppSpacing.sm) {
-                        Image(systemName: "dollarsign.circle.fill")
-                            .font(.appH1)
-                            .foregroundStyle(AppColors.textInverse)
-                            .accessibilityHidden(true)
-                        Text("xBill")
-                            .font(.appDisplay)
-                            .foregroundStyle(AppColors.textInverse)
-                    }
-                    Text("Split expenses, not friendships.")
-                        .font(.appBody)
-                        .foregroundStyle(AppColors.textInverse.opacity(0.86))
-                }
-            }
+        VStack(spacing: AppSpacing.sm) {
+            XBillLogoMark(size: 72)
+            Text("xBill")
+                .font(.appDisplay)
+                .foregroundStyle(AppColors.textPrimary)
+            Text("Split expenses, not friendships.")
+                .font(.appBody)
+                .foregroundStyle(AppColors.textSecondary)
+                .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.top, AppSpacing.lg)
     }
 
     private var authCard: some View {

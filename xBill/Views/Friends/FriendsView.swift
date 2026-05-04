@@ -87,18 +87,9 @@ struct FriendsView: View {
                         friendList
                     }
                 }
-                .navigationTitle("Friends")
-                .navigationBarTitleDisplayMode(.large)
+                .toolbar(.hidden, for: .navigationBar)
                 .toolbarBackground(AppColors.background, for: .navigationBar)
                 .toolbarBackground(.visible, for: .navigationBar)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button { showAddFriend = true } label: {
-                            Image(systemName: "person.badge.plus")
-                        }
-                        .accessibilityLabel("Add Friend")
-                    }
-                }
                 .refreshable { await loadAll() }
                 .task { await loadAll() }
                 .errorAlert(error: $error)
@@ -132,6 +123,21 @@ struct FriendsView: View {
 
     private var friendList: some View {
         List {
+            Section {
+                XBillPageHeader(title: "Friends") {
+                    Button { showAddFriend = true } label: {
+                        Image(systemName: "person.badge.plus")
+                            .font(.title3)
+                            .foregroundStyle(AppColors.primary)
+                            .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                    }
+                    .accessibilityLabel("Add Friend")
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+
             if !pendingRequests.isEmpty {
                 Section("Requests (\(pendingRequests.count))") {
                     ForEach(pendingRequests) { requester in
@@ -166,13 +172,28 @@ struct FriendsView: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 0) {
+        XBillScreenContainer {
+            XBillPageHeader(title: "Friends") {
+                Button { showAddFriend = true } label: {
+                    Image(systemName: "person.badge.plus")
+                        .font(.title3)
+                        .foregroundStyle(AppColors.primary)
+                        .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                }
+                .accessibilityLabel("Add Friend")
+            }
+            .padding(.horizontal, -AppSpacing.lg)
+
+            XBillFriendsIllustration(size: 220)
+                .frame(maxWidth: .infinity)
+
             EmptyStateView(
                 icon: "person.2.fill",
                 title: "No Friends Yet",
                 message: "Add friends to track IOUs or split expenses outside of groups.",
                 actionLabel: "Add Friend",
-                action: { showAddFriend = true }
+                action: { showAddFriend = true },
+                illustration: .friends
             )
 
             if !contactSuggestions.isEmpty {

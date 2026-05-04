@@ -33,6 +33,24 @@ struct AddFriendView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    XBillPageHeader(
+                        title: "Add Friend",
+                        subtitle: "Find people by email, QR link, or contacts.",
+                        showsBackButton: true,
+                        backAction: { dismiss() }
+                    )
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+
+                    XBillFriendsIllustration(size: 210)
+                        .frame(maxWidth: .infinity)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+
                 if let user = preloadedUser {
                     preloadedSection(user)
                 }
@@ -46,15 +64,10 @@ struct AddFriendView: View {
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .background(AppColors.background.ignoresSafeArea())
-            .navigationTitle("Add Friend")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden()
+            .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
             .errorAlert(error: $error)
             .sheet(isPresented: $showContactPicker) {
                 ContactPickerRepresentable { emails in

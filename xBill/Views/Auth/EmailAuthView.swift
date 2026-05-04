@@ -16,11 +16,22 @@ struct EmailAuthView: View {
     private enum Field: Hashable { case email, password, confirm, name }
 
     var body: some View {
-        ZStack {
-            AppColors.background.ignoresSafeArea()
+        XBillScreenContainer(
+            horizontalPadding: AppSpacing.lg,
+            bottomPadding: AppSpacing.xxl
+        ) {
+            XBillPageHeader(
+                title: vm.isSigningUp ? "Create Account" : "Sign In",
+                subtitle: vm.isSigningUp ? "Use your name, email, and a secure password." : "Enter your xBill email and password.",
+                showsBackButton: true,
+                backAction: { dismiss() }
+            )
+            .padding(.horizontal, -AppSpacing.lg)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: AppSpacing.md) {
+            XBillWalletIllustration(size: 190)
+                .frame(maxWidth: .infinity)
+
+            VStack(alignment: .leading, spacing: AppSpacing.md) {
                     VStack(alignment: .leading, spacing: AppSpacing.xs) {
                         Text(vm.isSigningUp ? "Create your account" : "Sign in with email")
                             .font(.appH2)
@@ -29,7 +40,6 @@ struct EmailAuthView: View {
                             .font(.appBody)
                             .foregroundStyle(AppColors.textSecondary)
                     }
-
                     // Display Name (sign-up only)
                     if vm.isSigningUp {
                         XBillTextField(placeholder: "Your name", text: $vm.displayName)
@@ -102,13 +112,13 @@ struct EmailAuthView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                }
-                .xbillCard()
-                .padding(AppSpacing.md)
             }
+            .xbillCard()
         }
-        .navigationTitle(vm.isSigningUp ? "Create Account" : "Sign In")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarBackButtonHidden()
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .toolbarBackground(AppColors.background, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .errorAlert(item: $vm.errorAlert)

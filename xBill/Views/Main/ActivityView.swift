@@ -16,17 +16,23 @@ struct ActivityView: View {
                 if vm.isLoading && vm.items.isEmpty {
                     LoadingOverlay(message: "Loading activity…")
                 } else if vm.items.isEmpty {
-                    EmptyStateView(
-                        icon: "bell.fill",
-                        title: "No Activity Yet",
-                        message: "New expenses and settlements across your groups will appear here."
-                    )
+                    XBillScreenContainer {
+                        XBillPageHeader(title: "Notifications")
+                            .padding(.horizontal, -AppSpacing.lg)
+                        XBillEmptyStateIllustration(kind: .notifications, size: 220)
+                            .frame(maxWidth: .infinity)
+                        EmptyStateView(
+                            icon: "bell.fill",
+                            title: "No Activity Yet",
+                            message: "New expenses and settlements across your groups will appear here.",
+                            illustration: .notifications
+                        )
+                    }
                 } else {
                     activityList
                 }
             }
-            .navigationTitle("Notifications")
-            .navigationBarTitleDisplayMode(.large)
+            .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
@@ -68,6 +74,23 @@ struct ActivityView: View {
 
     private var activityList: some View {
         List {
+            Section {
+                XBillPageHeader(title: "Notifications") {
+                    if vm.hasUnread {
+                        Button("Mark All Read") {
+                            HapticManager.selection()
+                            vm.markAllRead()
+                        }
+                        .font(.appCaptionMedium)
+                        .foregroundStyle(AppColors.primary)
+                        .frame(minHeight: AppSpacing.tapTarget)
+                    }
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+
             ForEach(groupedItems, id: \.header) { section in
                 Section {
                     ForEach(section.items) { item in

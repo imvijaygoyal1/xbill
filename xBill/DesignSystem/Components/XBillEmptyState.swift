@@ -15,7 +15,7 @@ struct XBillEmptyState: View {
 
     var body: some View {
         VStack(spacing: AppSpacing.md) {
-            XBillEmptyStateIllustration(kind: illustration ?? defaultIllustration, size: 112)
+            XBillEmptyStateIllustration(kind: illustration ?? defaultIllustration, size: 200)
             VStack(spacing: AppSpacing.xs) {
                 Text(title)
                     .font(.appH2)

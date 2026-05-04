@@ -30,9 +30,18 @@ struct CreateGroupView: View {
 
     var body: some View {
         NavigationStack {
-            XBillScreenBackground {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: AppSpacing.lg) {
+            XBillScreenContainer(
+                horizontalPadding: AppSpacing.lg,
+                bottomPadding: AppSpacing.floatingActionBottomPadding
+            ) {
+                        XBillPageHeader(
+                            title: "New Group",
+                            subtitle: "Name your group, pick a visual, and choose a default currency.",
+                            showsBackButton: true,
+                            backAction: { dismiss() }
+                        )
+                        .padding(.horizontal, -AppSpacing.lg)
+
                         formSection("Group Name") {
                             XBillTextField(placeholder: "e.g. Weekend Trip", text: $name)
                                 .autocorrectionDisabled()
@@ -62,27 +71,20 @@ struct CreateGroupView: View {
                                 .font(.appCaption)
                                 .foregroundStyle(AppColors.textSecondary)
                         }
-                    }
-                    .padding(AppSpacing.md)
+            } stickyBottom: {
+                XBillPrimaryButton(
+                    title: "Create Group",
+                    icon: "checkmark",
+                    isLoading: isLoading,
+                    isDisabled: !canCreate
+                ) {
+                    Task { await create() }
                 }
+                .padding(AppSpacing.md)
+                .background(.ultraThinMaterial)
             }
-            .navigationTitle("New Group")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    if isLoading {
-                        ProgressView()
-                    } else {
-                        Button("Create") {
-                            Task { await create() }
-                        }
-                        .disabled(!canCreate)
-                    }
-                }
-            }
+            .navigationBarBackButtonHidden()
+            .toolbar(.hidden, for: .navigationBar)
         }
         .errorAlert(error: $error)
     }

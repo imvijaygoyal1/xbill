@@ -35,6 +35,15 @@ struct AddExpenseView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: XBillSpacing.xl) {
+                        XBillPageHeader(
+                            title: "Add Expense",
+                            subtitle: "Record what was paid and choose how to split it.",
+                            showsBackButton: true,
+                            backAction: { dismiss() }
+                        )
+
+                        XBillReceiptIllustration(size: 190)
+                            .frame(maxWidth: .infinity)
 
                         // MARK: Amount hero
                         VStack(spacing: XBillSpacing.xs) {
@@ -262,16 +271,10 @@ struct AddExpenseView: View {
                     .padding(.bottom, AppSpacing.floatingActionBottomPadding)
                 }
             }
-            .navigationTitle("Add Expense")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden()
+            .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color.brandPrimary)
-                }
-            }
             .safeAreaInset(edge: .bottom) {
                 XBillPrimaryButton(
                     title: "Save Expense",

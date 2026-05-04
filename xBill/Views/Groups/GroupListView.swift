@@ -36,29 +36,26 @@ struct GroupListView: View {
                 if vm.isLoading && vm.groups.isEmpty && vm.archivedGroups.isEmpty {
                     LoadingOverlay(message: "Loading groups…")
                 } else if vm.groups.isEmpty && vm.archivedGroups.isEmpty {
-                    EmptyStateView(
-                        icon: "person.3.fill",
-                        title: "No Groups Yet",
-                        message: "Create a group to start splitting expenses with friends.",
-                        actionLabel: "Create Group",
-                        action: { showCreateGroup = true }
-                    )
+                    XBillScreenContainer {
+                        XBillPageHeader(title: "Groups")
+                            .padding(.horizontal, -AppSpacing.lg)
+                        XBillSearchBar(placeholder: "Search groups", text: $searchText)
+                        EmptyStateView(
+                            icon: "person.3.fill",
+                            title: "No Groups Yet",
+                            message: "Create a group to start splitting expenses with friends.",
+                            actionLabel: "Create Group",
+                            action: { showCreateGroup = true },
+                            illustration: .groups
+                        )
+                    }
                 } else {
                     groupList
                 }
             }
-            .navigationTitle("Groups")
-            .navigationBarTitleDisplayMode(.large)
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search groups")
+            .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showCreateGroup = true } label: {
-                        Image(systemName: "plus.circle.fill").font(.title3)
-                    }
-                }
-            }
             .sheet(isPresented: $showCreateGroup) {
                 CreateGroupView { newGroup in
                     vm.groups.append(newGroup)
@@ -75,66 +72,62 @@ struct GroupListView: View {
     }
 
     private var groupList: some View {
-        List {
-            // Active groups
+        XBillScrollView {
+            XBillPageHeader(title: "Groups") {
+                Button { showCreateGroup = true } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(AppColors.primary)
+                        .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                }
+                .accessibilityLabel("Create Group")
+            }
+            .padding(.horizontal, -AppSpacing.lg)
+
+            XBillSearchBar(placeholder: "Search groups", text: $searchText)
+
             if !filteredGroups.isEmpty {
-                Section {
+                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                    sectionTitle("ACTIVE GROUPS")
                     ForEach(filteredGroups) { group in
-                        NavigationLink(value: group) {
-                            groupRow(group, isArchived: false)
-                        }
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                    }
-                    .onDelete { indexSet in
-                        for i in indexSet {
-                            let group = filteredGroups[i]
-                            Task { await vm.deleteGroup(group) }
-                        }
+                        NavigationLink(value: group) { groupRow(group, isArchived: false) }
+                            .buttonStyle(.plain)
                     }
                 }
             }
 
-            // Archived groups — collapsible section
             if !filteredArchivedGroups.isEmpty {
-                Section {
+                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                    Button {
+                        withAnimation { showArchived.toggle() }
+                    } label: {
+                        HStack {
+                            sectionTitle("ARCHIVED (\(filteredArchivedGroups.count))")
+                            Spacer()
+                            Image(systemName: showArchived ? "chevron.up" : "chevron.down")
+                                .font(.appCaptionMedium)
+                                .foregroundStyle(AppColors.textSecondary)
+                        }
+                        .frame(minHeight: AppSpacing.tapTarget)
+                    }
+                    .buttonStyle(.plain)
+
                     if showArchived {
                         ForEach(filteredArchivedGroups) { group in
-                            NavigationLink(value: group) {
-                                groupRow(group, isArchived: true)
-                            }
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .swipeActions(edge: .leading) {
-                                Button {
-                                    Task { await vm.unarchiveGroup(group) }
-                                } label: {
-                                    Label("Unarchive", systemImage: "tray.and.arrow.up")
+                            NavigationLink(value: group) { groupRow(group, isArchived: true) }
+                                .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button {
+                                        Task { await vm.unarchiveGroup(group) }
+                                    } label: {
+                                        Label("Unarchive", systemImage: "tray.and.arrow.up")
+                                    }
                                 }
-                                .tint(Color.brandPrimary)
-                            }
                         }
                     }
-                } header: {
-                    HStack {
-                            Text("ARCHIVED (\(filteredArchivedGroups.count))")
-                            .font(.appCaptionMedium)
-                            .tracking(1.08)
-                            .foregroundStyle(AppColors.textSecondary)
-                        Spacer()
-                        Image(systemName: showArchived ? "chevron.up" : "chevron.down")
-                            .font(.caption)
-                            .foregroundStyle(AppColors.textTertiary)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture { showArchived.toggle() }
                 }
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(AppColors.background)
-        .listRowSeparatorTint(AppColors.border)
         .navigationDestination(for: BillGroup.self) { group in
             if let userID = vm.currentUser?.id {
                 GroupDetailView(
@@ -156,6 +149,13 @@ struct GroupListView: View {
             trailing: isArchived ? "Archived" : nil
         )
         .opacity(isArchived ? 0.72 : 1)
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.appCaptionMedium)
+            .tracking(1.08)
+            .foregroundStyle(AppColors.textSecondary)
     }
 }
 

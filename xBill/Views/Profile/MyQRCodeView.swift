@@ -24,12 +24,25 @@ struct MyQRCodeView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: AppSpacing.xl) {
+            XBillScreenContainer(
+                horizontalPadding: AppSpacing.lg,
+                bottomPadding: AppSpacing.xxl
+            ) {
+                XBillPageHeader(
+                    title: "My QR Code",
+                    subtitle: "Share your code to let friends add you on xBill.",
+                    showsBackButton: true,
+                    backAction: { dismiss() }
+                )
+                .padding(.horizontal, -AppSpacing.lg)
+
+                XBillQRCodeIllustration(size: 210)
+                    .frame(maxWidth: .infinity)
+
                 Text("Share your code to let friends add you on xBill.")
                     .font(.appBody)
                     .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, AppSpacing.xl)
 
                 if let image = qrImage {
                     XBillQRCodeCard(image: image, label: "Scan to add \(displayName)")
@@ -47,19 +60,10 @@ struct MyQRCodeView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
             }
-            .padding(.top, AppSpacing.xl)
-            .padding(.horizontal, AppSpacing.md)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(AppColors.background.ignoresSafeArea())
-            .navigationTitle("My QR Code")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden()
+            .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
         }
     }
 

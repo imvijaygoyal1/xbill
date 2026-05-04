@@ -33,6 +33,7 @@ Design-system rules:
 - Tokens own colors, typography, spacing, radius, shadows, gradients, sizes, and state values.
 - Components own repeated UI and visual states.
 - Reusable visual assets own app illustrations and icon containers using SwiftUI shapes, SF Symbols, gradients, avatar circles, receipt/bill shapes, and tokenized surfaces. Do not introduce external PNG/JPG assets for these visuals.
+- `XBillPageHeader`, `XBillScreenContainer`, and `XBillScrollView` own page title, safe-area, scroll spacing, and sticky CTA behavior for redesigned screens. Main tabs should use in-content headers; modal/detail/form screens should use consistent custom headers/back placement or a deliberate navigation-bar pattern.
 - No hardcoded colors, font sizes, spacing values, radii, shadows, or gradients should remain inside screen files after migration.
 - Light and dark mode should be adaptive through tokens/components; do not create duplicate dark-mode screens.
 - QR code components must force black QR content on a white surface in every color scheme.

@@ -49,13 +49,12 @@ struct GroupDetailView: View {
                     content
                 }
             }
-            .navigationTitle(vm.group.name)
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarBackButtonHidden()
+            .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .tint(Color.brandPrimary)
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search expenses")
-            .toolbar { toolbar }
             .safeAreaInset(edge: .top) {
                 if !NetworkMonitor.shared.isConnected { OfflineBanner() }
             }
@@ -142,6 +141,14 @@ struct GroupDetailView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
+            XBillPageHeader(
+                title: vm.group.name,
+                subtitle: "\(vm.group.currency) group",
+                showsBackButton: true,
+                backAction: { dismiss() },
+                trailing: { groupMenu }
+            )
+
             groupSummaryHeader
 
             // Segmented picker
@@ -194,10 +201,6 @@ struct GroupDetailView: View {
         HStack(spacing: AppSpacing.md) {
             XBillAvatarPlaceholder(name: vm.group.emoji, size: 56)
             VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                Text(vm.group.name)
-                    .font(.appH2)
-                    .foregroundStyle(AppColors.textPrimary)
-                    .lineLimit(1)
                 HStack(spacing: AppSpacing.sm) {
                     XBillAvatarStack(users: vm.members, maxVisible: 4, size: 28)
                     Text("\(vm.members.count) member\(vm.members.count == 1 ? "" : "s")")
@@ -333,6 +336,61 @@ struct GroupDetailView: View {
     }
 
     // MARK: - Toolbar
+
+    private var groupMenu: some View {
+        Menu {
+            Button { showAddExpense = true } label: {
+                Label("Add Expense", systemImage: "plus")
+            }
+            Button { showStats = true } label: {
+                Label("Stats", systemImage: "chart.bar.fill")
+            }
+
+            Divider()
+
+            Menu {
+                Button { exportCSV() } label: {
+                    Label("Export CSV", systemImage: "tablecells")
+                }
+                Button { exportPDF() } label: {
+                    Label("Export PDF", systemImage: "doc.richtext")
+                }
+            } label: {
+                Label("Export", systemImage: "square.and.arrow.up")
+            }
+
+            Divider()
+
+            Button { showInvite = true } label: {
+                Label("Invite via Email", systemImage: "envelope")
+            }
+            Button { showInviteLink = true } label: {
+                Label("Invite via Link", systemImage: "qrcode")
+            }
+
+            Divider()
+
+            if vm.group.isArchived {
+                Button {
+                    showUnarchiveConfirm = true
+                } label: {
+                    Label("Unarchive Group", systemImage: "tray.and.arrow.up")
+                }
+            } else {
+                Button(role: .destructive) {
+                    showArchiveConfirm = true
+                } label: {
+                    Label("Archive Group", systemImage: "archivebox")
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.title3)
+                .foregroundStyle(AppColors.primary)
+                .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+        }
+        .accessibilityLabel("Group actions")
+    }
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {

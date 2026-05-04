@@ -49,6 +49,17 @@ struct AddIOUView: View {
             XBillScreenBackground {
                 ScrollView {
                     VStack(alignment: .leading, spacing: AppSpacing.lg) {
+                        XBillPageHeader(
+                            title: "Add IOU",
+                            subtitle: "Track a one-to-one balance with a friend.",
+                            showsBackButton: true,
+                            backAction: { dismiss() }
+                        )
+                        .padding(.horizontal, -AppSpacing.md)
+
+                        XBillReceiptIllustration(size: 210)
+                            .frame(maxWidth: .infinity)
+
                         amountHero
                         personSection
                         directionSection
@@ -58,15 +69,10 @@ struct AddIOUView: View {
                     .padding(.bottom, AppSpacing.floatingActionBottomPadding)
                 }
             }
-            .navigationTitle("Add IOU")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden()
+            .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
             .safeAreaInset(edge: .bottom) {
                 XBillPrimaryButton(
                     title: "Save IOU",
