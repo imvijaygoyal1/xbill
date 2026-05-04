@@ -186,7 +186,7 @@ Validation performed:
 - Light-mode screenshot spot check: Groups tab
 - Dark-mode screenshot spot checks: Friends empty state, Notifications empty state
 - Final full build after documentation updates: succeeded
-- Login UI regression validation: `xcodebuild test -scheme xBill -destination 'id=DA97985A-F7CC-44F6-8281-9DD24C22B978' -only-testing:xBillUITests/OnboardingUITests` passed 6 tests on 2026-05-04
+- Login UI regression validation: `xcodebuild test -scheme xBill -destination 'id=DA97985A-F7CC-44F6-8281-9DD24C22B978' -only-testing:xBillUITests/OnboardingUITests` passed 6 tests on 2026-05-04, including auth header identifiers and visible illustration accessibility identifiers
 - Visual asset system validation: `xcodegen generate`; Debug simulator build succeeded; installed and launched on simulator `DA97985A-F7CC-44F6-8281-9DD24C22B978`
 - Header/scroll consistency validation: `xcodegen generate`; Debug simulator build succeeded; installed and launched on simulator `DA97985A-F7CC-44F6-8281-9DD24C22B978`
 

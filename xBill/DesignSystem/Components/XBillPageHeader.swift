@@ -48,6 +48,7 @@ struct XBillPageHeader<Trailing: View>: View {
                     .font(.appH1)
                     .foregroundStyle(AppColors.textPrimary)
                     .lineLimit(2)
+                    .accessibilityIdentifier("xBill.pageHeader.title.\(title)")
                 if let subtitle {
                     Text(subtitle)
                         .font(.appBody)
@@ -83,4 +84,3 @@ extension XBillPageHeader where Trailing == EmptyView {
         )
     }
 }
-

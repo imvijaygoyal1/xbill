@@ -23,6 +23,7 @@ final class OnboardingUITests: XCTestCase {
     func testLoginEntryScreenDisplaysRedesignedContent() {
         XCTAssertTrue(app.staticTexts["xBill"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Split expenses, not friendships."].exists)
+        XCTAssertTrue(app.otherElements["xBill.splitBillIllustration"].exists)
         XCTAssertTrue(app.staticTexts["Welcome back"].exists)
         XCTAssertTrue(app.staticTexts["Sign in to split expenses with your groups and friends."].exists)
 
@@ -51,13 +52,14 @@ final class OnboardingUITests: XCTestCase {
         app.buttons["Continue with Email"].tap()
 
         // Verify sign-in screen
-        XCTAssertTrue(app.navigationBars["Sign In"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Sign In"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.otherElements["xBill.walletIllustration"].exists)
         XCTAssertTrue(app.staticTexts["Sign in with email"].exists)
         XCTAssertTrue(app.staticTexts["Enter your xBill email and password."].exists)
 
         // Switch to sign-up
         signUpToggle.tap()
-        XCTAssertTrue(app.navigationBars["Create Account"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Create Account"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["Create your account"].exists)
 
         // Fill in fields
@@ -110,11 +112,11 @@ final class OnboardingUITests: XCTestCase {
     func testToggleBetweenSignInAndSignUp() {
         app.buttons["Continue with Email"].tap()
 
-        XCTAssertTrue(app.navigationBars["Sign In"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Sign In"].waitForExistence(timeout: 3))
         signUpToggle.tap()
-        XCTAssertTrue(app.navigationBars["Create Account"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Create Account"].waitForExistence(timeout: 2))
         signInToggle.tap()
-        XCTAssertTrue(app.navigationBars["Sign In"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Sign In"].waitForExistence(timeout: 2))
     }
 
     // MARK: - Password Reset

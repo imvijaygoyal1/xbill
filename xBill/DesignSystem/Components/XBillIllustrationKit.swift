@@ -34,7 +34,9 @@ struct XBillSplitBillIllustration: View {
             .offset(y: size * 0.31)
         }
         .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Split bill illustration")
+        .accessibilityIdentifier("xBill.splitBillIllustration")
     }
 
     private var billCard: some View {
@@ -95,7 +97,9 @@ struct XBillWalletIllustration: View {
                 .offset(x: -size * 0.18, y: size * 0.04)
         }
         .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Wallet illustration")
+        .accessibilityIdentifier("xBill.walletIllustration")
     }
 }
 
@@ -128,7 +132,9 @@ struct XBillEmptyStateIllustration: View {
             foreground
         }
         .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Empty state illustration")
+        .accessibilityIdentifier("xBill.emptyStateIllustration")
     }
 
     @ViewBuilder
@@ -185,7 +191,9 @@ struct XBillFriendsIllustration: View {
             )
         }
         .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Friends illustration")
+        .accessibilityIdentifier("xBill.friendsIllustration")
     }
 }
 
@@ -206,7 +214,9 @@ struct XBillReceiptIllustration: View {
                 .offset(x: size * 0.24, y: size * 0.16)
         }
         .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Receipt illustration")
+        .accessibilityIdentifier("xBill.receiptIllustration")
     }
 }
 
@@ -224,7 +234,9 @@ struct XBillQRCodeIllustration: View {
             .frame(width: size * 0.58, height: size * 0.58)
         }
         .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("QR code illustration")
+        .accessibilityIdentifier("xBill.qrCodeIllustration")
     }
 
     private var qrPattern: some View {
@@ -241,4 +253,3 @@ struct XBillQRCodeIllustration: View {
         }
     }
 }
-
