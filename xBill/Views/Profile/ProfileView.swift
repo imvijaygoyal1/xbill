@@ -19,7 +19,7 @@ private struct ImagePicker: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.sourceType = .photoLibrary
-        picker.delegate   = context.coordinator
+        picker.delegate = context.coordinator
         return picker
     }
 
@@ -27,14 +27,17 @@ private struct ImagePicker: UIViewControllerRepresentable {
 
     final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
         let parent: ImagePicker
-        init(_ parent: ImagePicker) { self.parent = parent }
+
+        init(_ parent: ImagePicker) {
+            self.parent = parent
+        }
 
         func imagePickerController(
             _ picker: UIImagePickerController,
             didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
         ) {
             parent.selectedImage = info[.originalImage] as? UIImage
-            parent.isPresented   = false
+            parent.isPresented = false
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
@@ -49,196 +52,28 @@ struct ProfileView: View {
     @Bindable var vm: ProfileViewModel
     var onSignOut: (() -> Void)? = nil
 
-    @State private var isEditing          = false
-    @State private var showSignOutConfirm   = false
-    @State private var showDeleteConfirm    = false
+    @State private var isEditing = false
+    @State private var showSignOutConfirm = false
+    @State private var showDeleteConfirm = false
     @State private var selectedAvatar: UIImage? = nil
-    @State private var showAvatarPicker   = false
-    @State private var showPrivacy        = false
-    @State private var showTerms          = false
-    @State private var showMyQR           = false
+    @State private var showAvatarPicker = false
+    @State private var showPrivacy = false
+    @State private var showTerms = false
+    @State private var showMyQR = false
 
-    @AppStorage("prefPushExpense")    private var prefPushExpense    = true
+    @AppStorage("prefPushExpense") private var prefPushExpense = true
     @AppStorage("prefPushSettlement") private var prefPushSettlement = true
-    @AppStorage("prefPushComment")    private var prefPushComment    = true
+    @AppStorage("prefPushComment") private var prefPushComment = true
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    XBillPageHeader(title: "Profile")
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                }
-
-                // Avatar & name header
-                Section {
-                    XBillProfileCard(
-                        user: vm.user,
-                        initials: vm.initials,
-                        onEdit: { isEditing = true },
-                        onQR: { showMyQR = true }
-                    )
-                    .listRowInsets(EdgeInsets(top: AppSpacing.sm, leading: AppSpacing.md, bottom: AppSpacing.sm, trailing: AppSpacing.md))
-                    .listRowBackground(Color.clear)
-                }
-
-                // Stats
-                Section {
-                    statRow(label: "Groups",     value: "\(vm.totalGroupsCount)")
-                    statRow(label: "Expenses",   value: "\(vm.totalExpensesCount)")
-                    HStack {
-                        Text("Total Paid")
-                            .font(.xbillBodyMedium)
-                            .foregroundStyle(Color.textSecondary)
-                        Spacer()
-                        Text(vm.lifetimePaid.formatted(currencyCode: "USD"))
-                            .font(.xbillSmallAmount)
-                            .foregroundStyle(Color.textPrimary)
-                    }
-                    .listRowBackground(Color.bgCard)
-                } header: {
-                    Text("YOUR STATS")
-                        .font(.xbillUpperLabel)
-                        .tracking(1.08)
-                        .foregroundStyle(Color.textTertiary)
-                }
-
-                // Payment handles
-                Section {
-                    VStack(alignment: .leading, spacing: XBillSpacing.sm) {
-                        HStack(spacing: XBillSpacing.sm) {
-                            Image(systemName: "dollarsign.circle.fill")
-                                .foregroundStyle(Color.brandAccent)
-                            Text("Venmo").font(.xbillLabel).foregroundStyle(Color.textSecondary)
-                        }
-                        XBillTextField(placeholder: "@venmo-handle", text: $vm.venmoHandle)
-                    }
-                    .listRowBackground(Color.bgCard)
-                    .listRowSeparatorTint(Color.separator)
-
-                    VStack(alignment: .leading, spacing: XBillSpacing.sm) {
-                        HStack(spacing: XBillSpacing.sm) {
-                            Image(systemName: "p.circle.fill")
-                                .foregroundStyle(Color.brandAccent)
-                            Text("PayPal").font(.xbillLabel).foregroundStyle(Color.textSecondary)
-                        }
-                        XBillTextField(placeholder: "paypal@email.com", text: $vm.paypalEmail, keyboardType: .emailAddress)
-                    }
-                    .listRowBackground(Color.bgCard)
-                } header: {
-                    Text("PAYMENT HANDLES")
-                        .font(.xbillUpperLabel)
-                        .tracking(1.08)
-                        .foregroundStyle(Color.textTertiary)
-                }
-
-                // Notifications
-                Section {
-                    Toggle(isOn: $prefPushExpense) {
-                        Label("New Expenses", systemImage: "plus.circle")
-                            .font(.xbillBodyMedium)
-                            .foregroundStyle(Color.textPrimary)
-                    }
-                    .tint(Color.brandPrimary)
-                    .listRowBackground(Color.bgCard)
-
-                    Toggle(isOn: $prefPushSettlement) {
-                        Label("Settlements", systemImage: "checkmark.seal")
-                            .font(.xbillBodyMedium)
-                            .foregroundStyle(Color.textPrimary)
-                    }
-                    .tint(Color.brandPrimary)
-                    .listRowBackground(Color.bgCard)
-
-                    Toggle(isOn: $prefPushComment) {
-                        Label("Comments", systemImage: "bubble.left")
-                            .font(.xbillBodyMedium)
-                            .foregroundStyle(Color.textPrimary)
-                    }
-                    .tint(Color.brandPrimary)
-                    .listRowBackground(Color.bgCard)
-                } header: {
-                    Text("NOTIFICATIONS")
-                        .font(.xbillUpperLabel)
-                        .tracking(1.08)
-                        .foregroundStyle(Color.textTertiary)
-                }
-
-                // Security
-                Section {
-                    Toggle(isOn: Binding(
-                        get: { AppLockService.shared.isEnabled },
-                        set: { AppLockService.shared.isEnabled = $0 }
-                    )) {
-                        Label("Require Face ID / Passcode", systemImage: AppLockService.shared.lockIconName)
-                            .font(.xbillBodyMedium)
-                            .foregroundStyle(Color.textPrimary)
-                    }
-                    .tint(Color.brandPrimary)
-                    .listRowBackground(Color.bgCard)
-                } header: {
-                    Text("SECURITY")
-                        .font(.xbillUpperLabel)
-                        .tracking(1.08)
-                        .foregroundStyle(Color.textTertiary)
-                }
-
-                // Sign out + Delete account
-                Section {
-                    XBillButton(title: "Sign Out", style: .ghost) {
-                        showSignOutConfirm = true
-                    }
-                    .foregroundStyle(Color.moneyNegative)
-                    .listRowBackground(Color.bgCard)
-                    .listRowSeparator(.hidden)
-
-                    Button(role: .destructive) {
-                        showDeleteConfirm = true
-                    } label: {
-                        Label("Delete account", systemImage: "trash")
-                            .font(.xbillBodyMedium)
-                            .foregroundStyle(Color.moneyNegative)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 4)
-                    }
-                    .listRowBackground(Color.bgCard)
-                }
-
-                // Footer
-                Section {
-                    VStack(spacing: 6) {
-                        HStack(spacing: XBillSpacing.base) {
-                            Button("Terms of Service") { showTerms = true }
-                                .font(.xbillCaption)
-                                .foregroundStyle(Color.textTertiary)
-                                .underline()
-
-                            Button("Privacy Policy") { showPrivacy = true }
-                                .font(.xbillCaption)
-                                .foregroundStyle(Color.textTertiary)
-                                .underline()
-                        }
-                        .buttonStyle(.plain)
-
-                        Text("xBill v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
-                            .font(.xbillCaption)
-                            .foregroundStyle(Color.textTertiary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 16)
-                    .padding(.bottom, 8)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .safariSheet(isPresented: $showPrivacy, url: XBillURLs.privacyPolicy)
-                    .sheet(isPresented: $showTerms) { TermsOfServiceView() }
-                }
+            XBillScreenContainer(
+                horizontalPadding: AppSpacing.lg,
+                contentSpacing: AppSpacing.xl,
+                bottomPadding: AppSpacing.floatingActionBottomPadding
+            ) {
+                profileContent
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .background(AppColors.background)
-            .listRowSeparatorTint(AppColors.border)
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
@@ -247,12 +82,24 @@ struct ProfileView: View {
             .sheet(isPresented: $isEditing) {
                 editSheet
             }
+            .sheet(isPresented: $showMyQR) {
+                if let userID = vm.user?.id {
+                    MyQRCodeView(userID: userID, displayName: vm.user?.displayName ?? "")
+                }
+            }
+            .safariSheet(isPresented: $showPrivacy, url: XBillURLs.privacyPolicy)
+            .sheet(isPresented: $showTerms) {
+                TermsOfServiceView()
+            }
             .confirmationDialog("Sign out?", isPresented: $showSignOutConfirm, titleVisibility: .visible) {
                 Button("Sign Out", role: .destructive) {
-                    if let onSignOut { onSignOut() }
-                    else { Task { await vm.signOut() } }
+                    if let onSignOut {
+                        onSignOut()
+                    } else {
+                        Task { await vm.signOut() }
+                    }
                 }
-                Button("Cancel", role: .cancel) { }
+                Button("Cancel", role: .cancel) {}
             }
             .confirmationDialog(
                 "Delete your account?",
@@ -262,12 +109,166 @@ struct ProfileView: View {
                 Button("Delete account", role: .destructive) {
                     Task { await vm.deleteAccount() }
                 }
-                Button("Cancel", role: .cancel) { }
+                Button("Cancel", role: .cancel) {}
             } message: {
                 Text("This permanently removes your profile and signs you out. Expenses you created will remain in your groups.")
             }
         }
         .errorAlert(item: $vm.errorAlert)
+    }
+
+    private var profileContent: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.xl) {
+            XBillScreenHeader(title: "Profile")
+                .padding(.horizontal, -AppSpacing.lg)
+
+            XBillProfileCard(
+                user: vm.user,
+                initials: vm.initials,
+                onEdit: { isEditing = true },
+                onQR: { showMyQR = true }
+            )
+
+            profileSection("Your Stats") {
+                XBillStatsCard(items: [
+                    .init(title: "Groups", value: "\(vm.totalGroupsCount)"),
+                    .init(title: "Expenses", value: "\(vm.totalExpensesCount)"),
+                    .init(title: "Total Paid", value: vm.lifetimePaid.formatted(currencyCode: "USD"))
+                ])
+            }
+
+            profileSection("Payment Handles") {
+                XBillFormSection {
+                    VStack(spacing: AppSpacing.lg) {
+                        XBillPaymentHandleRow(
+                            providerName: "Venmo",
+                            systemImage: "dollarsign.circle.fill",
+                            placeholder: "@venmo-handle",
+                            text: $vm.venmoHandle
+                        )
+
+                        Divider()
+                            .overlay(AppColors.border)
+
+                        XBillPaymentHandleRow(
+                            providerName: "PayPal",
+                            systemImage: "p.circle.fill",
+                            placeholder: "paypal@email.com",
+                            text: $vm.paypalEmail,
+                            keyboardType: .emailAddress
+                        )
+                    }
+                }
+            }
+
+            profileSection("Notifications") {
+                XBillFormSection {
+                    VStack(spacing: AppSpacing.sm) {
+                        XBillSettingsRow(icon: "plus.circle", title: "New Expenses") {
+                            Toggle("", isOn: $prefPushExpense)
+                                .labelsHidden()
+                                .tint(AppColors.primary)
+                        }
+
+                        Divider()
+                            .overlay(AppColors.border)
+
+                        XBillSettingsRow(icon: "checkmark.seal", title: "Settlements") {
+                            Toggle("", isOn: $prefPushSettlement)
+                                .labelsHidden()
+                                .tint(AppColors.primary)
+                        }
+
+                        Divider()
+                            .overlay(AppColors.border)
+
+                        XBillSettingsRow(icon: "bubble.left", title: "Comments") {
+                            Toggle("", isOn: $prefPushComment)
+                                .labelsHidden()
+                                .tint(AppColors.primary)
+                        }
+                    }
+                }
+            }
+
+            profileSection("Security") {
+                XBillFormSection {
+                    XBillSettingsRow(
+                        icon: AppLockService.shared.lockIconName,
+                        title: "Require Face ID / Passcode"
+                    ) {
+                        Toggle(
+                            "",
+                            isOn: Binding(
+                                get: { AppLockService.shared.isEnabled },
+                                set: { AppLockService.shared.isEnabled = $0 }
+                            )
+                        )
+                        .labelsHidden()
+                        .tint(AppColors.primary)
+                    }
+                }
+            }
+
+            profileSection("Account") {
+                XBillFormSection {
+                    VStack(spacing: AppSpacing.sm) {
+                        XBillSettingsRow(
+                            icon: "rectangle.portrait.and.arrow.right",
+                            title: "Sign Out",
+                            isDestructive: true,
+                            action: { showSignOutConfirm = true }
+                        )
+
+                        Divider()
+                            .overlay(AppColors.border)
+
+                        XBillSettingsRow(
+                            icon: "trash",
+                            title: "Delete account",
+                            subtitle: "Permanently remove your profile.",
+                            isDestructive: true,
+                            action: { showDeleteConfirm = true }
+                        )
+                    }
+                }
+            }
+
+            footer
+        }
+    }
+
+    private func profileSection<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            XBillSectionHeader(title)
+            content()
+        }
+    }
+
+    private var footer: some View {
+        VStack(spacing: AppSpacing.sm) {
+            HStack(spacing: AppSpacing.md) {
+                Button("Terms of Service") { showTerms = true }
+                    .font(.appCaption)
+                    .foregroundStyle(AppColors.textTertiary)
+                    .underline()
+
+                Button("Privacy Policy") { showPrivacy = true }
+                    .font(.appCaption)
+                    .foregroundStyle(AppColors.textTertiary)
+                    .underline()
+            }
+            .buttonStyle(.plain)
+
+            Text("xBill v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
+                .font(.appCaption)
+                .foregroundStyle(AppColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, AppSpacing.md)
     }
 
     // MARK: - Edit Sheet
@@ -278,52 +279,49 @@ struct ProfileView: View {
                 horizontalPadding: AppSpacing.lg,
                 bottomPadding: AppSpacing.floatingActionBottomPadding
             ) {
-                    XBillPageHeader(
-                        title: "Edit Profile",
-                        subtitle: "Update your display name and avatar.",
-                        showsBackButton: true,
-                        backAction: {
-                            selectedAvatar = nil
-                            isEditing = false
-                        }
-                    )
-                    .padding(.horizontal, -AppSpacing.lg)
+                XBillPageHeader(
+                    title: "Edit Profile",
+                    subtitle: "Update your display name and avatar.",
+                    showsBackButton: true,
+                    backAction: {
+                        selectedAvatar = nil
+                        isEditing = false
+                    }
+                )
+                .padding(.horizontal, -AppSpacing.lg)
 
-                    // Avatar picker
-                    Button {
-                        showAvatarPicker = true
-                    } label: {
-                        ZStack(alignment: .bottomTrailing) {
-                            Group {
-                                if let selected = selectedAvatar {
-                                    Image(uiImage: selected)
-                                        .resizable()
-                                        .scaledToFill()
-                                } else {
-                                    AvatarView(name: vm.initials, url: vm.user?.avatarURL, size: XBillIcon.avatarLg)
-                                }
+                Button {
+                    showAvatarPicker = true
+                } label: {
+                    ZStack(alignment: .bottomTrailing) {
+                        Group {
+                            if let selected = selectedAvatar {
+                                Image(uiImage: selected)
+                                    .resizable()
+                                    .scaledToFill()
+                            } else {
+                                AvatarView(name: vm.initials, url: vm.user?.avatarURL, size: XBillIcon.avatarLg)
                             }
-                            .frame(width: XBillIcon.avatarLg, height: XBillIcon.avatarLg)
-                            .clipShape(Circle())
-
-                            Image(systemName: "camera.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(Color.textInverse, Color.brandPrimary)
-                                .offset(x: 4, y: 4)
                         }
-                    }
-                    .buttonStyle(.plain)
+                        .frame(width: XBillIcon.avatarLg, height: XBillIcon.avatarLg)
+                        .clipShape(Circle())
 
-                    VStack(alignment: .leading, spacing: XBillSpacing.xs) {
-                        Text("DISPLAY NAME")
-                            .font(.xbillUpperLabel)
-                            .tracking(1.08)
-                            .foregroundStyle(Color.textTertiary)
-                        XBillTextField(placeholder: "Your name", text: $vm.displayName)
+                        Image(systemName: "camera.circle.fill")
+                            .font(.appH2)
+                            .foregroundStyle(AppColors.textInverse, AppColors.primary)
+                            .offset(x: AppSpacing.xs, y: AppSpacing.xs)
                     }
-                    .padding(.horizontal, XBillSpacing.xl)
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+                .accessibilityLabel("Choose profile photo")
 
-                    Spacer()
+                VStack(alignment: .leading, spacing: AppSpacing.md) {
+                    XBillSectionHeader("Display Name")
+                    XBillTextField(placeholder: "Your name", text: $vm.displayName)
+                }
+
+                Spacer()
             } stickyBottom: {
                 XBillPrimaryButton(
                     title: "Save",
@@ -348,30 +346,15 @@ struct ProfileView: View {
                 ImagePicker(selectedImage: $selectedAvatar, isPresented: $showAvatarPicker)
                     .ignoresSafeArea()
             }
-            .sheet(isPresented: $showMyQR) {
-                if let userID = vm.user?.id {
-                    MyQRCodeView(userID: userID, displayName: vm.user?.displayName ?? "")
-                }
-            }
         }
-    }
-
-    // MARK: - Helpers
-
-    private func statRow(label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-                .font(.xbillBodyMedium)
-                .foregroundStyle(Color.textSecondary)
-            Spacer()
-            Text(value)
-                .font(.xbillBodyMedium)
-                .foregroundStyle(Color.textPrimary)
-        }
-        .listRowBackground(Color.bgCard)
     }
 }
 
-#Preview {
+#Preview("Profile") {
     ProfileView(vm: ProfileViewModel())
+}
+
+#Preview("Profile Dark") {
+    ProfileView(vm: ProfileViewModel())
+        .preferredColorScheme(.dark)
 }

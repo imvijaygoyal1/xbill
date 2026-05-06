@@ -145,6 +145,7 @@
 		D8D65B0D644476ADCBE28A91 /* ExpenseRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4185D86CF6ECFD00EC25628 /* ExpenseRowView.swift */; };
 		DAB302C17B6B417FB39D1EE3 /* AddFriendView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B9FF479E846C270FE56177E /* AddFriendView.swift */; };
 		DB3CA3E4E92BBA9FA06C0685 /* GroupFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03B23885DCEF8D3A2862BDCF /* GroupFlowUITests.swift */; };
+		DC64FF7E5EC733C546F4484A /* XBillProfilePrimitives.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48D7C0BA48229A9BAB246A08 /* XBillProfilePrimitives.swift */; };
 		E02E33C577B484FF78380CF1 /* JoinGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F05A200F1E19E50323CFDE /* JoinGroupView.swift */; };
 		E22E2E9ADD3596691B8F0CC4 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A34645B53CEA1FC51CD867B1 /* OnboardingView.swift */; };
 		E242F2571DF59CECE27D0ED4 /* PaymentLinkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F57D9E8BA76933667996CC /* PaymentLinkService.swift */; };
@@ -242,6 +243,7 @@
 		46030FF3CE3722DB807BD7BA /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		47F58D4BA74441B823AEDCE2 /* XBillButtons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillButtons.swift; sourceTree = "<group>"; };
 		482A03C4A082448A734C4FDD /* XBillButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillButton.swift; sourceTree = "<group>"; };
+		48D7C0BA48229A9BAB246A08 /* XBillProfilePrimitives.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillProfilePrimitives.swift; sourceTree = "<group>"; };
 		49346A72F30D057EC2177A69 /* XBillURLs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillURLs.swift; sourceTree = "<group>"; };
 		49E9AD0A279EB2FED9B14022 /* XBillFonts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFonts.swift; sourceTree = "<group>"; };
 		4BE26925670AA40279463526 /* Split.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Split.swift; sourceTree = "<group>"; };
@@ -657,6 +659,7 @@
 				F3579B0A2FDA39F331B61D49 /* XBillNotificationRow.swift */,
 				195902F3C820CD0AB3116E00 /* XBillPageHeader.swift */,
 				D2BBA23A015BEE1CCBE5392C /* XBillProfileCard.swift */,
+				48D7C0BA48229A9BAB246A08 /* XBillProfilePrimitives.swift */,
 				D55D6EDD4C2EB65B14D29FF5 /* XBillQRCodeCard.swift */,
 				8380D1A736B5D9F59DDC7EF6 /* XBillScreenBackground.swift */,
 				84E7B455C79947887A00B52C /* XBillScreenContainer.swift */,
@@ -1050,6 +1053,7 @@
 				02E8CE55B58B350C5A15C09E /* XBillNotificationRow.swift in Sources */,
 				3F879424261CA71642B73106 /* XBillPageHeader.swift in Sources */,
 				91571F84348F2C58B94FE7C4 /* XBillProfileCard.swift in Sources */,
+				DC64FF7E5EC733C546F4484A /* XBillProfilePrimitives.swift in Sources */,
 				FD31DEEE04448BBB74F48A81 /* XBillQRCodeCard.swift in Sources */,
 				3CA6A27BDADD855AC8D4BC47 /* XBillScreenBackground.swift in Sources */,
 				0ED0F8DD0E0626E4896A8F57 /* XBillScreenContainer.swift in Sources */,

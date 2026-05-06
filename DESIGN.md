@@ -45,6 +45,7 @@ xBill/
       XBillFriendRow.swift
       XBillNotificationRow.swift
       XBillProfileCard.swift
+      XBillProfilePrimitives.swift
       XBillEmptyState.swift
       XBillPrimaryButton.swift
       XBillSecondaryButton.swift
@@ -173,6 +174,7 @@ Completed fixes:
 - Friends was sharpened in place: duplicated empty-state art was replaced with one `XBillEmptyState` using `XBillIllustrationCard`; the screen now uses `XBillScreenHeader`, `XBillScrollView`, `XBillSectionHeader`, and enhanced `XBillFriendRow` cards while preserving Add Friend, Add IOU, pending requests, refresh, and friend-detail navigation.
 - Add Friend was sharpened in place: the legacy `List`/section styling was replaced with `XBillScreenContainer`, `XBillDetailHeader`, one `XBillIllustrationCard`, `XBillSearchBar`, `XBillActionRow`, `XBillFriendRow`, compact no-results `XBillEmptyState`, and `XBillPillButton`; search, contact import, QR-link sharing, app invite, preloaded QR deep-link users, and Add/Pending actions are preserved.
 - Notifications was sharpened in place: the legacy `List`/local notification row and duplicated empty-state artwork were replaced with `XBillScreenHeader`, `XBillScreenContainer`, `XBillScrollView`, `XBillEmptyState`, `XBillSectionHeader`, and reusable `XBillNotificationRow`; unread grouping, mark-all-read, refresh, loading, empty state, and notification store behavior are preserved.
+- Profile was sharpened in place: the legacy `List`/local settings rows were replaced with `XBillScreenContainer`, `XBillScreenHeader`, enhanced `XBillProfileCard`, `XBillStatsCard`, `XBillFormSection`, `XBillPaymentHandleRow`, and `XBillSettingsRow`; edit profile, QR, payment handles, notification toggles, app lock, sign out, delete account, legal links, refresh, and stats behavior are preserved.
 - Top navigation chrome now uses adaptive `AppColors.background`; near-black styling is reserved for the custom bottom tab bar.
 - Group Details uses `XBillSegmentedControl` for Expenses/Balances/Settle Up.
 - Add Expense uses a sticky full-width `Save Expense` action and 44pt+ category/share controls.
@@ -256,7 +258,7 @@ Use `XBillScreenHeader` with title "Notifications", `XBillEmptyState` with a sin
 
 ### Profile
 
-Use top profile card with avatar, name, email, edit button, QR button, stats cards, payment handles, settings rows, and bottom nav. Preserve sign out, account deletion, notification toggles, app lock, legal links, and profile stats.
+Use `XBillScreenHeader`, `XBillProfileCard`, `XBillStatsCard`, `XBillFormSection`, `XBillPaymentHandleRow`, and `XBillSettingsRow`. Preserve native tab-bar behavior, sign out, account deletion, notification toggles, app lock, legal links, QR flow, edit profile flow, payment handles, refresh, and profile stats. Email should stay single-line with graceful truncation.
 
 ### New Group
 
