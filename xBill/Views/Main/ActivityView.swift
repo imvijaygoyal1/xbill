@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ActivityView: View {
     @Bindable var vm: ActivityViewModel
+    @State private var selectedItem: NotificationItem?
 
     var body: some View {
         NavigationStack {
@@ -26,16 +27,30 @@ struct ActivityView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .task { await vm.load() }
             .refreshable { await vm.load() }
-            .onAppear {
-                if vm.hasUnread { vm.markAllRead() }
+            .onAppear { vm.refreshUnreadCount() }
+            .sheet(item: $selectedItem) { item in
+                NotificationDetailSheet(
+                    item: currentItem(for: item) ?? item,
+                    isUnread: !(currentItem(for: item)?.isRead ?? item.isRead),
+                    markRead: {
+                        vm.markRead(item)
+                        selectedItem = currentItem(for: item)
+                    },
+                    markUnread: {
+                        vm.markUnread(item)
+                        selectedItem = currentItem(for: item)
+                    },
+                    delete: {
+                        vm.delete(item)
+                        selectedItem = nil
+                    }
+                )
             }
         }
         .errorAlert(item: $vm.errorAlert)
     }
 
     // MARK: - Grouped list
-
-    private var lastViewed: Date { NotificationStore.shared.lastViewedAt() }
 
     private var groupedItems: [(header: String, items: [NotificationItem])] {
         let calendar = Calendar.current
@@ -81,10 +96,7 @@ struct ActivityView: View {
                 VStack(alignment: .leading, spacing: AppSpacing.md) {
                     XBillSectionHeader(section.header)
                     ForEach(section.items) { item in
-                        XBillNotificationRow(
-                            item: item,
-                            isUnread: item.createdAt > lastViewed
-                        )
+                        notificationButton(for: item)
                     }
                 }
             }
@@ -109,6 +121,148 @@ struct ActivityView: View {
             }
         }
         .padding(.horizontal, -AppSpacing.lg)
+    }
+
+    private func notificationButton(for item: NotificationItem) -> some View {
+        Button {
+            HapticManager.selection()
+            vm.markRead(item)
+            selectedItem = currentItem(for: item) ?? item
+        } label: {
+            XBillNotificationRow(
+                item: item,
+                isUnread: !item.isRead,
+                showsChevron: true
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens notification details")
+        .contextMenu {
+            if item.isRead {
+                Button {
+                    vm.markUnread(item)
+                } label: {
+                    Label("Mark Unread", systemImage: "envelope.badge")
+                }
+            } else {
+                Button {
+                    vm.markRead(item)
+                } label: {
+                    Label("Mark Read", systemImage: "envelope.open")
+                }
+            }
+
+            Button(role: .destructive) {
+                vm.delete(item)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            if item.isRead {
+                Button {
+                    vm.markUnread(item)
+                } label: {
+                    Label("Mark Unread", systemImage: "envelope.badge")
+                }
+                .tint(AppColors.primary)
+            } else {
+                Button {
+                    vm.markRead(item)
+                } label: {
+                    Label("Mark Read", systemImage: "envelope.open")
+                }
+                .tint(AppColors.success)
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                vm.delete(item)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    private func currentItem(for item: NotificationItem) -> NotificationItem? {
+        vm.items.first { $0.id == item.id }
+    }
+}
+
+private struct NotificationDetailSheet: View {
+    let item: NotificationItem
+    let isUnread: Bool
+    let markRead: () -> Void
+    let markUnread: () -> Void
+    let delete: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            XBillScreenContainer(
+                horizontalPadding: AppSpacing.lg,
+                contentSpacing: AppSpacing.xl,
+                bottomPadding: AppSpacing.xl
+            ) {
+                XBillPageHeader(
+                    title: "Alert Details",
+                    subtitle: item.createdAt.formatted(date: .abbreviated, time: .shortened),
+                    showsBackButton: true,
+                    backAction: { dismiss() }
+                )
+                .padding(.horizontal, -AppSpacing.lg)
+
+                XBillNotificationRow(item: item, isUnread: isUnread)
+
+                detailSection
+
+                VStack(spacing: AppSpacing.md) {
+                    if isUnread {
+                        XBillPrimaryButton(title: "Mark Read", icon: "envelope.open") {
+                            markRead()
+                        }
+                    } else {
+                        XBillSecondaryButton(title: "Mark Unread", icon: "envelope.badge") {
+                            markUnread()
+                        }
+                    }
+
+                    XBillSecondaryButton(title: "Delete Alert", icon: "trash") {
+                        delete()
+                    }
+                }
+            }
+            .toolbar(.hidden, for: .navigationBar)
+        }
+    }
+
+    private var detailSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            XBillSectionHeader("Details")
+            VStack(alignment: .leading, spacing: AppSpacing.md) {
+                detailRow("Title", item.title)
+                Divider().overlay(AppColors.border)
+                detailRow("Context", item.subtitle)
+                Divider().overlay(AppColors.border)
+                detailRow("Amount", item.amount.formatted(currencyCode: item.currency))
+                Divider().overlay(AppColors.border)
+                detailRow("Status", isUnread ? "Unread" : "Read")
+            }
+            .xbillCard()
+        }
+    }
+
+    private func detailRow(_ title: String, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: AppSpacing.md) {
+            Text(title)
+                .font(.appCaptionMedium)
+                .foregroundStyle(AppColors.textSecondary)
+            Spacer(minLength: AppSpacing.md)
+            Text(value)
+                .font(.appBody)
+                .foregroundStyle(AppColors.textPrimary)
+                .multilineTextAlignment(.trailing)
+        }
     }
 }
 

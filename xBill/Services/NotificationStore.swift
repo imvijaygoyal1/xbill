@@ -10,7 +10,7 @@ import Foundation
 // MARK: - NotificationStore
 // Local-first persistence for in-app notification history.
 // All items survive offline / killed-app restarts via App Group UserDefaults.
-// Read state is tracked per session via lastViewedAt timestamp.
+// Read state is stored per item. lastViewedAt remains for older data/logic compatibility.
 
 final class NotificationStore: @unchecked Sendable {
     static let shared = NotificationStore()
@@ -48,10 +48,15 @@ final class NotificationStore: @unchecked Sendable {
         let existingIDs = Set(existing.map(\.id))
         let toAdd       = newItems.filter { !existingIDs.contains($0.id) }
         existing.insert(contentsOf: toAdd, at: 0)
-        existing = Array(existing.sorted { $0.createdAt > $1.createdAt }.prefix(maxCount))
-        guard let plain = try? encoder.encode(existing) else { return }
-        let data = CacheService.encrypt(plain) ?? plain
-        CacheService.defaults.set(data, forKey: itemsKey)
+        save(existing)
+    }
+
+    func delete(id: UUID) {
+        save(loadAll().filter { $0.id != id })
+    }
+
+    func clearItems() {
+        CacheService.defaults.removeObject(forKey: itemsKey)
     }
 
     // MARK: - Read tracking
@@ -62,12 +67,25 @@ final class NotificationStore: @unchecked Sendable {
     }
 
     func markAllRead() {
+        let updated = loadAll().map { item in
+            var copy = item
+            copy.isRead = true
+            return copy
+        }
+        save(updated)
         CacheService.defaults.set(Date().timeIntervalSince1970, forKey: lastViewedKey)
     }
 
+    func markRead(id: UUID) {
+        updateReadState(id: id, isRead: true)
+    }
+
+    func markUnread(id: UUID) {
+        updateReadState(id: id, isRead: false)
+    }
+
     func unreadCount() -> Int {
-        let lastViewed = lastViewedAt()
-        return loadAll().filter { $0.createdAt > lastViewed }.count
+        loadAll().filter { !$0.isRead }.count
     }
 
     // MARK: - Test support
@@ -75,5 +93,24 @@ final class NotificationStore: @unchecked Sendable {
     func clearAll() {
         CacheService.defaults.removeObject(forKey: itemsKey)
         CacheService.defaults.removeObject(forKey: lastViewedKey)
+    }
+
+    // MARK: - Private
+
+    private func updateReadState(id: UUID, isRead: Bool) {
+        let updated = loadAll().map { item in
+            guard item.id == id else { return item }
+            var copy = item
+            copy.isRead = isRead
+            return copy
+        }
+        save(updated)
+    }
+
+    private func save(_ items: [NotificationItem]) {
+        let capped = Array(items.sorted { $0.createdAt > $1.createdAt }.prefix(maxCount))
+        guard let plain = try? encoder.encode(capped) else { return }
+        let data = CacheService.encrypt(plain) ?? plain
+        CacheService.defaults.set(data, forKey: itemsKey)
     }
 }

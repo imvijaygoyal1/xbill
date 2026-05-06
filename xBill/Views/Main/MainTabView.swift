@@ -69,6 +69,7 @@ struct MainTabView: View {
             await homeVM.loadCurrentUser()
             await homeVM.loadAll()
             await profileVM.load()
+            await activityVM.load()
             let status = await NotificationService.shared.authorizationStatus()
             if status == .authorized || status == .provisional {
                 UIApplication.shared.registerForRemoteNotifications()
@@ -148,6 +149,9 @@ struct MainTabView: View {
                     preloadedUser: addFriendPreloadedUser
                 ) { }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            Task { await activityVM.load() }
         }
     }
 }

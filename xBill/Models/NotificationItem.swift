@@ -26,6 +26,8 @@ struct NotificationItem: Identifiable, Sendable, Codable {
     let category: Expense.Category
     let createdAt: Date
     var isRead: Bool
+    let groupID: UUID?
+    let expenseID: UUID?
 
     init(
         id: UUID,
@@ -36,7 +38,9 @@ struct NotificationItem: Identifiable, Sendable, Codable {
         currency: String,
         category: Expense.Category,
         createdAt: Date,
-        isRead: Bool = false
+        isRead: Bool = false,
+        groupID: UUID? = nil,
+        expenseID: UUID? = nil
     ) {
         self.id        = id
         self.eventType = eventType
@@ -47,6 +51,8 @@ struct NotificationItem: Identifiable, Sendable, Codable {
         self.category  = category
         self.createdAt = createdAt
         self.isRead    = isRead
+        self.groupID   = groupID
+        self.expenseID = expenseID
     }
 }
 
@@ -67,7 +73,9 @@ extension NotificationItem {
             amount:    expense.amount,
             currency:  expense.currency,
             category:  expense.category,
-            createdAt: expense.createdAt
+            createdAt: expense.createdAt,
+            groupID:   expense.groupID,
+            expenseID: expense.id
         )
     }
 

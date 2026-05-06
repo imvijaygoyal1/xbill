@@ -37,5 +37,32 @@ final class ActivityViewModel {
         unreadCount = 0
     }
 
+    func markRead(_ item: NotificationItem) {
+        store.markRead(id: item.id)
+        replace(item.id) { $0.isRead = true }
+        refreshUnreadCount()
+    }
+
+    func markUnread(_ item: NotificationItem) {
+        store.markUnread(id: item.id)
+        replace(item.id) { $0.isRead = false }
+        refreshUnreadCount()
+    }
+
+    func delete(_ item: NotificationItem) {
+        store.delete(id: item.id)
+        items.removeAll { $0.id == item.id }
+        refreshUnreadCount()
+    }
+
+    func refreshUnreadCount() {
+        unreadCount = store.unreadCount()
+    }
+
     var hasUnread: Bool { unreadCount > 0 }
+
+    private func replace(_ id: UUID, mutate: (inout NotificationItem) -> Void) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        mutate(&items[index])
+    }
 }

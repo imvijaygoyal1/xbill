@@ -46,15 +46,15 @@ struct NotificationStoreTests {
     @Test("merge preserves existing read state for known ids")
     func mergePreservesReadState() {
         store.clearAll()
-        var item = makeExpenseItem(title: "Dinner")
+        let item = makeExpenseItem(title: "Dinner")
         store.merge([item])
+        store.markRead(id: item.id)
 
-        // Simulate markAllRead then fetch new version of the same item
-        store.markAllRead()
-        let reloaded = store.loadAll().first!
-        // isRead is baked into the stored item; merging same id doesn't overwrite
-        store.merge([reloaded])
+        var fetchedAgain = item
+        fetchedAgain.isRead = false
+        store.merge([fetchedAgain])
         #expect(store.loadAll().count == 1)
+        #expect(store.loadAll().first?.isRead == true)
     }
 
     @Test("loadAll returns newest items first")
@@ -79,8 +79,6 @@ struct NotificationStoreTests {
     func unreadCountAfterNewItems() {
         store.clearAll()
         store.markAllRead()
-        // Wait a tick so new items have a createdAt strictly after lastViewedAt
-        let future = Date().addingTimeInterval(1)
         let item = NotificationItem(
             id:        UUID(),
             eventType: .expenseAdded,
@@ -89,7 +87,7 @@ struct NotificationStoreTests {
             amount:    5,
             currency:  "USD",
             category:  .food,
-            createdAt: future
+            createdAt: Date()
         )
         store.merge([item])
         #expect(store.unreadCount() == 1)
@@ -100,13 +98,41 @@ struct NotificationStoreTests {
         store.clearAll()
         let item = makeExpenseItem(title: "Tea")
         store.merge([item])
-        // Ensure item is newer than lastViewedAt (.distantPast by default)
-        // Since clearAll removes lastViewedKey, lastViewedAt() == .distantPast
-        // and item.createdAt == now > .distantPast → item is unread
         let beforeMark = store.unreadCount()
         store.markAllRead()
         #expect(beforeMark >= 1)
         #expect(store.unreadCount() == 0)
+        #expect(store.loadAll().allSatisfy { $0.isRead })
+    }
+
+    @Test("markRead and markUnread update one item")
+    func markReadUnreadSingleItem() {
+        store.clearAll()
+        let first = makeExpenseItem(title: "First")
+        let second = makeExpenseItem(title: "Second")
+        store.merge([first, second])
+
+        store.markRead(id: first.id)
+        #expect(store.loadAll().first(where: { $0.id == first.id })?.isRead == true)
+        #expect(store.loadAll().first(where: { $0.id == second.id })?.isRead == false)
+        #expect(store.unreadCount() == 1)
+
+        store.markUnread(id: first.id)
+        #expect(store.loadAll().first(where: { $0.id == first.id })?.isRead == false)
+        #expect(store.unreadCount() == 2)
+    }
+
+    @Test("delete removes one notification")
+    func deleteRemovesItem() {
+        store.clearAll()
+        let first = makeExpenseItem(title: "First")
+        let second = makeExpenseItem(title: "Second")
+        store.merge([first, second])
+
+        store.delete(id: first.id)
+        let loaded = store.loadAll()
+        #expect(loaded.count == 1)
+        #expect(loaded.first?.id == second.id)
     }
 
     @Test("store caps items at 100")
@@ -166,6 +192,8 @@ struct NotificationItemFactoryTests {
         #expect(item.amount == 30.00)
         #expect(item.currency == "USD")
         #expect(item.category == .food)
+        #expect(item.groupID == expense.groupID)
+        #expect(item.expenseID == expense.id)
         #expect(!item.isRead)
     }
 
@@ -217,10 +245,40 @@ struct ActivityViewModelUnreadTests {
 
     @Test("markAllRead zeros unreadCount on vm")
     func markAllReadZerosVM() {
+        NotificationStore.shared.clearAll()
         let vm = ActivityViewModel()
         vm.unreadCount = 5
         vm.markAllRead()
         #expect(vm.unreadCount == 0)
+    }
+
+    @Test("markRead and delete update vm items and unread count")
+    func markReadAndDeleteUpdateVM() {
+        NotificationStore.shared.clearAll()
+        let item = NotificationItem(
+            id:        UUID(),
+            eventType: .expenseAdded,
+            title:     "Dinner",
+            subtitle:  "Roommates · Paid by Alice",
+            amount:    42,
+            currency:  "USD",
+            category:  .food,
+            createdAt: Date()
+        )
+        NotificationStore.shared.merge([item])
+
+        let vm = ActivityViewModel()
+        vm.items = [item]
+        vm.refreshUnreadCount()
+        #expect(vm.unreadCount == 1)
+
+        vm.markRead(item)
+        #expect(vm.items.first?.isRead == true)
+        #expect(vm.unreadCount == 0)
+
+        vm.delete(item)
+        #expect(vm.items.isEmpty)
+        #expect(NotificationStore.shared.loadAll().isEmpty)
     }
 }
 
