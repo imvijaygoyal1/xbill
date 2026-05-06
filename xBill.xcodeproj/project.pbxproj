@@ -10,6 +10,7 @@
 		00A2504533911F143F2C4F9F /* ActivityItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1F1C9D0BD11514C7CA0ADF /* ActivityItem.swift */; };
 		0271C1102A980052E053CA3B /* XBillButtons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47F58D4BA74441B823AEDCE2 /* XBillButtons.swift */; };
 		02DB9838B626008A375E8BD5 /* GroupFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA815E59A9392EC45FC52770 /* GroupFlowTests.swift */; };
+		02E8CE55B58B350C5A15C09E /* XBillNotificationRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3579B0A2FDA39F331B61D49 /* XBillNotificationRow.swift */; };
 		0369471B28585A20BC63BB56 /* XBillAvatarStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29E67B0F2B4186BE801115F9 /* XBillAvatarStack.swift */; };
 		0382A3B05FD435103A7599E5 /* GroupDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA937D31A0181F43B8747D40 /* GroupDetailView.swift */; };
 		0710E36826856521B9A4EF86 /* FriendService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED55048DF249C5268DC42F8 /* FriendService.swift */; };
@@ -353,6 +354,7 @@
 		ED1F81BD1F1817FCBF7438D7 /* IOUService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOUService.swift; sourceTree = "<group>"; };
 		F0F0634D4C601FD9464A0F10 /* GroupChipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChipView.swift; sourceTree = "<group>"; };
 		F1E4B12C5BA5853C94A19DDA /* HomeHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHeader.swift; sourceTree = "<group>"; };
+		F3579B0A2FDA39F331B61D49 /* XBillNotificationRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillNotificationRow.swift; sourceTree = "<group>"; };
 		F38393AE0CF6D1799617DF5B /* BalanceBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalanceBadge.swift; sourceTree = "<group>"; };
 		F3B09DB08A10227EBBB8F379 /* EmailAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAuthView.swift; sourceTree = "<group>"; };
 		F41CFA2B1CB435C590ECF374 /* ExchangeRateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExchangeRateService.swift; sourceTree = "<group>"; };
@@ -652,6 +654,7 @@
 				5BCEA43B10F68C79F1BA935B /* XBillIconPickerGrid.swift */,
 				D184CDC68B1FC0D7588CB58D /* XBillIllustrationCard.swift */,
 				5A3EB8FD01BC1D9B60ECE624 /* XBillIllustrationKit.swift */,
+				F3579B0A2FDA39F331B61D49 /* XBillNotificationRow.swift */,
 				195902F3C820CD0AB3116E00 /* XBillPageHeader.swift */,
 				D2BBA23A015BEE1CCBE5392C /* XBillProfileCard.swift */,
 				D55D6EDD4C2EB65B14D29FF5 /* XBillQRCodeCard.swift */,
@@ -1044,6 +1047,7 @@
 				F969203E9272547E617A41F1 /* XBillIllustrationCard.swift in Sources */,
 				2465BB59E2C0A610C52C38A3 /* XBillIllustrationKit.swift in Sources */,
 				A3C97EE52AE95E47C7608669 /* XBillLayout.swift in Sources */,
+				02E8CE55B58B350C5A15C09E /* XBillNotificationRow.swift in Sources */,
 				3F879424261CA71642B73106 /* XBillPageHeader.swift in Sources */,
 				91571F84348F2C58B94FE7C4 /* XBillProfileCard.swift in Sources */,
 				FD31DEEE04448BBB74F48A81 /* XBillQRCodeCard.swift in Sources */,

@@ -15,6 +15,7 @@ struct XBillEmptyState: View {
     var secondaryAction: (() -> Void)?
     var illustration: XBillEmptyStateIllustration.Kind? = nil
     var showsIllustration = true
+    var illustrationAccessibilityLabel: String?
 
     var body: some View {
         VStack(spacing: AppSpacing.lg) {
@@ -22,7 +23,9 @@ struct XBillEmptyState: View {
                 XBillIllustrationCard {
                     XBillEmptyStateIllustration(kind: illustration ?? defaultIllustration, size: 200)
                 }
-                .accessibilityHidden(true)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(illustrationAccessibilityLabel ?? "Empty state illustration")
+                .accessibilityHidden(illustrationAccessibilityLabel == nil)
             }
 
             VStack(spacing: AppSpacing.sm) {

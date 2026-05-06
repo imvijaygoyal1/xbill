@@ -43,6 +43,7 @@ xBill/
       XBillGroupCard.swift
       XBillExpenseRow.swift
       XBillFriendRow.swift
+      XBillNotificationRow.swift
       XBillProfileCard.swift
       XBillEmptyState.swift
       XBillPrimaryButton.swift
@@ -171,6 +172,7 @@ Completed fixes:
 - Groups was sharpened in place: custom one-off title/button/section/card styling was replaced with `XBillPageHeader`, `XBillCircularIconButton`, `XBillSearchBar`, `XBillSectionHeader`, `XBillGroupCard`, and `XBillArchivedRow`; archived content now uses a clear reusable row. Main app navigation uses the native iOS tab bar, not the custom `XBillTabBar`, to avoid duplicate bottom navigation and preserve platform behavior.
 - Friends was sharpened in place: duplicated empty-state art was replaced with one `XBillEmptyState` using `XBillIllustrationCard`; the screen now uses `XBillScreenHeader`, `XBillScrollView`, `XBillSectionHeader`, and enhanced `XBillFriendRow` cards while preserving Add Friend, Add IOU, pending requests, refresh, and friend-detail navigation.
 - Add Friend was sharpened in place: the legacy `List`/section styling was replaced with `XBillScreenContainer`, `XBillDetailHeader`, one `XBillIllustrationCard`, `XBillSearchBar`, `XBillActionRow`, `XBillFriendRow`, compact no-results `XBillEmptyState`, and `XBillPillButton`; search, contact import, QR-link sharing, app invite, preloaded QR deep-link users, and Add/Pending actions are preserved.
+- Notifications was sharpened in place: the legacy `List`/local notification row and duplicated empty-state artwork were replaced with `XBillScreenHeader`, `XBillScreenContainer`, `XBillScrollView`, `XBillEmptyState`, `XBillSectionHeader`, and reusable `XBillNotificationRow`; unread grouping, mark-all-read, refresh, loading, empty state, and notification store behavior are preserved.
 - Top navigation chrome now uses adaptive `AppColors.background`; near-black styling is reserved for the custom bottom tab bar.
 - Group Details uses `XBillSegmentedControl` for Expenses/Balances/Settle Up.
 - Add Expense uses a sticky full-width `Save Expense` action and 44pt+ category/share controls.
@@ -250,7 +252,7 @@ Use reusable screen header and tokenized friend rows when available. Empty state
 
 ### Notifications
 
-Use `XBillEmptyState` when empty. Preserve unread state, grouped dates, badges, mark-all-read behavior, and notification store integration.
+Use `XBillScreenHeader` with title "Notifications", `XBillEmptyState` with a single illustration card when empty, and `XBillNotificationRow` for populated activity. Preserve unread state, grouped dates, badges, mark-all-read behavior, refresh/loading behavior, native tab-bar behavior, and notification store integration.
 
 ### Profile
 

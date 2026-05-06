@@ -14,20 +14,9 @@ struct ActivityView: View {
         NavigationStack {
             Group {
                 if vm.isLoading && vm.items.isEmpty {
-                    LoadingOverlay(message: "Loading activity…")
+                    loadingState
                 } else if vm.items.isEmpty {
-                    XBillScreenContainer {
-                        XBillPageHeader(title: "Notifications")
-                            .padding(.horizontal, -AppSpacing.lg)
-                        XBillEmptyStateIllustration(kind: .notifications, size: 220)
-                            .frame(maxWidth: .infinity)
-                        EmptyStateView(
-                            icon: "bell.fill",
-                            title: "No Activity Yet",
-                            message: "New expenses and settlements across your groups will appear here.",
-                            illustration: .notifications
-                        )
-                    }
+                    emptyState
                 } else {
                     activityList
                 }
@@ -35,18 +24,6 @@ struct ActivityView: View {
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                if vm.hasUnread {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Mark All Read") {
-                            HapticManager.selection()
-                            vm.markAllRead()
-                        }
-                        .font(.xbillCaption)
-                        .foregroundStyle(Color.brandPrimary)
-                    }
-                }
-            }
             .task { await vm.load() }
             .refreshable { await vm.load() }
             .onAppear {
@@ -72,120 +49,74 @@ struct ActivityView: View {
             .sorted { $0.items.first?.createdAt ?? .distantPast > $1.items.first?.createdAt ?? .distantPast }
     }
 
+    private var loadingState: some View {
+        XBillScreenContainer(mode: .fixed) {
+            notificationsHeader
+            Spacer()
+            LoadingOverlay(message: "Loading activity…")
+            Spacer()
+        }
+    }
+
+    private var emptyState: some View {
+        XBillScreenContainer(mode: .fixed, contentSpacing: AppSpacing.xl) {
+            notificationsHeader
+            Spacer()
+            XBillEmptyState(
+                icon: "bell.fill",
+                title: "No Activity Yet",
+                message: "New expenses and settlements across your groups will appear here.",
+                illustration: .notifications,
+                illustrationAccessibilityLabel: "No notifications"
+            )
+            Spacer()
+        }
+    }
+
     private var activityList: some View {
-        List {
-            Section {
-                XBillPageHeader(title: "Notifications") {
-                    if vm.hasUnread {
-                        Button("Mark All Read") {
-                            HapticManager.selection()
-                            vm.markAllRead()
-                        }
+        XBillScrollView(spacing: AppSpacing.xl) {
+            notificationsHeader
+
+            ForEach(groupedItems, id: \.header) { section in
+                VStack(alignment: .leading, spacing: AppSpacing.md) {
+                    XBillSectionHeader(section.header)
+                    ForEach(section.items) { item in
+                        XBillNotificationRow(
+                            item: item,
+                            isUnread: item.createdAt > lastViewed
+                        )
+                    }
+                }
+            }
+        }
+        .background(AppColors.background.ignoresSafeArea())
+    }
+
+    private var notificationsHeader: some View {
+        XBillScreenHeader(title: "Notifications") {
+            if vm.hasUnread {
+                Button {
+                    HapticManager.selection()
+                    vm.markAllRead()
+                } label: {
+                    Text("Mark All Read")
                         .font(.appCaptionMedium)
                         .foregroundStyle(AppColors.primary)
                         .frame(minHeight: AppSpacing.tapTarget)
-                    }
                 }
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-            }
-
-            ForEach(groupedItems, id: \.header) { section in
-                Section {
-                    ForEach(section.items) { item in
-                        NotificationRowView(item: item, lastViewed: lastViewed)
-                            .listRowBackground(Color.bgCard)
-                    }
-                } header: {
-                    Text(section.header)
-                        .font(.xbillCaptionBold)
-                        .textCase(.uppercase)
-                        .foregroundStyle(Color.textTertiary)
-                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Mark all notifications as read")
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(AppColors.background)
-        .listRowSeparatorTint(AppColors.border)
+        .padding(.horizontal, -AppSpacing.lg)
     }
 }
 
-// MARK: - Notification Row
-
-private struct NotificationRowView: View {
-    let item: NotificationItem
-    let lastViewed: Date
-
-    private var isUnread: Bool { item.createdAt > lastViewed }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: XBillSpacing.md) {
-            Circle()
-                .fill(isUnread ? Color.brandPrimary : Color.clear)
-                .frame(width: 8, height: 8)
-                .padding(.top, 6)
-                .accessibilityHidden(true)
-
-            eventIcon
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.title)
-                    .font(isUnread ? .xbillBodyMedium : .xbillBodyLarge)
-                    .foregroundStyle(Color.textPrimary)
-                    .lineLimit(1)
-
-                Text(item.subtitle)
-                    .font(.xbillCaption)
-                    .foregroundStyle(Color.textTertiary)
-                    .lineLimit(1)
-
-                Text(item.createdAt, format: .relative(presentation: .named))
-                    .font(.xbillCaption)
-                    .foregroundStyle(Color.textTertiary)
-            }
-
-            Spacer()
-
-            AmountBadge(amount: item.amount, direction: badgeDirection, currency: item.currency)
-        }
-        .padding(.vertical, XBillSpacing.xs)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityLabel)
-    }
-
-    @ViewBuilder
-    private var eventIcon: some View {
-        switch item.eventType {
-        case .expenseAdded:
-            CategoryIconView(category: item.category, size: XBillIcon.categorySize)
-        case .settlementMade:
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.moneySettledBg)
-                    .frame(width: XBillIcon.categorySize, height: XBillIcon.categorySize)
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(Color.moneySettled)
-                    .font(.system(size: 20))
-            }
-        }
-    }
-
-    private var badgeDirection: AmountDirection {
-        switch item.eventType {
-        case .expenseAdded:   return .total
-        case .settlementMade: return .settled
-        }
-    }
-
-    private var accessibilityLabel: String {
-        let status = isUnread ? "Unread. " : ""
-        let amountStr = item.amount.formatted(currencyCode: item.currency)
-        return "\(status)\(item.title), \(item.subtitle), \(amountStr)"
-    }
-}
-
-#Preview {
+#Preview("Notifications") {
     ActivityView(vm: ActivityViewModel())
+}
+
+#Preview("Notifications Dark") {
+    ActivityView(vm: ActivityViewModel())
+        .preferredColorScheme(.dark)
 }
