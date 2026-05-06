@@ -14,13 +14,16 @@ struct XBillEmptyState: View {
     var secondaryActionLabel: String?
     var secondaryAction: (() -> Void)?
     var illustration: XBillEmptyStateIllustration.Kind? = nil
+    var showsIllustration = true
 
     var body: some View {
         VStack(spacing: AppSpacing.lg) {
-            XBillIllustrationCard {
-                XBillEmptyStateIllustration(kind: illustration ?? defaultIllustration, size: 200)
+            if showsIllustration {
+                XBillIllustrationCard {
+                    XBillEmptyStateIllustration(kind: illustration ?? defaultIllustration, size: 200)
+                }
+                .accessibilityHidden(true)
             }
-            .accessibilityHidden(true)
 
             VStack(spacing: AppSpacing.sm) {
                 Text(title)

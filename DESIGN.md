@@ -170,6 +170,7 @@ Completed fixes:
 - Home dashboard was sharpened in place: calmer surface-based balance card, reusable metric cards, tokenized section headers/status chips, more complete group cards, icon-led settled messaging, and polished surface-based bottom tabs.
 - Groups was sharpened in place: custom one-off title/button/section/card styling was replaced with `XBillPageHeader`, `XBillCircularIconButton`, `XBillSearchBar`, `XBillSectionHeader`, `XBillGroupCard`, and `XBillArchivedRow`; archived content now uses a clear reusable row. Main app navigation uses the native iOS tab bar, not the custom `XBillTabBar`, to avoid duplicate bottom navigation and preserve platform behavior.
 - Friends was sharpened in place: duplicated empty-state art was replaced with one `XBillEmptyState` using `XBillIllustrationCard`; the screen now uses `XBillScreenHeader`, `XBillScrollView`, `XBillSectionHeader`, and enhanced `XBillFriendRow` cards while preserving Add Friend, Add IOU, pending requests, refresh, and friend-detail navigation.
+- Add Friend was sharpened in place: the legacy `List`/section styling was replaced with `XBillScreenContainer`, `XBillDetailHeader`, one `XBillIllustrationCard`, `XBillSearchBar`, `XBillActionRow`, `XBillFriendRow`, compact no-results `XBillEmptyState`, and `XBillPillButton`; search, contact import, QR-link sharing, app invite, preloaded QR deep-link users, and Add/Pending actions are preserved.
 - Top navigation chrome now uses adaptive `AppColors.background`; near-black styling is reserved for the custom bottom tab bar.
 - Group Details uses `XBillSegmentedControl` for Expenses/Balances/Settle Up.
 - Add Expense uses a sticky full-width `Save Expense` action and 44pt+ category/share controls.
@@ -269,7 +270,7 @@ Use prominent amount field, paid-by selector, split-between selector, category c
 
 ### Add Friend
 
-Use search field, Import from Contacts, suggested friends list, Add/Pending buttons, invite non-users, and empty state if no results.
+Use `XBillDetailHeader`, one `XBillIllustrationCard`, `XBillSearchBar`, `XBillActionRow` for Import from Contacts and Share QR Link, `XBillFriendRow` for suggested/search rows, `XBillPillButton` for Add/Pending, invite non-users, and compact no-illustration `XBillEmptyState` if no results.
 
 ### Add IOU
 

@@ -81,3 +81,65 @@ struct XBillBlackButton: View {
         XBillButtonBase(title: title, icon: icon, background: AppColors.blackNav, foreground: AppColors.textInverse, isLoading: isLoading, isDisabled: isDisabled, action: action)
     }
 }
+
+struct XBillPillButton: View {
+    let title: String
+    var icon: String?
+    var style: Style = .primary
+    var isDisabled = false
+    let action: () -> Void
+
+    enum Style {
+        case primary
+        case secondary
+    }
+
+    var body: some View {
+        Button {
+            guard !isDisabled else { return }
+            HapticManager.selection()
+            action()
+        } label: {
+            HStack(spacing: AppSpacing.xs) {
+                if let icon {
+                    Image(systemName: icon)
+                }
+                Text(title)
+            }
+            .font(.appCaptionMedium)
+            .foregroundStyle(foreground)
+            .padding(.horizontal, AppSpacing.md)
+            .frame(minHeight: AppSpacing.tapTarget)
+            .background(background)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(border, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.72 : 1)
+    }
+
+    private var background: Color {
+        switch style {
+        case .primary: AppColors.primary
+        case .secondary: AppColors.surfaceSoft
+        }
+    }
+
+    private var foreground: Color {
+        switch style {
+        case .primary: AppColors.textInverse
+        case .secondary: AppColors.textSecondary
+        }
+    }
+
+    private var border: Color {
+        switch style {
+        case .primary: .clear
+        case .secondary: AppColors.border
+        }
+    }
+}

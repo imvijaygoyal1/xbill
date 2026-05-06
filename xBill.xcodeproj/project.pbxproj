@@ -83,6 +83,7 @@
 		73CDD159049479799C4FEAA2 /* XBillTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51E90EC1B09543804ACB2689 /* XBillTextField.swift */; };
 		782AAEB900C00CEB054E3C7A /* XBillSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9B28961557414EFC0DB1A2 /* XBillSegmentedControl.swift */; };
 		783B8F68C2564E1A49F663E3 /* XBillDashboardPrimitives.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F8663FDC8008F445ABBA2A6 /* XBillDashboardPrimitives.swift */; };
+		79DDFCF42EF26F010EBB7095 /* XBillDetailHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8B4D781A6BA5080BC7AF4D /* XBillDetailHeader.swift */; };
 		7F69EC25ABB4331BBB1050DE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C8DD986E4230E05B93E8DB84 /* Assets.xcassets */; };
 		812CFAA3B9BAAA85161FA26E /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4FA0DF138FAAA01522B668E /* ActivityView.swift */; };
 		81BE0CD757A401784F524D78 /* ShareSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 410250FF5165956E1D72F2AB /* ShareSheetView.swift */; };
@@ -135,6 +136,7 @@
 		CF7BB5EDBB1D51E7878487CB /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCE2A2449DE087F7C0D3279 /* NetworkMonitor.swift */; };
 		D094BFFD15B7E99C76CF4C8F /* XBillFriendRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 274BD787140D4659DE42DC95 /* XBillFriendRow.swift */; };
 		D0CC4E253D676DBD1E40A406 /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AB8AF6F4AAD3693C507E55E /* AppError.swift */; };
+		D1143B7C72271E61F8099CC8 /* XBillActionRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DD851F2B2A58922E91AD724 /* XBillActionRow.swift */; };
 		D1B4793846C9BB681C1A9218 /* PreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C43781D2C072F853FAB5AEC /* PreviewData.swift */; };
 		D591CAF6F79DA7AF9EEC23D8 /* ActivityViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15E8600431061D4E18C948CE /* ActivityViewModel.swift */; };
 		D773EAD278F3CA97FDA627AF /* AppTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A3F61B523BC6008036CCFF /* AppTypography.swift */; };
@@ -217,6 +219,7 @@
 		18633ED5865B279B769E85CD /* XBillEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillEmptyState.swift; sourceTree = "<group>"; };
 		195902F3C820CD0AB3116E00 /* XBillPageHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillPageHeader.swift; sourceTree = "<group>"; };
 		1D45105FFF4B5F811A38E58C /* GroupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupViewModel.swift; sourceTree = "<group>"; };
+		1E8B4D781A6BA5080BC7AF4D /* XBillDetailHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillDetailHeader.swift; sourceTree = "<group>"; };
 		256F7DDB19351E2D8938CD52 /* ActivityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityService.swift; sourceTree = "<group>"; };
 		26C33DD3A8F942B96FA9D543 /* Receipt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Receipt.swift; sourceTree = "<group>"; };
 		270F53F1AB491F71EAD02ECE /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
@@ -242,6 +245,7 @@
 		49E9AD0A279EB2FED9B14022 /* XBillFonts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFonts.swift; sourceTree = "<group>"; };
 		4BE26925670AA40279463526 /* Split.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Split.swift; sourceTree = "<group>"; };
 		4D1F1C9D0BD11514C7CA0ADF /* ActivityItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityItem.swift; sourceTree = "<group>"; };
+		4DD851F2B2A58922E91AD724 /* XBillActionRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillActionRow.swift; sourceTree = "<group>"; };
 		4FF35C40846E6F5E8F901117 /* QuickAddExpenseSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAddExpenseSheet.swift; sourceTree = "<group>"; };
 		50F29BC8FA6C787B22A4757B /* IOU.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOU.swift; sourceTree = "<group>"; };
 		51E90EC1B09543804ACB2689 /* XBillTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillTextField.swift; sourceTree = "<group>"; };
@@ -631,12 +635,14 @@
 			children = (
 				F1E4B12C5BA5853C94A19DDA /* HomeHeader.swift */,
 				9EB816E24270B4C654962814 /* XBillActionCard.swift */,
+				4DD851F2B2A58922E91AD724 /* XBillActionRow.swift */,
 				CBF1DDE8687F48A6C3C10FAD /* XBillArchivedRow.swift */,
 				29E67B0F2B4186BE801115F9 /* XBillAvatarStack.swift */,
 				DBCE472130832E81B615A30F /* XBillBalanceCard.swift */,
 				47F58D4BA74441B823AEDCE2 /* XBillButtons.swift */,
 				F4D0D78A5AA944448B3F1160 /* XBillCardModifier.swift */,
 				8F8663FDC8008F445ABBA2A6 /* XBillDashboardPrimitives.swift */,
+				1E8B4D781A6BA5080BC7AF4D /* XBillDetailHeader.swift */,
 				18633ED5865B279B769E85CD /* XBillEmptyState.swift */,
 				CC2FF03B66B214E48386CD38 /* XBillExpenseRow.swift */,
 				F684542CE9913F0736FC5EC2 /* XBillFloatingAddButton.swift */,
@@ -1016,6 +1022,7 @@
 				61831DB2031D25A01FAF8C31 /* User.swift in Sources */,
 				5C5945F52F48F1FEE735F42D /* VisionService.swift in Sources */,
 				A6BD8AF110FAD6CF6DFE3F6D /* XBillActionCard.swift in Sources */,
+				D1143B7C72271E61F8099CC8 /* XBillActionRow.swift in Sources */,
 				4BE39F6E00BB93CB97AFD04B /* XBillArchivedRow.swift in Sources */,
 				0369471B28585A20BC63BB56 /* XBillAvatarStack.swift in Sources */,
 				41B1F6B4DD1E94171AF635E8 /* XBillBalanceCard.swift in Sources */,
@@ -1025,6 +1032,7 @@
 				A5AAAB569AA05321AD5732D1 /* XBillCardModifier.swift in Sources */,
 				EC00E4B59D7DA13B0049E404 /* XBillColors.swift in Sources */,
 				783B8F68C2564E1A49F663E3 /* XBillDashboardPrimitives.swift in Sources */,
+				79DDFCF42EF26F010EBB7095 /* XBillDetailHeader.swift in Sources */,
 				C65AD9DDB6315BDEE267F49D /* XBillEmptyState.swift in Sources */,
 				F187548E0B3244DB11D142A7 /* XBillExpenseRow.swift in Sources */,
 				3663CFA55F573C2462A49AB1 /* XBillFloatingAddButton.swift in Sources */,

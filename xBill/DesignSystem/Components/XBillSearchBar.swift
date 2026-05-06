@@ -8,6 +8,7 @@ import SwiftUI
 struct XBillSearchBar: View {
     let placeholder: String
     @Binding var text: String
+    var accessibilityLabel: String?
 
     var body: some View {
         HStack(spacing: AppSpacing.sm) {
@@ -17,7 +18,7 @@ struct XBillSearchBar: View {
                 .font(.appBody)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-                .accessibilityLabel(placeholder)
+                .accessibilityLabel(accessibilityLabel ?? placeholder)
             if !text.isEmpty {
                 Button {
                     text = ""

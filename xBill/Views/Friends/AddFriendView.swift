@@ -30,40 +30,40 @@ struct AddFriendView: View {
 
     private let service = FriendService.shared
 
+    private var addFriendURL: URL {
+        URL(string: "xbill://add/\(currentUserID.uuidString)")!
+    }
+
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    XBillPageHeader(
-                        title: "Add Friend",
-                        subtitle: "Find people by email, QR link, or contacts.",
-                        showsBackButton: true,
-                        backAction: { dismiss() }
-                    )
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+            XBillScreenContainer(contentSpacing: AppSpacing.xl) {
+                XBillDetailHeader(
+                    title: "Add Friend",
+                    subtitle: "Find people by email, QR link, or contacts.",
+                    backAction: { dismiss() }
+                )
+                .padding(.horizontal, -AppSpacing.lg)
 
+                XBillIllustrationCard {
                     XBillFriendsIllustration(size: 210)
-                        .frame(maxWidth: .infinity)
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
                 }
+
+                searchSection
 
                 if let user = preloadedUser {
                     preloadedSection(user)
                 }
 
-                searchSection
+                if !searchResults.isEmpty {
+                    searchResultsSection
+                } else if !searchText.isEmpty && !isSearching {
+                    noResultsSection
+                }
 
                 if !contactSuggestions.isEmpty {
                     suggestionsSection
                 }
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .background(AppColors.background.ignoresSafeArea())
             .navigationBarBackButtonHidden()
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
@@ -82,121 +82,122 @@ struct AddFriendView: View {
     // MARK: - Sections
 
     private func preloadedSection(_ user: User) -> some View {
-        Section("Suggested") {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            XBillSectionHeader("Suggested")
             userRow(user)
         }
     }
 
     private var searchSection: some View {
-        Section {
-            XBillSearchBar(placeholder: "Name or email", text: $searchText)
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            XBillSectionHeader("Find People")
+
+            XBillSearchBar(placeholder: "Name or email", text: $searchText, accessibilityLabel: "Search friends")
                 .onChange(of: searchText) { _, new in scheduleSearch(query: new) }
+
             if isSearching {
                 ProgressView()
                     .frame(maxWidth: .infinity)
+                    .frame(minHeight: AppSpacing.tapTarget)
+                    .xbillCard()
             }
 
-            if !searchResults.isEmpty {
-                ForEach(searchResults) { user in
-                    userRow(user)
-                }
-            } else if !searchText.isEmpty && !isSearching {
-                inviteRow
-            } else if searchText.isEmpty && contactSuggestions.isEmpty && preloadedUser == nil {
-                XBillEmptyState(
-                    icon: "person.crop.circle.badge.plus",
-                    title: "Find friends",
-                    message: "Search by name or email, or import from contacts.",
-                    illustration: .friends
-                )
-                .listRowInsets(EdgeInsets())
-            }
+            actionRows
+        }
+    }
 
+    private var actionRows: some View {
+        VStack(spacing: AppSpacing.md) {
             Button {
                 showContactPicker = true
             } label: {
-                HStack(spacing: AppSpacing.sm) {
-                    XBillAvatarPlaceholder(name: "+", size: 32)
-                    Text("Import from Contacts")
-                        .font(.appTitle)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.appCaptionMedium)
-                }
-                .foregroundStyle(Color.brandPrimary)
-                .frame(minHeight: AppSpacing.tapTarget)
+                XBillActionRow(
+                    icon: "person.crop.circle.badge.plus",
+                    title: "Import from Contacts",
+                    subtitle: "Find people already using xBill"
+                )
             }
-        } header: {
-            Text("Find people")
+            .buttonStyle(.plain)
+            .accessibilityLabel("Import from Contacts")
+
+            ShareLink(
+                item: addFriendURL,
+                subject: Text("Add me on xBill"),
+                message: Text("Tap to add me as a friend on xBill.")
+            ) {
+                XBillActionRow(
+                    icon: "qrcode",
+                    title: "Share QR Link",
+                    subtitle: "Let friends add you directly"
+                )
+            }
+            .buttonStyle(.plain)
         }
     }
 
     private var suggestionsSection: some View {
-        Section("From your contacts on xBill") {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            XBillSectionHeader("From Your Contacts", subtitle: "\(contactSuggestions.count) found")
             ForEach(contactSuggestions) { user in
                 userRow(user)
             }
         }
     }
 
-    private var inviteRow: some View {
-        ShareLink(
-            item: XBillURLs.appInvite,
-            subject: Text("Join me on xBill"),
-            message: Text("I use xBill to split bills and track IOUs. Join me!")
-        ) {
-            Label("Invite \"\(searchText)\" to xBill", systemImage: "envelope.badge.plus")
-                .foregroundStyle(Color.brandPrimary)
+    private var searchResultsSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            XBillSectionHeader("Search Results", subtitle: "\(searchResults.count) found")
+            ForEach(searchResults) { user in
+                userRow(user)
+            }
+        }
+    }
+
+    private var noResultsSection: some View {
+        VStack(spacing: AppSpacing.md) {
+            XBillEmptyState(
+                icon: "magnifyingglass",
+                title: "No matching friends",
+                message: "Try another name or email.",
+                showsIllustration: false
+            )
+            .padding(AppSpacing.lg)
+            .xbillCard()
+
+            ShareLink(
+                item: XBillURLs.appInvite,
+                subject: Text("Join me on xBill"),
+                message: Text("I use xBill to split bills and track IOUs. Join me!")
+            ) {
+                XBillActionRow(
+                    icon: "envelope.badge",
+                    title: "Invite to xBill",
+                    subtitle: "Send an app invite instead"
+                )
+            }
+            .buttonStyle(.plain)
         }
     }
 
     // MARK: - User Row
 
     private func userRow(_ user: User) -> some View {
-        HStack(spacing: XBillSpacing.md) {
-            AvatarView(name: user.displayName, url: user.avatarURL, size: XBillIcon.avatarSm)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(user.displayName)
-                    .font(.xbillBodyMedium)
-                    .foregroundStyle(Color.textPrimary)
-                Text(user.email)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
+        XBillFriendRow(user: user) {
             addButton(for: user)
         }
-        .padding(.vertical, 2)
-        .accessibilityElement(children: .combine)
+        .xbillCard()
         .accessibilityLabel("\(user.displayName), \(user.email)")
     }
 
     @ViewBuilder
     private func addButton(for user: User) -> some View {
         if sentRequestIDs.contains(user.id) {
-            Text("Pending")
-                .font(.xbillCaption.bold())
-                .foregroundStyle(AppColors.textSecondary)
-                .padding(.horizontal, AppSpacing.md)
-                .frame(minHeight: AppSpacing.tapTarget)
-                .background(AppColors.surfaceSoft)
-                .clipShape(Capsule())
+            XBillPillButton(title: "Pending", style: .secondary, isDisabled: true) {}
         } else {
-            Button {
+            XBillPillButton(title: "Add") {
                 Task { await sendRequest(to: user) }
-            } label: {
-                Text("Add")
-                    .font(.xbillCaption.bold())
-                    .foregroundStyle(AppColors.textInverse)
-                    .padding(.horizontal, AppSpacing.md)
-                    .frame(minHeight: AppSpacing.tapTarget)
-                    .background(AppColors.primary)
-                    .clipShape(Capsule())
             }
-            .buttonStyle(.plain)
+            .accessibilityLabel("Add \(user.displayName)")
         }
     }
 
@@ -249,4 +250,13 @@ struct AddFriendView: View {
             self.error = AppError.from(error)
         }
     }
+}
+
+#Preview("Add Friend") {
+    AddFriendView(currentUserID: UUID()) {}
+}
+
+#Preview("Add Friend Dark") {
+    AddFriendView(currentUserID: UUID()) {}
+        .preferredColorScheme(.dark)
 }
