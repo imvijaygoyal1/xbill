@@ -168,6 +168,7 @@ Completed fixes:
 - Canonical buttons expose disabled and loading behavior.
 - Home density was tightened: smaller personalized header, reduced balance hero padding, smaller group chips, and tokenized FAB/content bottom spacing.
 - Home dashboard was sharpened in place: calmer surface-based balance card, reusable metric cards, tokenized section headers/status chips, more complete group cards, icon-led settled messaging, and polished surface-based bottom tabs.
+- Groups was sharpened in place: custom one-off title/button/section/card styling was replaced with `XBillPageHeader`, `XBillCircularIconButton`, `XBillSearchBar`, `XBillSectionHeader`, `XBillGroupCard`, and `XBillArchivedRow`; archived content now uses a clear reusable row and the bottom tab bar uses the premium near-black tokenized container.
 - Top navigation chrome now uses adaptive `AppColors.background`; near-black styling is reserved for the custom bottom tab bar.
 - Group Details uses `XBillSegmentedControl` for Expenses/Balances/Settle Up.
 - Add Expense uses a sticky full-width `Save Expense` action and 44pt+ category/share controls.
@@ -191,6 +192,7 @@ Validation performed:
 - Visual asset system validation: `xcodegen generate`; Debug simulator build succeeded; installed and launched on simulator `DA97985A-F7CC-44F6-8281-9DD24C22B978`
 - Header/scroll consistency validation: `xcodegen generate`; Debug simulator build succeeded; installed and launched on simulator `DA97985A-F7CC-44F6-8281-9DD24C22B978`
 - Home dashboard validation: `xcodegen generate`; Debug simulator build succeeded; `xcodebuild test -scheme xBill -destination 'id=DA97985A-F7CC-44F6-8281-9DD24C22B978' -only-testing:xBillTests` passed on 2026-05-04; installed/launched on simulator and screenshot-checked Home for text overlap and add-button placement. `swiftformat` and `swiftlint` were not installed in the environment.
+- Groups screen validation: `xcodegen generate`; Debug simulator build succeeded; `xcodebuild test -scheme xBill -destination 'id=DA97985A-F7CC-44F6-8281-9DD24C22B978' -only-testing:xBillTests` passed on 2026-05-05; `xcodebuild test -scheme xBill -destination 'id=DA97985A-F7CC-44F6-8281-9DD24C22B978' -only-testing:xBillUITests/GroupFlowUITests` passed on 2026-05-05 with 16 executed tests, 2 expected simulator-dependent skips for SwiftUI context-menu/detail presentation exposure, and 0 failures. UI test runner cleanup was performed after test execution. `swiftformat` and `swiftlint` were not installed in the environment.
 
 Remaining visual debt:
 

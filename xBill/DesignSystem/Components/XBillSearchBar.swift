@@ -17,6 +17,7 @@ struct XBillSearchBar: View {
                 .font(.appBody)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .accessibilityLabel(placeholder)
             if !text.isEmpty {
                 Button {
                     text = ""
@@ -37,4 +38,25 @@ struct XBillSearchBar: View {
                 .stroke(AppColors.border, lineWidth: 1)
         )
     }
+}
+
+#Preview("Search Bar") {
+    @Previewable @State var text = ""
+
+    VStack {
+        XBillSearchBar(placeholder: "Search groups", text: $text)
+    }
+    .padding(AppSpacing.lg)
+    .xbillScreenBackground()
+}
+
+#Preview("Search Bar Dark") {
+    @Previewable @State var text = "Lake"
+
+    VStack {
+        XBillSearchBar(placeholder: "Search groups", text: $text)
+    }
+    .padding(AppSpacing.lg)
+    .xbillScreenBackground()
+    .preferredColorScheme(.dark)
 }

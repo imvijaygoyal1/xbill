@@ -124,3 +124,42 @@ struct XBillStatusChip: View {
             .clipShape(Capsule())
     }
 }
+
+struct XBillCircularIconButton: View {
+    let systemImage: String
+    let accessibilityLabel: String
+    var action: () -> Void
+
+    var body: some View {
+        Button {
+            HapticManager.selection()
+            action()
+        } label: {
+            Image(systemName: systemImage)
+                .font(.appIcon)
+                .foregroundStyle(AppColors.textInverse)
+                .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                .background(AppColors.primary)
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+}
+
+#Preview("Dashboard Primitives") {
+    VStack(spacing: AppSpacing.lg) {
+        XBillSectionHeader("Active Groups", subtitle: "3 groups") {
+            XBillCircularIconButton(systemImage: "plus", accessibilityLabel: "Create group") {}
+        }
+        XBillMetricCard(
+            title: "Owed to you",
+            amount: 142.50,
+            icon: "arrow.down.left.circle.fill",
+            direction: .positive
+        )
+        XBillStatusChip(text: "All settled. Nice!", icon: "checkmark.circle.fill")
+    }
+    .padding()
+    .xbillScreenBackground()
+}

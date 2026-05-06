@@ -80,6 +80,7 @@ struct CreateGroupView: View {
                 ) {
                     Task { await create() }
                 }
+                .accessibilityIdentifier("xBill.createGroup.submitButton")
                 .padding(AppSpacing.md)
                 .background(.ultraThinMaterial)
             }

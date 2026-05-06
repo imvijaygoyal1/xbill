@@ -36,9 +36,8 @@ struct GroupListView: View {
                 if vm.isLoading && vm.groups.isEmpty && vm.archivedGroups.isEmpty {
                     LoadingOverlay(message: "Loading groups…")
                 } else if vm.groups.isEmpty && vm.archivedGroups.isEmpty {
-                    XBillScreenContainer {
-                        XBillPageHeader(title: "Groups")
-                            .padding(.horizontal, -AppSpacing.lg)
+                    XBillScreenContainer(contentSpacing: AppSpacing.xl) {
+                        groupsHeader
                         XBillSearchBar(placeholder: "Search groups", text: $searchText)
                         EmptyStateView(
                             icon: "person.3.fill",
@@ -72,23 +71,13 @@ struct GroupListView: View {
     }
 
     private var groupList: some View {
-        XBillScrollView {
-            XBillPageHeader(title: "Groups") {
-                Button { showCreateGroup = true } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(AppColors.primary)
-                        .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
-                }
-                .accessibilityLabel("Create Group")
-            }
-            .padding(.horizontal, -AppSpacing.lg)
-
+        XBillScrollView(spacing: AppSpacing.xl) {
+            groupsHeader
             XBillSearchBar(placeholder: "Search groups", text: $searchText)
 
             if !filteredGroups.isEmpty {
-                VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                    sectionTitle("ACTIVE GROUPS")
+                VStack(alignment: .leading, spacing: AppSpacing.md) {
+                    XBillSectionHeader("Active Groups", subtitle: groupCountText(filteredGroups.count))
                     ForEach(filteredGroups) { group in
                         NavigationLink(value: group) { groupRow(group, isArchived: false) }
                             .buttonStyle(.plain)
@@ -97,18 +86,16 @@ struct GroupListView: View {
             }
 
             if !filteredArchivedGroups.isEmpty {
-                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                VStack(alignment: .leading, spacing: AppSpacing.md) {
                     Button {
                         withAnimation { showArchived.toggle() }
                     } label: {
-                        HStack {
-                            sectionTitle("ARCHIVED (\(filteredArchivedGroups.count))")
-                            Spacer()
-                            Image(systemName: showArchived ? "chevron.up" : "chevron.down")
-                                .font(.appCaptionMedium)
-                                .foregroundStyle(AppColors.textSecondary)
-                        }
-                        .frame(minHeight: AppSpacing.tapTarget)
+                        XBillArchivedRow(
+                            icon: "archivebox.fill",
+                            title: "Archived",
+                            subtitle: groupCountText(filteredArchivedGroups.count),
+                            isExpanded: showArchived
+                        )
                     }
                     .buttonStyle(.plain)
 
@@ -142,23 +129,39 @@ struct GroupListView: View {
         }
     }
 
+    private var groupsHeader: some View {
+        XBillPageHeader(title: "Groups") {
+            XBillCircularIconButton(
+                systemImage: "plus",
+                accessibilityLabel: "Create Group"
+            ) {
+                showCreateGroup = true
+            }
+            .accessibilityIdentifier("xBill.groups.createButton")
+        }
+        .padding(.horizontal, -AppSpacing.lg)
+    }
+
     private func groupRow(_ group: BillGroup, isArchived: Bool) -> some View {
         XBillGroupCard(
             group: group,
             subtitle: "\(group.currency) · \(group.createdAt.shortFormatted)",
-            trailing: isArchived ? "Archived" : nil
+            trailing: isArchived ? "Archived" : nil,
+            showsChevron: true
         )
         .opacity(isArchived ? 0.72 : 1)
     }
 
-    private func sectionTitle(_ title: String) -> some View {
-        Text(title)
-            .font(.appCaptionMedium)
-            .tracking(1.08)
-            .foregroundStyle(AppColors.textSecondary)
+    private func groupCountText(_ count: Int) -> String {
+        "\(count) group\(count == 1 ? "" : "s")"
     }
 }
 
-#Preview {
+#Preview("Groups") {
     GroupListView(vm: HomeViewModel())
+}
+
+#Preview("Groups Dark") {
+    GroupListView(vm: HomeViewModel())
+        .preferredColorScheme(.dark)
 }

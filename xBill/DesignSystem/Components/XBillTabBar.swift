@@ -34,10 +34,10 @@ struct XBillTabBar<Tab: Hashable>: View {
                         Text(title)
                             .font(.appTabLabel)
                     }
-                    .foregroundStyle(selection == tab ? AppColors.textPrimary : AppColors.textSecondary)
+                    .foregroundStyle(selection == tab ? AppColors.textInverse : AppColors.textInverse.opacity(0.62))
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: AppSpacing.tapTarget)
-                    .background(selection == tab ? AppColors.surfaceSoft : Color.clear)
+                    .background(selection == tab ? AppColors.primary : Color.clear)
                     .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)
@@ -47,11 +47,9 @@ struct XBillTabBar<Tab: Hashable>: View {
         .padding(.top, AppSpacing.sm)
         .padding(.bottom, AppSpacing.sm)
         .frame(minHeight: AppSpacing.tabBarHeight)
-        .background(AppColors.surface)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(AppColors.border)
-                .frame(height: 1)
-        }
+        .background(AppColors.blackNav)
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.xxl, style: .continuous))
+        .padding(.horizontal, AppSpacing.md)
+        .padding(.bottom, AppSpacing.sm)
     }
 }
