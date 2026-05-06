@@ -51,6 +51,7 @@ private struct ImagePicker: UIViewControllerRepresentable {
 struct ProfileView: View {
     @Bindable var vm: ProfileViewModel
     var onSignOut: (() -> Void)? = nil
+    var loadsOnAppear = true
 
     @State private var isEditing = false
     @State private var showSignOutConfirm = false
@@ -67,18 +68,22 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationStack {
-            XBillScreenContainer(
-                horizontalPadding: AppSpacing.lg,
-                contentSpacing: AppSpacing.xl,
-                bottomPadding: AppSpacing.floatingActionBottomPadding
-            ) {
-                profileContent
+            XBillScreenBackground {
+                ScrollView(.vertical, showsIndicators: true) {
+                    profileContent
+                        .padding(.horizontal, AppSpacing.lg)
+                        .padding(.bottom, scrollBottomPadding)
+                }
+                .refreshable { await vm.load() }
             }
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .task { await vm.load() }
-            .refreshable { await vm.load() }
+            .task {
+                if loadsOnAppear {
+                    await vm.load()
+                }
+            }
             .sheet(isPresented: $isEditing) {
                 editSheet
             }
@@ -238,6 +243,10 @@ struct ProfileView: View {
         }
     }
 
+    private var scrollBottomPadding: CGFloat {
+        AppSpacing.xxl + AppSpacing.floatingActionBottomPadding
+    }
+
     private func profileSection<Content: View>(
         _ title: String,
         @ViewBuilder content: () -> Content
@@ -320,8 +329,6 @@ struct ProfileView: View {
                     XBillSectionHeader("Display Name")
                     XBillTextField(placeholder: "Your name", text: $vm.displayName)
                 }
-
-                Spacer()
             } stickyBottom: {
                 XBillPrimaryButton(
                     title: "Save",
@@ -357,4 +364,37 @@ struct ProfileView: View {
 #Preview("Profile Dark") {
     ProfileView(vm: ProfileViewModel())
         .preferredColorScheme(.dark)
+}
+
+#Preview("Profile Long Email") {
+    ProfileView(vm: previewProfileViewModel(
+        name: "Vijay Goyal",
+        email: "vijay.goyal.with.a.very.long.email.address@example-company-domain.com"
+    ), loadsOnAppear: false)
+}
+
+#Preview("Profile Long Name") {
+    ProfileView(vm: previewProfileViewModel(
+        name: "Vijay Goyal With A Very Long Display Name",
+        email: "vijay@example.com"
+    ), loadsOnAppear: false)
+}
+
+@MainActor
+private func previewProfileViewModel(name: String, email: String) -> ProfileViewModel {
+    let vm = ProfileViewModel()
+    vm.user = User(
+        id: UUID(),
+        email: email,
+        displayName: name,
+        avatarURL: nil,
+        createdAt: .now
+    )
+    vm.totalGroupsCount = 4
+    vm.totalExpensesCount = 28
+    vm.lifetimePaid = 420
+    vm.displayName = name
+    vm.venmoHandle = "@vijay"
+    vm.paypalEmail = email
+    return vm
 }

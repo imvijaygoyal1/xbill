@@ -22,7 +22,7 @@ struct XBillInfoRow: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
         }
-        .frame(minHeight: AppSpacing.tapTarget)
+        .frame(minHeight: AppSpacing.controlHeight)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title), \(value)")
     }
@@ -76,7 +76,7 @@ struct XBillPaymentHandleRow: View {
                 Image(systemName: systemImage)
                     .font(.appIcon)
                     .foregroundStyle(AppColors.primary)
-                    .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                    .frame(width: XBillIcon.categorySize, height: XBillIcon.categorySize)
                     .background(AppColors.surfaceSoft)
                     .clipShape(Circle())
                     .accessibilityHidden(true)
@@ -89,6 +89,7 @@ struct XBillPaymentHandleRow: View {
             XBillTextField(placeholder: placeholder, text: $text, keyboardType: keyboardType)
                 .accessibilityLabel("\(providerName) payment handle")
         }
+        .padding(.vertical, AppSpacing.xs)
         .accessibilityElement(children: .contain)
     }
 }
@@ -115,7 +116,7 @@ struct XBillSettingsRow<Trailing: View>: View {
                 rowContent
             }
         }
-        .frame(minHeight: AppSpacing.tapTarget)
+        .frame(minHeight: AppSpacing.tabBarHeight)
         .accessibilityElement(children: .combine)
     }
 
@@ -133,13 +134,15 @@ struct XBillSettingsRow<Trailing: View>: View {
                 Text(title)
                     .font(.appTitle)
                     .foregroundStyle(foregroundColor)
+                    .lineLimit(1)
                 if let subtitle {
                     Text(subtitle)
                         .font(.appCaption)
                         .foregroundStyle(AppColors.textSecondary)
-                        .lineLimit(2)
+                        .lineLimit(1)
                 }
             }
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
             Spacer(minLength: AppSpacing.md)
             trailing()
