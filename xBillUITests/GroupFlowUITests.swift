@@ -38,6 +38,8 @@ final class GroupFlowUITests: XCTestCase {
         guard tab.waitForExistence(timeout: timeout) else {
             throw XCTSkip("App is not signed in — sign in on the simulator before running group flow tests.")
         }
+        XCTAssertEqual(app.tabBars.count, 1, "MainTabView should render exactly one native iOS tab bar.")
+        XCTAssertFalse(app.otherElements["xBill.customTabBar"].exists, "The custom XBillTabBar must not render in the main app shell.")
         tab.tap()
         XCTAssertTrue(groupsTitle.waitForExistence(timeout: 4))
     }

@@ -168,7 +168,7 @@ Completed fixes:
 - Canonical buttons expose disabled and loading behavior.
 - Home density was tightened: smaller personalized header, reduced balance hero padding, smaller group chips, and tokenized FAB/content bottom spacing.
 - Home dashboard was sharpened in place: calmer surface-based balance card, reusable metric cards, tokenized section headers/status chips, more complete group cards, icon-led settled messaging, and polished surface-based bottom tabs.
-- Groups was sharpened in place: custom one-off title/button/section/card styling was replaced with `XBillPageHeader`, `XBillCircularIconButton`, `XBillSearchBar`, `XBillSectionHeader`, `XBillGroupCard`, and `XBillArchivedRow`; archived content now uses a clear reusable row and the bottom tab bar uses the premium near-black tokenized container.
+- Groups was sharpened in place: custom one-off title/button/section/card styling was replaced with `XBillPageHeader`, `XBillCircularIconButton`, `XBillSearchBar`, `XBillSectionHeader`, `XBillGroupCard`, and `XBillArchivedRow`; archived content now uses a clear reusable row. Main app navigation uses the native iOS tab bar, not the custom `XBillTabBar`, to avoid duplicate bottom navigation and preserve platform behavior.
 - Top navigation chrome now uses adaptive `AppColors.background`; near-black styling is reserved for the custom bottom tab bar.
 - Group Details uses `XBillSegmentedControl` for Expenses/Balances/Settle Up.
 - Add Expense uses a sticky full-width `Save Expense` action and 44pt+ category/share controls.

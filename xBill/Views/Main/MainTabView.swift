@@ -26,16 +26,6 @@ struct MainTabView: View {
         case home, groups, friends, activity, profile
     }
 
-    private var tabItems: [(Tab, String, String)] {
-        [
-            (.home, "Home", "house.fill"),
-            (.groups, "Groups", "person.3.fill"),
-            (.friends, "Friends", "person.2.fill"),
-            (.activity, "Alerts", "bell.fill"),
-            (.profile, "Profile", "person.fill")
-        ]
-    }
-
     var body: some View {
         TabView(selection: $selectedTab) {
             HomeView(vm: homeVM)
@@ -51,7 +41,7 @@ struct MainTabView: View {
                 .tag(Tab.friends)
 
             ActivityView(vm: activityVM)
-                .tabItem { Label("Activity", systemImage: "bell.fill") }
+                .tabItem { Label("Alerts", systemImage: "bell.fill") }
                 .badge(activityVM.unreadCount > 0 ? activityVM.unreadCount : 0)
                 .tag(Tab.activity)
 
@@ -62,14 +52,6 @@ struct MainTabView: View {
             .tag(Tab.profile)
         }
         .tint(AppColors.primary)
-        .toolbar(.hidden, for: .tabBar)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            XBillTabBar(
-                tabs: tabItems,
-                selection: $selectedTab,
-                badgeCounts: [.activity: activityVM.unreadCount]
-            )
-        }
         .sheet(item: $authVM.pendingJoinRequest) { request in
             JoinGroupView(token: request.token) {
                 await homeVM.loadAll()
