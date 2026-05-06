@@ -1,7 +1,7 @@
 # xBill — Claude Code Context
 
 > **IMPORTANT FOR CLAUDE:** After every code change to this project, update this file to reflect the change. New file → add to File Map. New pattern → update Key Patterns. This file must always stay current.
-> **After every feature implementation, run `xcodegen generate` if new Swift files were added, then build + install on simulator DA97985A-F7CC-44F6-8281-9DD24C22B978.**
+> **After every code change, run `xcodegen generate` if new Swift files were added, build for simulator, install the built `.app` on simulator DA97985A-F7CC-44F6-8281-9DD24C22B978, launch it once, and report the install/launch result.**
 > **Native patterns:** Before writing any SwiftUI view, read `NATIVE_PATTERNS.md`. It defines the required conventions for navigation, lists, SF Symbols, typography, colors, controls, sheets, empty states, swipe actions, animations, accessibility, haptics, safe area, and performance. The xBill branded redesign in `DESIGN.md` overrides native defaults only where explicitly documented; keep Apple behavior for navigation, sheets, accessibility, inputs, and data-flow safety.
 
 ## App Identity
@@ -31,7 +31,7 @@
   ```
   DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer /Applications/Xcode.app/Contents/Developer/usr/bin/simctl boot DA97985A-F7CC-44F6-8281-9DD24C22B978
   ```
-- **Always build and run on simulator after implementing a feature.**
+- **Always build, install, and launch on simulator after implementing a code change.** Do not stop at build/test success; the current app must be installed on `DA97985A-F7CC-44F6-8281-9DD24C22B978` unless the user explicitly says not to.
 
 ## Supabase
 - **Project URL:** `https://rhdhazevigbchmwzesok.supabase.co`
