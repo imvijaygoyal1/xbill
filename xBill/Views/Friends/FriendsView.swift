@@ -76,15 +76,11 @@ struct FriendsView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
-                AppColors.background.ignoresSafeArea()
-
                 Group {
                     if isLoading && ious.isEmpty && allFriends.isEmpty {
-                        LoadingOverlay(message: "Loading…")
-                    } else if displayFriendIDs.isEmpty && pendingRequests.isEmpty {
-                        emptyState
+                        loadingState
                     } else {
-                        friendList
+                        friendsContent
                     }
                 }
                 .toolbar(.hidden, for: .navigationBar)
@@ -121,73 +117,76 @@ struct FriendsView: View {
 
     // MARK: - Friend List
 
-    private var friendList: some View {
-        List {
-            Section {
-                XBillPageHeader(title: "Friends") {
-                    Button { showAddFriend = true } label: {
-                        Image(systemName: "person.badge.plus")
-                            .font(.title3)
-                            .foregroundStyle(AppColors.primary)
-                            .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
-                    }
-                    .accessibilityLabel("Add Friend")
-                }
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-            }
+    private var loadingState: some View {
+        XBillScreenContainer(mode: .fixed) {
+            friendsHeader
+            Spacer()
+            LoadingOverlay(message: "Loading…")
+            Spacer()
+        }
+    }
 
-            if !pendingRequests.isEmpty {
-                Section("Requests (\(pendingRequests.count))") {
-                    ForEach(pendingRequests) { requester in
-                        requestRow(requester)
-                    }
-                }
-            }
+    private var friendsContent: some View {
+        XBillScrollView(spacing: AppSpacing.xl) {
+            friendsHeader
 
-            if !friendIDsWithBalance.isEmpty {
-                Section("Outstanding") {
-                    ForEach(friendIDsWithBalance, id: \.self) { id in
-                        Button { selectedFriendID = id } label: { friendRow(friendID: id) }
-                            .listRowBackground(Color.bgCard)
-                    }
-                }
+            if displayFriendIDs.isEmpty && pendingRequests.isEmpty {
+                emptyStateContent
+            } else {
+                friendSections
             }
+        }
+        .background(AppColors.background.ignoresSafeArea())
+    }
 
-            if !friendIDsSettled.isEmpty {
-                Section("All Clear") {
-                    ForEach(friendIDsSettled, id: \.self) { id in
-                        Button { selectedFriendID = id } label: { friendRow(friendID: id) }
-                            .listRowBackground(Color.bgCard)
-                    }
+    private var friendsHeader: some View {
+        XBillScreenHeader(
+            title: "Friends",
+            trailingSystemImage: "person.badge.plus",
+            trailingAccessibilityLabel: "Add Friend"
+        ) {
+            showAddFriend = true
+        }
+        .padding(.horizontal, -AppSpacing.lg)
+    }
+
+    @ViewBuilder
+    private var friendSections: some View {
+        if !pendingRequests.isEmpty {
+            VStack(alignment: .leading, spacing: AppSpacing.md) {
+                XBillSectionHeader("Requests", subtitle: "\(pendingRequests.count) pending")
+                ForEach(pendingRequests) { requester in
+                    requestRow(requester)
                 }
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .listRowSeparatorTint(Color.separator)
+
+        if !friendIDsWithBalance.isEmpty {
+            VStack(alignment: .leading, spacing: AppSpacing.md) {
+                XBillSectionHeader("Outstanding", subtitle: friendCountText(friendIDsWithBalance.count))
+                ForEach(friendIDsWithBalance, id: \.self) { id in
+                    Button { selectedFriendID = id } label: { friendRow(friendID: id) }
+                        .buttonStyle(.plain)
+                }
+            }
+        }
+
+        if !friendIDsSettled.isEmpty {
+            VStack(alignment: .leading, spacing: AppSpacing.md) {
+                XBillSectionHeader("All Clear", subtitle: friendCountText(friendIDsSettled.count))
+                ForEach(friendIDsSettled, id: \.self) { id in
+                    Button { selectedFriendID = id } label: { friendRow(friendID: id) }
+                        .buttonStyle(.plain)
+                }
+            }
+        }
     }
 
     // MARK: - Empty State
 
-    private var emptyState: some View {
-        XBillScreenContainer {
-            XBillPageHeader(title: "Friends") {
-                Button { showAddFriend = true } label: {
-                    Image(systemName: "person.badge.plus")
-                        .font(.title3)
-                        .foregroundStyle(AppColors.primary)
-                        .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
-                }
-                .accessibilityLabel("Add Friend")
-            }
-            .padding(.horizontal, -AppSpacing.lg)
-
-            XBillFriendsIllustration(size: 220)
-                .frame(maxWidth: .infinity)
-
-            EmptyStateView(
+    private var emptyStateContent: some View {
+        VStack(spacing: AppSpacing.lg) {
+            XBillEmptyState(
                 icon: "person.2.fill",
                 title: "No Friends Yet",
                 message: "Add friends to track IOUs or split expenses outside of groups.",
@@ -195,30 +194,25 @@ struct FriendsView: View {
                 action: { showAddFriend = true },
                 illustration: .friends
             )
+            .padding(.top, AppSpacing.md)
 
             if !contactSuggestions.isEmpty {
-                VStack(alignment: .leading, spacing: XBillSpacing.sm) {
-                    Text("FROM YOUR CONTACTS")
-                        .font(.xbillUpperLabel)
-                        .tracking(1.08)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, XBillSpacing.lg)
-                        .padding(.top, XBillSpacing.lg)
-
+                VStack(alignment: .leading, spacing: AppSpacing.md) {
+                    XBillSectionHeader("From Your Contacts")
                     ForEach(contactSuggestions) { user in
-                        HStack(spacing: XBillSpacing.md) {
-                            AvatarView(name: user.displayName, url: user.avatarURL, size: XBillIcon.avatarSm)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(user.displayName).font(.xbillBodyMedium)
-                                Text(user.email).font(.caption).foregroundStyle(.secondary)
+                        XBillFriendRow(user: user) {
+                            Button {
+                                Task { await quickAdd(user) }
+                            } label: {
+                                Text("Add")
+                                    .font(.appCaptionMedium)
+                                    .foregroundStyle(AppColors.primary)
+                                    .frame(minWidth: AppSpacing.tapTarget, minHeight: AppSpacing.tapTarget)
                             }
-                            Spacer()
-                            Button("Add") { Task { await quickAdd(user) } }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Add \(user.displayName)")
                         }
-                        .padding(.horizontal, XBillSpacing.lg)
-                        .padding(.vertical, XBillSpacing.xs)
+                        .xbillCard()
                     }
                 }
             }
@@ -228,27 +222,15 @@ struct FriendsView: View {
     // MARK: - Row Views
 
     private func requestRow(_ requester: User) -> some View {
-        HStack(spacing: XBillSpacing.md) {
-            AvatarView(name: requester.displayName, url: requester.avatarURL, size: XBillIcon.avatarSm)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(requester.displayName)
-                    .font(.xbillBodyMedium)
-                    .foregroundStyle(Color.textPrimary)
-                Text("wants to connect")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            HStack(spacing: XBillSpacing.sm) {
+        XBillFriendRow(user: requester, detail: "wants to connect") {
+            HStack(spacing: AppSpacing.sm) {
                 Button {
                     Task { await declineRequest(from: requester) }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                        .font(.title3)
+                        .font(.appIcon)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Decline request from \(requester.displayName)")
@@ -257,42 +239,32 @@ struct FriendsView: View {
                     Task { await acceptRequest(from: requester) }
                 } label: {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.brandPrimary)
-                        .font(.title3)
+                        .font(.appIcon)
+                        .foregroundStyle(AppColors.success)
+                        .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Accept request from \(requester.displayName)")
             }
         }
-        .padding(.vertical, 4)
-        .listRowBackground(Color.bgCard)
+        .xbillCard()
     }
 
     private func friendRow(friendID: UUID) -> some View {
         let friend   = userCache[friendID]
         let balances = netBalances(with: friendID)
 
-        return HStack(spacing: XBillSpacing.md) {
-            AvatarView(name: friend?.displayName ?? "?", url: friend?.avatarURL, size: XBillIcon.avatarSm)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(friend?.displayName ?? "Unknown")
-                    .font(.xbillBodyMedium)
-                    .foregroundStyle(Color.textPrimary)
-                if let email = friend?.email {
-                    Text(email)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 2) {
+        return XBillFriendRow(
+            displayName: friend?.displayName ?? "Unknown",
+            detail: friend?.email,
+            avatarURL: friend?.avatarURL,
+            showsChevron: true
+        ) {
+            VStack(alignment: .trailing, spacing: AppSpacing.xs) {
                 if balances.isEmpty {
                     Text("All clear")
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
+                        .font(.appCaptionMedium)
+                        .foregroundStyle(AppColors.textSecondary)
                 } else {
                     ForEach(balances.keys.sorted(), id: \.self) { currency in
                         let net = balances[currency]!
@@ -305,8 +277,11 @@ struct FriendsView: View {
                 }
             }
         }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
+        .xbillCard()
+    }
+
+    private func friendCountText(_ count: Int) -> String {
+        "\(count) friend\(count == 1 ? "" : "s")"
     }
 
     // MARK: - Load
@@ -380,6 +355,15 @@ struct FriendsView: View {
             self.error = AppError.from(error)
         }
     }
+}
+
+#Preview("Friends Empty") {
+    FriendsView(currentUserID: UUID())
+}
+
+#Preview("Friends Empty Dark") {
+    FriendsView(currentUserID: UUID())
+        .preferredColorScheme(.dark)
 }
 
 // MARK: - FriendDetailView

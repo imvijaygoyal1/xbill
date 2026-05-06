@@ -169,6 +169,7 @@ Completed fixes:
 - Home density was tightened: smaller personalized header, reduced balance hero padding, smaller group chips, and tokenized FAB/content bottom spacing.
 - Home dashboard was sharpened in place: calmer surface-based balance card, reusable metric cards, tokenized section headers/status chips, more complete group cards, icon-led settled messaging, and polished surface-based bottom tabs.
 - Groups was sharpened in place: custom one-off title/button/section/card styling was replaced with `XBillPageHeader`, `XBillCircularIconButton`, `XBillSearchBar`, `XBillSectionHeader`, `XBillGroupCard`, and `XBillArchivedRow`; archived content now uses a clear reusable row. Main app navigation uses the native iOS tab bar, not the custom `XBillTabBar`, to avoid duplicate bottom navigation and preserve platform behavior.
+- Friends was sharpened in place: duplicated empty-state art was replaced with one `XBillEmptyState` using `XBillIllustrationCard`; the screen now uses `XBillScreenHeader`, `XBillScrollView`, `XBillSectionHeader`, and enhanced `XBillFriendRow` cards while preserving Add Friend, Add IOU, pending requests, refresh, and friend-detail navigation.
 - Top navigation chrome now uses adaptive `AppColors.background`; near-black styling is reserved for the custom bottom tab bar.
 - Group Details uses `XBillSegmentedControl` for Expenses/Balances/Settle Up.
 - Add Expense uses a sticky full-width `Save Expense` action and 44pt+ category/share controls.
@@ -244,7 +245,7 @@ Use search bar, active groups section, archived groups section, rounded group ca
 
 ### Friends
 
-Use search bar and friend list when available. Empty state uses `XBillEmptyState` and Add Friend button. Preserve pending requests, IOUs, contact import, QR deep-link preloading, and friend detail navigation.
+Use reusable screen header and tokenized friend rows when available. Empty state uses `XBillEmptyState` with a single `XBillIllustrationCard` and Add Friend button. Preserve pending requests, IOUs, contact import, QR deep-link preloading, and friend detail navigation.
 
 ### Notifications
 

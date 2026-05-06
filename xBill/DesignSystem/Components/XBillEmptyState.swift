@@ -11,27 +11,40 @@ struct XBillEmptyState: View {
     let message: String
     var actionLabel: String?
     var action: (() -> Void)?
+    var secondaryActionLabel: String?
+    var secondaryAction: (() -> Void)?
     var illustration: XBillEmptyStateIllustration.Kind? = nil
 
     var body: some View {
-        VStack(spacing: AppSpacing.md) {
-            XBillEmptyStateIllustration(kind: illustration ?? defaultIllustration, size: 200)
-            VStack(spacing: AppSpacing.xs) {
+        VStack(spacing: AppSpacing.lg) {
+            XBillIllustrationCard {
+                XBillEmptyStateIllustration(kind: illustration ?? defaultIllustration, size: 200)
+            }
+            .accessibilityHidden(true)
+
+            VStack(spacing: AppSpacing.sm) {
                 Text(title)
                     .font(.appH2)
                     .foregroundStyle(AppColors.textPrimary)
+                    .multilineTextAlignment(.center)
                 Text(message)
                     .font(.appBody)
                     .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
             }
+
             if let actionLabel, let action {
-                XBillPrimaryButton(title: actionLabel, action: action)
-                    .padding(.top, AppSpacing.sm)
+                VStack(spacing: AppSpacing.sm) {
+                    XBillPrimaryButton(title: actionLabel, action: action)
+                    if let secondaryActionLabel, let secondaryAction {
+                        XBillSecondaryButton(title: secondaryActionLabel, action: secondaryAction)
+                    }
+                }
+                .padding(.top, AppSpacing.sm)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(AppSpacing.xl)
+        .accessibilityElement(children: .combine)
     }
 
     private var defaultIllustration: XBillEmptyStateIllustration.Kind {
@@ -42,4 +55,33 @@ struct XBillEmptyState: View {
         if icon.contains("checkmark") { return .generic("checkmark.circle.fill") }
         return .generic(icon)
     }
+}
+
+#Preview("Empty State") {
+    XBillScreenBackground {
+        XBillEmptyState(
+            icon: "person.2.fill",
+            title: "No Friends Yet",
+            message: "Add friends to track IOUs or split expenses outside of groups.",
+            actionLabel: "Add Friend",
+            action: {},
+            illustration: .friends
+        )
+        .padding(AppSpacing.lg)
+    }
+}
+
+#Preview("Empty State Dark") {
+    XBillScreenBackground {
+        XBillEmptyState(
+            icon: "person.2.fill",
+            title: "No Friends Yet",
+            message: "Add friends to track IOUs or split expenses outside of groups.",
+            actionLabel: "Add Friend",
+            action: {},
+            illustration: .friends
+        )
+        .padding(AppSpacing.lg)
+    }
+    .preferredColorScheme(.dark)
 }
