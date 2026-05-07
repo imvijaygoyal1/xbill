@@ -112,10 +112,16 @@ final class ExpenseService: Sendable {
             .value
     }
 
-    /// Advances the `next_occurrence_date` on a template expense after spawning its instance.
-    func clearNextOccurrenceDate(expenseID: UUID) async throws {
+    /// Advances the `next_occurrence_date` on a recurring template to the next cycle date.
+    func setNextOccurrenceDate(_ date: Date, expenseID: UUID) async throws {
+        struct Payload: Encodable {
+            let nextOccurrenceDate: Date
+            enum CodingKeys: String, CodingKey {
+                case nextOccurrenceDate = "next_occurrence_date"
+            }
+        }
         try await supabase.table("expenses")
-            .update(NullNextOccurrence())
+            .update(Payload(nextOccurrenceDate: date))
             .eq("id", value: expenseID)
             .execute()
     }

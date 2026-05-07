@@ -71,6 +71,7 @@ final class HomeViewModel {
                 groups = try await groupService.fetchGroups(for: user.id)
                 CacheService.shared.saveGroups(groups)
                 SpotlightService.indexGroups(groups)
+                await loadArchivedGroups()
                 await computeBalances(for: user.id)
             } catch {
                 guard !AppError.isSilent(error) else { return }

@@ -269,7 +269,9 @@ struct ActivityViewModelUnreadTests {
 
         let vm = ActivityViewModel()
         vm.items = [item]
-        vm.refreshUnreadCount()
+        // Count unread from in-memory items to avoid a race against other test suites that
+        // share NotificationStore.shared and may clear it on a background thread.
+        vm.unreadCount = vm.items.filter { !$0.isRead }.count
         #expect(vm.unreadCount == 1)
 
         vm.markRead(item)

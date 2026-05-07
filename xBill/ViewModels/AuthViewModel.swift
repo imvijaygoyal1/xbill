@@ -35,6 +35,7 @@ final class AuthViewModel {
     var isLoggedIn: Bool { currentUser != nil }
 
     private let auth = AuthService.shared
+    @ObservationIgnored private var isListening = false
 
     // MARK: - Computed
 
@@ -55,7 +56,12 @@ final class AuthViewModel {
 
     /// Subscribes to Supabase auth state changes for the lifetime of the caller's Task.
     /// Call this from the app root so sign-in / sign-out propagates everywhere.
+    /// Guards against duplicate subscriptions if called more than once.
     func startListeningToAuthChanges() async {
+        guard !isListening else { return }
+        isListening = true
+        defer { isListening = false }
+
         for await (event, session) in SupabaseManager.shared.auth.authStateChanges {
             switch event {
             case .initialSession, .signedIn, .tokenRefreshed, .userUpdated:
@@ -72,6 +78,7 @@ final class AuthViewModel {
             case .signedOut:
                 currentUser = nil
                 isInPasswordRecovery = false
+                AppState.shared.clear()
             default:
                 break
             }

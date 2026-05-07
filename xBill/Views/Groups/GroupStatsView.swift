@@ -39,9 +39,10 @@ struct GroupStatsView: View {
 
     private var memberData: [(name: String, total: Decimal)] {
         let nameMap = Dictionary(uniqueKeysWithValues: members.map { ($0.id, $0.displayName) })
-        return Dictionary(grouping: expenses, by: \.payerID)
+        // Expenses with a nil payerID (deleted user) are grouped under the "Unknown" key.
+        return Dictionary(grouping: expenses, by: { $0.payerID })
             .mapValues { $0.reduce(.zero) { $0 + $1.amount } }
-            .map { (name: nameMap[$0.key] ?? "Unknown", total: $0.value) }
+            .map { (name: $0.key.flatMap { nameMap[$0] } ?? "Unknown", total: $0.value) }
             .sorted { $0.total > $1.total }
     }
 

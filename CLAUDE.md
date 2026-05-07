@@ -117,6 +117,8 @@
 18. `018_lookup_profiles_by_email.sql` — `SECURITY DEFINER` RPC `lookup_profiles_by_email`; excludes current user; granted only to `authenticated` role
 19. `019_device_tokens_unique.sql` — Adds `UNIQUE (user_id, token)` constraint to `device_tokens` to prevent duplicate rows and enable safe upserts.
 20. `020_friends_table.sql` — `friends` table (requester_id, addressee_id, status: pending/accepted/blocked); RLS (both parties select/delete, requester inserts, addressee updates); `send_friend_request(p_addressee_id)` idempotent RPC; `respond_to_friend_request(p_requester_id, p_accept)` RPC; `search_profiles(p_query)` RPC (ilike on email + display_name, max 20 results, excludes self).
+21. `021_fix_search_profiles_no_email.sql` — (see Security section)
+22. `022_expenses_update_rls.sql` — Adds `FOR UPDATE` RLS policy on `expenses` table using `is_group_member(group_id)`. Without this, all expense edits and recurring-instance `next_occurrence_date` advances silently failed for every user. (requester_id, addressee_id, status: pending/accepted/blocked); RLS (both parties select/delete, requester inserts, addressee updates); `send_friend_request(p_addressee_id)` idempotent RPC; `respond_to_friend_request(p_requester_id, p_accept)` RPC; `search_profiles(p_query)` RPC (ilike on email + display_name, max 20 results, excludes self).
 
 ## File Map
 
@@ -510,6 +512,30 @@ Deploy: `supabase db push && supabase functions deploy delete-account --project-
 - Both entitlements files — `com.apple.security.application-groups: [group.com.vijaygoyal.xbill]`
 - `HomeViewModel` — calls `WidgetCenter.shared.reloadAllTimelines()` after computing balances
 - **⚠️ REQUIRES**: Register App Group `group.com.vijaygoyal.xbill` in Apple Developer Portal → Identifiers before the widget can share data with the main app
+
+## Critical Defect Fixes (2026-05-06)
+
+All 20 critical defects from the senior developer audit (DEFECT_REPORT.md) fixed:
+
+- **CRIT-01** — `Expense.payerID` is now `UUID?` to match nullable `paid_by` DB column (migration 017). All callers updated: `SplitCalculator.netBalances`, `ActivityService`, `ExportService`, `ExpenseRowView`, `GroupStatsView`, `GroupViewModel`, `ExpenseDetailView`.
+- **CRIT-02** — `BillGroup.createdBy` is now `UUID?` to match nullable `created_by` DB column (migration 017).
+- **CRIT-03** — `supabase/migrations/022_expenses_update_rls.sql` adds UPDATE RLS policy on `expenses` table using `is_group_member()`. Without this, all expense edits and `next_occurrence_date` updates silently failed.
+- **CRIT-04** — `AppState.clear()` method added; called from `AuthViewModel.startListeningToAuthChanges()` on `.signedOut` event so stale nav targets never persist across user sessions.
+- **CRIT-05** — `NotificationStore` now has `private let lock = NSLock()`. All public methods wrap read-modify-write cycles in `lock.withLock {}` to prevent TOCTOU races.
+- **CRIT-06** — `CacheService.save<T>` and `load<T>` now create local `JSONEncoder`/`JSONDecoder` instances per call (not stored properties) to eliminate non-thread-safe shared encoder/decoder access.
+- **CRIT-07** — `GroupViewModel.computeBalances()` now uses `withTaskGroup` to fetch all splits in parallel instead of serial N round-trips.
+- **CRIT-08** — `GroupViewModel.recordSettlement()` fetches fresh splits for the relevant expenses (parallel `withTaskGroup`) instead of relying on stale `splitsMap`.
+- **CRIT-09** — (Architectural, inherent to structured concurrency — deferred.)
+- **CRIT-10** — `HomeViewModel.loadAll()` now calls `await loadArchivedGroups()` on every successful network fetch so archived groups are always in sync.
+- **CRIT-11** — `AddExpenseViewModel.save()` and `GroupViewModel.recordSettlement()` now `await` push notification calls inline instead of spawning untracked `Task {}` closures.
+- **CRIT-12** — `AddExpenseViewModel.save()` captures `finalAmount` into `capturedAmount` after conversion but before any further `await`, preventing `amountText` edits from altering the saved amount mid-flight.
+- **CRIT-13/14** — (Complex architectural — deferred.)
+- **CRIT-15** — `AuthViewModel.startListeningToAuthChanges()` now guards `isListening` to prevent duplicate concurrent subscribers if called more than once.
+- **CRIT-16** — `GroupViewModel.createDueRecurringInstances()` fixed: new instance created with `recurrence: .none, nextOccurrenceDate: nil` (not copying the template's recurrence); template advanced via new `ExpenseService.setNextOccurrenceDate(_:expenseID:)` instead of nulling the date out.
+- **CRIT-17** — 4 vacuous tests in `GroupFlowTests.swift` rewritten to call `SplitCalculator.minimizeTransactions` and test production logic rather than hardcoded literals.
+- **CRIT-18** — `ExpenseDetailView` swipe-to-delete comment now shows a `confirmationDialog` before deleting; errors are surfaced instead of swallowed.
+- **CRIT-19** — `GroupDetailView` swipe-to-delete expense now shows a `confirmationDialog` (stored as `expenseToDelete: Expense?`).
+- **CRIT-20** — "Mark as Settled" in `SettleUpView` and the embedded settle tab in `GroupDetailView` now show a `confirmationDialog` before calling `recordSettlement`.
 
 ## Known TODOs
 - **App Group registration** (for widget data sharing): register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Certificates, IDs & Profiles → Identifiers → App Groups

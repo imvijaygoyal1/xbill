@@ -10,6 +10,7 @@ import SwiftUI
 struct SettleUpView: View {
     @Bindable var vm: GroupViewModel
     @Environment(\.dismiss) private var dismiss
+    @State private var settlementToConfirm: SettlementSuggestion?
 
     var body: some View {
         NavigationStack {
@@ -29,6 +30,25 @@ struct SettleUpView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
+                }
+            }
+            .confirmationDialog(
+                "Mark as Settled?",
+                isPresented: Binding(
+                    get: { settlementToConfirm != nil },
+                    set: { if !$0 { settlementToConfirm = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Mark as Settled") {
+                    guard let suggestion = settlementToConfirm else { return }
+                    Task { await vm.recordSettlement(suggestion) }
+                    settlementToConfirm = nil
+                }
+                Button("Cancel", role: .cancel) { settlementToConfirm = nil }
+            } message: {
+                if let s = settlementToConfirm {
+                    Text("\(s.fromName) → \(s.toName): \(s.amount.formatted(currencyCode: s.currency)). This action cannot be undone.")
                 }
             }
         }
@@ -68,7 +88,7 @@ struct SettleUpView: View {
                     }
 
                     Button {
-                        Task { await vm.recordSettlement(suggestion) }
+                        settlementToConfirm = suggestion
                     } label: {
                         Label("Mark Settled", systemImage: "checkmark")
                             .font(.caption.bold())

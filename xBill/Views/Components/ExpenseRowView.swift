@@ -20,7 +20,7 @@ struct ExpenseRowView: View {
         XBillExpenseRow(expense: expense, members: members, showAmountBadge: showAmountBadge)
         .padding(.vertical, XBillSpacing.xs)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(expense.title), paid by \(name(for: expense.payerID)), \(expense.amount.formatted(currencyCode: expense.currency))")
+        .accessibilityLabel("\(expense.title), paid by \(expense.payerID.map { name(for: $0) } ?? "Unknown"), \(expense.amount.formatted(currencyCode: expense.currency))")
     }
 }
 

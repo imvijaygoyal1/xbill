@@ -270,32 +270,35 @@ struct GroupCreationTests {
 @Suite("GroupFlow — Archive Logic")
 struct GroupArchiveLogicTests {
 
-    @Test("Archive warning: shown when settlement suggestions exist")
+    @Test("Archive warning: minimizeTransactions produces suggestions when balances exist")
     func archiveWarningShownWhenBalancesExist() {
-        let suggestions = [
-            SettlementSuggestion(id: UUID(), fromUserID: UUID(), fromName: "Alice",
-                                 toUserID: UUID(), toName: "Bob", amount: 25, currency: "USD")
-        ]
-        #expect(!suggestions.isEmpty)
-        #expect(suggestions.count == 1)
+        let alice = UUID()
+        let bob   = UUID()
+        let balances: [UUID: Decimal] = [alice: 25, bob: -25]
+        let names = [alice: "Alice", bob: "Bob"]
+        let suggestions = SplitCalculator.minimizeTransactions(balances: balances, names: names, currency: "USD")
+        #expect(!suggestions.isEmpty, "Non-zero balances must produce at least one settlement suggestion")
+        #expect(suggestions[0].amount == 25)
+        #expect(suggestions[0].fromName == "Bob")
+        #expect(suggestions[0].toName == "Alice")
     }
 
-    @Test("Archive warning: not shown when all settled")
+    @Test("Archive warning: minimizeTransactions returns empty when all settled")
     func archiveWarningHiddenWhenSettled() {
-        let suggestions: [SettlementSuggestion] = []
-        #expect(suggestions.isEmpty)
+        let suggestions = SplitCalculator.minimizeTransactions(balances: [:], names: [:], currency: "USD")
+        #expect(suggestions.isEmpty, "Zero balances must produce no settlement suggestions")
     }
 
-    @Test("Archive warning count is correct for multiple suggestions")
+    @Test("Archive dialog message pluralises suggestion count correctly")
     func archiveWarningCountForMultipleSuggestions() {
-        let suggestions = (0..<4).map { i in
-            SettlementSuggestion(id: UUID(), fromUserID: UUID(), fromName: "P\(i)",
-                                 toUserID: UUID(), toName: "Q\(i)",
-                                 amount: Decimal(i + 1) * 10, currency: "USD")
-        }
-        #expect(suggestions.count == 4)
+        let alice = UUID(); let bob = UUID(); let charlie = UUID()
+        // Three-way debt: alice owes bob $10, alice owes charlie $20 → 2 suggestions
+        let balances: [UUID: Decimal] = [alice: -30, bob: 10, charlie: 20]
+        let names = [alice: "Alice", bob: "Bob", charlie: "Charlie"]
+        let suggestions = SplitCalculator.minimizeTransactions(balances: balances, names: names, currency: "USD")
+        #expect(suggestions.count == 2)
         let message = "This group has \(suggestions.count) unsettled balance\(suggestions.count == 1 ? "" : "s")."
-        #expect(message.contains("4 unsettled balances"))
+        #expect(message == "This group has 2 unsettled balances.")
     }
 
     @Test("Archive warning pluralises correctly")
@@ -313,13 +316,18 @@ struct GroupArchiveLogicTests {
         #expect(multiMsg  == "unsettled balances")
     }
 
-    @Test("Toolbar shows Archive for active groups and Unarchive for archived groups")
+    @Test("Toolbar: isArchived flag on BillGroup correctly gates archive vs unarchive action")
     func toolbarActionDependsOnArchivedState() {
-        func expectedAction(isArchived: Bool) -> String {
-            isArchived ? "Unarchive Group" : "Archive Group"
-        }
-        #expect(expectedAction(isArchived: false) == "Archive Group")
-        #expect(expectedAction(isArchived: true)  == "Unarchive Group")
+        let active   = makeGroup(name: "Active",   isArchived: false)
+        let archived = makeGroup(name: "Archived", isArchived: true)
+        // Mirror the GroupDetailView toolbar guard: show Unarchive when isArchived, else Archive
+        #expect(!active.isArchived,   "Active group must present Archive action")
+        #expect(archived.isArchived,  "Archived group must present Unarchive action")
+        // Value-type safety: mutating a copy must not change the original
+        var toggled = active
+        toggled.isArchived = true
+        #expect(toggled.isArchived)
+        #expect(!active.isArchived, "Original struct must be unchanged after copy mutation")
     }
 }
 

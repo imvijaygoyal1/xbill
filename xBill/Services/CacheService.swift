@@ -28,18 +28,6 @@ final class CacheService: Sendable {
     // nonisolated(unsafe) is correct here: UserDefaults is thread-safe at runtime.
     nonisolated(unsafe) static let defaults: UserDefaults = UserDefaults(suiteName: "group.com.vijaygoyal.xbill") ?? .standard
 
-    private let encoder: JSONEncoder = {
-        let e = JSONEncoder()
-        e.dateEncodingStrategy = .secondsSince1970
-        return e
-    }()
-
-    private let decoder: JSONDecoder = {
-        let d = JSONDecoder()
-        d.dateDecodingStrategy = .secondsSince1970
-        return d
-    }()
-
     // MARK: - Groups
 
     func saveGroups(_ groups: [BillGroup]) {
@@ -115,7 +103,10 @@ final class CacheService: Sendable {
     // MARK: - Helpers
 
     private func save<T: Encodable>(_ value: T, key: String) {
-        guard let plain = try? encoder.encode(value) else { return }
+        // JSONEncoder is not thread-safe; create a new instance per call.
+        let enc = JSONEncoder()
+        enc.dateEncodingStrategy = .secondsSince1970
+        guard let plain = try? enc.encode(value) else { return }
         let data = CacheService.encrypt(plain) ?? plain
         CacheService.defaults.set(data, forKey: key)
     }
@@ -124,6 +115,9 @@ final class CacheService: Sendable {
         guard let raw = CacheService.defaults.data(forKey: key) else { return nil }
         // Attempt decryption; fall back to raw for seamless migration from unencrypted cache.
         let data = CacheService.decrypt(raw) ?? raw
-        return try? decoder.decode(type, from: data)
+        // JSONDecoder is not thread-safe; create a new instance per call.
+        let dec = JSONDecoder()
+        dec.dateDecodingStrategy = .secondsSince1970
+        return try? dec.decode(type, from: data)
     }
 }

@@ -48,7 +48,7 @@ final class ActivityService: Sendable {
         return expenses.map { expense in
             NotificationItem.expense(
                 expense,
-                payerName: nameMap[expense.payerID] ?? "Someone",
+                payerName: expense.payerID.flatMap { nameMap[$0] } ?? "Someone",
                 groupName: group.name,
                 groupEmoji: group.emoji
             )

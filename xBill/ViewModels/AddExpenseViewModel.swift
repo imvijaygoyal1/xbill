@@ -128,11 +128,15 @@ final class AddExpenseViewModel {
     func save() async {
         guard canSave, let payerID else { return }
 
-        // If foreign currency, need a valid conversion
+        // If foreign currency, resolve conversion first
         if isForeignCurrency && convertedAmount == nil {
             await updateConversion()
             guard convertedAmount != nil else { return }
         }
+
+        // Capture finalAmount after conversion is settled and before any further await,
+        // so a concurrent amountText edit cannot alter the value mid-save.
+        let capturedAmount = finalAmount
 
         isLoading = true
         defer { isLoading = false }
@@ -144,7 +148,7 @@ final class AddExpenseViewModel {
             let expense = try await expenseService.createExpense(
                 groupID:             group.id,
                 title:               title.trimmingCharacters(in: .whitespaces),
-                amount:              finalAmount,
+                amount:              capturedAmount,
                 currency:            currency,
                 payerID:             payerID,
                 category:            category,
@@ -157,19 +161,18 @@ final class AddExpenseViewModel {
             )
             isSaved = true
 
+            // Await the notification inline — isSaved drives sheet dismissal, not isLoading.
             let payerName = members.first(where: { $0.id == payerID })?.displayName ?? "Someone"
             if UserDefaults.standard.bool(forKey: "prefPushExpense") {
-                Task {
-                    await expenseService.notifyExpenseAdded(
-                        expenseID:    expense.id,
-                        groupID:      group.id,
-                        payerID:      payerID,
-                        payerName:    payerName,
-                        expenseTitle: expense.title,
-                        amount:       expense.amount,
-                        currency:     expense.currency
-                    )
-                }
+                await expenseService.notifyExpenseAdded(
+                    expenseID:    expense.id,
+                    groupID:      group.id,
+                    payerID:      payerID,
+                    payerName:    payerName,
+                    expenseTitle: expense.title,
+                    amount:       expense.amount,
+                    currency:     expense.currency
+                )
             }
         } catch {
             guard !AppError.isSilent(error) else { return }

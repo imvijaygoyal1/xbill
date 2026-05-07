@@ -15,7 +15,7 @@ struct Expense: Codable, Identifiable, Equatable, Sendable {
     var title: String
     var amount: Decimal
     var currency: String
-    let payerID: UUID
+    var payerID: UUID?
     var category: Category
     var notes: String?
     var receiptURL: URL?

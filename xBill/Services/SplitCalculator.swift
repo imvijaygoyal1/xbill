@@ -164,16 +164,17 @@ enum SplitCalculator {
         var balances: [UUID: Decimal] = [:]
 
         for expense in expenses {
+            guard let payerID = expense.payerID else { continue }
             for split in splits[expense.id] ?? [] {
                 // Skip payer's own split and already-settled debts
-                guard !split.isSettled, split.userID != expense.payerID else { continue }
+                guard !split.isSettled, split.userID != payerID else { continue }
 
                 var amount = split.amount
                 var rounded = Decimal()
                 NSDecimalRound(&rounded, &amount, 2, .bankers)
 
-                balances[expense.payerID, default: .zero] += rounded
-                balances[split.userID, default: .zero]    -= rounded
+                balances[payerID, default: .zero]      += rounded
+                balances[split.userID, default: .zero] -= rounded
             }
         }
 

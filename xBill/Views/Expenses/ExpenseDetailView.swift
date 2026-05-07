@@ -37,6 +37,7 @@ struct ExpenseDetailView: View {
 
     // Delete state
     @State private var showDeleteConfirm = false
+    @State private var commentToDelete: Comment?
     @Environment(\.dismiss) private var dismiss
 
     private func memberName(_ id: UUID) -> String {
@@ -71,8 +72,9 @@ struct ExpenseDetailView: View {
                     HStack {
                         Text("Paid by")
                             .foregroundStyle(.secondary)
-                        AvatarView(name: memberName(expense.payerID), url: memberAvatar(expense.payerID), size: 22)
-                        Text(memberName(expense.payerID))
+                        let payerName = expense.payerID.map { memberName($0) } ?? "Unknown"
+                        AvatarView(name: payerName, url: expense.payerID.flatMap { memberAvatar($0) }, size: 22)
+                        Text(payerName)
                             .fontWeight(.semibold)
                     }
                     .font(.subheadline)
@@ -138,10 +140,7 @@ struct ExpenseDetailView: View {
                     .onDelete { offsets in
                         for comment in offsets.map({ comments[$0] }) {
                             guard comment.userID == currentUserID else { continue }
-                            Task {
-                                try? await CommentService.shared.deleteComment(id: comment.id)
-                                comments.removeAll { $0.id == comment.id }
-                            }
+                            commentToDelete = comment
                         }
                     }
                 }
@@ -202,6 +201,26 @@ struct ExpenseDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will remove the expense and all its splits. This cannot be undone.")
+        }
+        .confirmationDialog("Delete Comment?", isPresented: Binding(
+            get: { commentToDelete != nil },
+            set: { if !$0 { commentToDelete = nil } }
+        ), titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                guard let comment = commentToDelete else { return }
+                Task {
+                    do {
+                        try await CommentService.shared.deleteComment(id: comment.id)
+                        comments.removeAll { $0.id == comment.id }
+                    } catch {
+                        self.error = AppError.from(error)
+                    }
+                    commentToDelete = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { commentToDelete = nil }
+        } message: {
+            Text("This will permanently delete your comment.")
         }
         .sheet(isPresented: $isEditing) {
             editSheet

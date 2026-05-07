@@ -35,7 +35,7 @@ final class ExportService {
             let category  = expense.category.displayName
             let amount    = String(format: "%.2f", NSDecimalNumber(decimal: expense.amount).doubleValue)
             let currency  = expense.currency
-            let paidBy    = csvEscape(memberNames[expense.payerID] ?? "Unknown")
+            let paidBy    = csvEscape(expense.payerID.flatMap { memberNames[$0] } ?? "Unknown")
             let notes     = csvEscape(expense.notes ?? "")
             let recur     = expense.recurrence == .none ? "" : expense.recurrence.shortLabel
             lines.append("\(date),\(title),\(category),\(amount),\(currency),\(paidBy),\(notes),\(recur)")
@@ -160,7 +160,7 @@ final class ExportService {
                 alternate.toggle()
 
                 let amtStr  = fmt.string(from: expense.amount as NSDecimalNumber) ?? "\(expense.amount)"
-                let paidBy  = memberNames[expense.payerID] ?? "Unknown"
+                let paidBy  = expense.payerID.flatMap { memberNames[$0] } ?? "Unknown"
                 let values  = [
                     df.string(from: expense.createdAt),
                     expense.title + (expense.recurrence != .none ? " ↻" : ""),

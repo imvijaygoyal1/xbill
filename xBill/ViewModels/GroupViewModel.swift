@@ -80,10 +80,17 @@ final class GroupViewModel {
     // MARK: - Balances
 
     private func computeBalances() async {
+        // Fetch all splits in parallel instead of serially to avoid blocking MainActor.
         var map: [UUID: [Split]] = [:]
-        for expense in expenses {
-            if let splits = try? await expenseService.fetchSplits(expenseID: expense.id) {
-                map[expense.id] = splits
+        await withTaskGroup(of: (UUID, [Split]?).self) { taskGroup in
+            for expense in expenses {
+                taskGroup.addTask {
+                    let splits = try? await self.expenseService.fetchSplits(expenseID: expense.id)
+                    return (expense.id, splits)
+                }
+            }
+            for await (expenseID, splits) in taskGroup {
+                if let splits { map[expenseID] = splits }
             }
         }
         splitsMap = map
@@ -173,8 +180,10 @@ final class GroupViewModel {
             guard !dueExpenses.isEmpty else { return }
 
             for expense in dueExpenses {
+                // Skip if the expense has no payer (deleted user) or no next date
                 guard expense.recurrence != .none,
-                      let nextDate = expense.nextOccurrenceDate else { continue }
+                      let nextDate = expense.nextOccurrenceDate,
+                      let payerID  = expense.payerID else { continue }
 
                 let existingSplits = (try? await expenseService.fetchSplits(expenseID: expense.id)) ?? []
                 let splitInputs = existingSplits.map { SplitInput(from: $0) }
@@ -182,22 +191,25 @@ final class GroupViewModel {
 
                 let newNextDate = expense.recurrence.nextDate(from: nextDate)
 
+                // New instance is a one-off snapshot — it must NOT inherit recurrence or
+                // a next date, otherwise it would spawn further instances indefinitely.
                 _ = try await expenseService.createExpense(
                     groupID:             expense.groupID,
                     title:               expense.title,
                     amount:              expense.amount,
                     currency:            expense.currency,
-                    payerID:             expense.payerID,
+                    payerID:             payerID,
                     category:            expense.category,
                     notes:               expense.notes,
                     splits:              splitInputs,
                     originalAmount:      expense.originalAmount,
                     originalCurrency:    expense.originalCurrency,
-                    recurrence:          expense.recurrence,
-                    nextOccurrenceDate:  newNextDate
+                    recurrence:          .none,
+                    nextOccurrenceDate:  nil
                 )
 
-                try await expenseService.clearNextOccurrenceDate(expenseID: expense.id)
+                // Advance the template to the next cycle date (do NOT null it out).
+                try await expenseService.setNextOccurrenceDate(newNextDate, expenseID: expense.id)
             }
 
             await load()
@@ -241,13 +253,27 @@ final class GroupViewModel {
         defer { isLoading = false }
 
         do {
-            // Collect all unsettled splits where:
-            //   - the debtor (fromUser) owes money
-            //   - the expense was paid by the creditor (toUser)
-            let splitsToSettle: [Split] = splitsMap.flatMap { (expenseID, splits) -> [Split] in
-                guard let expense = expenses.first(where: { $0.id == expenseID }),
-                      expense.payerID == suggestion.toUserID else { return [] }
-                return splits.filter { $0.userID == suggestion.fromUserID && !$0.isSettled }
+            // Fetch fresh splits for expenses paid by the creditor to avoid stale splitsMap data.
+            let relevantExpenseIDs = expenses.compactMap { expense -> UUID? in
+                guard let payerID = expense.payerID, payerID == suggestion.toUserID else { return nil }
+                return expense.id
+            }
+            var freshSplitsMap: [UUID: [Split]] = [:]
+            await withTaskGroup(of: (UUID, [Split]?).self) { taskGroup in
+                for expenseID in relevantExpenseIDs {
+                    taskGroup.addTask {
+                        let splits = try? await self.expenseService.fetchSplits(expenseID: expenseID)
+                        return (expenseID, splits)
+                    }
+                }
+                for await (expenseID, splits) in taskGroup {
+                    freshSplitsMap[expenseID] = splits ?? []
+                }
+            }
+
+            // Collect unsettled splits where the debtor owes the creditor.
+            let splitsToSettle: [Split] = freshSplitsMap.flatMap { (_, splits) in
+                splits.filter { $0.userID == suggestion.fromUserID && !$0.isSettled }
             }
 
             try await withThrowingTaskGroup(of: Void.self) { taskGroup in
@@ -266,19 +292,18 @@ final class GroupViewModel {
             )
             NotificationStore.shared.merge([note])
 
+            // Await the notification inline; isSaved drives sheet dismissal, not isLoading.
             if UserDefaults.standard.bool(forKey: "prefPushSettlement") {
-                Task {
-                    await expenseService.notifySettlementRecorded(
-                        settlementID: suggestion.id,
-                        groupID:      group.id,
-                        groupName:    group.name,
-                        fromUserID:   suggestion.fromUserID,
-                        fromName:     suggestion.fromName,
-                        toUserID:     suggestion.toUserID,
-                        amount:       suggestion.amount,
-                        currency:     suggestion.currency
-                    )
-                }
+                await expenseService.notifySettlementRecorded(
+                    settlementID: suggestion.id,
+                    groupID:      group.id,
+                    groupName:    group.name,
+                    fromUserID:   suggestion.fromUserID,
+                    fromName:     suggestion.fromName,
+                    toUserID:     suggestion.toUserID,
+                    amount:       suggestion.amount,
+                    currency:     suggestion.currency
+                )
             }
 
             await load()

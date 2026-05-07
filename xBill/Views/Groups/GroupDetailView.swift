@@ -18,6 +18,8 @@ struct GroupDetailView: View {
     @State private var showStats = false
     @State private var showArchiveConfirm = false
     @State private var showUnarchiveConfirm = false
+    @State private var expenseToDelete: Expense?
+    @State private var settlementToConfirm: SettlementSuggestion?
     @State private var shareItem: ExportShareItem?
     @State private var selectedTab = 0
     @State private var searchText = ""
@@ -118,6 +120,45 @@ struct GroupDetailView: View {
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("The group will be moved back to your active list.")
+            }
+            .confirmationDialog(
+                "Delete Expense?",
+                isPresented: Binding(
+                    get: { expenseToDelete != nil },
+                    set: { if !$0 { expenseToDelete = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    guard let expense = expenseToDelete else { return }
+                    Task { await vm.deleteExpense(expense) }
+                    expenseToDelete = nil
+                }
+                Button("Cancel", role: .cancel) { expenseToDelete = nil }
+            } message: {
+                Text("This will remove the expense and all its splits. This cannot be undone.")
+            }
+            .confirmationDialog(
+                "Mark as Settled?",
+                isPresented: Binding(
+                    get: { settlementToConfirm != nil },
+                    set: { if !$0 { settlementToConfirm = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Mark as Settled") {
+                    guard let suggestion = settlementToConfirm else { return }
+                    Task {
+                        await vm.recordSettlement(suggestion)
+                        HapticManager.success()
+                    }
+                    settlementToConfirm = nil
+                }
+                Button("Cancel", role: .cancel) { settlementToConfirm = nil }
+            } message: {
+                if let s = settlementToConfirm {
+                    Text("\(s.fromName) → \(s.toName): \(s.amount.formatted(currencyCode: s.currency)). This cannot be undone.")
+                }
             }
             .navigationDestination(isPresented: $showStats) {
                 GroupStatsView(
@@ -251,9 +292,8 @@ struct GroupDetailView: View {
                         .listRowBackground(Color.bgCard)
                     }
                     .onDelete { offsets in
-                        for expense in offsets.map({ filteredExpenses[$0] }) {
-                            Task { await vm.deleteExpense(expense) }
-                        }
+                        // Show confirmation before deleting; actual delete fires from the dialog.
+                        expenseToDelete = offsets.map({ filteredExpenses[$0] }).first
                     }
                 }
                 .listStyle(.plain)
@@ -326,10 +366,7 @@ struct GroupDetailView: View {
                     .foregroundStyle(Color.textPrimary)
             }
             XBillButton(title: "Mark as Settled", style: .primary) {
-                Task {
-                    await vm.recordSettlement(suggestion)
-                    HapticManager.success()
-                }
+                settlementToConfirm = suggestion
             }
         }
         .padding(.vertical, XBillSpacing.sm)

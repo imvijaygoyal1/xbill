@@ -14,7 +14,7 @@ struct BillGroup: Codable, Identifiable, Equatable, Hashable, Sendable {
     let id: UUID
     var name: String
     var emoji: String
-    let createdBy: UUID
+    let createdBy: UUID?
     var isArchived: Bool
     var currency: String
     let createdAt: Date

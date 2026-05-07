@@ -46,4 +46,15 @@ final class AppState: @unchecked Sendable {
 
     /// Set when the app is opened via xbill://add/<userID>. MainTabView resolves this.
     var pendingAddFriendUserID: UUID?
+
+    // MARK: - Sign-out cleanup
+
+    /// Clears all pending navigation state so a subsequent sign-in for a different
+    /// user never sees stale targets from the previous session.
+    func clear() {
+        pendingQuickAction = nil
+        spotlightTarget = nil
+        pendingNotificationTarget = nil
+        pendingAddFriendUserID = nil
+    }
 }
