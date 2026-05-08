@@ -138,9 +138,10 @@ final class GroupViewModel {
             var updated = group
             updated.isArchived = true
             group = try await groupService.updateGroup(updated)
-            var cached = CacheService.shared.loadGroups()
-            cached.removeAll { $0.id == group.id }
-            CacheService.shared.saveGroups(cached)
+            // Remove from active-groups cache
+            var active = CacheService.shared.loadGroups()
+            active.removeAll { $0.id == group.id }
+            CacheService.shared.saveGroups(active)
         } catch {
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
@@ -222,6 +223,9 @@ final class GroupViewModel {
     // MARK: - Settle Up
 
     func deleteExpense(_ expense: Expense) async {
+        guard !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
         do {
             try await expenseService.deleteExpense(id: expense.id)
             expenses.removeAll { $0.id == expense.id }

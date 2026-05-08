@@ -94,7 +94,6 @@ serve(async (req) => {
         sound: 'default',
         badge: 1,
       },
-      fromUserID,
     }
 
     let sent = 0

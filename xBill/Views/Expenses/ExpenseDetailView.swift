@@ -169,21 +169,13 @@ struct ExpenseDetailView: View {
         }
         .task {
             isLoading = true
-            defer { isLoading = false }
-            do {
-                splits = try await ExpenseService.shared.fetchSplits(expenseID: expense.id)
-            } catch {
-                self.error = AppError.from(error)
-            }
-        }
-        .task {
             isLoadingComments = true
-            defer { isLoadingComments = false }
-            do {
-                comments = try await CommentService.shared.fetchComments(expenseID: expense.id)
-            } catch {
-                self.error = AppError.from(error)
-            }
+            async let fetchedSplits   = ExpenseService.shared.fetchSplits(expenseID: expense.id)
+            async let fetchedComments = CommentService.shared.fetchComments(expenseID: expense.id)
+            do { splits   = try await fetchedSplits   } catch { self.error = AppError.from(error) }
+            do { comments = try await fetchedComments } catch { self.error = AppError.from(error) }
+            isLoading = false
+            isLoadingComments = false
         }
         .task(id: expense.id) {
             guard let stream = try? await CommentService.shared.commentChanges(expenseID: expense.id) else { return }

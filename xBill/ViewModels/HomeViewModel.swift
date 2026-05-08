@@ -26,6 +26,7 @@ final class HomeViewModel {
     var crossGroupSuggestions: [SettlementSuggestion] = []
     var isLoading: Bool = false
     var errorAlert: ErrorAlert?
+    @ObservationIgnored private var isComputingBalances = false
 
     struct RecentEntry: Identifiable, Sendable {
         var id: UUID { expense.id }
@@ -132,6 +133,7 @@ final class HomeViewModel {
     // MARK: - Sample Data
 
     func createSampleData(userID: UUID) async {
+        guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
         do {
@@ -150,7 +152,7 @@ final class HomeViewModel {
                 var split = SplitInput(userID: userID, displayName: "You")
                 split.amount     = amount
                 split.isIncluded = true
-                _ = try? await expenseService.createExpense(
+                try await expenseService.createExpense(
                     groupID: group.id, title: title, amount: amount,
                     currency: "USD", payerID: userID, category: category,
                     notes: "Sample expense — feel free to delete", splits: [split]
@@ -159,7 +161,8 @@ final class HomeViewModel {
             groups.append(group)
             CacheService.shared.saveGroups(groups)
         } catch {
-            // Non-fatal: failing to create sample data should not block onboarding
+            guard !AppError.isSilent(error) else { return }
+            self.errorAlert = ErrorAlert(title: "Could not create sample data", message: error.localizedDescription)
         }
     }
 
@@ -209,7 +212,8 @@ final class HomeViewModel {
             $0.fromUserID == userID || $0.toUserID == userID
         }
 
-        CacheService.shared.saveBalance(netBalance: netBalance, totalOwed: totalOwed, totalOwing: totalOwing)
+        let primaryCurrency = mergedByCurrency.count == 1 ? (mergedByCurrency.keys.first ?? "USD") : "USD"
+        CacheService.shared.saveBalance(netBalance: netBalance, totalOwed: totalOwed, totalOwing: totalOwing, currency: primaryCurrency)
         WidgetCenter.shared.reloadAllTimelines()
     }
 

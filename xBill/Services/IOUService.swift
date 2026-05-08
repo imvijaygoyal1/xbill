@@ -40,14 +40,31 @@ final class IOUService: Sendable {
     }
 
     /// Looks up a user profile by exact email address.
+    /// Uses lookup_profiles_by_email SECURITY DEFINER RPC (same as FriendService)
+    /// to prevent full-table email enumeration by authenticated users.
     func fetchUserByEmail(_ email: String) async throws -> User? {
-        let users: [User] = try await supabase.table("profiles")
-            .select()
-            .eq("email", value: email.lowercased().trimmingCharacters(in: .whitespaces))
-            .limit(1)
+        struct Row: Decodable {
+            let id: UUID
+            let displayName: String
+            let avatarURL: URL?
+            let createdAt: Date
+            enum CodingKeys: String, CodingKey {
+                case id
+                case displayName = "display_name"
+                case avatarURL   = "avatar_url"
+                case createdAt   = "created_at"
+            }
+        }
+        struct Params: Encodable { let p_emails: [String] }
+        let normalised = email.lowercased().trimmingCharacters(in: .whitespaces)
+        let rows: [Row] = try await supabase.client
+            .rpc("lookup_profiles_by_email", params: Params(p_emails: [normalised]))
             .execute()
             .value
-        return users.first
+        guard let row = rows.first else { return nil }
+        return User(id: row.id, email: normalised,
+                    displayName: row.displayName, avatarURL: row.avatarURL,
+                    createdAt: row.createdAt)
     }
 
     // MARK: - Create

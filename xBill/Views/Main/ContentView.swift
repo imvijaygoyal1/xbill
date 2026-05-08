@@ -35,6 +35,9 @@ struct ContentView: View {
                     } onTrySampleData: {
                         guard let userID = authVM.currentUser?.id else { return }
                         await HomeViewModel().createSampleData(userID: userID)
+                        withAnimation(.easeInOut(duration: 0.4)) {
+                            hasCompletedOnboarding = true
+                        }
                     }
                     .transition(.asymmetric(
                         insertion: .move(edge: .bottom).combined(with: .opacity),

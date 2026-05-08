@@ -40,7 +40,10 @@ final class AuthViewModel {
     // MARK: - Computed
 
     var isEmailValid: Bool {
-        email.contains("@") && email.contains(".")
+        // RFC 5322 simplified: require at least one character before @,
+        // a domain label, a dot, and at least 2 characters for TLD.
+        let regex = #"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$"#
+        return email.range(of: regex, options: .regularExpression) != nil
     }
 
     var isPasswordValid: Bool { password.count >= 8 }
@@ -70,9 +73,8 @@ final class AuthViewModel {
                 // but they must still be allowed through.
                 let isEmailProvider = session?.user.appMetadata["provider"] == "email"
                 guard session?.user.emailConfirmedAt != nil || !isEmailProvider else { break }
-                if currentUser == nil {
-                    await loadCurrentUser()
-                }
+                // Always refresh on userUpdated (profile/password changes) so currentUser stays current.
+                await loadCurrentUser()
             case .passwordRecovery:
                 isInPasswordRecovery = true
             case .signedOut:
@@ -112,6 +114,7 @@ final class AuthViewModel {
         } catch AppError.confirmationRequired {
             confirmationEmailSent = true
         } catch {
+            guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Sign Up Failed", message: error.localizedDescription)
         }
     }

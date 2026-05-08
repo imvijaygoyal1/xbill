@@ -318,7 +318,7 @@ struct AddExpenseView: View {
                     Text("≈ \(converted.formatted(currencyCode: vm.currency))")
                         .font(.xbillBodyMedium)
                         .foregroundStyle(Color.brandPrimary)
-                    Text("1 \(vm.expenseCurrency) = \(String(format: "%.4f", rate)) \(vm.currency)")
+                    Text("1 \(vm.expenseCurrency) = \(String(format: "%.4f", NSDecimalNumber(decimal: rate).doubleValue)) \(vm.currency)")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -356,7 +356,9 @@ struct AddExpenseView: View {
         vm.splitStrategy = .exact
         let total = receiptVM.grandTotal
         if total > .zero {
-            vm.amountText = NSDecimalNumber(decimal: total).stringValue
+            // Use plain Decimal description (always "NNN.NN", never scientific notation)
+            // instead of NSDecimalNumber.stringValue which can produce "5E-3" for small values.
+            vm.amountText = "\(total)"
         }
         showReceiptScan = false
     }

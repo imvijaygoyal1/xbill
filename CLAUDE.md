@@ -537,6 +537,53 @@ All 20 critical defects from the senior developer audit (DEFECT_REPORT.md) fixed
 - **CRIT-19** — `GroupDetailView` swipe-to-delete expense now shows a `confirmationDialog` (stored as `expenseToDelete: Expense?`).
 - **CRIT-20** — "Mark as Settled" in `SettleUpView` and the embedded settle tab in `GroupDetailView` now show a `confirmationDialog` before calling `recordSettlement`.
 
+## High Defect Fixes (2026-05-06/07)
+
+All 45 High severity defects from the senior developer audit (DEFECT_REPORT.md) fixed (H-05, H-07 deferred as architectural):
+
+- **H-01** — `supabase/migrations/023_high_rls_fixes.sql`: DELETE policy on `splits` using `is_expense_group_member(expense_id)`.
+- **H-02** — `supabase/migrations/023_high_rls_fixes.sql`: SELECT policy on `profiles` allowing group-member co-visibility.
+- **H-03** — `supabase/migrations/023_high_rls_fixes.sql`: UPDATE policy on `device_tokens` so users can update their own tokens.
+- **H-04** — `notify-friend-request/index.ts`: Removed `fromUserID` from APNs `userInfo` payload — prevents user ID leakage to the lock screen.
+- **H-06** — `IOUService.fetchUserByEmail`: uses `lookup_profiles_by_email` SECURITY DEFINER RPC via `supabase.client.rpc(...)` instead of direct table query.
+- **H-08/H-15** — `ExchangeRateService`: rates cached as `Decimal` (via `Decimal(string: String(Double))` roundtrip); `rate(from:to:)` returns `Decimal`; all callers updated.
+- **H-09** — `ActivityService.items(for:)` returns `Result<[NotificationItem], Error>` — errors surfaced rather than silently returning empty.
+- **H-10** — `AuthService.updateDeviceToken`: insert-first (upsert on `user_id,token`), then delete stale tokens atomically.
+- **H-11** — `SplitCalculator.validateExact`: takes absolute value before rounding to avoid false negative on negative differences.
+- **H-12** — `SplitCalculator.splitEqually`: last participant gets `100 - distributedPct` to ensure percentages always sum to 100.
+- **H-13** — `SplitCalculator.minimizeTransactions`: epsilon guard (0.005) prevents infinite loop on residual Decimal balances.
+- **H-16** — `GroupViewModel.deleteExpense`: double-tap guard with `isLoading` flag.
+- **H-17** — `GroupViewModel.archiveGroup`: variable renamed for clarity.
+- **H-18** — `HomeViewModel`: `isComputingBalances` flag guards concurrent balance recomputes.
+- **H-19** — `HomeViewModel.createSampleData`: errors surfaced via `errorAlert` instead of silently swallowed; `isLoading` guard added.
+- **H-20** — `AuthViewModel.signUp`: silent errors (email confirmation required) suppressed from error alert.
+- **H-21** — `AuthViewModel.isEmailValid`: regex-based validation `^[^\s@]+@[^\s@]+\.[^\s@]{2,}$`.
+- **H-22** — `AuthViewModel`: auth listener no longer skips `loadCurrentUser()` on `.userUpdated` events.
+- **H-23** — `ProfileViewModel.saveProfile`: updates profile row before avatar upload to avoid orphaned storage objects.
+- **H-24** — `ProfileViewModel.loadStats`: auth errors surface `ErrorAlert(title: "Session Expired")` instead of being swallowed.
+- **H-25** — `ProfileViewModel.signOut`: clears all PII fields.
+- **H-26** — `ActivityViewModel.load`: reads items first, then syncs `unreadCount` from store.
+- **H-27** — `ActivityViewModel`: suppresses unauthenticated errors to avoid spurious alert.
+- **H-28** — `ReceiptViewModel.tip`: locale-safe Decimal parse (replaces `,` with `.`).
+- **H-29/H-30** — `ReceiptViewModel.startManually/scan`: fully resets all scan state before starting.
+- **H-31** — `HomeView.navigationDestination`: guarded with `if let userID = vm.currentUser?.id`.
+- **H-32** — `FriendsView.currentUserID`: changed to `UUID?` throughout; `MainTabView` passes optional.
+- **H-33** — `ActivityView`: removed duplicate `.onAppear` that triggered double-load.
+- **H-34** — `GroupDetailView.task`: comment noting idempotency behavior.
+- **H-35** — Widget: `BalanceEntry` now carries `currency: String`; amounts formatted with `NumberFormatter` using the stored currency code instead of hardcoded `$`.
+- **H-36** — Widget timeline: produces 3 entries (now, +30min, +60min) with `.atEnd` policy instead of single-entry `.after(30min)`.
+- **H-37** — Widget: shows "No data yet" state when `xbill_balance_available` key is absent from UserDefaults (first install or unregistered App Group).
+- **H-38** — `GroupDetailView`: removed dead `@ToolbarContentBuilder private var toolbar` property.
+- **H-39** — `AddExpenseView.applyReceiptSplits`: uses `"\(total)"` instead of `NSDecimalNumber.stringValue` to avoid scientific notation.
+- **H-40** — `ContentView.onTrySampleData`: sets `hasCompletedOnboarding = true` after sample data creation so live `homeVM` in `MainTabView` fetches fresh data from Supabase.
+- **H-41** — `VisionService`: replaced `Decimal(string:)!` force-unwrap with literal arithmetic (`Decimal(2)/Decimal(100)`).
+- **H-42** — `PaymentLinkService.venmoLink`: validates username matches `^[a-zA-Z0-9._-]+$` before building payment URL; falls back to search URL for display names.
+- **H-43** — `ExpenseDetailView`: merged two racing `.task` modifiers into one with `async let` concurrency for splits and comments.
+- **H-44** — `ReceiptViewModel.asSplitInputs`: zero-amount members included with `isIncluded = false` instead of excluded.
+- **CacheService**: `saveBalance` now accepts and stores `currency: String` and `xbill_balance_available` flag; `loadBalanceCurrency()` and `loadBalanceAvailable()` helpers added.
+- **IOUService.fetchUserByEmail**: fixed to use `supabase.client.rpc(...)` (was `supabase.rpc(...)` which doesn't exist on `SupabaseManager`).
+- **AddExpenseView**: rate display uses `NSDecimalNumber(decimal:).doubleValue` for `String(format:)` compatibility after `exchangeRate` changed to `Decimal`.
+
 ## Known TODOs
 - **App Group registration** (for widget data sharing): register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Certificates, IDs & Profiles → Identifiers → App Groups
 - Deploy `invite-member` Edge Function: `supabase functions deploy invite-member` (after setting secrets `RESEND_API_KEY` + `INVITE_FROM_EMAIL`)

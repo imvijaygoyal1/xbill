@@ -129,16 +129,17 @@ final class AuthService: Sendable {
                 case platform
             }
         }
-        // Replace all existing tokens for this user with the fresh token.
-        // Uses delete+insert instead of upsert because device_tokens has no
-        // single-column unique constraint on user_id alone (one user can have
-        // multiple devices, but we treat one active token per user for now).
+        // Insert new token first (upsert on unique(user_id,token)) to guarantee
+        // the user always has at least one valid token even if the cleanup step fails.
+        // Then delete all other (stale) tokens for this user.
+        try await supabase.table("device_tokens")
+            .upsert(TokenRow(userID: userID, token: token, platform: "apns"),
+                    onConflict: "user_id,token")
+            .execute()
         try await supabase.table("device_tokens")
             .delete()
             .eq("user_id", value: userID)
-            .execute()
-        try await supabase.table("device_tokens")
-            .insert(TokenRow(userID: userID, token: token, platform: "apns"))
+            .neq("token", value: token)
             .execute()
     }
 

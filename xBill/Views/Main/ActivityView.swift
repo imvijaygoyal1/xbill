@@ -27,7 +27,9 @@ struct ActivityView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .task { await vm.load() }
             .refreshable { await vm.load() }
-            .onAppear { vm.refreshUnreadCount() }
+            // .onAppear is intentionally omitted: .task already loads and sets unreadCount.
+            // A separate .onAppear { refreshUnreadCount() } would trigger a second load
+            // on first appear and a stale count refresh on every subsequent tab switch.
             .sheet(item: $selectedItem) { item in
                 NotificationDetailSheet(
                     item: currentItem(for: item) ?? item,

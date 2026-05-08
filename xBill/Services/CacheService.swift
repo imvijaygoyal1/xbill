@@ -14,9 +14,11 @@ import CryptoKit
 
 // MARK: - Cached balance keys (for Widget access)
 extension CacheService {
-    static let netBalanceKey   = "xbill_net_balance"
-    static let totalOwedKey    = "xbill_total_owed"
-    static let totalOwingKey   = "xbill_total_owing"
+    static let netBalanceKey       = "xbill_net_balance"
+    static let totalOwedKey        = "xbill_total_owed"
+    static let totalOwingKey       = "xbill_total_owing"
+    static let balanceCurrencyKey  = "xbill_balance_currency"
+    static let balanceAvailableKey = "xbill_balance_available"
 }
 
 final class CacheService: Sendable {
@@ -60,11 +62,13 @@ final class CacheService: Sendable {
 
     // MARK: - Balance Summary (for Widget)
 
-    func saveBalance(netBalance: Decimal, totalOwed: Decimal, totalOwing: Decimal) {
+    func saveBalance(netBalance: Decimal, totalOwed: Decimal, totalOwing: Decimal, currency: String = "USD") {
         let defaults = CacheService.defaults
         defaults.set(Double(truncating: netBalance as NSDecimalNumber),   forKey: CacheService.netBalanceKey)
         defaults.set(Double(truncating: totalOwed as NSDecimalNumber),    forKey: CacheService.totalOwedKey)
         defaults.set(Double(truncating: totalOwing as NSDecimalNumber),   forKey: CacheService.totalOwingKey)
+        defaults.set(currency, forKey: CacheService.balanceCurrencyKey)
+        defaults.set(true,     forKey: CacheService.balanceAvailableKey)
     }
 
     func loadNetBalance() -> Decimal {
@@ -77,6 +81,14 @@ final class CacheService: Sendable {
 
     func loadTotalOwing() -> Decimal {
         Decimal(CacheService.defaults.double(forKey: CacheService.totalOwingKey))
+    }
+
+    func loadBalanceCurrency() -> String {
+        CacheService.defaults.string(forKey: CacheService.balanceCurrencyKey) ?? "USD"
+    }
+
+    func loadBalanceAvailable() -> Bool {
+        CacheService.defaults.object(forKey: CacheService.balanceAvailableKey) != nil
     }
 
     // MARK: - Encryption helpers

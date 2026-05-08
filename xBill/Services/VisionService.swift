@@ -528,10 +528,13 @@ final class VisionService: Sendable {
         let itemsSum = candidates.reduce(Decimal.zero) { $0 + $1.item.totalPrice }
         let delta    = total - (itemsSum + tax + tip)
 
-        // Skip if delta is trivially small (already passes) or too large to be a digit error
+        // Skip if delta is trivially small (already passes) or too large to be a digit error.
+        // Use literal Decimal values — Decimal(string:) depends on locale and may return nil.
+        let smallThreshold: Decimal = Decimal(2) / Decimal(100)   // 0.02
+        let largeThreshold: Decimal = Decimal(2)                   // 2.00
         let absDelta = delta < 0 ? -delta : delta
-        guard absDelta > Decimal(string: "0.02")!,
-              absDelta <= Decimal(string: "2.00")! else { return false }
+        guard absDelta > smallThreshold,
+              absDelta <= largeThreshold else { return false }
 
         for i in candidates.indices {
             let original = candidates[i].item
@@ -542,7 +545,7 @@ final class VisionService: Sendable {
                 var absNew    = newDelta < 0 ? -newDelta : newDelta
                 var rounded   = Decimal()
                 NSDecimalRound(&rounded, &absNew, 2, .bankers)
-                if rounded <= Decimal(string: "0.02")! {
+                if rounded <= smallThreshold {
                     var corrected = ReceiptItem(id: original.id, name: original.name,
                                                quantity: original.quantity, unitPrice: altPrice)
                     corrected.assignedUserIDs = original.assignedUserIDs
@@ -646,7 +649,8 @@ final class VisionService: Sendable {
         if diff < 0 { diff = -diff }
         var rounded  = Decimal()
         NSDecimalRound(&rounded, &diff, 2, .bankers)
-        guard rounded > Decimal(string: "0.02")! else { return nil }
+        let smallThreshold: Decimal = Decimal(2) / Decimal(100)   // 0.02
+        guard rounded > smallThreshold else { return nil }
         return "Total \(total.formatted(currencyCode: receipt.currency)) doesn't match items + tax + tip. Please review."
     }
 

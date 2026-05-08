@@ -25,9 +25,15 @@ final class ActivityViewModel {
         defer { isLoading = false }
         do {
             guard let userID = await auth.currentUserID else { throw AppError.unauthenticated }
-            items = try await service.fetchRecentActivity(userID: userID)
+            // Read unreadCount before the fetch/merge so the badge reflects the
+            // pre-fetch state and isn't overwritten by a concurrent markRead call.
+            let fetchedItems = try await service.fetchRecentActivity(userID: userID)
+            items       = fetchedItems
             unreadCount = store.unreadCount()
         } catch {
+            // Unauthenticated errors are expected on session expiry — don't show alert.
+            guard !AppError.isSilent(error) else { return }
+            if case AppError.unauthenticated = AppError.from(error) { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }

@@ -26,7 +26,7 @@ final class AddExpenseViewModel {
 
     // Multi-currency
     var convertedAmount: Decimal?     // amount in group currency (nil = same currency)
-    var exchangeRate: Double?         // rate used
+    var exchangeRate: Decimal?        // rate used (Decimal to avoid Double precision loss)
     var isFetchingRate: Bool = false
 
     var recurrence: Expense.Recurrence = .none
@@ -115,7 +115,7 @@ final class AddExpenseViewModel {
         do {
             let rate = try await ExchangeRateService.shared.rate(from: expenseCurrency, to: currency)
             exchangeRate    = rate
-            convertedAmount = (amount * Decimal(rate)).rounded(scale: 2)
+            convertedAmount = (amount * rate).rounded(scale: 2)
             recomputeSplits()
         } catch {
             guard !AppError.isSilent(error) else { return }
@@ -187,7 +187,7 @@ private extension Decimal {
     func rounded(scale: Int) -> Decimal {
         var result = Decimal()
         var copy = self
-        NSDecimalRound(&result, &copy, scale, .plain)
+        NSDecimalRound(&result, &copy, scale, .bankers)
         return result
     }
 }

@@ -28,6 +28,8 @@ enum SplitCalculator {
         let distributed = rounded * count
         var remainder = total - distributed
 
+        // Assign remainder to last participant for correct percentage accounting.
+        var distributedPct = Decimal.zero
         for (offset, index) in included.enumerated() {
             var share = rounded
             if offset == 0 {
@@ -35,7 +37,20 @@ enum SplitCalculator {
                 remainder = .zero
             }
             inputs[index].amount = share
-            inputs[index].percentage = (share / total * 100).rounded
+            let isLast = offset == included.count - 1
+            if isLast {
+                // Give last participant the remainder of 100 to guarantee sum = 100
+                var pct = 100 - distributedPct
+                var pctRounded = Decimal()
+                NSDecimalRound(&pctRounded, &pct, 2, .bankers)
+                inputs[index].percentage = pctRounded
+            } else {
+                var rawPct = share / total * 100
+                var pctRounded = Decimal()
+                NSDecimalRound(&pctRounded, &rawPct, 2, .bankers)
+                inputs[index].percentage = pctRounded
+                distributedPct += pctRounded
+            }
         }
     }
 
@@ -97,9 +112,11 @@ enum SplitCalculator {
     /// Returns an error string if exact amounts don't sum to total, nil otherwise.
     static func validateExact(total: Decimal, inputs: [SplitInput]) -> String? {
         let sum = inputs.filter(\.isIncluded).reduce(Decimal.zero) { $0 + $1.amount }
-        var diff = total - sum
+        let diff = total - sum
+        // Take absolute value before rounding so over-allocation shows positive remaining.
+        var absValue = diff < .zero ? -diff : diff
         var absDiff = Decimal()
-        NSDecimalRound(&absDiff, &diff, 2, .bankers)
+        NSDecimalRound(&absDiff, &absValue, 2, .bankers)
         if absDiff != .zero {
             return "Amounts must add up to \(total). Remaining: \(absDiff)"
         }
@@ -122,6 +139,10 @@ enum SplitCalculator {
 
         var suggestions: [SettlementSuggestion] = []
 
+        // Epsilon prevents infinite loop when cross-group balance merges produce
+        // tiny residuals that never reach exactly .zero.
+        let epsilon = Decimal(string: "0.005") ?? Decimal(5) / Decimal(1000)
+
         var ci = 0
         var di = 0
         while ci < creditors.count && di < debtors.count {
@@ -129,21 +150,30 @@ enum SplitCalculator {
             let (debtorID, debt)     = debtors[di]
 
             let transferAmount = min(credit, -debt)
-            suggestions.append(SettlementSuggestion(
-                id: UUID(),
-                fromUserID: debtorID,
-                fromName: names[debtorID] ?? "Unknown",
-                toUserID: creditorID,
-                toName: names[creditorID] ?? "Unknown",
-                amount: transferAmount,
-                currency: currency
-            ))
+            if transferAmount > epsilon {
+                var rounded = Decimal()
+                var ta = transferAmount
+                NSDecimalRound(&rounded, &ta, 2, .bankers)
+                suggestions.append(SettlementSuggestion(
+                    id: UUID(),
+                    fromUserID: debtorID,
+                    fromName: names[debtorID] ?? "Unknown",
+                    toUserID: creditorID,
+                    toName: names[creditorID] ?? "Unknown",
+                    amount: rounded,
+                    currency: currency
+                ))
+            }
 
-            creditors[ci] = (creditorID, credit - transferAmount)
-            debtors[di]   = (debtorID, debt + transferAmount)
+            let newCredit = credit - transferAmount
+            let newDebt   = debt + transferAmount
+            creditors[ci] = (creditorID, newCredit)
+            debtors[di]   = (debtorID, newDebt)
 
-            if creditors[ci].1 == .zero { ci += 1 }
-            if debtors[di].1  == .zero { di += 1 }
+            let absCredit = newCredit < .zero ? -newCredit : newCredit
+            let absDebt   = newDebt   < .zero ? -newDebt   : newDebt
+            if absCredit <= epsilon { ci += 1 }
+            if absDebt   <= epsilon { di += 1 }
         }
 
         return suggestions

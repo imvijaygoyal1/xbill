@@ -62,10 +62,11 @@ final class ProfileViewModel {
                 for group in groups {
                     taskGroup.addTask {
                         let expenses = (try? await self.expenseService.fetchExpenses(groupID: group.id)) ?? []
-                        let paid     = expenses
+                        // totalExpensesCount = expenses paid by this user (not all group expenses)
+                        let paid = expenses
                             .filter { $0.payerID == userID }
                             .reduce(Decimal.zero) { $0 + $1.amount }
-                        return (expenses.count, paid)
+                        return (expenses.filter { $0.payerID == userID }.count, paid)
                     }
                 }
                 for await (count, paid) in taskGroup {
@@ -77,7 +78,11 @@ final class ProfileViewModel {
             totalExpensesCount = expenseCount
             lifetimePaid       = totalPaid
         } catch {
-            // Stats are non-critical; don't surface as an error to the user
+            // Re-throw auth errors so the caller's session-invalid path can handle them;
+            // swallow all other non-critical stats errors silently.
+            if case AppError.unauthenticated = AppError.from(error) {
+                self.errorAlert = ErrorAlert(title: "Session Expired", message: "Please sign in again.")
+            }
         }
     }
 
@@ -90,13 +95,17 @@ final class ProfileViewModel {
         defer { isLoading = false }
 
         do {
-            var avatarURL: URL? = user.avatarURL
-            if let image = avatarImage {
-                avatarURL = try await auth.uploadAvatar(image, userID: user.id)
-            }
-            let updated = try await auth.updateProfile(displayName: displayName, avatarURL: avatarURL)
+            // Update the profile row first. If the upload later fails, the profile
+            // remains consistent and no orphaned storage object is produced.
+            let updated = try await auth.updateProfile(displayName: displayName, avatarURL: user.avatarURL)
             self.user   = updated
-            isSaved     = true
+
+            if let image = avatarImage {
+                let newURL  = try await auth.uploadAvatar(image, userID: user.id)
+                let withAvatar = try await auth.updateProfile(displayName: displayName, avatarURL: newURL)
+                self.user  = withAvatar
+            }
+            isSaved = true
         } catch {
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
@@ -108,7 +117,14 @@ final class ProfileViewModel {
     func signOut() async {
         do {
             try await auth.signOut()
-            user = nil
+            // Clear all PII fields so they don't appear briefly if VM is reused
+            user                = nil
+            displayName         = ""
+            venmoHandle         = ""
+            paypalEmail         = ""
+            totalGroupsCount    = 0
+            totalExpensesCount  = 0
+            lifetimePaid        = .zero
         } catch {
             self.errorAlert = ErrorAlert(title: "Sign Out Failed", message: error.localizedDescription)
         }

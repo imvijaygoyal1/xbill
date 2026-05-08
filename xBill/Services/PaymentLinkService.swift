@@ -29,18 +29,31 @@ final class PaymentLinkService: Sendable {
 
     // MARK: - Venmo
 
-    /// venmo://paycharge?txn=pay&recipients=<username>&amount=<amount>&note=<note>
+    /// Builds a Venmo URL. When the recipient looks like a display name (contains spaces
+    /// or non-username characters), falls back to a profile search so the user can find
+    /// and pay the correct person manually — avoids sending to the wrong Venmo account.
     private func venmoLink(to username: String, amount: Decimal, note: String) -> URL? {
-        var components = URLComponents()
-        components.scheme = "venmo"
-        components.host   = "paycharge"
-        components.queryItems = [
-            URLQueryItem(name: "txn",        value: "pay"),
-            URLQueryItem(name: "recipients", value: username),
-            URLQueryItem(name: "amount",     value: "\(amount)"),
-            URLQueryItem(name: "note",       value: note)
-        ]
-        return components.url
+        let looksLikeUsername = username.range(of: "^[a-zA-Z0-9._-]+$", options: .regularExpression) != nil
+        if looksLikeUsername {
+            var components = URLComponents()
+            components.scheme = "venmo"
+            components.host   = "paycharge"
+            components.queryItems = [
+                URLQueryItem(name: "txn",        value: "pay"),
+                URLQueryItem(name: "recipients", value: username),
+                URLQueryItem(name: "amount",     value: "\(amount)"),
+                URLQueryItem(name: "note",       value: note)
+            ]
+            return components.url
+        } else {
+            // Display name — open Venmo user search so the payer can locate the
+            // correct account rather than generating a payment to the wrong person.
+            var components = URLComponents()
+            components.scheme = "venmo"
+            components.host   = "users"
+            components.path   = "/\(username)"
+            return components.url
+        }
     }
 
     // MARK: - PayPal

@@ -62,6 +62,9 @@ struct GroupDetailView: View {
             }
             .task {
                 await vm.load()
+                // createDueRecurringInstances is idempotent per cycle (advances the template
+                // date after creating the instance). Run only on first appear; navigation-away
+                // cancellation leaves already-created instances in place (correct state).
                 await vm.createDueRecurringInstances(currentUserID: currentUserID)
             }
             .refreshable { await vm.refresh() }
@@ -427,60 +430,6 @@ struct GroupDetailView: View {
                 .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
         }
         .accessibilityLabel("Group actions")
-    }
-
-    @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Button { showAddExpense = true } label: {
-                    Label("Add Expense", systemImage: "plus")
-                }
-                Button { showStats = true } label: {
-                    Label("Stats", systemImage: "chart.bar.fill")
-                }
-
-                Divider()
-
-                Menu {
-                    Button { exportCSV() } label: {
-                        Label("Export CSV", systemImage: "tablecells")
-                    }
-                    Button { exportPDF() } label: {
-                        Label("Export PDF", systemImage: "doc.richtext")
-                    }
-                } label: {
-                    Label("Export", systemImage: "square.and.arrow.up")
-                }
-
-                Divider()
-
-                Button { showInvite = true } label: {
-                    Label("Invite via Email", systemImage: "envelope")
-                }
-                Button { showInviteLink = true } label: {
-                    Label("Invite via Link", systemImage: "qrcode")
-                }
-
-                Divider()
-
-                if vm.group.isArchived {
-                    Button {
-                        showUnarchiveConfirm = true
-                    } label: {
-                        Label("Unarchive Group", systemImage: "tray.and.arrow.up")
-                    }
-                } else {
-                    Button(role: .destructive) {
-                        showArchiveConfirm = true
-                    } label: {
-                        Label("Archive Group", systemImage: "archivebox")
-                    }
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-            }
-        }
     }
 
     // MARK: - Export

@@ -45,8 +45,11 @@ final class ReceiptViewModel {
         items.reduce(.zero) { $0 + $1.totalPrice }
     }
 
-    var tax:        Decimal { scannedReceipt?.tax ?? .zero }
-    var tip:        Decimal { scannedReceipt?.tip ?? .zero }
+    var tax: Decimal { scannedReceipt?.tax ?? .zero }
+
+    /// User-edited tip overrides the OCR-scanned value so corrections affect totals.
+    var tip: Decimal { Decimal(string: tipAmount.replacingOccurrences(of: ",", with: ".")) ?? scannedReceipt?.tip ?? .zero }
+
     var grandTotal: Decimal { totalFromItems + tax + tip }
 
     var confidenceLabel: String {
@@ -66,8 +69,20 @@ final class ReceiptViewModel {
 
     /// Processes one or more captured pages (Gap 6: multi-page support).
     func scan(pages: [UIImage]) async {
-        isScanning        = true
+        // Clear all state from any previous scan before starting the new one
+        // so a failed scan never shows stale results alongside a new error.
+        scannedReceipt    = nil
+        items             = []
+        merchantName      = ""
+        totalAmount       = ""
+        tipAmount         = ""
         validationWarning = nil
+        suggestedCategory = nil
+        confidence        = 0.0
+        parsingTier       = ""
+        errorAlert        = nil
+
+        isScanning = true
         defer { isScanning = false }
         do {
             let result        = try await vision.scanMultiPage(from: pages)
@@ -130,8 +145,11 @@ final class ReceiptViewModel {
         members.map { member in
             var input = SplitInput(userID: member.id, displayName: member.displayName,
                                    avatarURL: member.avatarURL)
-            input.amount     = total(for: member.id)
-            input.isIncluded = input.amount > .zero
+            let memberTotal  = total(for: member.id)
+            input.amount     = memberTotal
+            // Include the member even at $0 so they appear in the split list;
+            // mark them excluded so validations don't treat them as participants.
+            input.isIncluded = memberTotal > .zero
             return input
         }
     }
@@ -153,6 +171,11 @@ final class ReceiptViewModel {
         tipAmount         = ""
         validationWarning = nil
         suggestedCategory = nil
+        // Reset scan metadata so manual-entry UI doesn't show stale scan badges
+        confidence        = 0.0
+        parsingTier       = ""
+        errorAlert        = nil
+        isScanning        = false
     }
 
     // MARK: - Edit

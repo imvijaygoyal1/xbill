@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - FriendsView
 
 struct FriendsView: View {
-    let currentUserID: UUID
+    let currentUserID: UUID?
     var allGroups: [BillGroup] = []
 
     @State private var ious: [IOU] = []
@@ -31,6 +31,7 @@ struct FriendsView: View {
 
     /// Unique IDs of people the current user has IOUs with.
     private var iouFriendIDs: [UUID] {
+        guard let currentUserID else { return [] }
         var seen = Set<UUID>()
         return ious
             .map { $0.lenderID == currentUserID ? $0.borrowerID : $0.lenderID }
@@ -63,7 +64,7 @@ struct FriendsView: View {
         var balances: [String: Decimal] = [:]
         for iou in ious where !iou.isSettled {
             guard iou.lenderID == friendID || iou.borrowerID == friendID else { continue }
-            let delta: Decimal = iou.lenderID == currentUserID ? iou.amount : -iou.amount
+            let delta: Decimal = iou.lenderID == currentUserID ? iou.amount : -iou.amount  // nil lender treated as "they owe me"
             balances[iou.currency, default: .zero] += delta
         }
         return balances
@@ -98,19 +99,25 @@ struct FriendsView: View {
                 }
             }
             .sheet(isPresented: $showAddIOU) {
-                AddIOUView(currentUserID: currentUserID) { await loadAll() }
+                if let currentUserID {
+                    AddIOUView(currentUserID: currentUserID) { await loadAll() }
+                }
             }
             .sheet(isPresented: $showAddFriend) {
-                AddFriendView(currentUserID: currentUserID) { await loadAll() }
+                if let currentUserID {
+                    AddFriendView(currentUserID: currentUserID) { await loadAll() }
+                }
             }
             .navigationDestination(item: $selectedFriendID) { friendID in
-                FriendDetailView(
-                    friendID:      friendID,
-                    friend:        userCache[friendID],
-                    currentUserID: currentUserID,
-                    allIOUs:       ious(with: friendID),
-                    allGroups:     allGroups
-                ) { await loadAll() }
+                if let currentUserID {
+                    FriendDetailView(
+                        friendID:      friendID,
+                        friend:        userCache[friendID],
+                        currentUserID: currentUserID,
+                        allIOUs:       ious(with: friendID),
+                        allGroups:     allGroups
+                    ) { await loadAll() }
+                }
             }
         }
     }
@@ -287,6 +294,7 @@ struct FriendsView: View {
     // MARK: - Load
 
     private func loadAll() async {
+        guard let currentUserID else { return }
         isLoading = true
         defer { isLoading = false }
         do {

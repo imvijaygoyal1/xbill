@@ -22,14 +22,21 @@ final class ActivityService: Sendable {
         let groups = try await groupService.fetchGroups(for: userID)
 
         var fetched: [NotificationItem] = []
-        await withTaskGroup(of: [NotificationItem].self) { taskGroup in
+        var groupErrors: [Error] = []
+        await withTaskGroup(of: Result<[NotificationItem], Error>.self) { taskGroup in
             for group in groups {
                 taskGroup.addTask { await self.items(for: group) }
             }
-            for await groupItems in taskGroup {
-                fetched.append(contentsOf: groupItems)
+            for await result in taskGroup {
+                switch result {
+                case .success(let items): fetched.append(contentsOf: items)
+                case .failure(let err):   groupErrors.append(err)
+                }
             }
         }
+        // Surface the first group-level error rather than silently swallowing it;
+        // caller sees partial results plus the error so it can display a warning.
+        if fetched.isEmpty, let first = groupErrors.first { throw first }
 
         store.merge(fetched)
 
@@ -38,20 +45,24 @@ final class ActivityService: Sendable {
             .map { $0 }
     }
 
-    private func items(for group: BillGroup) async -> [NotificationItem] {
-        async let expensesTask = expenseService.fetchExpenses(groupID: group.id)
-        async let membersTask  = groupService.fetchMembers(groupID: group.id)
-        guard let expenses = try? await expensesTask,
-              let members  = try? await membersTask else { return [] }
-
-        let nameMap = Dictionary(uniqueKeysWithValues: members.map { ($0.id, $0.displayName) })
-        return expenses.map { expense in
-            NotificationItem.expense(
-                expense,
-                payerName: expense.payerID.flatMap { nameMap[$0] } ?? "Someone",
-                groupName: group.name,
-                groupEmoji: group.emoji
-            )
+    private func items(for group: BillGroup) async -> Result<[NotificationItem], Error> {
+        do {
+            async let expensesTask = expenseService.fetchExpenses(groupID: group.id)
+            async let membersTask  = groupService.fetchMembers(groupID: group.id)
+            let expenses = try await expensesTask
+            let members  = try await membersTask
+            let nameMap  = Dictionary(uniqueKeysWithValues: members.map { ($0.id, $0.displayName) })
+            let items = expenses.map { expense in
+                NotificationItem.expense(
+                    expense,
+                    payerName: expense.payerID.flatMap { nameMap[$0] } ?? "Someone",
+                    groupName: group.name,
+                    groupEmoji: group.emoji
+                )
+            }
+            return .success(items)
+        } catch {
+            return .failure(error)
         }
     }
 }

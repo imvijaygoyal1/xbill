@@ -16,7 +16,9 @@ actor ExchangeRateService {
     private init() {}
 
     private struct CacheEntry {
-        let rates: [String: Double]
+        // Rates stored as Decimal (converted via String roundtrip to avoid
+        // binary floating-point contamination from the JSON Double representation).
+        let rates: [String: Decimal]
         let fetchedAt: Date
     }
 
@@ -32,12 +34,12 @@ actor ExchangeRateService {
         guard let rate = rates[toCurrency] else {
             throw AppError.unknown("No exchange rate for \(toCurrency)")
         }
-        return (amount * Decimal(rate)).rounded(scale: 2)
+        return (amount * rate).rounded(scale: 2)
     }
 
-    /// Returns the rate from `base` to `target`.
-    func rate(from base: String, to target: String) async throws -> Double {
-        guard base != target else { return 1.0 }
+    /// Returns the rate from `base` to `target` as a Decimal.
+    func rate(from base: String, to target: String) async throws -> Decimal {
+        guard base != target else { return 1 }
         let rates = try await rates(base: base)
         guard let rate = rates[target] else {
             throw AppError.unknown("No exchange rate for \(target)")
@@ -47,7 +49,7 @@ actor ExchangeRateService {
 
     // MARK: - Fetch
 
-    private func rates(base: String) async throws -> [String: Double] {
+    private func rates(base: String) async throws -> [String: Decimal] {
         let key = base.uppercased()
         if let cached = cache[key],
            Date().timeIntervalSince(cached.fetchedAt) < cacheTTL {
@@ -61,8 +63,10 @@ actor ExchangeRateService {
         guard response.result == "success" else {
             throw AppError.unknown("Exchange rate API error")
         }
-        cache[key] = CacheEntry(rates: response.rates, fetchedAt: Date())
-        return response.rates
+        // Convert Double → Decimal via String to preserve decimal precision.
+        let decimalRates = response.rates.mapValues { Decimal(string: String($0)) ?? Decimal($0) }
+        cache[key] = CacheEntry(rates: decimalRates, fetchedAt: Date())
+        return decimalRates
     }
 }
 
@@ -89,7 +93,7 @@ private extension Decimal {
     func rounded(scale: Int) -> Decimal {
         var result = Decimal()
         var copy = self
-        NSDecimalRound(&result, &copy, scale, .plain)
+        NSDecimalRound(&result, &copy, scale, .bankers)
         return result
     }
 }

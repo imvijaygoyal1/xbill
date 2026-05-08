@@ -183,10 +183,12 @@ struct HomeView: View {
             }
             .background(AppColors.background)
             .navigationDestination(for: BillGroup.self) { group in
-                GroupDetailView(
-                    vm: GroupViewModel(group: group),
-                    currentUserID: vm.currentUser?.id ?? UUID()
-                )
+                if let userID = vm.currentUser?.id {
+                    GroupDetailView(
+                        vm: GroupViewModel(group: group),
+                        currentUserID: userID
+                    )
+                }
             }
         }
     }

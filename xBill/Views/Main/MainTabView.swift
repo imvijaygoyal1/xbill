@@ -36,7 +36,9 @@ struct MainTabView: View {
                 .tabItem { Label("Groups", systemImage: "person.3.fill") }
                 .tag(Tab.groups)
 
-            FriendsView(currentUserID: homeVM.currentUser?.id ?? UUID(), allGroups: homeVM.groups)
+            // Only pass a real userID — UUID() causes IOU ownership direction to be
+            // wrong for the whole session if this renders before loadCurrentUser() completes.
+            FriendsView(currentUserID: homeVM.currentUser?.id, allGroups: homeVM.groups)
                 .tabItem { Label("Friends", systemImage: "person.2.fill") }
                 .tag(Tab.friends)
 
