@@ -212,6 +212,9 @@ private struct ItemRow: View {
                             vm.updateUnitPrice(itemID: item.id, unitPrice: price)
                         }
                     }
+                    .onChange(of: item.unitPrice) { _, newPrice in
+                        priceText = "\(newPrice)"
+                    }
             }
 
             // Quantity stepper

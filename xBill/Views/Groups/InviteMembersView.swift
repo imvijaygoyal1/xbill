@@ -24,7 +24,12 @@ struct InviteMembersView: View {
     @Environment(\.dismiss) private var dismiss
 
     private var isValidEmail: Bool {
-        emailInput.contains("@") && emailInput.contains(".")
+        isValidEmail(emailInput)
+    }
+
+    private func isValidEmail(_ email: String) -> Bool {
+        let pattern = #"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$"#
+        return email.range(of: pattern, options: .regularExpression) != nil
     }
 
     var body: some View {
@@ -88,7 +93,7 @@ struct InviteMembersView: View {
                     if isLoading {
                         ProgressView()
                     } else {
-                        Button("Send \(pendingInvites.count) Invite\(pendingInvites.count == 1 ? "" : "s")") {
+                        Button(pendingInvites.isEmpty ? "Send Invites" : "Send \(pendingInvites.count) Invite\(pendingInvites.count == 1 ? "" : "s")") {
                             Task { await sendInvites() }
                         }
                         .disabled(pendingInvites.isEmpty)

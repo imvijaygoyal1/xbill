@@ -51,7 +51,9 @@ final class CommentService: Sendable {
             .single()
             .execute()
             .value
-        if UserDefaults.standard.bool(forKey: "prefPushComment") {
+        // M-21: use App Group suite so the preference is shared with the widget extension,
+        // consistent with all other push-preference reads in the app.
+        if (UserDefaults(suiteName: "group.com.vijaygoyal.xbill") ?? .standard).bool(forKey: "prefPushComment") {
             Task {
                 await notifyComment(
                     expenseID:     expenseID,
@@ -128,12 +130,15 @@ final class CommentService: Sendable {
         try await channel.subscribeWithError()
         let client = supabase.client
         return AsyncStream { continuation in
-            continuation.onTermination = { _ in
-                Task { await client.removeChannel(channel) }
-            }
-            Task {
+            // M-17: retain the task handle so it is cancelled when the stream terminates.
+            // Without this the inner Task outlives its consumer.
+            let t = Task {
                 for await _ in stream { continuation.yield() }
                 continuation.finish()
+            }
+            continuation.onTermination = { _ in
+                t.cancel()
+                Task { await client.removeChannel(channel) }
             }
         }
     }

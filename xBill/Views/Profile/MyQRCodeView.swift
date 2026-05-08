@@ -15,12 +15,11 @@ struct MyQRCodeView: View {
     let displayName: String
 
     @Environment(\.dismiss) private var dismiss
+    @State private var qrImage: UIImage? = nil
 
     private var deepLinkURL: URL {
         URL(string: "xbill://add/\(userID.uuidString)")!
     }
-
-    private var qrImage: UIImage? { generateQRCode(from: deepLinkURL.absoluteString) }
 
     var body: some View {
         NavigationStack {
@@ -64,17 +63,19 @@ struct MyQRCodeView: View {
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .task { qrImage = generateQRCode(from: deepLinkURL.absoluteString) }
         }
     }
 
+    private static let ciContext = CIContext()
+
     private func generateQRCode(from string: String) -> UIImage? {
-        let context = CIContext()
         let filter  = CIFilter.qrCodeGenerator()
         filter.message         = Data(string.utf8)
         filter.correctionLevel = "M"
         guard let ciImage = filter.outputImage else { return nil }
         let scaled = ciImage.transformed(by: CGAffineTransform(scaleX: 10, y: 10))
-        guard let cgImage = context.createCGImage(scaled, from: scaled.extent) else { return nil }
+        guard let cgImage = Self.ciContext.createCGImage(scaled, from: scaled.extent) else { return nil }
         return UIImage(cgImage: cgImage)
     }
 }

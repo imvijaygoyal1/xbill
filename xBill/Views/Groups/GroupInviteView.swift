@@ -96,6 +96,13 @@ struct GroupInviteView: View {
                         RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
                             .stroke(Color.black.opacity(0.08), lineWidth: 1)
                     )
+            } else {
+                ContentUnavailableView(
+                    "QR Code Unavailable",
+                    systemImage: "qrcode",
+                    description: Text("Couldn't generate a QR code for this invite link.")
+                )
+                .frame(width: 200, height: 200)
             }
         }
     }
@@ -135,14 +142,15 @@ struct GroupInviteView: View {
         }
     }
 
+    private static let ciContext = CIContext()
+
     private func generateQRCode(from string: String) -> UIImage? {
-        let context = CIContext()
         let filter  = CIFilter.qrCodeGenerator()
         filter.message         = Data(string.utf8)
         filter.correctionLevel = "M"
         guard let ciImage = filter.outputImage else { return nil }
         let scaled = ciImage.transformed(by: CGAffineTransform(scaleX: 10, y: 10))
-        guard let cgImage = context.createCGImage(scaled, from: scaled.extent) else { return nil }
+        guard let cgImage = Self.ciContext.createCGImage(scaled, from: scaled.extent) else { return nil }
         return UIImage(cgImage: cgImage)
     }
 }

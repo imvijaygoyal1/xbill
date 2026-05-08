@@ -84,8 +84,26 @@ extension NotificationItem {
         groupName: String,
         groupEmoji: String
     ) -> NotificationItem {
-        NotificationItem(
-            id:        suggestion.id,
+        // M-28: derive a deterministic UUID from the settlement's stable attributes so
+        // NotificationStore.merge can deduplicate settlement notifications across launches.
+        // Swift's Hasher is not launch-stable, so we use a djb2-style fold over unicode scalars.
+        let idSource = suggestion.fromUserID.uuidString
+            + suggestion.toUserID.uuidString
+            + suggestion.amount.description
+        let hash = idSource.unicodeScalars.reduce(UInt64(5381)) { ($0 &* 31) &+ UInt64($1.value) }
+        var bytes = [UInt8](repeating: 0, count: 16)
+        for i in 0..<8 { bytes[i] = UInt8((hash >> (i * 8)) & 0xFF) }
+        // Set UUID version 4 and variant bits so the result is a valid RFC-4122 UUID.
+        bytes[6] = (bytes[6] & 0x0F) | 0x40
+        bytes[8] = (bytes[8] & 0x3F) | 0x80
+        let deterministicID = UUID(uuid: (
+            bytes[0], bytes[1], bytes[2],  bytes[3],
+            bytes[4], bytes[5], bytes[6],  bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
+        return NotificationItem(
+            id:        deterministicID,
             eventType: .settlementMade,
             title:     "\(suggestion.fromName) settled up",
             subtitle:  "\(groupEmoji) \(groupName) · Paid \(suggestion.toName)",

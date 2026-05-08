@@ -56,7 +56,6 @@ struct GroupDetailView: View {
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .tint(Color.brandPrimary)
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search expenses")
             .safeAreaInset(edge: .top) {
                 if !NetworkMonitor.shared.isConnected { OfflineBanner() }
             }
@@ -179,6 +178,7 @@ struct GroupDetailView: View {
                     .padding(.trailing, AppSpacing.md)
             }
         }
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search expenses")
     }
 
     // MARK: - Content
@@ -274,7 +274,11 @@ struct GroupDetailView: View {
                 EmptyStateView(
                     icon: "magnifyingglass",
                     title: "No Results",
-                    message: "No expenses match your search."
+                    message: !searchText.isEmpty
+                        ? "No expenses match your search."
+                        : filterCategory != nil
+                            ? "No expenses in this category."
+                            : "No expenses found."
                 )
             } else {
                 List {

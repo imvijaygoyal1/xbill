@@ -175,7 +175,9 @@ final class AuthViewModel {
 
     func toggleMode() {
         isSigningUp.toggle()
-        errorAlert = nil
+        // Only clear a stale error when no concurrent operation is in flight;
+        // clearing while isLoading could race with an error assignment mid-flight.
+        if !isLoading { errorAlert = nil }
         password = ""
         confirmPassword = ""
     }

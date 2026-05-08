@@ -40,7 +40,9 @@ final class ActivityViewModel {
 
     func markAllRead() {
         store.markAllRead()
-        unreadCount = 0
+        // Read back from the store rather than hardcoding 0 so that a silent
+        // store failure doesn't permanently suppress the badge.
+        unreadCount = store.unreadCount()
     }
 
     func markRead(_ item: NotificationItem) {

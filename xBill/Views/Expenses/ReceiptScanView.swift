@@ -64,6 +64,7 @@ struct ReceiptScanView: View {
     @State private var showCamera      = false
     @State private var selectedPhoto:  PhotosPickerItem? = nil
     @State private var showReview      = false
+    @State private var photoTask:      Task<Void, Never>? = nil
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -194,7 +195,8 @@ struct ReceiptScanView: View {
             }
             .onChange(of: selectedPhoto) { _, item in
                 guard let item else { return }
-                Task {
+                photoTask?.cancel()
+                photoTask = Task {
                     if let data  = try? await item.loadTransferable(type: Data.self),
                        let image = UIImage(data: data) {
                         vm.capturedPages = [image]

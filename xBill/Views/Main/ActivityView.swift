@@ -55,14 +55,33 @@ struct ActivityView: View {
     // MARK: - Grouped list
 
     private var groupedItems: [(header: String, items: [NotificationItem])] {
-        let calendar = Calendar.current
-        let grouped  = Dictionary(grouping: vm.items) { item -> String in
-            if calendar.isDateInToday(item.createdAt)     { return "TODAY" }
-            if calendar.isDateInYesterday(item.createdAt) { return "YESTERDAY" }
-            return item.createdAt.shortFormatted.uppercased()
+        let calendar   = Calendar.current
+        let posixLocale = Locale(identifier: "en_US_POSIX")
+        let keyFormatter: DateFormatter = {
+            let f = DateFormatter()
+            f.locale     = posixLocale
+            f.dateFormat = "yyyy-MM-dd"
+            return f
+        }()
+        // Group by locale-independent key to avoid non-deterministic section order.
+        let grouped = Dictionary(grouping: vm.items) { item -> String in
+            if calendar.isDateInToday(item.createdAt)     { return "0-TODAY" }
+            if calendar.isDateInYesterday(item.createdAt) { return "1-YESTERDAY" }
+            return "2-\(keyFormatter.string(from: item.createdAt))"
+        }
+        // Map the internal key to a display header string.
+        func displayHeader(for key: String) -> String {
+            if key == "0-TODAY"     { return "TODAY" }
+            if key == "1-YESTERDAY" { return "YESTERDAY" }
+            // Extract date from "2-yyyy-MM-dd"
+            let datePart = String(key.dropFirst(2))
+            if let date = keyFormatter.date(from: datePart) {
+                return date.formatted(date: .abbreviated, time: .omitted).uppercased()
+            }
+            return datePart
         }
         return grouped
-            .map { (header: $0.key, items: $0.value.sorted { $0.createdAt > $1.createdAt }) }
+            .map { (header: displayHeader(for: $0.key), items: $0.value.sorted { $0.createdAt > $1.createdAt }) }
             .sorted { $0.items.first?.createdAt ?? .distantPast > $1.items.first?.createdAt ?? .distantPast }
     }
 

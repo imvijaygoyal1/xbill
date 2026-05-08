@@ -56,7 +56,7 @@ struct GroupStatsView: View {
                 categorySection
             }
 
-            if monthlyData.count > 1 {
+            if monthlyData.count >= 1 {
                 monthlySection
             }
 

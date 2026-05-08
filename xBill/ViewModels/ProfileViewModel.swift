@@ -21,6 +21,7 @@ final class ProfileViewModel {
     var paypalEmail:  String  = ""
     var isLoading:    Bool    = false
     var isSaved:      Bool    = false
+    var isEditing:    Bool    = false
     var errorAlert:   ErrorAlert?
 
     // Stats
@@ -38,9 +39,14 @@ final class ProfileViewModel {
         isLoading = true
         defer { isLoading = false }
         do {
-            let loaded  = try await auth.currentUser()
-            user        = loaded
-            displayName = loaded.displayName
+            let loaded = try await auth.currentUser()
+            user = loaded
+            // Only overwrite the editable display fields when the user is not
+            // actively editing them — otherwise an in-flight background refresh
+            // would silently discard unsaved changes.
+            if !isEditing {
+                displayName = loaded.displayName
+            }
             await loadStats(userID: loaded.id)
         } catch {
             guard !AppError.isSilent(error) else { return }

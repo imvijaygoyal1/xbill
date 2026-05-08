@@ -72,12 +72,16 @@ final class OnboardingUITests: XCTestCase {
         emailField.tap()
         emailField.typeText("test\(Int.random(in: 1000...9999))@example.com")
 
-        let passwordFields = app.secureTextFields.allElementsBoundByIndex
-        XCTAssertGreaterThanOrEqual(passwordFields.count, 2)
-        passwordFields[0].tap()
-        passwordFields[0].typeText("TestPass123!")
-        passwordFields[1].tap()
-        passwordFields[1].typeText("TestPass123!")
+        // M-60: access password fields by placeholder text instead of positional index,
+        // so the test is robust against field-order changes in the view hierarchy.
+        let passwordField = app.secureTextFields["Password"]
+        let confirmPasswordField = app.secureTextFields["Confirm Password"]
+        XCTAssertTrue(passwordField.waitForExistence(timeout: 2))
+        XCTAssertTrue(confirmPasswordField.waitForExistence(timeout: 2))
+        passwordField.tap()
+        passwordField.typeText("TestPass123!")
+        confirmPasswordField.tap()
+        confirmPasswordField.typeText("TestPass123!")
 
         // Submit — this test stops before network submission.
         let createButton = app.buttons["Create Account"]
@@ -105,6 +109,13 @@ final class OnboardingUITests: XCTestCase {
         emailField.clearText()
         emailField.typeText("valid@email.com")
         XCTAssertFalse(signInButton.isEnabled)
+
+        // M-61: verify button becomes enabled once a password is also provided
+        let passwordField = app.secureTextFields["Password"]
+        XCTAssertTrue(passwordField.waitForExistence(timeout: 2))
+        passwordField.tap()
+        passwordField.typeText("TestPass123!")
+        XCTAssertTrue(signInButton.firstMatch.isEnabled, "Sign In button should be enabled with valid credentials")
     }
 
     // MARK: - Toggle Between Sign In and Sign Up

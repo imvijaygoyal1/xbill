@@ -108,6 +108,8 @@ final class HomeViewModel {
     }
 
     func unarchiveGroup(_ group: BillGroup) async {
+        // Remember position so we can restore on failure.
+        let originalIndex = archivedGroups.firstIndex(where: { $0.id == group.id })
         do {
             var updated = group
             updated.isArchived = false
@@ -115,6 +117,14 @@ final class HomeViewModel {
             archivedGroups.removeAll { $0.id == group.id }
             await loadAll()
         } catch {
+            // Restore the group to archivedGroups if loadAll() (or the service call) threw.
+            if !archivedGroups.contains(where: { $0.id == group.id }) {
+                if let index = originalIndex {
+                    archivedGroups.insert(group, at: min(index, archivedGroups.count))
+                } else {
+                    archivedGroups.append(group)
+                }
+            }
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
@@ -169,6 +179,9 @@ final class HomeViewModel {
     // MARK: - Balance + Recent Expenses
 
     private func computeBalances(for userID: UUID) async {
+        guard !isComputingBalances else { return }
+        isComputingBalances = true
+        defer { isComputingBalances = false }
         var owed             = Decimal.zero
         var owing            = Decimal.zero
         var allEntries:      [RecentEntry]             = []

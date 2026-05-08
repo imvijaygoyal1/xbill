@@ -20,6 +20,7 @@ struct QuickAddExpenseSheet: View {
     @State private var selectedGroup: BillGroup?
     @State private var members: [User] = []
     @State private var isLoadingMembers = false
+    @State private var memberLoadError: String?
     @State private var showAddExpense = false
     @Environment(\.dismiss) private var dismiss
 
@@ -39,10 +40,15 @@ struct QuickAddExpenseSheet: View {
                         Button {
                             Task {
                                 isLoadingMembers = true
-                                members = (try? await GroupService.shared.fetchMembers(groupID: group.id)) ?? []
+                                memberLoadError = nil
+                                do {
+                                    members = try await GroupService.shared.fetchMembers(groupID: group.id)
+                                    selectedGroup = group
+                                    showAddExpense = true
+                                } catch {
+                                    memberLoadError = error.localizedDescription
+                                }
                                 isLoadingMembers = false
-                                selectedGroup = group
-                                showAddExpense = true
                             }
                         } label: {
                             HStack(spacing: XBillSpacing.md) {
@@ -85,6 +91,15 @@ struct QuickAddExpenseSheet: View {
             }
             .overlay {
                 if isLoadingMembers { LoadingOverlay(message: "Loading…") }
+            }
+            .alert("Couldn't Load Members", isPresented: Binding(
+                get: { memberLoadError != nil },
+                set: { if !$0 { memberLoadError = nil } }
+            )) {
+                Button("Retry") { memberLoadError = nil }
+                Button("Cancel", role: .cancel) { memberLoadError = nil }
+            } message: {
+                if let msg = memberLoadError { Text(msg) }
             }
             .sheet(isPresented: $showAddExpense) {
                 if let group = selectedGroup {

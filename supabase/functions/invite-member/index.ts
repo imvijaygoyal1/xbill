@@ -16,6 +16,7 @@ interface InviteRequest {
   groupEmoji: string;
   inviterName: string;
   emails: string[];
+  joinToken?: string;
 }
 
 // H4: verify the caller is an authenticated Supabase user
@@ -39,7 +40,7 @@ serve(async (req) => {
   }
 
   try {
-    const { groupName, groupEmoji, inviterName, emails }: InviteRequest = await req.json();
+    const { groupName, groupEmoji, inviterName, emails, joinToken }: InviteRequest = await req.json();
 
     if (!emails?.length || !groupName || !inviterName) {
       return json({ error: "Missing required fields" }, 400);
@@ -47,7 +48,7 @@ serve(async (req) => {
 
     const results = await Promise.allSettled(
       emails.map((email) =>
-        sendInvite({ email, groupName, groupEmoji, inviterName })
+        sendInvite({ email, groupName, groupEmoji, inviterName, joinToken })
       )
     );
 
@@ -68,12 +69,38 @@ async function sendInvite({
   groupName,
   groupEmoji,
   inviterName,
+  joinToken,
 }: {
   email: string;
   groupName: string;
   groupEmoji: string;
   inviterName: string;
+  joinToken?: string;
 }) {
+  const appStoreUrl = "https://xbill.vijaygoyal.org";
+  const deepLinkSection = joinToken
+    ? `
+          <p style="margin-top: 24px;">
+            <strong>Tap the link below to join:</strong>
+          </p>
+          <p style="margin-top: 8px;">
+            <a href="xbill://join/${joinToken}"
+               style="display: inline-block; background: #43089f; color: #fff; text-decoration: none;
+                      padding: 12px 24px; border-radius: 8px; font-weight: 600;">
+              Open in xBill
+            </a>
+          </p>
+          <p style="margin-top: 12px; color: #888; font-size: 13px;">
+            Don't have the app yet?
+            <a href="${appStoreUrl}" style="color: #43089f;">Download xBill</a>
+            and sign in with this email address.
+          </p>`
+    : `
+          <p style="margin-top: 24px; color: #888; font-size: 13px;">
+            <a href="${appStoreUrl}" style="color: #43089f;">Download xBill</a>
+            and sign in with this email address to join the group.
+          </p>`;
+
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -91,9 +118,7 @@ async function sendInvite({
             <strong>${inviterName}</strong> has invited you to join
             <strong>${groupName}</strong> on <strong>xBill</strong> — the easiest way to split expenses with friends.
           </p>
-          <p style="margin-top: 24px; color: #888; font-size: 13px;">
-            Download xBill and sign in with this email address to join the group automatically.
-          </p>
+          ${deepLinkSection}
         </div>
       `,
     }),

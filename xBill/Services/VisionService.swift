@@ -85,6 +85,19 @@ final class VisionService: Sendable {
         // OCR each page; shift Y so pages stack vertically without overlap
         var allLines: [OCRLine] = []
         for (pageIndex, image) in images.enumerated() {
+            // M-22: run quality check on every page, not just the first.
+            // A blurry page 2+ would otherwise silently contribute garbage OCR lines.
+            // Page 0 was already checked by scanReceipt / scanMultiPage before calling
+            // processScan, but subsequent pages have not been validated yet.
+            if pageIndex > 0 {
+                do {
+                    try checkImageQuality(image)
+                } catch {
+                    // Skip the blurry/dark page and continue with the rest rather than
+                    // aborting the entire scan — partial results are better than none.
+                    continue
+                }
+            }
             let pageLines = try await recognizeText(in: image)
             let offset    = Double(pageIndex)
             allLines += pageLines.map { line in

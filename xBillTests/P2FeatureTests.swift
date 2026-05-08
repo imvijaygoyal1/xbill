@@ -232,10 +232,12 @@ struct CacheServiceBalanceTests {
         let owed  = CacheService.shared.loadTotalOwed()
         let owing = CacheService.shared.loadTotalOwing()
 
-        // Decimal ↔ Double conversion introduces tiny rounding; use a loose bound
-        #expect(abs(Double(truncating: net   as NSDecimalNumber) - 42.50)  < 0.01)
-        #expect(abs(Double(truncating: owed  as NSDecimalNumber) - 100.00) < 0.01)
-        #expect(abs(Double(truncating: owing as NSDecimalNumber) - 57.50)  < 0.01)
+        // M-47: tighten tolerance from 0.01 to 0.001 so a $100 value cannot pass as $99.99.
+        // CacheService stores balances as Decimal strings, so the round-trip should be exact;
+        // 0.001 is a small guard for any intermediate Double conversion in the load path.
+        #expect(abs(Double(truncating: net   as NSDecimalNumber) - 42.50)  < 0.001)
+        #expect(abs(Double(truncating: owed  as NSDecimalNumber) - 100.00) < 0.001)
+        #expect(abs(Double(truncating: owing as NSDecimalNumber) - 57.50)  < 0.001)
 
         // Clean up
         CacheService.defaults.removeObject(forKey: CacheService.netBalanceKey)

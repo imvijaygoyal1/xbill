@@ -26,7 +26,18 @@ struct CreateGroupView: View {
 
     private let currencies = ExchangeRateService.commonCurrencies
 
-    var canCreate: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty }
+    var canCreate: Bool {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return false }
+        let trimmedEmail = inviteEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedEmail.isEmpty { return isValidEmail(trimmedEmail) }
+        return true
+    }
+
+    private func isValidEmail(_ email: String) -> Bool {
+        let pattern = #"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$"#
+        return email.range(of: pattern, options: .regularExpression) != nil
+    }
 
     var body: some View {
         NavigationStack {

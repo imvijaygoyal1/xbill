@@ -30,7 +30,9 @@ final class AppLockService {
     }
 
     // One-time migration: read old UserDefaults flag, persist to Keychain, then clear.
-    private nonisolated func migrateFromUserDefaultsIfNeeded() {
+    // M-19: must not be nonisolated — called from the @MainActor init(), and the body
+    // calls KeychainManager.shared.save() which is not concurrency-safe from an arbitrary thread.
+    @MainActor private func migrateFromUserDefaultsIfNeeded() {
         let ud = UserDefaults.standard
         guard ud.object(forKey: "appLockEnabled") != nil else { return }
         let wasEnabled = ud.bool(forKey: "appLockEnabled")

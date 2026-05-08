@@ -69,6 +69,7 @@ struct AddFriendView: View {
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .errorAlert(error: $error)
+            .onDisappear { searchTask?.cancel() }
             .sheet(isPresented: $showContactPicker) {
                 ContactPickerRepresentable { emails in
                     showContactPicker = false

@@ -53,11 +53,17 @@ enum AppError: LocalizedError, Equatable {
 
     static func from(_ error: Error) -> AppError {
         if let appError = error as? AppError { return appError }
+        // M-30: map CancellationError to a sentinel message so isSilent can suppress it.
+        // Navigation-triggered task cancellations should never surface as error alerts.
+        if error is CancellationError { return .unknown("cancelled") }
         return .unknown(error.localizedDescription)
     }
 
     /// Returns true if this error should be silently ignored and never shown to the user.
     static func isSilent(_ error: Error) -> Bool {
-        error is CancellationError
+        if error is CancellationError { return true }
+        // M-30: also silence the sentinel produced by from(_:) for CancellationError.
+        if case .unknown(let msg) = AppError.from(error), msg == "cancelled" { return true }
+        return false
     }
 }

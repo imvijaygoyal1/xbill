@@ -270,14 +270,15 @@ final class GroupService: Sendable {
         try await channel.subscribeWithError()
         let client = supabase.client
         return AsyncStream { continuation in
+            // M-17: retain task handles so they can be cancelled when the stream terminates.
+            // Without retention the tasks are fire-and-forget and keep running even after
+            // the consumer (HomeViewModel) cancels the enclosing Task.
+            let t1 = Task { for await _ in membersStream { continuation.yield() } }
+            let t2 = Task { for await _ in groupsStream  { continuation.yield() } }
             continuation.onTermination = { _ in
+                t1.cancel()
+                t2.cancel()
                 Task { await client.removeChannel(channel) }
-            }
-            Task {
-                for await _ in membersStream { continuation.yield() }
-            }
-            Task {
-                for await _ in groupsStream { continuation.yield() }
             }
         }
     }

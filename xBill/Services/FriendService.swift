@@ -59,6 +59,9 @@ final class FriendService: Sendable {
         try await supabase.client
             .rpc("send_friend_request", params: Params(p_addressee_id: addresseeID))
             .execute()
+        // M-18: fire-and-forget push notification. `final class: Sendable` cannot safely hold
+        // mutable debounce state, so duplicate-notification guard belongs in the caller (ViewModel).
+        // The ViewModel MUST disable its "Add Friend" button while this call is in flight.
         Task { await notifyFriendRequest(toUserID: addresseeID) }
     }
 
@@ -204,5 +207,11 @@ final class FriendService: Sendable {
             .in("id", values: ids)
             .execute()
             .value
+    }
+
+    /// Fetches profiles for an arbitrary set of user IDs. Used by FriendsView
+    /// to resolve IOU counterparties without querying Supabase directly from the View layer.
+    func fetchProfiles(ids: Set<UUID>) async throws -> [User] {
+        try await fetchProfiles(ids: Array(ids))
     }
 }

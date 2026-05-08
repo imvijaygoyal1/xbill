@@ -599,6 +599,76 @@ All 45 High severity defects from the senior developer audit (DEFECT_REPORT.md) 
 - `notify-friend-request` ✅ — H-04 fromUserID removal live
 - Migrations 023 + 024 ✅ — pushed to production DB
 
+## Medium Defect Fixes (2026-05-07)
+
+All 62 Medium severity defects from the senior developer audit (DEFECT_REPORT.md) fixed:
+
+### ViewModels
+- **M-01** — `AddExpenseViewModel.recomputeSplits()`: zeros all split amounts when total ≤ zero before returning.
+- **M-02** — `AddExpenseViewModel.canSave`: added `&& splitValidationError == nil` guard.
+- **M-03** — `AddExpenseViewModel.amount`: locale-safe Decimal parse tries `en_US_POSIX` first, then comma→dot fallback.
+- **M-04** — `GroupViewModel`: `isComputingBalances` flag prevents concurrent balance recomputes.
+- **M-05** — `GroupViewModel.recordSettlement withThrowingTaskGroup`: uses `[weak self]` + `guard let self`.
+- **M-06** — `HomeViewModel.unarchiveGroup`: captures original index, re-inserts on catch (rollback on failure).
+- **M-07** — `HomeViewModel`: `isComputingBalances` guard before widget cache write.
+- **M-08** — `AuthViewModel.toggleMode()`: only clears errorAlert when `!isLoading`.
+- **M-10** — `ProfileViewModel`: `isEditing: Bool`; `load()` skips display-field update when `isEditing`.
+- **M-13** — `ActivityViewModel.markAllRead()`: sets `unreadCount = store.unreadCount()` instead of hardcoded 0.
+- **M-14** — `ReceiptViewModel`: two-step struct mutation replaced with single `var updated` assignment.
+
+### Services & Core
+- **M-17** — `GroupService.groupChanges`: inner Task handles retained + cancelled in `continuation.onTermination`.
+- **M-18** — `FriendService`: documented fire-and-forget Task; added `fetchProfiles(ids: Set<UUID>)`.
+- **M-19** — `AppLockService.migrateFromUserDefaultsIfNeeded()`: changed from `nonisolated` to `@MainActor`.
+- **M-20** — `AuthService.fetchProfile`: catch block uses `isNotFoundError` helper; network/RLS errors rethrown.
+- **M-21** — `CommentService`: push preference key reads from App Group UserDefaults (`group.com.vijaygoyal.xbill`).
+- **M-22** — `VisionService.processScan`: runs `checkImageQuality` per page; skips on failure, doesn't throw.
+- **M-23** — `ExportService.generateCSV`: `df.locale = Locale(identifier: "en_US_POSIX")`.
+- **M-24** — `ExportService.generatePDF`: column layout adjusted to fit 499pt content width (Date 48/Title 150/Category 100/Amount 80/PaidBy 120).
+- **M-27** — `NotificationStore.merge`: deduplicates within `newItems` via `var seen = Set<UUID>()` before merging.
+- **M-28** — `NotificationItem.settlement` factory: generates deterministic UUID from djb2-style hash of fromUserID+toUserID+amount with RFC-4122 version/variant bits — stable across launches for deduplication.
+- **M-29** — `KeychainSessionStorage.retrieve`: `errSecInteractionNotAllowed` now throws `NSError` (transient) instead of returning nil (sign-out).
+- **M-30** — `AppError`: `CancellationError` detected and mapped to `.unknown("cancelled")`; `isSilent` catches both.
+- **M-32** — `supabase/migrations/025_medium_fixes.sql`: `send_friend_request` checks both directions (A→B OR B→A) before inserting to prevent bidirectional duplicates.
+- **M-33** — `supabase/migrations/025_medium_fixes.sql`: `lookup_profiles_by_email` RPC omits `email` from RETURNS TABLE and SELECT list.
+- **M-42** — `FriendService.fetchProfiles(ids:)`: new method for FriendsView to batch-fetch profiles.
+- **M-62** — `supabase/functions/invite-member/index.ts`: optional `joinToken` in body; email HTML includes `xbill://join/<token>` deep-link button + App Store fallback.
+
+### Views
+- **M-35** — `GroupDetailView`: empty state message conditional on searchText vs filterCategory.
+- **M-36** — `GroupDetailView`: `.searchable` moved to outermost ZStack.
+- **M-37** — `InviteMembersView`: `isValidEmail` uses regex `^[^\s@]+@[^\s@]+\.[^\s@]{2,}$`.
+- **M-38** — `InviteMembersView`: button title "Send Invites" when empty; "Send N Invite(s)" otherwise.
+- **M-39** — `AppLockView`: `isAuthenticating` guard prevents concurrent LAContext calls.
+- **M-40** — `ActivityView`: grouping key uses `yyyy-MM-dd` + `en_US_POSIX`; display header uses locale-formatted abbreviated date.
+- **M-41** — `ProfileView`: `@State private var lockService = AppLockService.shared` for proper @Observable observation.
+- **M-42** — `FriendsView.loadAll()`: uses `friendService.fetchProfiles(ids:)` instead of direct Supabase query.
+- **M-43** — `AddFriendView`: `.onDisappear { searchTask?.cancel() }`.
+- **M-44** — `ReceiptScanView`: `@State private var photoTask` with cancel-before-assign pattern.
+- **M-45** — `ReceiptReviewView.ItemRow`: `.onChange(of: item.unitPrice)` keeps `priceText` in sync.
+- **M-48** — `GroupListView`: search bar hidden in completely empty state.
+- **M-49** — `GroupListView`: `ContentUnavailableView` for no search results.
+- **M-50** — `QuickAddExpenseSheet`: proper do/catch with `@State var memberLoadError` and alert.
+- **M-51** — `GroupInviteView`: `ContentUnavailableView` when QR generation fails.
+- **M-52** — `MyQRCodeView`: `@State private var qrImage` generated once in `.task`.
+- **M-53** — `GroupInviteView` + `MyQRCodeView`: `private static let ciContext = CIContext()` shared instance.
+- **M-54** — `GroupStatsView`: `monthlyData.count >= 1` (was `> 1`).
+- **M-55** — `CreateGroupView.canCreate`: validates `inviteEmail` with same regex when non-empty.
+
+### Tests
+- **M-46** — `P1NotificationTests`: `clearAll()` in setUp/tearDown of each NotificationStoreTests test; limitation documented; `settlementFactory` test updated to verify deterministic ID (M-28) instead of `item.id == suggestion.id`.
+- **M-47** — `P2FeatureTests`: balance tolerance tightened from 0.01 to 0.001.
+- **M-56** — `SplitCalculatorTests`: `equalSplitAllExcluded` test added.
+- **M-57** — `SplitCalculatorTests`: `percentageSplitUnderSum` + `percentageSplitOverSum` tests added.
+- **M-58** — `SplitCalculatorTests`: CircularDebt uses `XCTAssertNil` / explicit nil check.
+- **M-59** — `GroupFlowUITests`: `app.buttons["Cancel"].firstMatch.tap()` replaces normalized coordinate tap.
+- **M-60** — `OnboardingUITests`: `app.secureTextFields["Password"]` / `app.secureTextFields["Confirm Password"]`.
+- **M-61** — `OnboardingUITests`: Added `XCTAssertTrue(signInButton.isEnabled)` after valid input.
+
+### Pending backend deploys
+- Migration 025 (`send_friend_request` dedup + `lookup_profiles_by_email` email redaction): `supabase db push`
+- Updated `invite-member` Edge Function (join token deep-link): `supabase functions deploy invite-member`
+
 ## App Store Compliance
 - `PrivacyInfo.xcprivacy` added to both `xBill/` and `xBillWidget/` targets (required since May 2024). Declares: `NSPrivacyTracking: false`, collected data types (email, name, financial info, photos/videos, contacts, device ID), `UserDefaults` required-reason `CA92.1`. **Contacts added 2026-05-02** (automated scanner blocker).
 - `ITSAppUsesNonExemptEncryption: false` added to `Info.plist` (app uses only standard OS TLS — no custom crypto).

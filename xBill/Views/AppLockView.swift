@@ -9,6 +9,7 @@ import SwiftUI
 
 struct AppLockView: View {
     @State private var lockService = AppLockService.shared
+    @State private var isAuthenticating = false
 
     var body: some View {
         ZStack {
@@ -36,7 +37,12 @@ struct AppLockView: View {
                 Spacer()
 
                 Button {
-                    Task { await lockService.authenticate() }
+                    Task {
+                        guard !isAuthenticating else { return }
+                        isAuthenticating = true
+                        await lockService.authenticate()
+                        isAuthenticating = false
+                    }
                 } label: {
                     Label(lockService.unlockLabel, systemImage: lockService.lockIconName)
                         .font(.xbillButtonLarge)
@@ -50,7 +56,12 @@ struct AppLockView: View {
                 .padding(.bottom, XBillSpacing.xxxl)
             }
         }
-        .task { await lockService.authenticate() }
+        .task {
+            guard !isAuthenticating else { return }
+            isAuthenticating = true
+            await lockService.authenticate()
+            isAuthenticating = false
+        }
         .accessibilityElement(children: .contain)
     }
 }

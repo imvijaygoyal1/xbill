@@ -38,7 +38,6 @@ struct GroupListView: View {
                 } else if vm.groups.isEmpty && vm.archivedGroups.isEmpty {
                     XBillScreenContainer(contentSpacing: AppSpacing.xl) {
                         groupsHeader
-                        XBillSearchBar(placeholder: "Search groups", text: $searchText)
                         EmptyStateView(
                             icon: "person.3.fill",
                             title: "No Groups Yet",
@@ -74,6 +73,14 @@ struct GroupListView: View {
         XBillScrollView(spacing: AppSpacing.xl) {
             groupsHeader
             XBillSearchBar(placeholder: "Search groups", text: $searchText)
+
+            if !searchText.isEmpty && filteredGroups.isEmpty && filteredArchivedGroups.isEmpty {
+                ContentUnavailableView(
+                    "No Results",
+                    systemImage: "magnifyingglass",
+                    description: Text("No groups match \"\(searchText)\"")
+                )
+            }
 
             if !filteredGroups.isEmpty {
                 VStack(alignment: .leading, spacing: AppSpacing.md) {

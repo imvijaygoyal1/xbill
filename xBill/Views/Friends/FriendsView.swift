@@ -319,11 +319,7 @@ struct FriendsView: View {
             // Fetch any remaining (IOU counterparties not yet in cache)
             let missing = allIDs.subtracting(userCache.keys)
             if !missing.isEmpty {
-                let profiles: [User] = try await SupabaseManager.shared.table("profiles")
-                    .select()
-                    .in("id", values: Array(missing))
-                    .execute()
-                    .value
+                let profiles = try await friendService.fetchProfiles(ids: missing)
                 for user in profiles { userCache[user.id] = user }
             }
         } catch {

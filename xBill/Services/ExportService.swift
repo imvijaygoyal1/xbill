@@ -27,6 +27,9 @@ final class ExportService {
     ) -> Data {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
+        // M-23: fix locale so dates are always formatted as ISO-8601 regardless of the
+        // device locale (e.g. Persian calendar in Iran would otherwise change digit glyphs).
+        df.locale = Locale(identifier: "en_US_POSIX")
 
         var lines = ["Date,Title,Category,Amount,Currency,Paid By,Notes,Recurrence"]
         for expense in expenses.sorted(by: { $0.createdAt < $1.createdAt }) {
@@ -122,13 +125,19 @@ final class ExportService {
             // ── Expense Table ──
             y = drawSectionTitle("Expenses", at: CGPoint(x: margin, y: y)) + 10
 
-            // Column x positions
+            // Column x positions (content width = 499pt; right edge = margin + 499 = 547).
+            // M-24: shrink Date and Category to give "Paid By" enough room to avoid clipping.
+            //   Date:     48 ..  96  (48pt)
+            //   Title:    96 .. 246  (150pt)
+            //   Category: 246 .. 346 (100pt)
+            //   Amount:   346 .. 426 (80pt)
+            //   Paid By:  426 .. 546 (120pt) — was starting at 508, now 426 with 120pt width
             let cols: [(header: String, x: CGFloat, maxW: CGFloat)] = [
-                ("Date",     margin,      72),
-                ("Title",    margin + 80, 160),
-                ("Category", margin + 250, 100),
-                ("Amount",   margin + 360, 90),
-                ("Paid By",  margin + 460, 80)
+                ("Date",     margin,       48),
+                ("Title",    margin +  48, 150),
+                ("Category", margin + 198, 100),
+                ("Amount",   margin + 298,  80),
+                ("Paid By",  margin + 378, 120)
             ]
 
             // Header row

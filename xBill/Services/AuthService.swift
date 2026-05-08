@@ -174,7 +174,12 @@ final class AuthService: Sendable {
                 .execute()
                 .value
         } catch {
-            // Profile missing (account pre-dates trigger) — create it on the fly
+            // M-20: only create a profile when the row genuinely does not exist.
+            // Network timeouts, RLS denials, and schema mismatches should be rethrown
+            // so callers can handle them — not silently converted into spurious profile upserts.
+            guard isNotFoundError(error) else { throw error }
+
+            // Profile missing (account pre-dates trigger) — create it on the fly.
             let authUser = try await supabase.auth.session.user
             let payload = ProfileUpsertPayload(
                 id: authUser.id,
@@ -187,6 +192,22 @@ final class AuthService: Sendable {
                 .execute()
                 .value
         }
+    }
+
+    /// Returns true when `error` indicates that a requested row was not found.
+    /// Matches Postgrest HTTP 406 / "PGRST116" (`.single()` found zero rows).
+    private func isNotFoundError(_ error: Error) -> Bool {
+        // AppError.notFound was already mapped upstream.
+        if case AppError.notFound = error { return true }
+        // PostgREST returns code "PGRST116" when .single() finds 0 rows.
+        let desc = error.localizedDescription
+        if desc.contains("PGRST116") { return true }
+        // HTTP 406 is the transport-level signal for "not acceptable" / no rows.
+        if desc.contains("406") { return true }
+        // The SDK may surface "Row not found" or "The result contains 0 rows" text.
+        let lower = desc.lowercased()
+        if lower.contains("row not found") || lower.contains("0 rows") { return true }
+        return false
     }
 
 }

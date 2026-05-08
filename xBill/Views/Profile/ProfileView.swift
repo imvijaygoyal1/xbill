@@ -65,6 +65,7 @@ struct ProfileView: View {
     @AppStorage("prefPushExpense") private var prefPushExpense = true
     @AppStorage("prefPushSettlement") private var prefPushSettlement = true
     @AppStorage("prefPushComment") private var prefPushComment = true
+    @State private var lockService = AppLockService.shared
 
     var body: some View {
         NavigationStack {
@@ -199,18 +200,12 @@ struct ProfileView: View {
             profileSection("Security") {
                 XBillFormSection {
                     XBillSettingsRow(
-                        icon: AppLockService.shared.lockIconName,
+                        icon: lockService.lockIconName,
                         title: "Require Face ID / Passcode"
                     ) {
-                        Toggle(
-                            "",
-                            isOn: Binding(
-                                get: { AppLockService.shared.isEnabled },
-                                set: { AppLockService.shared.isEnabled = $0 }
-                            )
-                        )
-                        .labelsHidden()
-                        .tint(AppColors.primary)
+                        Toggle("", isOn: $lockService.isEnabled)
+                            .labelsHidden()
+                            .tint(AppColors.primary)
                     }
                 }
             }

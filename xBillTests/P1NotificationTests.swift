@@ -11,6 +11,15 @@ import Foundation
 
 // MARK: - NotificationStore
 
+// M-46: Test isolation for NotificationStore.
+// NotificationStore is a singleton backed by the App Group UserDefaults
+// ("group.com.vijaygoyal.xbill"), which falls back to .standard when the App Group
+// is unregistered on the test runner device.  Because NotificationStore does not
+// support UserDefaults injection, each test calls clearAll() in setUp/tearDown to
+// prevent state from leaking between test runs.  This is the safest approach
+// without changing production code; the limitation is documented here so a future
+// refactor can add DI if needed.
+
 @Suite("NotificationStore — Persistence", .serialized)
 struct NotificationStoreTests {
 
@@ -41,6 +50,7 @@ struct NotificationStoreTests {
         store.merge([item])
         store.merge([item]) // same id → should not duplicate
         #expect(store.loadAll().count == 1)
+        store.clearAll() // M-46 teardown: leave shared store empty for next test
     }
 
     @Test("merge preserves existing read state for known ids")
@@ -55,6 +65,7 @@ struct NotificationStoreTests {
         store.merge([fetchedAgain])
         #expect(store.loadAll().count == 1)
         #expect(store.loadAll().first?.isRead == true)
+        store.clearAll() // M-46 teardown
     }
 
     @Test("loadAll returns newest items first")
@@ -67,12 +78,14 @@ struct NotificationStoreTests {
         let loaded = store.loadAll()
         #expect(loaded[0].title == "New")
         #expect(loaded[2].title == "Old")
+        store.clearAll() // M-46 teardown
     }
 
     @Test("unreadCount is 0 before any items added")
     func unreadCountStartsZero() {
         store.clearAll()
         #expect(store.unreadCount() == 0)
+        // no teardown needed — store is already clear
     }
 
     @Test("unreadCount equals items added after markAllRead baseline")
@@ -91,6 +104,7 @@ struct NotificationStoreTests {
         )
         store.merge([item])
         #expect(store.unreadCount() == 1)
+        store.clearAll() // M-46 teardown
     }
 
     @Test("markAllRead resets unread count to zero")
@@ -103,6 +117,7 @@ struct NotificationStoreTests {
         #expect(beforeMark >= 1)
         #expect(store.unreadCount() == 0)
         #expect(store.loadAll().allSatisfy { $0.isRead })
+        store.clearAll() // M-46 teardown
     }
 
     @Test("markRead and markUnread update one item")
@@ -120,6 +135,7 @@ struct NotificationStoreTests {
         store.markUnread(id: first.id)
         #expect(store.loadAll().first(where: { $0.id == first.id })?.isRead == false)
         #expect(store.unreadCount() == 2)
+        store.clearAll() // M-46 teardown
     }
 
     @Test("delete removes one notification")
@@ -133,6 +149,7 @@ struct NotificationStoreTests {
         let loaded = store.loadAll()
         #expect(loaded.count == 1)
         #expect(loaded.first?.id == second.id)
+        store.clearAll() // M-46 teardown
     }
 
     @Test("store caps items at 100")
@@ -152,6 +169,7 @@ struct NotificationStoreTests {
         }
         store.merge(items)
         #expect(store.loadAll().count == 100)
+        store.clearAll() // M-46 teardown
     }
 }
 
@@ -213,7 +231,11 @@ struct NotificationItemFactoryTests {
             groupName: "Trip",
             groupEmoji: "✈️"
         )
-        #expect(item.id == suggestion.id)
+        // M-28: settlement factory generates a deterministic UUID from fromUserID+toUserID+amount,
+        // not from suggestion.id. Verify determinism: same inputs → same ID across calls.
+        let item2 = NotificationItem.settlement(suggestion: suggestion, groupName: "Trip", groupEmoji: "✈️")
+        #expect(item.id == item2.id, "settlement ID must be deterministic for deduplication")
+        #expect(item.id != suggestion.id, "settlement ID must not use the unstable suggestion UUID")
         #expect(item.eventType == .settlementMade)
         #expect(item.title.contains("Bob"))
         #expect(item.subtitle.contains("Alice"))

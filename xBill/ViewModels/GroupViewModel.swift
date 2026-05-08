@@ -23,6 +23,7 @@ final class GroupViewModel {
     var errorAlert: ErrorAlert?
 
     private var splitsMap: [UUID: [Split]] = [:]
+    @ObservationIgnored private var isComputingBalances = false
     private let groupService = GroupService.shared
     private let expenseService = ExpenseService.shared
 
@@ -80,6 +81,9 @@ final class GroupViewModel {
     // MARK: - Balances
 
     private func computeBalances() async {
+        guard !isComputingBalances else { return }
+        isComputingBalances = true
+        defer { isComputingBalances = false }
         // Fetch all splits in parallel instead of serially to avoid blocking MainActor.
         var map: [UUID: [Split]] = [:]
         await withTaskGroup(of: (UUID, [Split]?).self) { taskGroup in
@@ -280,7 +284,8 @@ final class GroupViewModel {
                 splits.filter { $0.userID == suggestion.fromUserID && !$0.isSettled }
             }
 
-            try await withThrowingTaskGroup(of: Void.self) { taskGroup in
+            try await withThrowingTaskGroup(of: Void.self) { [weak self] taskGroup in
+                guard let self else { return }
                 for split in splitsToSettle {
                     taskGroup.addTask {
                         try await self.expenseService.settleSplit(id: split.id)

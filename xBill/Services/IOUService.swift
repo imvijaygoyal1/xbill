@@ -112,6 +112,13 @@ final class IOUService: Sendable {
             .execute()
     }
 
+    // M-26: No in-service concurrency guard against double-settling.
+    // `final class: Sendable` cannot safely hold mutable debounce state.
+    // The `!$0.isSettled` filter provides DB-level idempotency (settling an already-settled
+    // IOU is a no-op in practice), but if the user taps "Settle" and "Settle All"
+    // simultaneously both calls may read the same snapshot before either write completes.
+    // Callers (ViewModels) MUST disable their settle buttons while the async call is in flight
+    // to prevent duplicate concurrent invocations.
     func settleAllIOUs(with otherUserID: UUID, currentUserID: UUID) async throws {
         let all = try await fetchIOUs(userID: currentUserID)
         let toSettle = all.filter {

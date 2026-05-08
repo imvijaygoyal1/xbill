@@ -202,7 +202,8 @@ final class GroupFlowUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Archive Group"].waitForExistence(timeout: 3),
                       "Confirmation dialog Archive button should appear")
 
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        // M-59: use the Cancel button label instead of a coordinate tap which breaks on different device sizes
+        app.buttons["Cancel"].firstMatch.tap()
         // After Cancel, still on detail screen
         XCTAssertTrue(app.buttons["Group actions"].waitForExistence(timeout: 2))
     }

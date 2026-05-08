@@ -36,7 +36,11 @@ final class NotificationStore: @unchecked Sendable {
         lock.withLock {
             var existing    = _loadAll()
             let existingIDs = Set(existing.map(\.id))
-            let toAdd       = newItems.filter { !existingIDs.contains($0.id) }
+            // M-27: deduplicate within newItems first (e.g. same expense fetched from
+            // parallel group requests), then filter against already-stored IDs.
+            var seen = Set<UUID>()
+            let uniqueNew = newItems.filter { seen.insert($0.id).inserted }
+            let toAdd       = uniqueNew.filter { !existingIDs.contains($0.id) }
             existing.insert(contentsOf: toAdd, at: 0)
             _save(existing)
         }

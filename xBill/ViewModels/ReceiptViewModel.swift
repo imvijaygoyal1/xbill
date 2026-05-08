@@ -183,9 +183,11 @@ final class ReceiptViewModel {
     func updateUnitPrice(itemID: UUID, unitPrice: Decimal) {
         guard let index = items.firstIndex(where: { $0.id == itemID }) else { return }
         let existing = items[index]
-        items[index] = ReceiptItem(id: existing.id, name: existing.name,
-                                   quantity: existing.quantity, unitPrice: unitPrice)
-        items[index].assignedUserIDs = existing.assignedUserIDs
+        // Perform both mutations in a single assignment to avoid two @Observable UI updates.
+        var updated = ReceiptItem(id: existing.id, name: existing.name,
+                                  quantity: existing.quantity, unitPrice: unitPrice)
+        updated.assignedUserIDs = existing.assignedUserIDs
+        items[index] = updated
     }
 
     func updateItem(_ item: ReceiptItem) {
@@ -204,8 +206,10 @@ final class ReceiptViewModel {
         guard quantity >= 1,
               let index = items.firstIndex(where: { $0.id == itemID }) else { return }
         let existing = items[index]
-        items[index] = ReceiptItem(id: existing.id, name: existing.name,
-                                   quantity: quantity, unitPrice: existing.unitPrice)
-        items[index].assignedUserIDs = existing.assignedUserIDs
+        // Perform both mutations in a single assignment to avoid two @Observable UI updates.
+        var updated = ReceiptItem(id: existing.id, name: existing.name,
+                                  quantity: quantity, unitPrice: existing.unitPrice)
+        updated.assignedUserIDs = existing.assignedUserIDs
+        items[index] = updated
     }
 }

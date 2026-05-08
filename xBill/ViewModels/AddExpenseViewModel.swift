@@ -55,7 +55,13 @@ final class AddExpenseViewModel {
     // MARK: - Computed
 
     var amount: Decimal {
-        Decimal(string: amountText.replacingOccurrences(of: ",", with: ".")) ?? .zero
+        // Try POSIX locale first (handles "1234.56" and "1.234.56" gracefully).
+        // If that fails, replace commas with dots to handle European "1,50" → "1.50".
+        if let value = Decimal(string: amountText, locale: Locale(identifier: "en_US_POSIX")) {
+            return value
+        }
+        return Decimal(string: amountText.replacingOccurrences(of: ",", with: "."),
+                       locale: Locale(identifier: "en_US_POSIX")) ?? .zero
     }
 
     var isForeignCurrency: Bool { expenseCurrency != currency }
@@ -71,6 +77,7 @@ final class AddExpenseViewModel {
         && payerID != nil
         && splitInputs.contains(where: \.isIncluded)
         && (!isForeignCurrency || convertedAmount != nil)
+        && splitValidationError == nil
     }
 
     var splitValidationError: String? {
@@ -82,7 +89,10 @@ final class AddExpenseViewModel {
 
     func recomputeSplits() {
         let total = finalAmount
-        guard total > .zero else { return }
+        guard total > .zero else {
+            for i in splitInputs.indices { splitInputs[i].amount = .zero }
+            return
+        }
         switch splitStrategy {
         case .equal:
             SplitCalculator.splitEqually(total: total, inputs: &splitInputs)
