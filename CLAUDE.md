@@ -591,8 +591,13 @@ All 45 High severity defects from the senior developer audit (DEFECT_REPORT.md) 
 ## Known TODOs
 - **App Group registration** (for widget data sharing): register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Certificates, IDs & Profiles → Identifiers → App Groups
 - Deploy `invite-member` Edge Function: `supabase functions deploy invite-member` (after setting secrets `RESEND_API_KEY` + `INVITE_FROM_EMAIL`)
-- Deploy `notify-friend-request` Edge Function: `supabase functions deploy notify-friend-request`
 - App Store Assets: screenshots, preview video, keyword strategy (only remaining P0 blocker)
+
+## Deployed Edge Functions (production — 2026-05-07)
+- `notify-expense` ✅ — H-05 badge batching live
+- `notify-comment` ✅ — H-05 badge batching live
+- `notify-friend-request` ✅ — H-04 fromUserID removal live
+- Migrations 023 + 024 ✅ — pushed to production DB
 
 ## App Store Compliance
 - `PrivacyInfo.xcprivacy` added to both `xBill/` and `xBillWidget/` targets (required since May 2024). Declares: `NSPrivacyTracking: false`, collected data types (email, name, financial info, photos/videos, contacts, device ID), `UserDefaults` required-reason `CA92.1`. **Contacts added 2026-05-02** (automated scanner blocker).
