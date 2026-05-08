@@ -84,24 +84,20 @@ final class GroupService: Sendable {
     // MARK: - Create
 
     func createGroup(name: String, emoji: String, currency: String, createdBy: UUID) async throws -> BillGroup {
-        struct Payload: Encodable {
-            let name: String
-            let emoji: String
-            let currency: String
-            let createdBy: UUID
-            enum CodingKeys: String, CodingKey {
-                case name, emoji, currency
-                case createdBy = "created_by"
-            }
+        struct Params: Encodable {
+            let p_name: String
+            let p_emoji: String
+            let p_currency: String
         }
-        let group: BillGroup = try await supabase.table("groups")
-            .insert(Payload(name: name, emoji: emoji, currency: currency, createdBy: createdBy))
-            .select()
-            .single()
+        // H-07: atomic RPC — group INSERT + member INSERT in one transaction.
+        // Eliminates the window where the group exists but the creator is not a member.
+        let groups: [BillGroup] = try await supabase.client
+            .rpc("create_group_with_member", params: Params(p_name: name, p_emoji: emoji, p_currency: currency))
             .execute()
             .value
-        // Add creator as founding member (RLS migration 006 allows this)
-        try await addMember(groupId: group.id, userId: createdBy)
+        guard let group = groups.first else {
+            throw AppError.serverError("create_group_with_member returned no rows")
+        }
         return group
     }
 

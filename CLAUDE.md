@@ -118,7 +118,9 @@
 19. `019_device_tokens_unique.sql` — Adds `UNIQUE (user_id, token)` constraint to `device_tokens` to prevent duplicate rows and enable safe upserts.
 20. `020_friends_table.sql` — `friends` table (requester_id, addressee_id, status: pending/accepted/blocked); RLS (both parties select/delete, requester inserts, addressee updates); `send_friend_request(p_addressee_id)` idempotent RPC; `respond_to_friend_request(p_requester_id, p_accept)` RPC; `search_profiles(p_query)` RPC (ilike on email + display_name, max 20 results, excludes self).
 21. `021_fix_search_profiles_no_email.sql` — (see Security section)
-22. `022_expenses_update_rls.sql` — Adds `FOR UPDATE` RLS policy on `expenses` table using `is_group_member(group_id)`. Without this, all expense edits and recurring-instance `next_occurrence_date` advances silently failed for every user. (requester_id, addressee_id, status: pending/accepted/blocked); RLS (both parties select/delete, requester inserts, addressee updates); `send_friend_request(p_addressee_id)` idempotent RPC; `respond_to_friend_request(p_requester_id, p_accept)` RPC; `search_profiles(p_query)` RPC (ilike on email + display_name, max 20 results, excludes self).
+22. `022_expenses_update_rls.sql` — Adds `FOR UPDATE` RLS policy on `expenses` table using `is_group_member(group_id)`. Without this, all expense edits and recurring-instance `next_occurrence_date` advances silently failed for every user.
+23. `023_high_rls_fixes.sql` — DELETE policy on `splits`; SELECT policy on `profiles` (group-member co-visibility); UPDATE policy on `device_tokens`.
+24. `024_create_group_atomic.sql` — `create_group_with_member(p_name, p_emoji, p_currency)` SECURITY DEFINER RPC; performs group INSERT + group_members INSERT atomically; derives creator from `auth.uid()`; granted to `authenticated`.
 
 ## File Map
 
@@ -539,13 +541,15 @@ All 20 critical defects from the senior developer audit (DEFECT_REPORT.md) fixed
 
 ## High Defect Fixes (2026-05-06/07)
 
-All 45 High severity defects from the senior developer audit (DEFECT_REPORT.md) fixed (H-05, H-07 deferred as architectural):
+All 45 High severity defects from the senior developer audit (DEFECT_REPORT.md) fixed (including H-05 and H-07, fixed 2026-05-07):
 
 - **H-01** — `supabase/migrations/023_high_rls_fixes.sql`: DELETE policy on `splits` using `is_expense_group_member(expense_id)`.
 - **H-02** — `supabase/migrations/023_high_rls_fixes.sql`: SELECT policy on `profiles` allowing group-member co-visibility.
 - **H-03** — `supabase/migrations/023_high_rls_fixes.sql`: UPDATE policy on `device_tokens` so users can update their own tokens.
 - **H-04** — `notify-friend-request/index.ts`: Removed `fromUserID` from APNs `userInfo` payload — prevents user ID leakage to the lock screen.
+- **H-05** — `notify-expense/index.ts` + `notify-comment/index.ts`: replaced O(N) per-token `getUnreadCount` DB calls with one batched `batchUnreadCounts` query (fetches all unsettled split rows for all recipients in one go, aggregates in JS). Fixed phantom badge fallback from `?? 1` to `?? 0`.
 - **H-06** — `IOUService.fetchUserByEmail`: uses `lookup_profiles_by_email` SECURITY DEFINER RPC via `supabase.client.rpc(...)` instead of direct table query.
+- **H-07** — `supabase/migrations/024_create_group_atomic.sql`: new `create_group_with_member` SECURITY DEFINER RPC performs group INSERT + group_members INSERT in one transaction. `GroupService.createGroup` now calls the RPC instead of two separate round-trips, eliminating the window where the group exists but the creator is not a member.
 - **H-08/H-15** — `ExchangeRateService`: rates cached as `Decimal` (via `Decimal(string: String(Double))` roundtrip); `rate(from:to:)` returns `Decimal`; all callers updated.
 - **H-09** — `ActivityService.items(for:)` returns `Result<[NotificationItem], Error>` — errors surfaced rather than silently returning empty.
 - **H-10** — `AuthService.updateDeviceToken`: insert-first (upsert on `user_id,token`), then delete stale tokens atomically.

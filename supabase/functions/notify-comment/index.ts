@@ -120,10 +120,14 @@ serve(async (req) => {
       ? `${commentText.substring(0, 60)}…`
       : commentText
 
+    // H-05: batch all badge counts in ONE query before the send loop.
+    const recipientIDs = (tokenRows as { token: string; user_id: string }[]).map(r => r.user_id)
+    const badgeMap = await batchUnreadCounts(supabase, recipientIDs)
+
     let sent = 0
     for (const row of (tokenRows as { token: string; user_id: string }[])) {
       try {
-        const badge = await getUnreadCount(supabase, row.user_id)
+        const badge = badgeMap.get(row.user_id) ?? 0
         const apnsPayload = {
           aps: {
             alert: {
@@ -173,16 +177,24 @@ serve(async (req) => {
 })
 
 // ---------------------------------------------------------------------------
-// Unread badge count — counts unsettled splits for a given user
+// H-05: batch badge counts — one query for all recipients, aggregated in JS.
 // ---------------------------------------------------------------------------
 
-async function getUnreadCount(supabase: ReturnType<typeof createClient>, userID: string): Promise<number> {
-  const { count } = await supabase
+async function batchUnreadCounts(
+  supabase: ReturnType<typeof createClient>,
+  userIDs: string[]
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>()
+  if (!userIDs.length) return map
+  const { data } = await supabase
     .from('splits')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userID)
+    .select('user_id')
+    .in('user_id', userIDs)
     .eq('is_settled', false)
-  return count ?? 1
+  for (const row of (data ?? []) as { user_id: string }[]) {
+    map.set(row.user_id, (map.get(row.user_id) ?? 0) + 1)
+  }
+  return map
 }
 
 // ---------------------------------------------------------------------------
