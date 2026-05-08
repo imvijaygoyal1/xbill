@@ -90,10 +90,10 @@ struct Expense: Codable, Identifiable, Equatable, Sendable {
             }
         }
 
-        func nextDate(from date: Date) -> Date {
+        func nextDate(from date: Date) -> Date? {
             let cal = Calendar.current
             switch self {
-            case .none:    return date
+            case .none:    return nil  // Non-recurring; no next date exists.
             case .weekly:  return cal.date(byAdding: .weekOfYear, value: 1, to: date) ?? date
             case .monthly: return cal.date(byAdding: .month,      value: 1, to: date) ?? date
             case .yearly:  return cal.date(byAdding: .year,       value: 1, to: date) ?? date

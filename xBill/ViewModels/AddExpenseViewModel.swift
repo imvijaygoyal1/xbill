@@ -37,6 +37,7 @@ final class AddExpenseViewModel {
 
     let group: BillGroup
     private let members: [User]
+    private let currentUserID: UUID
     private let expenseService = ExpenseService.shared
 
     // MARK: - Init
@@ -44,6 +45,7 @@ final class AddExpenseViewModel {
     init(group: BillGroup, members: [User], currentUserID: UUID) {
         self.group          = group
         self.members        = members
+        self.currentUserID  = currentUserID
         self.currency       = group.currency
         self.expenseCurrency = group.currency
         self.payerID        = currentUserID
@@ -172,7 +174,12 @@ final class AddExpenseViewModel {
             isSaved = true
 
             // Await the notification inline — isSaved drives sheet dismissal, not isLoading.
-            let payerName = members.first(where: { $0.id == payerID })?.displayName ?? "Someone"
+            // Prefer finding the payer's name from the loaded members list.
+            // Fall back to the current user's display name (if they are the payer) before
+            // using the generic "Someone" placeholder in the push notification.
+            let payerName = members.first(where: { $0.id == payerID })?.displayName
+                ?? (payerID == currentUserID ? members.first(where: { $0.id == currentUserID })?.displayName : nil)
+                ?? "Someone"
             if UserDefaults.standard.bool(forKey: "prefPushExpense") {
                 await expenseService.notifyExpenseAdded(
                     expenseID:    expense.id,

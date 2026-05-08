@@ -35,7 +35,7 @@ final class NotificationService: Sendable {
         content.title = "Payment Reminder"
         content.body = "You owe \(suggestion.toName) \(suggestion.amount.formatted(currencyCode: suggestion.currency))"
         content.sound = .default
-        content.userInfo = ["settlementID": suggestion.id.uuidString]
+        content.userInfo = ["settlementId": suggestion.id.uuidString]
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, seconds), repeats: false)
         let request = UNNotificationRequest(

@@ -18,13 +18,15 @@ final class ExpenseService: Sendable {
 
     // MARK: - Fetch
 
-    func fetchExpenses(groupID: UUID) async throws -> [Expense] {
-        try await supabase.table("expenses")
+    func fetchExpenses(groupID: UUID, limit: Int? = nil) async throws -> [Expense] {
+        var query = supabase.table("expenses")
             .select()
             .eq("group_id", value: groupID)
             .order("created_at", ascending: false)
-            .execute()
-            .value
+        if let limit {
+            query = query.limit(limit)
+        }
+        return try await query.execute().value
     }
 
     func fetchExpense(id: UUID) async throws -> Expense {

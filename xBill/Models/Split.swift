@@ -71,6 +71,7 @@ struct SplitInput: Identifiable, Equatable, Sendable {
     }
 
     /// Convenience init for replicating a saved split (e.g. recurring expense instances).
+    /// NOTE: `displayName` is left empty; callers must set it after init for correct display.
     init(from split: Split) {
         self.id          = UUID()
         self.userID      = split.userID
@@ -80,5 +81,8 @@ struct SplitInput: Identifiable, Equatable, Sendable {
         self.percentage  = split.percentage ?? .zero
         self.shares      = 1
         self.isIncluded  = true
+        #if DEBUG
+        assertionFailure("SplitInput(from:) called without providing displayName; caller must set it after init")
+        #endif
     }
 }

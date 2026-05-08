@@ -189,8 +189,20 @@ final class ExportService {
 
     // MARK: - Temp file helpers
 
+    /// Writes `data` to a uniquely named temp file, preventing concurrent exports from
+    /// overwriting each other and stale files from accumulating with the same name.
+    /// The UUID suffix is inserted before the file extension: "name_<uuid8>.ext".
     func writeTemp(data: Data, filename: String) throws -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        let suffix = UUID().uuidString.prefix(8)
+        let uniqueName: String
+        if let dotRange = filename.range(of: ".", options: .backwards) {
+            let base = String(filename[filename.startIndex ..< dotRange.lowerBound])
+            let ext  = String(filename[dotRange.lowerBound...])
+            uniqueName = "\(base)_\(suffix)\(ext)"
+        } else {
+            uniqueName = "\(filename)_\(suffix)"
+        }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(uniqueName)
         try data.write(to: url)
         return url
     }

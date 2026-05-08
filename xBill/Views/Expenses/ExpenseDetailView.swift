@@ -56,6 +56,7 @@ struct ExpenseDetailView: View {
                     Label(expense.category.displayName, systemImage: expense.category.systemImage)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
 
                     Text(expense.amount.formatted(currencyCode: currency))
                         .font(.largeTitle.bold())
@@ -112,7 +113,7 @@ struct ExpenseDetailView: View {
                                 if split.isSettled {
                                     Text("Settled \(split.settledAt?.relativeFormatted ?? "")")
                                         .font(.caption)
-                                        .foregroundStyle(.green)
+                                        .foregroundStyle(Color.moneySettled)
                                 }
                             }
                             Spacer()

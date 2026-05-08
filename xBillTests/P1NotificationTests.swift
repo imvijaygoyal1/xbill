@@ -215,6 +215,29 @@ struct NotificationItemFactoryTests {
         #expect(!item.isRead)
     }
 
+    @Test("expense factory with empty emoji has no leading space in subtitle")
+    func expenseFactoryEmptyEmoji() {
+        // L-44: when groupEmoji is "" the subtitle must not start with a space.
+        let expense = Expense(
+            id:               UUID(),
+            groupID:          UUID(),
+            title:            "Lunch",
+            amount:           10,
+            currency:         "USD",
+            payerID:          UUID(),
+            category:         .food,
+            notes:            nil,
+            receiptURL:       nil,
+            originalAmount:   nil,
+            originalCurrency: nil,
+            recurrence:       .none,
+            nextOccurrenceDate: nil,
+            createdAt:        Date()
+        )
+        let item = NotificationItem.expense(expense, payerName: "Alice", groupName: "Roommates", groupEmoji: "")
+        #expect(!item.subtitle.hasPrefix(" "), "subtitle must not start with a space when groupEmoji is empty")
+    }
+
     @Test("settlement factory maps all fields correctly")
     func settlementFactory() {
         let suggestion = SettlementSuggestion(

@@ -18,11 +18,28 @@ struct QuickAddExpenseSheet: View {
     let onSaved: () async -> Void
 
     @State private var selectedGroup: BillGroup?
+    @State private var pendingGroup: BillGroup?
     @State private var members: [User] = []
     @State private var isLoadingMembers = false
     @State private var memberLoadError: String?
     @State private var showAddExpense = false
     @Environment(\.dismiss) private var dismiss
+
+    private func loadMembers(for group: BillGroup) {
+        Task {
+            isLoadingMembers = true
+            memberLoadError = nil
+            pendingGroup = group
+            do {
+                members = try await GroupService.shared.fetchMembers(groupID: group.id)
+                selectedGroup = group
+                showAddExpense = true
+            } catch {
+                memberLoadError = error.localizedDescription
+            }
+            isLoadingMembers = false
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -38,18 +55,7 @@ struct QuickAddExpenseSheet: View {
                 } else {
                     List(groups) { group in
                         Button {
-                            Task {
-                                isLoadingMembers = true
-                                memberLoadError = nil
-                                do {
-                                    members = try await GroupService.shared.fetchMembers(groupID: group.id)
-                                    selectedGroup = group
-                                    showAddExpense = true
-                                } catch {
-                                    memberLoadError = error.localizedDescription
-                                }
-                                isLoadingMembers = false
-                            }
+                            loadMembers(for: group)
                         } label: {
                             HStack(spacing: XBillSpacing.md) {
                                 Text(group.emoji)
@@ -96,7 +102,10 @@ struct QuickAddExpenseSheet: View {
                 get: { memberLoadError != nil },
                 set: { if !$0 { memberLoadError = nil } }
             )) {
-                Button("Retry") { memberLoadError = nil }
+                Button("Retry") {
+                    memberLoadError = nil
+                    if let group = pendingGroup { loadMembers(for: group) }
+                }
                 Button("Cancel", role: .cancel) { memberLoadError = nil }
             } message: {
                 if let msg = memberLoadError { Text(msg) }

@@ -599,6 +599,64 @@ All 45 High severity defects from the senior developer audit (DEFECT_REPORT.md) 
 - `notify-friend-request` ✅ — H-04 fromUserID removal live
 - Migrations 023 + 024 ✅ — pushed to production DB
 
+## Low Defect Fixes (2026-05-07)
+
+All 47 Low severity defects from the senior developer audit (DEFECT_REPORT.md) fixed:
+
+### Views (L-02 through L-15, L-43, L-45)
+- **L-02** — `ExpenseDetailView`: "Settled" label color changed from `.green` to `Color.moneySettled`.
+- **L-03** — `ExpenseDetailView`: category `Label` icon gets `.accessibilityHidden(true)` — VoiceOver skips raw image name.
+- **L-04** — `ReceiptScanView`: disabled Scan button gets `.accessibilityHint("Document camera is not available on this device")`.
+- **L-05** — `ReceiptReviewView`: `.onChange(of: showAddItem)` resets `newItemName`/`newItemPrice` to `""` on dismiss, including swipe-down.
+- **L-06** — `SettleUpView`: settlement amount color changed from `.red` to `Color.moneyNegative`.
+- **L-07** — `EmailAuthView`: removed inner duplicate `VStack` subtitle — `XBillPageHeader` is now the single source.
+- **L-08** — `EmailAuthView`: email field gets `.submitLabel(.next)` + `.onSubmit { focusedField = .password }`; password field gets `.submitLabel(.go)` + `.onSubmit { action }`.
+- **L-09** — `MainTabView`: `.badge(activityVM.unreadCount > 0 ? activityVM.unreadCount : 0)` simplified to `.badge(activityVM.unreadCount)`.
+- **L-10** — `MainTabView`: QR-friend sheet now dismisses immediately (`.onAppear { showAddFriendFromQR = false }`) when `currentUser` is nil.
+- **L-11** — `FriendsView`: unreachable "From Your Contacts" section removed — `contactSuggestions` was never populated by `loadAll()`.
+- **L-12** — `AddFriendView`: `addFriendURL` force-unwrap replaced with `URL?`; `ShareLink` wrapped in `if let`.
+- **L-13** — `MyQRCodeView`: deep-link URL force-unwrap replaced with optional binding; `ShareLink` and QR `.task` guarded.
+- **L-14** — `GroupInviteView`: already safe (no force-unwrap present); skipped.
+- **L-15** — `ProfileView`: version fallback changed from `"1.0"` to `"—"`.
+- **L-43** — `xBillBalanceWidget`: hardcoded RGB colors replaced with `Color("MoneyPositive")` and `Color("MoneyNegative")`.
+- **L-45** — `QuickAddExpenseSheet`: member load extracted to `loadMembers(for:)` method; "Retry" button in error alert re-calls it.
+
+### Models, Core, Services (L-16 through L-34)
+- **L-16** — `KeychainManager`: service ID corrected from `"com.xbill.app"` to `"com.vijaygoyal.xbill"`.
+- **L-17** — `NetworkMonitor`: `deinit` calling `monitor.cancel()` off main actor removed (singleton never deallocated).
+- **L-18** — `Expense.nextDate(from:)`: `.none` case already returns `nil`; no change needed.
+- **L-19** — `Split.SplitInput(from:)`: `#if DEBUG assertionFailure` added when `displayName` is empty.
+- **L-20** — `Friend.status`: changed from `let` to `var` to allow optimistic local mutation.
+- **L-21** — `NotificationItem.settlement`: added comment: "Settlements have no spending category; .other is the canonical placeholder."
+- **L-24** — `AuthService.uploadAvatar`: appends `?t=<epoch>` cache-buster to avatar URL after upload.
+- **L-25** — `GroupService`/`FriendService`: added comment "createdAt synthesised — not the actual registration date; do not sort by this field." at all `createdAt: Date()` synthesis sites.
+- **L-26** — `ExchangeRateService`: `URLSession` uses `URLSessionConfiguration` with `timeoutIntervalForRequest = 10`.
+- **L-27** — `ActivityService`: expense fetch per group uses `.limit(50)`; `fetchRecentActivity` already honours the `limit` parameter.
+- **L-28** — `NotificationService`: `"settlementID"` casing corrected to `"settlementId"` (matches `"groupId"` convention).
+- **L-29** — `VisionService`: O(n²) row-grouping replaced with O(n log n) single-pass Dictionary approach.
+- **L-30** — `FoundationModelService`: `LanguageModelSession` cached in `_cachedSession` (one per service lifetime); recreated only when nil.
+- **L-31** — `ExportService.writeTemp`: UUID suffix in temp filename prevents concurrent-export file corruption.
+- **L-32** — `VisionService`: merchant extraction skips all-caps noise lines (`"THANK YOU"`, `"RECEIPT"`, etc.) before assigning merchant name.
+- **L-33** — `SpotlightService`: errors logged via `os_log` (`Logger(subsystem:category:)`) instead of silently discarded.
+- **L-34** — `AddExpenseViewModel`: payer name fallback chain: `nameMap[payerID] ?? (payerID == currentUserID ? currentUser.displayName : nil) ?? "Someone"`.
+
+### Tests (L-35 through L-44)
+- **L-35** — `P3HelperTests.swift` (new): `GreetingHelperTests` — 8 boundary tests covering hours 4, 5, 11, 12, 16, 17, 21, 22.
+- **L-36** — `P3HelperTests.swift` (new): `BalanceMessageHelperTests` — 5 tests covering zero, positive, negative, small positive, small negative.
+- **L-37** — `OnboardingUITests`: marketing-copy selectors replaced with resilient `scrollViews.firstMatch.exists` checks.
+- **L-38** — `GroupFlowUITests`: timestamp-based unique group name replaces `Int.random` (prevents CI collision).
+- **L-39** — `GroupFlowUITests`: `addTeardownBlock` added to archive the created test group via UI after each test.
+- **L-40** — `OnboardingUITests`: `signInToggle` selector refined to avoid matching the "Sign In" submit button.
+- **L-41** — `P2FeatureTests`: `var usdBalances`/`var eurBalances` changed to `let` in `currencySeparation()`.
+- **L-42** — `SecurityFixTests`: silent `guard … else { return }` replaced with `Issue.record(…)` so precondition failures surface.
+- **L-44** — `P1NotificationTests`: `expenseFactoryEmptyEmoji` test added; `NotificationItem.expense` factory fixed to use `emojiPrefix` to avoid leading space when `groupEmoji` is `""`.
+
+### Backend Edge Functions (L-22, L-23, L-46, L-47)
+- **L-22** — `delete-account/index.ts`: CORS headers + OPTIONS preflight handler added.
+- **L-23** — All notify functions: comment added clarifying Deno Edge isolate-scope for `cachedJWT` (no real race condition).
+- **L-46** — `018_lookup_profiles_by_email.sql`: history note added (email removed in migration 025).
+- **L-47** — All 6 Edge Functions: `@supabase/supabase-js@2` pinned to `@2.49.1`.
+
 ## Medium Defect Fixes (2026-05-07)
 
 All 62 Medium severity defects from the senior developer audit (DEFECT_REPORT.md) fixed:

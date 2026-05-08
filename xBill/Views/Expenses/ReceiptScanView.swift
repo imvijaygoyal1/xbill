@@ -148,6 +148,7 @@ struct ReceiptScanView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
                         .disabled(!VNDocumentCameraViewController.isSupported)
+                        .accessibilityHint(VNDocumentCameraViewController.isSupported ? "" : "Document camera is not available on this device")
 
                         PhotosPicker(selection: $selectedPhoto, matching: .images) {
                             Label("Choose from Library", systemImage: "photo.fill")

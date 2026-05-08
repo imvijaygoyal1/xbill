@@ -26,10 +26,6 @@ final class NetworkMonitor {
         startMonitoring()
     }
 
-    deinit {
-        monitor.cancel()
-    }
-
     private func startMonitoring() {
         monitor.pathUpdateHandler = { [weak self] path in
             Task { @MainActor [weak self] in

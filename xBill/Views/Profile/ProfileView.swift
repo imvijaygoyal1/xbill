@@ -267,7 +267,7 @@ struct ProfileView: View {
             }
             .buttonStyle(.plain)
 
-            Text("xBill v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
+            Text("xBill v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")")
                 .font(.appCaption)
                 .foregroundStyle(AppColors.textTertiary)
         }

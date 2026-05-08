@@ -64,8 +64,8 @@ struct BalanceProvider: TimelineProvider {
 struct BalanceWidgetView: View {
     var entry: BalanceEntry
 
-    private let positive = Color(red: 0.04, green: 0.54, blue: 0.32)
-    private let negative = Color(red: 0.99, green: 0.47, blue: 0.51)
+    private let positive = Color("MoneyPositive")
+    private let negative = Color("MoneyNegative")
 
     var body: some View {
         if !entry.dataAvailable {

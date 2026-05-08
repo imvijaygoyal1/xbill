@@ -80,7 +80,12 @@ struct AppLockKeychainTests {
         // Trigger migration by calling the internal migration method via init path.
         // Since shared is a singleton, test the migration logic directly on KeychainManager.
         let ud = UserDefaults.standard
-        guard ud.object(forKey: "appLockEnabled") != nil else { return }
+        // L-42: replaced silent `return` with an explicit test failure so the test
+        // does not pass vacuously if the precondition is violated.
+        guard ud.object(forKey: "appLockEnabled") != nil else {
+            Issue.record("Expected UserDefaults to contain 'appLockEnabled' after set(true) but the key was absent")
+            return
+        }
         let wasEnabled = ud.bool(forKey: "appLockEnabled")
         try? KeychainManager.shared.save(wasEnabled ? "true" : "false",
                                          forKey: KeychainManager.Keys.appLockEnabled)

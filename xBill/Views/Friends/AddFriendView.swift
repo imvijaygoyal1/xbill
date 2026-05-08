@@ -30,8 +30,8 @@ struct AddFriendView: View {
 
     private let service = FriendService.shared
 
-    private var addFriendURL: URL {
-        URL(string: "xbill://add/\(currentUserID.uuidString)")!
+    private var addFriendURL: URL? {
+        URL(string: "xbill://add/\(currentUserID.uuidString)")
     }
 
     var body: some View {
@@ -121,18 +121,20 @@ struct AddFriendView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Import from Contacts")
 
-            ShareLink(
-                item: addFriendURL,
-                subject: Text("Add me on xBill"),
-                message: Text("Tap to add me as a friend on xBill.")
-            ) {
-                XBillActionRow(
-                    icon: "qrcode",
-                    title: "Share QR Link",
-                    subtitle: "Let friends add you directly"
-                )
+            if let addFriendURL {
+                ShareLink(
+                    item: addFriendURL,
+                    subject: Text("Add me on xBill"),
+                    message: Text("Tap to add me as a friend on xBill.")
+                ) {
+                    XBillActionRow(
+                        icon: "qrcode",
+                        title: "Share QR Link",
+                        subtitle: "Let friends add you directly"
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
     }
 

@@ -153,10 +153,13 @@ final class AuthService: Sendable {
         try await supabase.client.storage
             .from("avatars")
             .upload(path, data: data, options: FileOptions(contentType: "image/jpeg", upsert: true))
-        let urlString = try supabase.client.storage
+        let baseURLString = try supabase.client.storage
             .from("avatars")
             .getPublicURL(path: path)
             .absoluteString
+        // Append a timestamp cache-buster so CDN serves the fresh image immediately
+        // after an avatar update, rather than the previous version.
+        let urlString = "\(baseURLString)?t=\(Int(Date().timeIntervalSince1970))"
         guard let url = URL(string: urlString) else {
             throw AppError.serverError("Invalid avatar URL returned from storage.")
         }

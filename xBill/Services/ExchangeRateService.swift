@@ -58,7 +58,10 @@ actor ExchangeRateService {
         guard let url = URL(string: "https://open.er-api.com/v6/latest/\(key)") else {
             throw AppError.unknown("Invalid exchange rate URL")
         }
-        let (data, _) = try await URLSession.shared.data(from: url)
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 10
+        let session = URLSession(configuration: config)
+        let (data, _) = try await session.data(from: url)
         let response  = try JSONDecoder().decode(ERAPIResponse.self, from: data)
         guard response.result == "success" else {
             throw AppError.unknown("Exchange rate API error")

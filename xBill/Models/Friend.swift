@@ -23,7 +23,7 @@ struct Friend: Codable, Identifiable, Sendable {
     let id:           UUID
     let requesterID:  UUID
     let addresseeID:  UUID
-    let status:       FriendStatus
+    var status:       FriendStatus
     let createdAt:    Date
 
     enum CodingKeys: String, CodingKey {

@@ -73,7 +73,7 @@ struct SettleUpView: View {
                 // Amount
                 Text(suggestion.amount.formatted(currencyCode: suggestion.currency))
                     .font(.title2.bold())
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Color.moneyNegative)
 
                 // Payment buttons
                 HStack(spacing: 10) {

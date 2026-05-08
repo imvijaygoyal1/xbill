@@ -32,14 +32,6 @@ struct EmailAuthView: View {
                 .frame(maxWidth: .infinity)
 
             VStack(alignment: .leading, spacing: AppSpacing.md) {
-                    VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                        Text(vm.isSigningUp ? "Create your account" : "Sign in with email")
-                            .font(.appH2)
-                            .foregroundStyle(AppColors.textPrimary)
-                        Text(vm.isSigningUp ? "Use your name, email, and a secure password." : "Enter your xBill email and password.")
-                            .font(.appBody)
-                            .foregroundStyle(AppColors.textSecondary)
-                    }
                     // Display Name (sign-up only)
                     if vm.isSigningUp {
                         XBillTextField(placeholder: "Your name", text: $vm.displayName)
@@ -55,10 +47,20 @@ struct EmailAuthView: View {
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                     .focused($focusedField, equals: .email)
+                    .submitLabel(.next)
+                    .onSubmit { focusedField = .password }
 
                     // Password
                     XBillTextField(placeholder: "Min. 8 characters", text: $vm.password, isSecure: true)
                         .focused($focusedField, equals: .password)
+                        .submitLabel(.go)
+                        .onSubmit {
+                            focusedField = nil
+                            Task {
+                                if vm.isSigningUp { await vm.signUp() }
+                                else              { await vm.signIn() }
+                            }
+                        }
 
                     // Confirm Password (sign-up only)
                     if vm.isSigningUp {

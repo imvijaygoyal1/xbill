@@ -1,13 +1,24 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': SUPABASE_URL,
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 Deno.serve(async (req: Request) => {
+  // L-22: handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
 
   // 1. Extract JWT from Authorization header
   const authHeader = req.headers.get('Authorization')
   if (!authHeader?.startsWith('Bearer ')) {
     return new Response(
       JSON.stringify({ error: 'Missing or invalid authorization header' }),
-      { status: 401, headers: { 'Content-Type': 'application/json' } }
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 
@@ -16,7 +27,7 @@ Deno.serve(async (req: Request) => {
   // Use the service role client for JWT verification.
   // The anon client only supports HS256 and rejects Apple Sign-In tokens (ES256).
   const adminClient = createClient(
-    Deno.env.get('SUPABASE_URL')!,
+    SUPABASE_URL,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
 
@@ -24,7 +35,7 @@ Deno.serve(async (req: Request) => {
   if (authError || !user) {
     return new Response(
       JSON.stringify({ error: 'Could not verify user identity' }),
-      { status: 401, headers: { 'Content-Type': 'application/json' } }
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 
@@ -47,12 +58,12 @@ Deno.serve(async (req: Request) => {
   if (deleteError) {
     return new Response(
       JSON.stringify({ error: deleteError.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 
   return new Response(
     JSON.stringify({ success: true }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } }
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   )
 })

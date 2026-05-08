@@ -137,7 +137,9 @@ final class FriendService: Sendable {
             .value
         return rows.map {
             User(id: $0.id, email: "", displayName: $0.displayName,
-                 avatarURL: $0.avatarURL.flatMap { URL(string: $0) }, createdAt: Date())
+                 avatarURL: $0.avatarURL.flatMap { URL(string: $0) },
+                 // createdAt synthesised — not the actual registration date; do not sort by this field.
+                 createdAt: Date())
         }
     }
 
@@ -163,7 +165,9 @@ final class FriendService: Sendable {
             .value
         return rows.map {
             User(id: $0.id, email: $0.email, displayName: $0.displayName,
-                 avatarURL: $0.avatarURL.flatMap { URL(string: $0) }, createdAt: Date())
+                 avatarURL: $0.avatarURL.flatMap { URL(string: $0) },
+                 // createdAt synthesised — not the actual registration date; do not sort by this field.
+                 createdAt: Date())
         }
     }
 

@@ -65,11 +65,14 @@ extension NotificationItem {
         groupName: String,
         groupEmoji: String
     ) -> NotificationItem {
-        NotificationItem(
+        // L-44: omit the emoji prefix entirely when groupEmoji is empty to prevent a
+        // leading space in the subtitle (e.g. " Roommates · Paid by Alice").
+        let emojiPrefix = groupEmoji.isEmpty ? "" : "\(groupEmoji) "
+        return NotificationItem(
             id:        expense.id,
             eventType: .expenseAdded,
             title:     expense.title,
-            subtitle:  "\(groupEmoji) \(groupName) · Paid by \(payerName)",
+            subtitle:  "\(emojiPrefix)\(groupName) · Paid by \(payerName)",
             amount:    expense.amount,
             currency:  expense.currency,
             category:  expense.category,
@@ -109,6 +112,7 @@ extension NotificationItem {
             subtitle:  "\(groupEmoji) \(groupName) · Paid \(suggestion.toName)",
             amount:    suggestion.amount,
             currency:  suggestion.currency,
+            // Settlements have no spending category; .other is the canonical placeholder.
             category:  .other,
             createdAt: Date()
         )

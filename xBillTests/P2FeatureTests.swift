@@ -56,8 +56,9 @@ struct CrossGroupDebtTests {
         let alice = UUID()
         let bob   = UUID()
 
-        var usdBalances: [UUID: Decimal] = [alice: 50.00, bob: -50.00]
-        var eurBalances: [UUID: Decimal] = [alice: 30.00, bob: -30.00]
+        // L-41: changed var → let; these dictionaries are never mutated after initialisation.
+        let usdBalances: [UUID: Decimal] = [alice: 50.00, bob: -50.00]
+        let eurBalances: [UUID: Decimal] = [alice: 30.00, bob: -30.00]
 
         let names = [alice: "Alice", bob: "Bob"]
 

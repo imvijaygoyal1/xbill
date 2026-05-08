@@ -134,6 +134,12 @@ struct ReceiptReviewView: View {
             }
             Button("Cancel", role: .cancel) { newItemName = ""; newItemPrice = "" }
         }
+        .onChange(of: showAddItem) { _, isShowing in
+            if !isShowing {
+                newItemName  = ""
+                newItemPrice = ""
+            }
+        }
     }
 
     // MARK: - Confidence Header

@@ -151,7 +151,34 @@ final class GroupFlowUITests: XCTestCase {
     /// This test creates a real group — use a unique name each run.
     func testCreateGroupAppearsInListImmediately() throws {
         try requireGroupsTab()
-        let groupName = "UITest-\(Int.random(in: 10000...99999))"
+        // L-38: use a timestamp-based suffix to avoid collision across parallel CI runs.
+        // Int.random() can repeat when multiple agents seed from the same clock tick.
+        let suffix = Int(Date().timeIntervalSince1970 * 1000) % 100_000
+        let groupName = "UITest-\(suffix)"
+
+        // L-39: register a teardown block that attempts to archive the created group
+        // via the UI so it is not left as orphaned test data in Supabase after each run.
+        addTeardownBlock { [weak self] in
+            guard let self else { return }
+            // Navigate back to groups list if we drifted somewhere else.
+            let tab = self.app.tabBars.buttons["Groups"]
+            if tab.waitForExistence(timeout: 3) { tab.tap() }
+
+            // Find the group we created and navigate into it.
+            let btn = self.groupButton(named: groupName)
+            guard btn.waitForExistence(timeout: 4), btn.isHittable else { return }
+            btn.tap()
+
+            // Open the toolbar menu and attempt to archive (silently skip if not present).
+            guard self.app.buttons["Group actions"].waitForExistence(timeout: 3) else { return }
+            self.app.buttons["Group actions"].tap()
+            guard self.app.buttons["Archive Group"].waitForExistence(timeout: 2) else { return }
+            self.app.buttons["Archive Group"].tap()
+            // Confirm in dialog if it appears.
+            if self.app.buttons["Archive Group"].waitForExistence(timeout: 2) {
+                self.app.buttons["Archive Group"].tap()
+            }
+        }
 
         createGroup(named: groupName)
 

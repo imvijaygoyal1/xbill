@@ -352,23 +352,30 @@ final class VisionService: Sendable {
 
     // MARK: - Spatial Grouping
 
+    /// Groups OCR lines into visual rows by their Y coordinate.
+    /// O(n log n) — sorts once then makes a single forward pass, assigning each line to an
+    /// existing row whose anchor Y is within `threshold`, or opening a new row.
+    /// This replaces the previous O(n²) implementation that re-scanned remaining lines for
+    /// every anchor element.
     private func groupIntoRows(_ lines: [OCRLine], threshold: CGFloat = 0.025) -> [[OCRLine]] {
-        var sorted = lines.sorted { $0.midY < $1.midY }
+        let sorted = lines.sorted { $0.midY < $1.midY }
+        // `rowAnchors` holds the representative midY for each open row; index matches `rows`.
+        var rowAnchors: [CGFloat] = []
         var rows: [[OCRLine]] = []
 
-        while !sorted.isEmpty {
-            let anchor = sorted.removeFirst()
-            var row    = [anchor]
-            sorted     = sorted.filter { line in
-                if abs(line.midY - anchor.midY) <= threshold {
-                    row.append(line)
-                    return false
-                }
-                return true
+        for line in sorted {
+            // Find the first existing row whose anchor Y is within threshold of this line.
+            if let idx = rowAnchors.firstIndex(where: { abs($0 - line.midY) <= threshold }) {
+                rows[idx].append(line)
+                // Update anchor to the running mean so steeply slanted lines don't drift.
+                rowAnchors[idx] = (rowAnchors[idx] + line.midY) / 2
+            } else {
+                rowAnchors.append(line.midY)
+                rows.append([line])
             }
-            rows.append(row.sorted { $0.midX < $1.midX })
         }
-        return rows
+        // Sort each row's lines by horizontal position (left → right).
+        return rows.map { $0.sorted { $0.midX < $1.midX } }
     }
 
     // MARK: - Gap 5: Language Detection (NaturalLanguage)
@@ -457,9 +464,24 @@ final class VisionService: Sendable {
         var merchant: String?
         var currency  = "USD"
 
-        // First non-trivial row → merchant name
-        if let firstRow = rows.first {
-            merchant = firstRow.map(\.text).joined(separator: " ")
+        // Common receipt header noise that should not be used as the merchant name.
+        // These all-caps phrases appear at the top of many receipts as store taglines,
+        // POS system headers, or social messages rather than the actual business name.
+        let merchantNoisePatterns: Set<String> = [
+            "THANK YOU", "WELCOME", "HAVE A NICE DAY", "RECEIPT",
+            "CUSTOMER COPY", "STORE COPY", "PLEASE COME AGAIN",
+            "VISIT US AGAIN", "THANK YOU FOR SHOPPING"
+        ]
+        // Walk rows from the top; skip all-caps lines that match known noise patterns.
+        // Fall back to the very first row if all candidates are noise.
+        for row in rows {
+            let candidate = row.map(\.text).joined(separator: " ")
+            let trimmed   = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+            let upper     = trimmed.uppercased()
+            guard merchantNoisePatterns.contains(upper) else {
+                merchant = trimmed.isEmpty ? nil : trimmed
+                break
+            }
         }
 
         // Currency from any symbol found anywhere in the text

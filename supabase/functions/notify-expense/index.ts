@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const ALLOWED_ORIGIN = SUPABASE_URL  // M4: restrict CORS to project origin
@@ -13,6 +13,9 @@ const corsHeaders = {
 // APNs JWT cache — reuse for up to 55 minutes to avoid per-request P-256 ops
 // ---------------------------------------------------------------------------
 
+// Note: Deno Edge Functions spin up a new isolate per invocation, so this
+// module-level cache is request-scoped. It only helps within a single
+// request that calls getAPNsJWT() multiple times.
 let cachedJWT: string | null = null
 let jwtExpiresAt = 0
 

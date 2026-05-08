@@ -44,7 +44,7 @@ struct MainTabView: View {
 
             ActivityView(vm: activityVM)
                 .tabItem { Label("Alerts", systemImage: "bell.fill") }
-                .badge(activityVM.unreadCount > 0 ? activityVM.unreadCount : 0)
+                .badge(activityVM.unreadCount)
                 .tag(Tab.activity)
 
             ProfileView(vm: profileVM, onSignOut: {
@@ -150,6 +150,11 @@ struct MainTabView: View {
                     currentUserID: user.id,
                     preloadedUser: addFriendPreloadedUser
                 ) { }
+            } else {
+                // currentUser not yet loaded — dismiss immediately rather than
+                // opening AddFriendView with a nil user identity.
+                Color.clear
+                    .onAppear { showAddFriendFromQR = false }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in

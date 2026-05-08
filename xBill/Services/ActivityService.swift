@@ -47,7 +47,7 @@ final class ActivityService: Sendable {
 
     private func items(for group: BillGroup) async -> Result<[NotificationItem], Error> {
         do {
-            async let expensesTask = expenseService.fetchExpenses(groupID: group.id)
+            async let expensesTask = expenseService.fetchExpenses(groupID: group.id, limit: 50)
             async let membersTask  = groupService.fetchMembers(groupID: group.id)
             let expenses = try await expensesTask
             let members  = try await membersTask

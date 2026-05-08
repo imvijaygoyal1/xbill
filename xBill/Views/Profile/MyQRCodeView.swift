@@ -17,8 +17,8 @@ struct MyQRCodeView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var qrImage: UIImage? = nil
 
-    private var deepLinkURL: URL {
-        URL(string: "xbill://add/\(userID.uuidString)")!
+    private var deepLinkURL: URL? {
+        URL(string: "xbill://add/\(userID.uuidString)")
     }
 
     var body: some View {
@@ -51,19 +51,25 @@ struct MyQRCodeView: View {
                         .frame(width: 220, height: 220)
                 }
 
-                ShareLink(item: deepLinkURL, subject: Text("Add me on xBill"),
-                          message: Text("Tap to add \(displayName) as a friend on xBill.")) {
-                    Label("Share Link", systemImage: "square.and.arrow.up")
-                        .font(.appTitle)
+                if let url = deepLinkURL {
+                    ShareLink(item: url, subject: Text("Add me on xBill"),
+                              message: Text("Tap to add \(displayName) as a friend on xBill.")) {
+                        Label("Share Link", systemImage: "square.and.arrow.up")
+                            .font(.appTitle)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
             }
             .navigationBarBackButtonHidden()
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .task { qrImage = generateQRCode(from: deepLinkURL.absoluteString) }
+            .task {
+                if let url = deepLinkURL {
+                    qrImage = generateQRCode(from: url.absoluteString)
+                }
+            }
         }
     }
 

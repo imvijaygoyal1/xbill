@@ -1,3 +1,6 @@
+-- NOTE: The email column was removed from the response in migration 025_medium_fixes.sql (M-33).
+-- This migration is kept for history; the effective current definition is in 025.
+
 -- Migration 018: lookup_profiles_by_email RPC
 -- Allows authenticated users to check which email addresses belong to xBill profiles.
 -- SECURITY DEFINER bypasses RLS so callers don't need SELECT on the profiles table.

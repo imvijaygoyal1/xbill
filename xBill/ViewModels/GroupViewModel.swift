@@ -194,7 +194,9 @@ final class GroupViewModel {
                 let splitInputs = existingSplits.map { SplitInput(from: $0) }
                 guard !splitInputs.isEmpty else { continue }
 
-                let newNextDate = expense.recurrence.nextDate(from: nextDate)
+                // nextDate(from:) returns nil for .none recurrence; guard ensures a real
+                // advance date is available before creating a new instance.
+                guard let newNextDate = expense.recurrence.nextDate(from: nextDate) else { continue }
 
                 // New instance is a one-off snapshot — it must NOT inherit recurrence or
                 // a next date, otherwise it would spawn further instances indefinitely.

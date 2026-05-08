@@ -30,6 +30,18 @@ final class FoundationModelService: Sendable {
         #endif
     }
 
+    // MARK: - Session cache
+
+    // A single LanguageModelSession is reused across parseReceipt calls.
+    // LanguageModelSession creation is expensive; recreating it on every call
+    // adds latency with no benefit because the session holds only instruction state.
+    // nonisolated(unsafe) is safe here: the session is effectively read-only after
+    // its first lazy creation (the setter in the stored property is the only writer,
+    // called once under normal usage patterns).
+    #if canImport(FoundationModels)
+    nonisolated(unsafe) private var _cachedSession: LanguageModelSession?
+    #endif
+
     // MARK: - Parse
 
     /// `language`: BCP-47 tag from NLLanguageRecognizer (e.g. "fr", "de") — improves
@@ -67,7 +79,11 @@ final class FoundationModelService: Sendable {
         - transaction_date: the date printed on the receipt in "YYYY-MM-DD" format. Use nil if not found.
         - confidence: 0.0–1.0, lower if ambiguous or items don't sum to total.
         """
-        let session  = LanguageModelSession(instructions: instructions)
+        // Reuse a cached session; create it lazily on first call.
+        if _cachedSession == nil {
+            _cachedSession = LanguageModelSession(instructions: instructions)
+        }
+        let session = _cachedSession!
         let response = try await session.respond(to: ocrText, generating: ReceiptGenerable.self)
         let g        = response.content
         return ParsedReceiptJSON(

@@ -192,38 +192,15 @@ struct FriendsView: View {
     // MARK: - Empty State
 
     private var emptyStateContent: some View {
-        VStack(spacing: AppSpacing.lg) {
-            XBillEmptyState(
-                icon: "person.2.fill",
-                title: "No Friends Yet",
-                message: "Add friends to track IOUs or split expenses outside of groups.",
-                actionLabel: "Add Friend",
-                action: { showAddFriend = true },
-                illustration: .friends
-            )
-            .padding(.top, AppSpacing.md)
-
-            if !contactSuggestions.isEmpty {
-                VStack(alignment: .leading, spacing: AppSpacing.md) {
-                    XBillSectionHeader("From Your Contacts")
-                    ForEach(contactSuggestions) { user in
-                        XBillFriendRow(user: user) {
-                            Button {
-                                Task { await quickAdd(user) }
-                            } label: {
-                                Text("Add")
-                                    .font(.appCaptionMedium)
-                                    .foregroundStyle(AppColors.primary)
-                                    .frame(minWidth: AppSpacing.tapTarget, minHeight: AppSpacing.tapTarget)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Add \(user.displayName)")
-                        }
-                        .xbillCard()
-                    }
-                }
-            }
-        }
+        XBillEmptyState(
+            icon: "person.2.fill",
+            title: "No Friends Yet",
+            message: "Add friends to track IOUs or split expenses outside of groups.",
+            actionLabel: "Add Friend",
+            action: { showAddFriend = true },
+            illustration: .friends
+        )
+        .padding(.top, AppSpacing.md)
     }
 
     // MARK: - Row Views

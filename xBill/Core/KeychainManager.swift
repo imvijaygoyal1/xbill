@@ -15,7 +15,7 @@ final class KeychainManager: Sendable {
     static let shared = KeychainManager()
     private init() {}
 
-    private let service = "com.xbill.app"
+    private let service = "com.vijaygoyal.xbill"
 
     // MARK: Save
 

@@ -8,15 +8,17 @@
 import CoreSpotlight
 import UniformTypeIdentifiers
 import Foundation
+import os
 
 // MARK: - SpotlightService
 
 /// Indexes and removes app content from CoreSpotlight.
-/// All methods are fire-and-forget; errors are silently ignored.
+/// Errors are logged via os_log (not silently discarded) so issues surface during development.
 enum SpotlightService {
 
     private static let groupDomain   = "com.vijaygoyal.xbill.group"
     private static let expenseDomain = "com.vijaygoyal.xbill.expense"
+    private static let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "Spotlight")
 
     // MARK: - Groups
 
@@ -34,13 +36,21 @@ enum SpotlightService {
             item.expirationDate = .distantFuture
             return item
         }
-        CSSearchableIndex.default().indexSearchableItems(items) { _ in }
+        CSSearchableIndex.default().indexSearchableItems(items) { error in
+            if let error {
+                logger.error("Spotlight index failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     static func removeGroup(id: UUID) {
         CSSearchableIndex.default().deleteSearchableItems(
             withIdentifiers: ["group:\(id.uuidString)"]
-        ) { _ in }
+        ) { error in
+            if let error {
+                logger.error("Spotlight delete group failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     // MARK: - Expense index cleanup
@@ -51,6 +61,10 @@ enum SpotlightService {
     static func removeAllExpenses() {
         CSSearchableIndex.default().deleteSearchableItems(
             withDomainIdentifiers: [expenseDomain]
-        ) { _ in }
+        ) { error in
+            if let error {
+                logger.error("Spotlight removeAllExpenses failed: \(error.localizedDescription)")
+            }
+        }
     }
 }
