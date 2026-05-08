@@ -47,8 +47,10 @@ GRANT  EXECUTE ON FUNCTION public.send_friend_request(uuid) TO authenticated;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- M-33: lookup_profiles_by_email — remove email from response columns
+-- Must DROP first because CREATE OR REPLACE cannot change the return type.
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION public.lookup_profiles_by_email(p_emails text[])
+DROP FUNCTION IF EXISTS public.lookup_profiles_by_email(text[]);
+CREATE FUNCTION public.lookup_profiles_by_email(p_emails text[])
 RETURNS TABLE(
     id           uuid,
     display_name text,
