@@ -83,7 +83,9 @@ final class FoundationModelService: Sendable {
         if _cachedSession == nil {
             _cachedSession = LanguageModelSession(instructions: instructions)
         }
-        let session = _cachedSession!
+        guard let session = _cachedSession else {
+            throw AppError.unknown("LLM session unavailable — LanguageModelSession could not be created.")
+        }
         let response = try await session.respond(to: ocrText, generating: ReceiptGenerable.self)
         let g        = response.content
         return ParsedReceiptJSON(

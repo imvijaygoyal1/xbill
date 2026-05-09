@@ -64,23 +64,25 @@ final class CacheService: Sendable {
 
     func saveBalance(netBalance: Decimal, totalOwed: Decimal, totalOwing: Decimal, currency: String = "USD") {
         let defaults = CacheService.defaults
-        defaults.set(Double(truncating: netBalance as NSDecimalNumber),   forKey: CacheService.netBalanceKey)
-        defaults.set(Double(truncating: totalOwed as NSDecimalNumber),    forKey: CacheService.totalOwedKey)
-        defaults.set(Double(truncating: totalOwing as NSDecimalNumber),   forKey: CacheService.totalOwingKey)
+        // Store as String to preserve full Decimal precision (avoids Double rounding for large
+        // amounts in JPY/IDR/etc.). Widget reads these back with Decimal(string:) → Double.
+        defaults.set(netBalance.description, forKey: CacheService.netBalanceKey)
+        defaults.set(totalOwed.description,  forKey: CacheService.totalOwedKey)
+        defaults.set(totalOwing.description, forKey: CacheService.totalOwingKey)
         defaults.set(currency, forKey: CacheService.balanceCurrencyKey)
         defaults.set(true,     forKey: CacheService.balanceAvailableKey)
     }
 
     func loadNetBalance() -> Decimal {
-        Decimal(CacheService.defaults.double(forKey: CacheService.netBalanceKey))
+        Decimal(string: CacheService.defaults.string(forKey: CacheService.netBalanceKey) ?? "") ?? .zero
     }
 
     func loadTotalOwed() -> Decimal {
-        Decimal(CacheService.defaults.double(forKey: CacheService.totalOwedKey))
+        Decimal(string: CacheService.defaults.string(forKey: CacheService.totalOwedKey) ?? "") ?? .zero
     }
 
     func loadTotalOwing() -> Decimal {
-        Decimal(CacheService.defaults.double(forKey: CacheService.totalOwingKey))
+        Decimal(string: CacheService.defaults.string(forKey: CacheService.totalOwingKey) ?? "") ?? .zero
     }
 
     func loadBalanceCurrency() -> String {

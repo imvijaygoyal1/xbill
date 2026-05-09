@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 
 // MARK: - Split
 
@@ -81,8 +82,12 @@ struct SplitInput: Identifiable, Equatable, Sendable {
         self.percentage  = split.percentage ?? .zero
         self.shares      = 1
         self.isIncluded  = true
+        // displayName is intentionally left empty — callers must populate it after construction.
         #if DEBUG
         assertionFailure("SplitInput(from:) called without providing displayName; caller must set it after init")
+        #else
+        Logger(subsystem: "com.vijaygoyal.xbill", category: "SplitInput")
+            .fault("SplitInput(from:) called without displayName — caller must populate it after init")
         #endif
     }
 }

@@ -361,6 +361,8 @@ struct ExpenseDetailView: View {
             category:             editCategory,
             notes:                editNotes.isEmpty ? nil : editNotes,
             receiptURL:           expense.receiptURL,
+            originalAmount:       expense.originalAmount,
+            originalCurrency:     expense.originalCurrency,
             recurrence:           expense.recurrence,
             nextOccurrenceDate:   expense.nextOccurrenceDate,
             createdAt:            expense.createdAt

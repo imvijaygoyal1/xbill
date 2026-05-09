@@ -171,18 +171,31 @@ final class GroupViewModel {
             )
             guard !dueExpenses.isEmpty else { return }
 
-            for expense in dueExpenses {
-                // Skip if the expense has no payer (deleted user) or no next date
+            // Fetch splits for all due expenses in parallel to avoid N serial round-trips.
+            var expenseSplitPairs: [(expense: Expense, splits: [Split])] = []
+            await withTaskGroup(of: (Expense, [Split]).self) { taskGroup in
+                for expense in dueExpenses {
+                    guard expense.recurrence != .none,
+                          expense.nextOccurrenceDate != nil,
+                          expense.payerID != nil else { continue }
+                    taskGroup.addTask {
+                        let splits = (try? await self.expenseService.fetchSplits(expenseID: expense.id)) ?? []
+                        return (expense, splits)
+                    }
+                }
+                for await pair in taskGroup {
+                    expenseSplitPairs.append((expense: pair.0, splits: pair.1))
+                }
+            }
+
+            for (expense, existingSplits) in expenseSplitPairs {
                 guard expense.recurrence != .none,
                       let nextDate = expense.nextOccurrenceDate,
                       let payerID  = expense.payerID else { continue }
 
-                let existingSplits = (try? await expenseService.fetchSplits(expenseID: expense.id)) ?? []
                 let splitInputs = existingSplits.map { SplitInput(from: $0) }
                 guard !splitInputs.isEmpty else { continue }
 
-                // nextDate(from:) returns nil for .none recurrence; guard ensures a real
-                // advance date is available before creating a new instance.
                 guard let newNextDate = expense.recurrence.nextDate(from: nextDate) else { continue }
 
                 // New instance is a one-off snapshot — it must NOT inherit recurrence or

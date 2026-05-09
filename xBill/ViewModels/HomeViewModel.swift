@@ -142,38 +142,33 @@ final class HomeViewModel {
 
     // MARK: - Sample Data
 
-    func createSampleData(userID: UUID) async {
+    func createSampleData(userID: UUID) async throws {
         guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
-        do {
-            let group = try await groupService.createGroup(
-                name: "Sample Trip",
-                emoji: "🏖️",
-                currency: "USD",
-                createdBy: userID
+        let group = try await groupService.createGroup(
+            name: "Sample Trip",
+            emoji: "🏖️",
+            currency: "USD",
+            createdBy: userID
+        )
+        let sampleExpenses: [(String, Decimal, Expense.Category)] = [
+            ("Airfare",             240.00, .transport),
+            ("Hotel (2 nights)",    180.00, .accommodation),
+            ("Dinner at La Palma",   65.00, .food),
+        ]
+        for (title, amount, category) in sampleExpenses {
+            var split = SplitInput(userID: userID, displayName: "You")
+            split.amount     = amount
+            split.isIncluded = true
+            try await expenseService.createExpense(
+                groupID: group.id, title: title, amount: amount,
+                currency: "USD", payerID: userID, category: category,
+                notes: "Sample expense — feel free to delete", splits: [split]
             )
-            let sampleExpenses: [(String, Decimal, Expense.Category)] = [
-                ("Airfare",             240.00, .transport),
-                ("Hotel (2 nights)",    180.00, .accommodation),
-                ("Dinner at La Palma",   65.00, .food),
-            ]
-            for (title, amount, category) in sampleExpenses {
-                var split = SplitInput(userID: userID, displayName: "You")
-                split.amount     = amount
-                split.isIncluded = true
-                try await expenseService.createExpense(
-                    groupID: group.id, title: title, amount: amount,
-                    currency: "USD", payerID: userID, category: category,
-                    notes: "Sample expense — feel free to delete", splits: [split]
-                )
-            }
-            groups.append(group)
-            CacheService.shared.saveGroups(groups)
-        } catch {
-            guard !AppError.isSilent(error) else { return }
-            self.errorAlert = ErrorAlert(title: "Could not create sample data", message: error.localizedDescription)
         }
+        groups.append(group)
+        CacheService.shared.saveGroups(groups)
     }
 
     // MARK: - Balance + Recent Expenses

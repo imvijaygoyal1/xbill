@@ -60,17 +60,18 @@ struct MainTabView: View {
             }
         }
         .sheet(isPresented: $showQuickAddExpense) {
-            QuickAddExpenseSheet(
-                groups: homeVM.groups,
-                currentUserID: homeVM.currentUser?.id ?? UUID(),
-                startWithScan: quickActionScan,
-                onSaved: { await homeVM.loadAll() }
-            )
+            if let userID = homeVM.currentUser?.id {
+                QuickAddExpenseSheet(
+                    groups: homeVM.groups,
+                    currentUserID: userID,
+                    startWithScan: quickActionScan,
+                    onSaved: { await homeVM.loadAll() }
+                )
+            }
         }
         .task {
             await homeVM.loadCurrentUser()
             await homeVM.loadAll()
-            await profileVM.load()
             await activityVM.load()
             let status = await NotificationService.shared.authorizationStatus()
             if status == .authorized || status == .provisional {
@@ -93,7 +94,13 @@ struct MainTabView: View {
         // Handle quick actions (warm start and cold start after load)
         .task(id: appState.pendingQuickAction) {
             guard let action = appState.pendingQuickAction else { return }
+            if homeVM.currentUser == nil { await homeVM.loadCurrentUser() }
             if homeVM.groups.isEmpty { await homeVM.loadAll() }
+            // Do not open the sheet without a real user — UUID() fallback creates orphaned DB records.
+            guard homeVM.currentUser != nil else {
+                appState.pendingQuickAction = nil
+                return
+            }
             switch action {
             case .addExpense:
                 quickActionScan = false
@@ -161,6 +168,12 @@ struct MainTabView: View {
             // Keep homeVM.currentUser in sync so profile-name changes propagate
             // without waiting for homeVM.loadCurrentUser() to run again.
             homeVM.currentUser = newUser
+            // Seed the profile VM so the profile card shows user data immediately
+            // when the Profile tab is opened, without a redundant auth.session call.
+            profileVM.user = newUser
+            if !profileVM.isEditing, let name = newUser?.displayName {
+                profileVM.displayName = name
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             Task { await activityVM.load() }

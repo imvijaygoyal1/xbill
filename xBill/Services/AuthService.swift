@@ -103,9 +103,9 @@ final class AuthService: Sendable {
 
     // MARK: - Profile
 
-    func updateProfile(displayName: String, avatarURL: URL?) async throws -> User {
+    func updateProfile(displayName: String, avatarURL: URL?, venmoHandle: String? = nil, paypalEmail: String? = nil) async throws -> User {
         guard let userID = currentUserID else { throw AppError.unauthenticated }
-        let update = UserUpdatePayload(displayName: displayName, avatarURL: avatarURL)
+        let update = UserUpdatePayload(displayName: displayName, avatarURL: avatarURL, venmoHandle: venmoHandle, paypalEmail: paypalEmail)
         return try await supabase.table("profiles")
             .update(update)
             .eq("id", value: userID)
@@ -191,6 +191,7 @@ final class AuthService: Sendable {
             )
             return try await supabase.table("profiles")
                 .upsert(payload)
+                .select()
                 .single()
                 .execute()
                 .value
@@ -236,8 +237,12 @@ private struct DisplayNamePayload: Encodable {
 private struct UserUpdatePayload: Encodable {
     let displayName: String
     let avatarURL: URL?
+    let venmoHandle: String?
+    let paypalEmail: String?
     enum CodingKeys: String, CodingKey {
-        case displayName = "display_name"
-        case avatarURL   = "avatar_url"
+        case displayName  = "display_name"
+        case avatarURL    = "avatar_url"
+        case venmoHandle  = "venmo_handle"
+        case paypalEmail  = "paypal_email"
     }
 }

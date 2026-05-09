@@ -36,6 +36,7 @@ final class AuthViewModel {
 
     private let auth = AuthService.shared
     @ObservationIgnored private var isListening = false
+    @ObservationIgnored private var lastLoadedUserID: String?
 
     // MARK: - Computed
 
@@ -78,13 +79,19 @@ final class AuthViewModel {
                 // but they must still be allowed through.
                 let isEmailProvider = session?.user.appMetadata["provider"] == "email"
                 guard session?.user.emailConfirmedAt != nil || !isEmailProvider else { break }
-                // Always refresh on userUpdated (profile/password changes) so currentUser stays current.
+                // Skip redundant network round-trips when the same session fires multiple
+                // events (e.g. tokenRefreshed immediately after signedIn). Always allow
+                // userUpdated through so profile/password changes propagate immediately.
+                let sessionUserID = session?.user.id.uuidString ?? ""
+                guard sessionUserID != lastLoadedUserID || event == .userUpdated else { break }
+                lastLoadedUserID = sessionUserID
                 await loadCurrentUser()
             case .passwordRecovery:
                 isInPasswordRecovery = true
             case .signedOut:
                 currentUser = nil
                 isInPasswordRecovery = false
+                lastLoadedUserID = nil
                 AppState.shared.clear()
             default:
                 break

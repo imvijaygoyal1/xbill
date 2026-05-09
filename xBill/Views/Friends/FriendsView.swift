@@ -61,10 +61,11 @@ struct FriendsView: View {
     /// Net balance (from my perspective) with a friend, per currency.
     /// Positive = they owe me, Negative = I owe them.
     private func netBalances(with friendID: UUID) -> [String: Decimal] {
+        guard let currentUserID else { return [:] }
         var balances: [String: Decimal] = [:]
         for iou in ious where !iou.isSettled {
             guard iou.lenderID == friendID || iou.borrowerID == friendID else { continue }
-            let delta: Decimal = iou.lenderID == currentUserID ? iou.amount : -iou.amount  // nil lender treated as "they owe me"
+            let delta: Decimal = iou.lenderID == currentUserID ? iou.amount : -iou.amount
             balances[iou.currency, default: .zero] += delta
         }
         return balances
@@ -238,9 +239,10 @@ struct FriendsView: View {
         let friend   = userCache[friendID]
         let balances = netBalances(with: friendID)
 
+        let emailDetail: String? = friend.flatMap { $0.email.isEmpty ? nil : $0.email }
         return XBillFriendRow(
             displayName: friend?.displayName ?? "Unknown",
-            detail: friend?.email,
+            detail: emailDetail,
             avatarURL: friend?.avatarURL,
             showsChevron: true
         ) {

@@ -15,13 +15,17 @@ struct User: Codable, Identifiable, Equatable, Sendable {
     let email: String
     var displayName: String
     var avatarURL: URL?
+    var venmoHandle: String?
+    var paypalEmail: String?
     let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
         case id, email
-        case displayName = "display_name"
-        case avatarURL   = "avatar_url"
-        case createdAt   = "created_at"
+        case displayName  = "display_name"
+        case avatarURL    = "avatar_url"
+        case venmoHandle  = "venmo_handle"
+        case paypalEmail  = "paypal_email"
+        case createdAt    = "created_at"
     }
 }
 

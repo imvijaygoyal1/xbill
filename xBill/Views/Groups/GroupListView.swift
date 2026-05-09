@@ -55,10 +55,13 @@ struct GroupListView: View {
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .sheet(isPresented: $showCreateGroup) {
-                CreateGroupView { newGroup in
-                    vm.groups.append(newGroup)
-                    SpotlightService.indexGroups(vm.groups)
-                }
+                CreateGroupView(
+                    onCreated: { newGroup in
+                        vm.groups.append(newGroup)
+                        SpotlightService.indexGroups(vm.groups)
+                    },
+                    inviterName: vm.currentUser?.displayName ?? "Someone"
+                )
             }
             .refreshable {
                 await vm.refresh()

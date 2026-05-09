@@ -630,16 +630,61 @@ Landing-page ↔ welcome-screen loop on cold launch. Three root causes, all reso
 
 **Auth state rule:** `currentUser` is set only by `loadCurrentUser()` (on success) and cleared only by the `.signedOut` event. Never clear it on catch. The single `.task { await authVM.startListeningToAuthChanges() }` in `xBillApp` is the only startup entry point — do not add a second concurrent `loadCurrentUser()` call.
 
+## Profile Screen Bug Fixes (2026-05-09)
+
+Two bugs fixed on the Profile screen after the defect audit shipped.
+
+### PF-1 — "Cannot coerce the result to a single JSON object" ✅
+- **Root cause:** `AuthService.fetchProfile()` has a fallback upsert path for accounts pre-dating the DB trigger. The path used `.upsert(payload).single().execute()` — missing `.select()` before `.single()`. Without `.select()`, the Supabase SDK sends `Prefer: return=minimal` → empty response body → `.single()` throws "Cannot coerce the result to a single JSON object".
+- **Fix:** Added `.select()` before `.single()` in the upsert fallback path in `AuthService.fetchProfile()` (line ~193). Matches the documented "Always Chain .select()" pattern in Key Patterns.
+- **File:** `xBill/Services/AuthService.swift`
+
+### PF-2 — "Request rate limit reached" ✅
+- **Root cause:** On startup and again when the Profile tab was opened, `auth.currentUser()` → `supabase.auth.session` (which triggers a JWT refresh if the token is expired) was called by three overlapping sources simultaneously: the auth state listener, `homeVM.loadCurrentUser()`, and `profileVM.load()` (from `MainTabView.task`). Then a 4th call fired when the user tapped the Profile tab (`ProfileView.task`). Supabase free tier rate-limits `/auth/v1/token?grant_type=refresh_token` — this produces the "Request rate limit reached" error.
+- **Three-part fix:**
+  1. **Removed `await profileVM.load()` from `MainTabView.task`** — the profile tab loads itself via `ProfileView.task` when first visited; there is no value in preloading profile stats before the user navigates there.
+  2. **Seeded `profileVM.user` / `profileVM.displayName` from `authVM.currentUser` via `.onChange`** — the profile card shows user data (name, avatar) immediately when the tab is opened, without any auth call. Added to the existing `.onChange(of: authVM.currentUser)` handler in `MainTabView`.
+  3. **`ProfileViewModel.load()` skips `auth.currentUser()` when `user` is already set** — if the user was seeded via `.onChange`, `load()` goes straight to `loadStats`. Falls back to `auth.currentUser()` only when `user` is nil (edge-case first launch before onChange fires).
+- **Files:** `xBill/Views/Main/MainTabView.swift`, `xBill/ViewModels/ProfileViewModel.swift`
+
+**Profile auth call rule:** `ProfileViewModel.load()` must not call `auth.currentUser()` when `user` is already populated. The auth listener + `homeVM.loadCurrentUser()` are the canonical source of the current user. `ProfileViewModel` gets the user via `MainTabView.onChange(of: authVM.currentUser)` and only computes stats via `loadStats(userID:)` on its own.
+
+## Second-Pass Defect Fixes (2026-05-09)
+
+All 20 defects from the second senior developer audit (v2) fixed. Key changes:
+
+- **CRIT-01** — `ExpenseDetailView.saveEdit()` now preserves `originalAmount`/`originalCurrency` fields; multi-currency metadata no longer destroyed on every edit.
+- **CRIT-02** — `KeychainSessionStorage.retrieve()` `kSecAttrService` corrected from `"com.xbill.app"` to `"com.vijaygoyal.xbill"`; session tokens no longer orphaned.
+- **HIGH-01** — `notify-settlement/index.ts` phantom badge fixed: `badgeCount ?? 0` (was `?? 1`). **Pending deploy**: `supabase functions deploy notify-settlement --project-ref <ref>`
+- **HIGH-02** — Venmo/PayPal payment handles: migration `026_venmo_paypal_handles.sql` adds columns, `User` model adds fields, `AuthService.updateProfile` extended, `ProfileViewModel` saves/loads handles. **Pending deploy**: `supabase db push`
+- **HIGH-03** — `FriendsView.netBalances(with:)` guard against nil `currentUserID` prevents inverted IOU balances.
+- **HIGH-04** — `NotificationItem.settlement` dedup hash now includes currency to prevent cross-currency collisions.
+- **MED-01** — `GroupViewModel.createDueRecurringInstances`: split fetches parallelized with `withTaskGroup`.
+- **MED-02** — `ExchangeRateService.session`: moved to stored actor property (eliminates per-call `URLSession` allocation).
+- **MED-03** — `CacheService.saveBalance` stores amounts as `String` to avoid `Double` precision loss; widget reads via `Double(defaults.string(...))`.
+- **MED-04** — `VisionService.ciContext`: now a `private static let` (eliminates per-call `CIContext` allocation).
+- **MED-05** — `ActivityService` merges partial results before error check; throws on any error; `ActivityViewModel` reads store on partial failure.
+- **MED-06** — `CreateGroupView` accepts `inviterName: String` parameter; `CreateGroupView` no longer makes a redundant `currentUser()` network call.
+- **MED-07** — `MainTabView` quick-action handler loads user before showing sheet; uses `if let userID` guard (no more random-UUID payer).
+- **MED-08** — `FriendsView.friendRow`: blank email suppressed in subtitle via `flatMap`.
+- **MED-09** — `HomeViewModel.createSampleData` is `async throws`; `ContentView` surfaces errors via `.alert`.
+- **LOW-01** — `FoundationModelService`: `_cachedSession` force-unwrap replaced with `guard let` + throw.
+- **LOW-02** — `SplitInput(from:)`: Release builds now log via `Logger(...).fault(...)` in addition to DEBUG assertionFailure.
+- **LOW-03** — `AuthViewModel.startListeningToAuthChanges`: session-user-ID dedup skips redundant `loadCurrentUser()` calls; always allows `.userUpdated` through; resets on `.signedOut`.
+- **LOW-04** — Widget balance currency fallback uses `Locale.current.currency?.identifier ?? "USD"` (bundled with MED-03).
+
 ## Known TODOs
 - **App Group registration** (for widget data sharing): register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Certificates, IDs & Profiles → Identifiers → App Groups
-- Deploy `invite-member` Edge Function: `supabase functions deploy invite-member` (after setting secrets `RESEND_API_KEY` + `INVITE_FROM_EMAIL`)
+- **Deploy `notify-settlement`** (HIGH-01 phantom badge fix): `supabase functions deploy notify-settlement --project-ref <ref>`
+- **Deploy migration 026** (HIGH-02 payment handles): `supabase db push`
 - App Store Assets: screenshots, preview video, keyword strategy (only remaining P0 blocker)
 
-## Deployed Edge Functions (production — 2026-05-07)
-- `notify-expense` ✅ — H-05 badge batching live
-- `notify-comment` ✅ — H-05 badge batching live
-- `notify-friend-request` ✅ — H-04 fromUserID removal live
-- Migrations 023 + 024 ✅ — pushed to production DB
+## Deployed Edge Functions (production)
+- `notify-expense` ✅ — H-05 badge batching live (2026-05-07)
+- `notify-comment` ✅ — H-05 badge batching live (2026-05-07)
+- `notify-friend-request` ✅ — H-04 fromUserID removal live (2026-05-07)
+- `invite-member` ✅ — group email invites live (2026-05-09); secrets: `RESEND_API_KEY` + `INVITE_FROM_EMAIL=invites@xbill.vijaygoyal.org`
+- Migrations 023 + 024 ✅ — pushed to production DB (2026-05-07)
 
 ## Low Defect Fixes (2026-05-07)
 

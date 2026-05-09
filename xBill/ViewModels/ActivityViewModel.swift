@@ -31,10 +31,17 @@ final class ActivityViewModel {
             items       = fetchedItems
             unreadCount = store.unreadCount()
         } catch {
+            // On partial failure, ActivityService still merges results into the store.
+            // Read from the store so previously fetched items remain visible.
+            let storedItems = store.loadAll()
+            if !storedItems.isEmpty {
+                items       = storedItems
+                unreadCount = store.unreadCount()
+            }
             // Unauthenticated errors are expected on session expiry — don't show alert.
             guard !AppError.isSilent(error) else { return }
             if case AppError.unauthenticated = AppError.from(error) { return }
-            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
+            self.errorAlert = ErrorAlert(title: "Some activity could not be loaded", message: error.localizedDescription)
         }
     }
 

@@ -39,13 +39,24 @@ final class ProfileViewModel {
         isLoading = true
         defer { isLoading = false }
         do {
-            let loaded = try await auth.currentUser()
-            user = loaded
+            let loaded: User
+            if let cached = user {
+                // User already seeded from AuthViewModel via MainTabView.onChange —
+                // reuse it to avoid a redundant supabase.auth.session call, which
+                // can hit the Supabase Auth rate limit when multiple callers
+                // (auth listener, homeVM, profileVM) all fire on the same startup.
+                loaded = cached
+            } else {
+                loaded = try await auth.currentUser()
+                user = loaded
+            }
             // Only overwrite the editable display fields when the user is not
             // actively editing them — otherwise an in-flight background refresh
             // would silently discard unsaved changes.
             if !isEditing {
-                displayName = loaded.displayName
+                displayName  = loaded.displayName
+                venmoHandle  = loaded.venmoHandle ?? ""
+                paypalEmail  = loaded.paypalEmail ?? ""
             }
             await loadStats(userID: loaded.id)
         } catch {
@@ -103,13 +114,25 @@ final class ProfileViewModel {
         do {
             // Update the profile row first. If the upload later fails, the profile
             // remains consistent and no orphaned storage object is produced.
-            let updated = try await auth.updateProfile(displayName: displayName, avatarURL: user.avatarURL)
-            self.user   = updated
+            let handle  = venmoHandle.trimmingCharacters(in: .whitespaces)
+            let paypal  = paypalEmail.trimmingCharacters(in: .whitespaces)
+            let updated = try await auth.updateProfile(
+                displayName: displayName,
+                avatarURL: user.avatarURL,
+                venmoHandle: handle.isEmpty ? nil : handle,
+                paypalEmail: paypal.isEmpty ? nil : paypal
+            )
+            self.user = updated
 
             if let image = avatarImage {
-                let newURL  = try await auth.uploadAvatar(image, userID: user.id)
-                let withAvatar = try await auth.updateProfile(displayName: displayName, avatarURL: newURL)
-                self.user  = withAvatar
+                let newURL     = try await auth.uploadAvatar(image, userID: user.id)
+                let withAvatar = try await auth.updateProfile(
+                    displayName: displayName,
+                    avatarURL: newURL,
+                    venmoHandle: handle.isEmpty ? nil : handle,
+                    paypalEmail: paypal.isEmpty ? nil : paypal
+                )
+                self.user = withAvatar
             }
             isSaved = true
         } catch {

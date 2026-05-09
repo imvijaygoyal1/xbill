@@ -100,7 +100,7 @@ serve(async (req) => {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', toUserID)
       .eq('is_settled', false)
-    const badge = badgeCount ?? 1
+    const badge = badgeCount ?? 0
 
     const apnsPayload = {
       aps: {

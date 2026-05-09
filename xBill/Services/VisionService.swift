@@ -52,6 +52,9 @@ final class VisionService: Sendable {
     static let shared = VisionService()
     private init() {}
 
+    // Shared CIContext — Metal GPU pipeline is expensive to create; reuse across all calls.
+    private static let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+
     // Receipt domain vocabulary injected into Vision to improve recognition accuracy.
     private static let receiptCustomWords: [String] = [
         "SUBTOTAL", "TAX", "TIP", "GRATUITY", "TOTAL", "GRAND TOTAL",
@@ -178,7 +181,7 @@ final class VisionService: Sendable {
     private func checkImageQuality(_ image: UIImage) throws {
         guard let cgImage = image.cgImage else { return }
         let ciImage = CIImage(cgImage: cgImage)
-        let context = CIContext(options: [.useSoftwareRenderer: false])
+        let context = VisionService.ciContext
 
         // Exposure: average luminance < 12% → too dark for OCR
         if let luminance = averageLuminance(ciImage, context: context), luminance < 0.12 {

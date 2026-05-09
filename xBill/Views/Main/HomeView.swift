@@ -24,7 +24,10 @@ struct HomeView: View {
                     }
                     .refreshable { await vm.refresh() }
                     .sheet(isPresented: $showCreateGroup) {
-                        CreateGroupView { _ in await vm.refresh() }
+                        CreateGroupView(
+                            onCreated: { _ in await vm.refresh() },
+                            inviterName: vm.currentUser?.displayName ?? "Someone"
+                        )
                     }
             }
         }

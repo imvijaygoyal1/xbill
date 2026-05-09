@@ -31,7 +31,7 @@ final class KeychainSessionStorage: AuthLocalStorage, @unchecked Sendable {
         // Treating the former as nil would cause the Supabase SDK to force sign-out unnecessarily.
         let query: [CFString: Any] = [
             kSecClass:           kSecClassGenericPassword,
-            kSecAttrService:     "com.xbill.app",
+            kSecAttrService:     "com.vijaygoyal.xbill",
             kSecAttrAccount:     "auth_\(key)",
             kSecReturnData:      true,
             kSecMatchLimit:      kSecMatchLimitOne

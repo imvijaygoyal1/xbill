@@ -34,15 +34,16 @@ final class ActivityService: Sendable {
                 }
             }
         }
-        // Surface the first group-level error rather than silently swallowing it;
-        // caller sees partial results plus the error so it can display a warning.
-        if fetched.isEmpty, let first = groupErrors.first { throw first }
-
+        // Always merge partial results into the store so the caller can read them
+        // from the store even if we throw below.
         store.merge(fetched)
+        let allItems = store.loadAll().prefix(limit).map { $0 }
 
-        return store.loadAll()
-            .prefix(limit)
-            .map { $0 }
+        // Throw if any groups failed, so the caller can surface a warning.
+        // On partial failure, items already merged above remain readable from store.
+        if let first = groupErrors.first { throw first }
+
+        return allItems
     }
 
     private func items(for group: BillGroup) async -> Result<[NotificationItem], Error> {

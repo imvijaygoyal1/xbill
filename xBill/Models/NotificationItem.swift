@@ -93,6 +93,7 @@ extension NotificationItem {
         let idSource = suggestion.fromUserID.uuidString
             + suggestion.toUserID.uuidString
             + suggestion.amount.description
+            + suggestion.currency
         let hash = idSource.unicodeScalars.reduce(UInt64(5381)) { ($0 &* 31) &+ UInt64($1.value) }
         var bytes = [UInt8](repeating: 0, count: 16)
         for i in 0..<8 { bytes[i] = UInt8((hash >> (i * 8)) & 0xFF) }

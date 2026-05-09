@@ -12,6 +12,7 @@ struct ContentView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var lockService = AppLockService.shared
+    @State private var sampleDataError: AppError?
 
     var body: some View {
         ZStack {
@@ -34,7 +35,11 @@ struct ContentView: View {
                         }
                     } onTrySampleData: {
                         guard let userID = authVM.currentUser?.id else { return }
-                        await HomeViewModel().createSampleData(userID: userID)
+                        do {
+                            try await HomeViewModel().createSampleData(userID: userID)
+                        } catch {
+                            sampleDataError = AppError.from(error)
+                        }
                         withAnimation(.easeInOut(duration: 0.4)) {
                             hasCompletedOnboarding = true
                         }
@@ -65,6 +70,14 @@ struct ContentView: View {
             if phase == .background {
                 lockService.lock()
             }
+        }
+        .alert("Sample Data Error", isPresented: Binding(
+            get: { sampleDataError != nil },
+            set: { if !$0 { sampleDataError = nil } }
+        )) {
+            Button("OK") { sampleDataError = nil }
+        } message: {
+            Text(sampleDataError?.errorDescription ?? "Could not create sample data.")
         }
     }
 }

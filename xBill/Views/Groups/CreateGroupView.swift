@@ -9,6 +9,7 @@ import SwiftUI
 
 struct CreateGroupView: View {
     let onCreated: (BillGroup) async -> Void
+    var inviterName: String = "Someone"
 
     @State private var name: String = ""
     @State private var selectedEmoji: String = "💸"
@@ -122,7 +123,6 @@ struct CreateGroupView: View {
         isLoading = true
         defer { isLoading = false }
         do {
-            let profile = try? await AuthService.shared.currentUser()
             let group = try await GroupService.shared.createGroup(
                 name: name.trimmingCharacters(in: .whitespaces),
                 emoji: selectedEmoji,
@@ -135,7 +135,7 @@ struct CreateGroupView: View {
                     emails: [trimmedEmail],
                     groupName: group.name,
                     groupEmoji: group.emoji,
-                    inviterName: profile?.displayName ?? "Someone"
+                    inviterName: inviterName
                 )
             }
             await onCreated(group)

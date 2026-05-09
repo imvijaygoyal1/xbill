@@ -50,10 +50,12 @@ struct BalanceProvider: TimelineProvider {
 
     private func entry(for date: Date) -> BalanceEntry {
         let dataAvailable = defaults.object(forKey: "xbill_balance_available") != nil
-        let net      = defaults.double(forKey: "xbill_net_balance")
-        let owed     = defaults.double(forKey: "xbill_total_owed")
-        let owing    = defaults.double(forKey: "xbill_total_owing")
-        let currency = defaults.string(forKey: "xbill_balance_currency") ?? "USD"
+        // Balances are stored as String (for Decimal precision); convert to Double for display.
+        let net      = Double(defaults.string(forKey: "xbill_net_balance")   ?? "") ?? 0
+        let owed     = Double(defaults.string(forKey: "xbill_total_owed")    ?? "") ?? 0
+        let owing    = Double(defaults.string(forKey: "xbill_total_owing")   ?? "") ?? 0
+        let currency = defaults.string(forKey: "xbill_balance_currency")
+            ?? Locale.current.currency?.identifier ?? "USD"
         return BalanceEntry(date: date, netBalance: net, totalOwed: owed, totalOwing: owing,
                             currency: currency, isPositive: net >= 0, dataAvailable: dataAvailable)
     }
