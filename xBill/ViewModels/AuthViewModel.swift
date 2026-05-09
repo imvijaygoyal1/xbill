@@ -68,6 +68,11 @@ final class AuthViewModel {
         for await (event, session) in SupabaseManager.shared.auth.authStateChanges {
             switch event {
             case .initialSession, .signedIn, .tokenRefreshed, .userUpdated:
+                // .initialSession fires on every cold launch, with session == nil when no user
+                // is signed in. Calling loadCurrentUser() in that case makes a network round-trip
+                // that always throws, which previously cleared currentUser and contributed to the
+                // landing-page ↔ welcome-screen loop. Skip if there is no session.
+                guard session != nil else { break }
                 // Block unconfirmed email/password sign-ups only.
                 // OAuth providers (Apple, etc.) are pre-verified — emailConfirmedAt is nil for them
                 // but they must still be allowed through.
@@ -169,7 +174,12 @@ final class AuthViewModel {
         do {
             currentUser = try await auth.currentUser()
         } catch {
-            currentUser = nil
+            // Do NOT clear currentUser here. Transient network errors, timeouts, and
+            // decode failures should not sign the user out of the UI. The .signedOut
+            // auth event is the sole authoritative signal for clearing currentUser.
+            // Clearing on any error was the second cause of the landing-page loop:
+            // a race between two concurrent loadCurrentUser() calls meant whichever
+            // threw first wiped out the result of the one that succeeded.
         }
     }
 

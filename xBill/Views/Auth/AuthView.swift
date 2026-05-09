@@ -18,35 +18,39 @@ struct AuthView: View {
 
     var body: some View {
         NavigationStack {
-            XBillScreenContainer(
-                horizontalPadding: AppSpacing.lg,
-                bottomPadding: AppSpacing.xxl
-            ) {
-                brandHeader
+            XBillScreenBackground {
+                ScrollView {
+                    VStack(spacing: AppSpacing.lg) {
+                        brandHeader
 
-                XBillSplitBillIllustration(size: 220)
-                    .frame(maxWidth: .infinity)
+                        // 160pt keeps the auth card visible above the fold on iPhone SE.
+                        XBillSplitBillIllustration(size: 160)
+                            .frame(maxWidth: .infinity)
 
-                // MARK: Confirmation Banner
-                if vm.confirmationEmailSent {
-                    HStack(spacing: AppSpacing.md) {
-                        Image(systemName: "envelope.badge.fill")
-                            .foregroundStyle(AppColors.primary)
-                        VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                            Text("Check your email")
-                                .font(.appTitle)
-                                .foregroundStyle(AppColors.textPrimary)
-                            Text("Tap the link we sent to \(vm.email) to confirm your account, then sign in.")
-                                .font(.appCaption)
-                                .foregroundStyle(AppColors.textSecondary)
+                        // MARK: Confirmation Banner
+                        if vm.confirmationEmailSent {
+                            HStack(spacing: AppSpacing.md) {
+                                Image(systemName: "envelope.badge.fill")
+                                    .foregroundStyle(AppColors.primary)
+                                VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                                    Text("Check your email")
+                                        .font(.appTitle)
+                                        .foregroundStyle(AppColors.textPrimary)
+                                    Text("Tap the link we sent to \(vm.email) to confirm your account, then sign in.")
+                                        .font(.appCaption)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                }
+                            }
+                            .xbillCard()
                         }
+
+                        authCard
+
+                        legalLinks
                     }
-                    .xbillCard()
+                    .padding(.horizontal, AppSpacing.lg)
+                    .padding(.bottom, AppSpacing.xxl)
                 }
-
-                authCard
-
-                legalLinks
             }
             .navigationDestination(isPresented: $showEmailAuth) {
                 EmailAuthView(vm: vm)

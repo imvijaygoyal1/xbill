@@ -165,7 +165,10 @@ struct xBillApp: App {
         WindowGroup {
             ContentView(authVM: authVM)
                 .environment(AppState.shared)
-                .task { await authVM.loadCurrentUser() }
+                // loadCurrentUser() is called by startListeningToAuthChanges() when the
+                // .initialSession event fires. A second concurrent call here races with
+                // that one — if it throws first, it clears currentUser while the listener
+                // is still setting it, causing the landing-page ↔ welcome-screen loop.
                 .task { await authVM.startListeningToAuthChanges() }
                 .onOpenURL { url in
                     guard url.scheme == "xbill" else { return }

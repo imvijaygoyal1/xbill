@@ -25,7 +25,9 @@ struct EmailAuthView: View {
             // keyboard resizes the viewport, contributing to the jump. VStack is eager and
             // stable for small, static form content.
             ScrollView {
-                VStack(alignment: .leading, spacing: AppSpacing.lg) {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Header sits outside the padded inner stack so it uses its own
+                    // internal horizontal padding — no fragile negative-padding trick.
                     XBillPageHeader(
                         title: vm.isSigningUp ? "Create Account" : "Sign In",
                         subtitle: vm.isSigningUp
@@ -34,24 +36,26 @@ struct EmailAuthView: View {
                         showsBackButton: true,
                         backAction: { dismiss() }
                     )
-                    .padding(.horizontal, -AppSpacing.lg)
 
-                    // Illustration collapses when the keyboard is up. Without this the
-                    // ScrollView must jump 190pt to bring the form card into view —
-                    // the largest single contributor to the perceived jumpiness.
-                    if !keyboardVisible {
-                        XBillWalletIllustration(size: 190)
-                            .frame(maxWidth: .infinity)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    VStack(alignment: .leading, spacing: AppSpacing.lg) {
+                        // Illustration collapses when the keyboard is up. Without this the
+                        // ScrollView must jump 190pt to bring the form card into view —
+                        // the largest single contributor to the perceived jumpiness.
+                        if !keyboardVisible {
+                            XBillWalletIllustration(size: 190)
+                                .frame(maxWidth: .infinity)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+
+                        formCard
                     }
-
-                    formCard
+                    .padding(.horizontal, AppSpacing.lg)
+                    .padding(.top, AppSpacing.lg)
+                    .padding(.bottom, AppSpacing.xxl)
+                    // Animate the illustration appearing/disappearing and the resulting
+                    // VStack height change in one coordinated pass.
+                    .animation(.easeInOut(duration: 0.2), value: keyboardVisible)
                 }
-                .padding(.horizontal, AppSpacing.lg)
-                .padding(.bottom, AppSpacing.xxl)
-                // Animate the illustration appearing/disappearing and the resulting
-                // VStack height change in one coordinated pass.
-                .animation(.easeInOut(duration: 0.2), value: keyboardVisible)
             }
             // Let the user drag the scroll view to dismiss the keyboard naturally.
             .scrollDismissesKeyboard(.interactively)

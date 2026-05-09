@@ -608,6 +608,28 @@ Four root causes of jumpiness when focusing email/password fields, all resolved 
 
 **Pattern note:** `XBillTextField.isFocused` must always be set via `focusedField == .fieldName` comparison from the caller's `@FocusState`. Do not re-add an internal `@FocusState` to `XBillTextField`.
 
+## Auth Screen Fixes (2026-05-08)
+
+Five issues found in a senior developer audit of `AuthView` + `EmailAuthView`, all resolved:
+
+- **E-1 — Disabled button invisible (Critical)** ✅ — `XBillButtonBase` now uses `AppColors.textSecondary` as foreground when `isDisabled` (previously kept `textInverse` = white, which is invisible on `surfaceSoft` background). Opacity no longer drops to 0.72 on disabled — only on loading. Fix in `XBillButtons.swift`.
+- **E-2 — Disabled button has no shape affordance (Medium)** ✅ — `XBillButtonBase` now strokes `AppColors.border` (1pt) around the disabled button shape, giving it a clear button outline even when the background is light. Fix in `XBillButtons.swift`.
+- **E-3 — Fragile negative-padding on XBillPageHeader (Low)** ✅ — `EmailAuthView` restructured: `XBillPageHeader` is now in the outermost `VStack` (no horizontal padding applied), and the illustration + form card live in an inner padded `VStack`. Eliminates the `.padding(.horizontal, -AppSpacing.lg)` double-negation hack.
+- **W-1 — Large illustration pushes auth card below fold on iPhone SE (Medium)** ✅ — `AuthView` illustration reduced from `size: 220` to `size: 160`.
+- **W-2 — LazyVStack on static welcome screen (Low)** ✅ — `AuthView` replaced `XBillScreenContainer` → `XBillScrollView` → `LazyVStack` with `XBillScreenBackground` + plain `ScrollView` + `VStack` (same pattern as `EmailAuthView`).
+
+**`XBillButtonBase` disabled-state rule:** background = `surfaceSoft`, foreground = `textSecondary`, border = `border` (1pt), opacity = 1.0. Never use `textInverse` (white) for a disabled button that renders on `surfaceSoft`.
+
+## Auth Screen Loop Fix (2026-05-08)
+
+Landing-page ↔ welcome-screen loop on cold launch. Three root causes, all resolved:
+
+- **RC-1 — Duplicate `loadCurrentUser()` on startup** ✅ — `xBillApp` previously fired two concurrent Tasks: `.task { await authVM.loadCurrentUser() }` AND `startListeningToAuthChanges()` (which also calls `loadCurrentUser()` on `.initialSession`). The two calls raced; if either threw first, it cleared `currentUser` while the other was still setting it, causing ContentView to animate back and forth. Fix: removed the direct `loadCurrentUser()` task — the auth listener's `.initialSession` is the sole startup load path.
+- **RC-2 — `loadCurrentUser()` cleared user on any error** ✅ — The catch block set `currentUser = nil` for transient network errors, timeouts, and decode failures. Any such error immediately animated back to `AuthView`. Fix: catch block is now a no-op. The `.signedOut` auth event is the sole authoritative signal for clearing `currentUser`.
+- **RC-3 — Auth listener called `loadCurrentUser()` with nil session** ✅ — `.initialSession` fires on every cold launch with `session == nil` when no user is signed in. Without a session guard, this made a network round-trip guaranteed to throw (hitting the RC-2 catch). Fix: added `guard session != nil else { break }` at the top of the `.initialSession, .signedIn, .tokenRefreshed, .userUpdated` case.
+
+**Auth state rule:** `currentUser` is set only by `loadCurrentUser()` (on success) and cleared only by the `.signedOut` event. Never clear it on catch. The single `.task { await authVM.startListeningToAuthChanges() }` in `xBillApp` is the only startup entry point — do not add a second concurrent `loadCurrentUser()` call.
+
 ## Known TODOs
 - **App Group registration** (for widget data sharing): register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Certificates, IDs & Profiles → Identifiers → App Groups
 - Deploy `invite-member` Edge Function: `supabase functions deploy invite-member` (after setting secrets `RESEND_API_KEY` + `INVITE_FROM_EMAIL`)

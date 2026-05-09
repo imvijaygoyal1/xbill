@@ -30,19 +30,19 @@ private struct XBillButtonBase: View {
                 }
             }
             .font(.appTitle)
-            .foregroundStyle(foreground)
+            .foregroundStyle(isDisabled ? AppColors.textSecondary : foreground)
             .frame(maxWidth: .infinity)
             .frame(minHeight: AppSpacing.controlHeight)
             .background(isDisabled ? AppColors.surfaceSoft : background)
             .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous)
-                    .stroke(border, lineWidth: 1)
+                    .stroke(isDisabled ? AppColors.border : border, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
         .disabled(isLoading || isDisabled)
-        .opacity(isLoading || isDisabled ? 0.72 : 1)
+        .opacity(isLoading ? 0.72 : 1)
     }
 }
 
