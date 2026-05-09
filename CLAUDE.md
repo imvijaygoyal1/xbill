@@ -597,6 +597,17 @@ All 4 architectural findings from the May 2026 senior developer audit resolved:
 - **ARCH-03** ✅ — `IOUService.fetchIOUs(userID:)` replaced two parallel `async let` queries with a single `.or("lender_id.eq.\(uid),borrower_id.eq.\(uid)")` query. Lender + borrower IOUs now come from the same DB snapshot.
 - **ARCH-04** ✅ — `MainTabView` adds `.onChange(of: authVM.currentUser)` that writes to `homeVM.currentUser`. Profile saves now propagate through `AuthViewModel.startListeningToAuthChanges` (`.userUpdated` event) → `authVM.currentUser` → `.onChange` → `homeVM.currentUser`.
 
+## Login Screen Keyboard Jump Fix (2026-05-08)
+
+Four root causes of jumpiness when focusing email/password fields, all resolved (commit `35d0c84`):
+
+- **Dual `@FocusState`** ✅ — Removed `@FocusState private var isFocused` and `.focused($isFocused)` from `XBillTextField`. Border style now driven by `isFocused: Bool = false` parameter passed by the caller. Only one `@FocusState` per field — the one in `EmailAuthView`.
+- **`lineWidth` geometry animation** ✅ — `XBillTextField` overlay now uses constant `lineWidth: 1.5`. Only the border color animates on focus (no geometry change competing with the keyboard/scroll animations).
+- **190pt non-collapsible illustration** ✅ — `XBillWalletIllustration` is hidden via `if !keyboardVisible` with `.transition(.opacity.combined(with: .move(edge: .top)))` and a coordinated `easeInOut(0.2)` on the parent `VStack`. Scroll jump distance reduced to near zero.
+- **`LazyVStack` mid-animation re-layout** ✅ — `EmailAuthView` no longer uses `XBillScreenContainer` → `XBillScrollView` → `LazyVStack`. Replaced with `XBillScreenBackground` + plain `ScrollView` + `VStack`. Added `.scrollDismissesKeyboard(.interactively)`.
+
+**Pattern note:** `XBillTextField.isFocused` must always be set via `focusedField == .fieldName` comparison from the caller's `@FocusState`. Do not re-add an internal `@FocusState` to `XBillTextField`.
+
 ## Known TODOs
 - **App Group registration** (for widget data sharing): register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Certificates, IDs & Profiles → Identifiers → App Groups
 - Deploy `invite-member` Edge Function: `supabase functions deploy invite-member` (after setting secrets `RESEND_API_KEY` + `INVITE_FROM_EMAIL`)
