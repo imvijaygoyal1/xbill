@@ -179,6 +179,29 @@ enum SplitCalculator {
         return suggestions
     }
 
+    // MARK: - Async Split Fetching
+
+    /// Fetches splits for all expenses in parallel, returning a map keyed by expense ID.
+    /// Both GroupViewModel and HomeViewModel call this so the fetch pattern is identical.
+    static func fetchSplitsMap(
+        for expenses: [Expense],
+        using expenseService: ExpenseService
+    ) async -> [UUID: [Split]] {
+        var map: [UUID: [Split]] = [:]
+        await withTaskGroup(of: (UUID, [Split]?).self) { group in
+            for expense in expenses {
+                group.addTask {
+                    let splits = try? await expenseService.fetchSplits(expenseID: expense.id)
+                    return (expense.id, splits)
+                }
+            }
+            for await (id, splits) in group {
+                if let splits { map[id] = splits }
+            }
+        }
+        return map
+    }
+
     // MARK: - Net Balances
 
     /// Computes each member's net balance across a list of expenses and their splits.

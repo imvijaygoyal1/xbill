@@ -588,6 +588,15 @@ All 45 High severity defects from the senior developer audit (DEFECT_REPORT.md) 
 - **IOUService.fetchUserByEmail**: fixed to use `supabase.client.rpc(...)` (was `supabase.rpc(...)` which doesn't exist on `SupabaseManager`).
 - **AddExpenseView**: rate display uses `NSDecimalNumber(decimal:).doubleValue` for `String(format:)` compatibility after `exchangeRate` changed to `Decimal`.
 
+## Architectural Fixes (2026-05-08)
+
+All 4 architectural findings from the May 2026 senior developer audit resolved:
+
+- **ARCH-01** ✅ — `SplitCalculator.fetchSplitsMap(for:using:)` static async method extracted. Both `GroupViewModel.computeBalances()` and `HomeViewModel.fullBalancesInGroup()` call this shared method instead of duplicating the parallel `withTaskGroup` split-fetch loop. Identical algorithm guaranteed.
+- **ARCH-02** ✅ — `AuthService.currentUserID` is now a synchronous computed property (`supabase.auth.currentUser?.id`) reading from the SDK's in-memory session cache. Removed `get async` wrapper and two `await` call sites within `AuthService`.
+- **ARCH-03** ✅ — `IOUService.fetchIOUs(userID:)` replaced two parallel `async let` queries with a single `.or("lender_id.eq.\(uid),borrower_id.eq.\(uid)")` query. Lender + borrower IOUs now come from the same DB snapshot.
+- **ARCH-04** ✅ — `MainTabView` adds `.onChange(of: authVM.currentUser)` that writes to `homeVM.currentUser`. Profile saves now propagate through `AuthViewModel.startListeningToAuthChanges` (`.userUpdated` event) → `authVM.currentUser` → `.onChange` → `homeVM.currentUser`.
+
 ## Known TODOs
 - **App Group registration** (for widget data sharing): register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Certificates, IDs & Profiles → Identifiers → App Groups
 - Deploy `invite-member` Edge Function: `supabase functions deploy invite-member` (after setting secrets `RESEND_API_KEY` + `INVITE_FROM_EMAIL`)

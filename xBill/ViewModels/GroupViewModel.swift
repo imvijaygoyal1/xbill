@@ -84,20 +84,7 @@ final class GroupViewModel {
         guard !isComputingBalances else { return }
         isComputingBalances = true
         defer { isComputingBalances = false }
-        // Fetch all splits in parallel instead of serially to avoid blocking MainActor.
-        var map: [UUID: [Split]] = [:]
-        await withTaskGroup(of: (UUID, [Split]?).self) { taskGroup in
-            for expense in expenses {
-                taskGroup.addTask {
-                    let splits = try? await self.expenseService.fetchSplits(expenseID: expense.id)
-                    return (expense.id, splits)
-                }
-            }
-            for await (expenseID, splits) in taskGroup {
-                if let splits { map[expenseID] = splits }
-            }
-        }
-        splitsMap = map
+        splitsMap = await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService)
         let rawBalances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
         balances = rawBalances
         settlementSuggestions = SplitCalculator.minimizeTransactions(

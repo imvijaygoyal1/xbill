@@ -16,27 +16,15 @@ final class IOUService: Sendable {
     // MARK: - Fetch
 
     /// Fetches all IOUs where the user is either lender or borrower.
+    /// Single query guarantees both sides come from the same DB snapshot.
     func fetchIOUs(userID: UUID) async throws -> [IOU] {
-        async let asLender: [IOU] = supabase.table("ious")
+        let uid = userID.uuidString
+        return try await supabase.table("ious")
             .select()
-            .eq("lender_id", value: userID)
+            .or("lender_id.eq.\(uid),borrower_id.eq.\(uid)")
             .order("created_at", ascending: false)
             .execute()
             .value
-
-        async let asBorrower: [IOU] = supabase.table("ious")
-            .select()
-            .eq("borrower_id", value: userID)
-            .order("created_at", ascending: false)
-            .execute()
-            .value
-
-        let (lender, borrower) = try await (asLender, asBorrower)
-        // Deduplicate (shouldn't overlap but be safe)
-        var seen = Set<UUID>()
-        return (lender + borrower)
-            .filter { seen.insert($0.id).inserted }
-            .sorted { $0.createdAt > $1.createdAt }
     }
 
     /// Looks up a user profile by exact email address.

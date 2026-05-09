@@ -157,6 +157,11 @@ struct MainTabView: View {
                     .onAppear { showAddFriendFromQR = false }
             }
         }
+        .onChange(of: authVM.currentUser) { _, newUser in
+            // Keep homeVM.currentUser in sync so profile-name changes propagate
+            // without waiting for homeVM.loadCurrentUser() to run again.
+            homeVM.currentUser = newUser
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             Task { await activityVM.load() }
         }

@@ -19,10 +19,10 @@ final class AuthService: Sendable {
 
     // MARK: - Current Session
 
+    // Reads from the Supabase SDK's in-memory session cache — no network call.
+    // Callers that need the ID for multiple operations should capture it once into a local let.
     var currentUserID: UUID? {
-        get async {
-            try? await supabase.auth.session.user.id
-        }
+        supabase.auth.currentUser?.id
     }
 
     func currentUser() async throws -> User {
@@ -104,7 +104,7 @@ final class AuthService: Sendable {
     // MARK: - Profile
 
     func updateProfile(displayName: String, avatarURL: URL?) async throws -> User {
-        guard let userID = await currentUserID else { throw AppError.unauthenticated }
+        guard let userID = currentUserID else { throw AppError.unauthenticated }
         let update = UserUpdatePayload(displayName: displayName, avatarURL: avatarURL)
         return try await supabase.table("profiles")
             .update(update)
@@ -118,7 +118,7 @@ final class AuthService: Sendable {
     // MARK: - Device Token
 
     func updateDeviceToken(_ token: String) async throws {
-        guard let userID = await currentUserID else { return }
+        guard let userID = currentUserID else { return }
         struct TokenRow: Encodable {
             let userID: UUID
             let token: String

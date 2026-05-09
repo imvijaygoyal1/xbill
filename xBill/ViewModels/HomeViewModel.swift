@@ -235,13 +235,8 @@ final class HomeViewModel {
             return GroupBalanceData(owed: .zero, owing: .zero, entries: [],
                                    currency: group.currency, balances: [:], names: [:])
         }
-        let members = (try? await groupService.fetchMembers(groupID: group.id)) ?? []
-        var splitsMap: [UUID: [Split]] = [:]
-        for expense in expenses {
-            if let splits = try? await expenseService.fetchSplits(expenseID: expense.id) {
-                splitsMap[expense.id] = splits
-            }
-        }
+        let members  = (try? await groupService.fetchMembers(groupID: group.id)) ?? []
+        let splitsMap = await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService)
         let balances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
         let net      = balances[userID] ?? .zero
         let owed     = net > .zero ? net  : .zero
