@@ -655,8 +655,8 @@ All 20 defects from the second senior developer audit (v2) fixed. Key changes:
 
 - **CRIT-01** — `ExpenseDetailView.saveEdit()` now preserves `originalAmount`/`originalCurrency` fields; multi-currency metadata no longer destroyed on every edit.
 - **CRIT-02** — `KeychainSessionStorage.retrieve()` `kSecAttrService` corrected from `"com.xbill.app"` to `"com.vijaygoyal.xbill"`; session tokens no longer orphaned.
-- **HIGH-01** — `notify-settlement/index.ts` phantom badge fixed: `badgeCount ?? 0` (was `?? 1`). **Pending deploy**: `supabase functions deploy notify-settlement --project-ref <ref>`
-- **HIGH-02** — Venmo/PayPal payment handles: migration `026_venmo_paypal_handles.sql` adds columns, `User` model adds fields, `AuthService.updateProfile` extended, `ProfileViewModel` saves/loads handles. **Pending deploy**: `supabase db push`
+- **HIGH-01** — `notify-settlement/index.ts` phantom badge fixed: `badgeCount ?? 0` (was `?? 1`). ✅ Deployed 2026-05-09.
+- **HIGH-02** — Venmo/PayPal payment handles: migration `026_venmo_paypal_handles.sql` adds columns, `User` model adds fields, `AuthService.updateProfile` extended, `ProfileViewModel` saves/loads handles. ✅ Deployed 2026-05-09.
 - **HIGH-03** — `FriendsView.netBalances(with:)` guard against nil `currentUserID` prevents inverted IOU balances.
 - **HIGH-04** — `NotificationItem.settlement` dedup hash now includes currency to prevent cross-currency collisions.
 - **MED-01** — `GroupViewModel.createDueRecurringInstances`: split fetches parallelized with `withTaskGroup`.
@@ -675,16 +675,16 @@ All 20 defects from the second senior developer audit (v2) fixed. Key changes:
 
 ## Known TODOs
 - **App Group registration** (for widget data sharing): register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Certificates, IDs & Profiles → Identifiers → App Groups
-- **Deploy `notify-settlement`** (HIGH-01 phantom badge fix): `supabase functions deploy notify-settlement --project-ref <ref>`
-- **Deploy migration 026** (HIGH-02 payment handles): `supabase db push`
 - App Store Assets: screenshots, preview video, keyword strategy (only remaining P0 blocker)
 
 ## Deployed Edge Functions (production)
 - `notify-expense` ✅ — H-05 badge batching live (2026-05-07)
 - `notify-comment` ✅ — H-05 badge batching live (2026-05-07)
 - `notify-friend-request` ✅ — H-04 fromUserID removal live (2026-05-07)
+- `notify-settlement` ✅ — HIGH-01 phantom badge fix live (2026-05-09)
 - `invite-member` ✅ — group email invites live (2026-05-09); secrets: `RESEND_API_KEY` + `INVITE_FROM_EMAIL=invites@xbill.vijaygoyal.org`
 - Migrations 023 + 024 ✅ — pushed to production DB (2026-05-07)
+- Migration 026 ✅ — `venmo_handle` + `paypal_email` columns live (2026-05-09)
 
 ## Low Defect Fixes (2026-05-07)
 
