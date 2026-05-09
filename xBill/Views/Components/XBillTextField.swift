@@ -12,8 +12,10 @@ struct XBillTextField: View {
     @Binding var text: String
     var keyboardType: UIKeyboardType = .default
     var isSecure: Bool = false
-
-    @FocusState private var isFocused: Bool
+    /// Pass `focusedField == .thisField` from the caller's @FocusState.
+    /// Keeping focus tracking in one place prevents dual-@FocusState conflicts
+    /// that cause layout jumps when the keyboard appears.
+    var isFocused: Bool = false
 
     var body: some View {
         Group {
@@ -34,10 +36,9 @@ struct XBillTextField: View {
             RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous)
                 .stroke(
                     isFocused ? AppColors.primary : AppColors.inputBorder,
-                    lineWidth: isFocused ? 1.5 : 1
+                    lineWidth: 1.5  // constant — only color animates, no geometry change
                 )
         )
-        .focused($isFocused)
         .animation(.easeInOut(duration: 0.15), value: isFocused)
     }
 }
@@ -48,6 +49,7 @@ struct XBillTextField: View {
         XBillTextField(placeholder: "What was it for?", text: $text)
         XBillTextField(placeholder: "Email", text: $text, keyboardType: .emailAddress)
         XBillTextField(placeholder: "Password", text: $text, isSecure: true)
+        XBillTextField(placeholder: "Focused example", text: $text, isFocused: true)
     }
     .padding()
     .background(AppColors.background)
