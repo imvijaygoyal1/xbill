@@ -153,10 +153,20 @@ struct GroupListView: View {
     }
 
     private func groupRow(_ group: BillGroup, isArchived: Bool) -> some View {
-        XBillGroupCard(
+        let memberCount = vm.groupMemberCounts[group.id] ?? 0
+        let net = vm.groupNetBalances[group.id] ?? .zero
+        let subtitle = memberCount > 0
+            ? "\(memberCount) member\(memberCount == 1 ? "" : "s") · \(group.currency)"
+            : group.currency
+
+        return XBillGroupCard(
             group: group,
-            subtitle: "\(group.currency) · \(group.createdAt.shortFormatted)",
+            subtitle: subtitle,
             trailing: isArchived ? "Archived" : nil,
+            balanceLabel: !isArchived && net != .zero ? (net > 0 ? "Owed to you" : "You owe") : nil,
+            balanceAmount: !isArchived && net != .zero ? abs(net) : nil,
+            balanceDirection: net > 0 ? .positive : .negative,
+            showsStatusChip: isArchived,
             showsChevron: true
         )
         .opacity(isArchived ? 0.72 : 1)

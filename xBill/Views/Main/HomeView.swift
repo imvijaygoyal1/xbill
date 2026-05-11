@@ -35,6 +35,25 @@ struct HomeView: View {
         .errorAlert(item: $vm.errorAlert)
     }
 
+    // MARK: - Helpers
+
+    private func homeGroupCard(_ group: BillGroup) -> some View {
+        let net = vm.groupNetBalances[group.id] ?? .zero
+        let memberCount = vm.groupMemberCounts[group.id] ?? 0
+        let subtitle = memberCount > 0
+            ? "\(memberCount) member\(memberCount == 1 ? "" : "s") · \(group.currency)"
+            : group.currency
+        return XBillGroupCard(
+            group: group,
+            subtitle: subtitle,
+            balanceLabel: net != .zero ? (net > 0 ? "Owed to you" : "You owe") : nil,
+            balanceAmount: net != .zero ? abs(net) : nil,
+            balanceDirection: net > 0 ? .positive : .negative,
+            showsStatusChip: false,
+            showsChevron: true
+        )
+    }
+
     // MARK: - Content
 
     @ViewBuilder
@@ -43,7 +62,6 @@ struct HomeView: View {
             LoadingOverlay(message: "Loading groups…")
         } else if vm.groups.isEmpty {
             XBillScreenContainer(bottomPadding: AppSpacing.floatingActionBottomPadding) {
-                HomeHeader(user: vm.currentUser, balance: vm.netBalance)
                 EmptyStateView(
                     icon: "person.3.fill",
                     title: "No Groups Yet",
@@ -59,10 +77,6 @@ struct HomeView: View {
                 bottomPadding: AppSpacing.floatingActionBottomPadding + AppSpacing.lg,
                 spacing: AppSpacing.lg
             ) {
-                    HomeHeader(user: vm.currentUser, balance: vm.netBalance)
-                        .padding(.horizontal, AppSpacing.lg)
-                        .padding(.top, AppSpacing.sm)
-
                     BalanceHeroCard(
                         label: vm.netBalance == .zero ? "All settled" : vm.netBalance > .zero ? "Net balance owed to you" : "Net balance you owe",
                         amount: abs(vm.netBalance),
@@ -70,29 +84,19 @@ struct HomeView: View {
                         isPositive: vm.netBalance >= .zero
                     )
                     .padding(.horizontal, AppSpacing.lg)
+                    .padding(.top, AppSpacing.sm)
 
                     HStack(spacing: AppSpacing.sm) {
                         XBillMetricCard(
                             title: "Owed to you",
                             amount: vm.totalOwed,
-                            icon: "arrow.down.left.circle.fill",
                             direction: .positive
                         )
                         XBillMetricCard(
                             title: "You owe",
                             amount: vm.totalOwing,
-                            icon: "arrow.up.right.circle.fill",
                             direction: .negative
                         )
-                    }
-                    .padding(.horizontal, AppSpacing.lg)
-
-                    XBillActionCard(
-                        icon: "person.2.badge.plus",
-                        title: "Invite friends",
-                        subtitle: "Create a group and add people to split expenses"
-                    ) {
-                        showCreateGroup = true
                     }
                     .padding(.horizontal, AppSpacing.lg)
 
@@ -113,19 +117,17 @@ struct HomeView: View {
                                 .accessibilityLabel("Create group")
                             }
                         }
-                            .padding(.horizontal, AppSpacing.lg)
+                        .padding(.horizontal, AppSpacing.lg)
 
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: AppSpacing.sm) {
-                                ForEach(vm.groups) { group in
-                                    NavigationLink(value: group) {
-                                        GroupChipView(group: group)
-                                    }
-                                    .buttonStyle(.plain)
+                        VStack(spacing: AppSpacing.sm) {
+                            ForEach(vm.groups) { group in
+                                NavigationLink(value: group) {
+                                    homeGroupCard(group)
                                 }
+                                .buttonStyle(.plain)
                             }
-                            .padding(.horizontal, AppSpacing.lg)
                         }
+                        .padding(.horizontal, AppSpacing.lg)
                     }
 
                     if !vm.crossGroupSuggestions.isEmpty {

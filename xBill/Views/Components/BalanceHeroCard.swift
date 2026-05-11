@@ -16,30 +16,21 @@ struct BalanceHeroCard: View {
     var isPositive: Bool = true
 
     var body: some View {
-        HStack(alignment: .center, spacing: AppSpacing.md) {
-            VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                Text(label.uppercased())
-                    .font(.appCaptionMedium)
-                    .tracking(1.08)
-                    .foregroundStyle(AppColors.textSecondary)
+        VStack(alignment: .leading, spacing: AppSpacing.xs) {
+            Text(label.uppercased())
+                .font(.appCaptionMedium)
+                .tracking(1.08)
+                .foregroundStyle(AppColors.textSecondary)
 
-                Text(amount.formatted(currencyCode: currency))
-                    .font(.appAmount)
-                    .foregroundStyle(isPositive ? AppColors.moneyPositive : AppColors.moneyNegative)
-                    .contentTransition(.numericText())
-                    .monospacedDigit()
-
-                Text(subtitle)
-                    .font(.appCaption)
-                    .foregroundStyle(AppColors.textSecondary)
-            }
-            Spacer(minLength: AppSpacing.sm)
-            Image(systemName: isPositive ? "arrow.down.left.circle.fill" : "arrow.up.right.circle.fill")
-                .font(.system(size: 28, weight: .semibold))
+            Text(amount.formatted(currencyCode: currency))
+                .font(.appAmount)
                 .foregroundStyle(isPositive ? AppColors.moneyPositive : AppColors.moneyNegative)
-                .frame(width: 56, height: 56)
-                .background((isPositive ? AppColors.moneyPositiveBg : AppColors.moneyNegativeBg))
-                .clipShape(Circle())
+                .contentTransition(.numericText())
+                .monospacedDigit()
+
+            Text(subtitle)
+                .font(.appCaption)
+                .foregroundStyle(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, AppSpacing.lg)

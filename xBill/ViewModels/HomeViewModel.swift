@@ -24,6 +24,8 @@ final class HomeViewModel {
     var totalOwing: Decimal = .zero
     var recentExpenses: [RecentEntry] = []
     var crossGroupSuggestions: [SettlementSuggestion] = []
+    var groupMemberCounts: [UUID: Int] = [:]
+    var groupNetBalances: [UUID: Decimal] = [:]
     var isLoading: Bool = false
     var errorAlert: ErrorAlert?
     @ObservationIgnored private var isComputingBalances = false
@@ -35,12 +37,15 @@ final class HomeViewModel {
     }
 
     private struct GroupBalanceData: Sendable {
-        let owed:     Decimal
-        let owing:    Decimal
-        let entries:  [RecentEntry]
-        let currency: String
-        let balances: [UUID: Decimal]
-        let names:    [UUID: String]
+        let groupID:     UUID
+        let owed:        Decimal
+        let owing:       Decimal
+        let netBalance:  Decimal
+        let memberCount: Int
+        let entries:     [RecentEntry]
+        let currency:    String
+        let balances:    [UUID: Decimal]
+        let names:       [UUID: String]
     }
 
     private let groupService = GroupService.shared
@@ -197,6 +202,8 @@ final class HomeViewModel {
                     mergedByCurrency[data.currency, default: [:]][uid, default: .zero] += bal
                 }
                 allNames.merge(data.names) { old, _ in old }
+                groupMemberCounts[data.groupID] = data.memberCount
+                groupNetBalances[data.groupID]  = data.netBalance
             }
         }
 
@@ -227,18 +234,20 @@ final class HomeViewModel {
 
     private func fullBalancesInGroup(_ group: BillGroup, userID: UUID) async -> GroupBalanceData {
         guard let expenses = try? await expenseService.fetchExpenses(groupID: group.id) else {
-            return GroupBalanceData(owed: .zero, owing: .zero, entries: [],
+            return GroupBalanceData(groupID: group.id, owed: .zero, owing: .zero, netBalance: .zero,
+                                   memberCount: 0, entries: [],
                                    currency: group.currency, balances: [:], names: [:])
         }
-        let members  = (try? await groupService.fetchMembers(groupID: group.id)) ?? []
+        let members   = (try? await groupService.fetchMembers(groupID: group.id)) ?? []
         let splitsMap = await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService)
-        let balances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
-        let net      = balances[userID] ?? .zero
-        let owed     = net > .zero ? net  : .zero
-        let owing    = net < .zero ? -net : .zero
-        let entries  = expenses.map { RecentEntry(expense: $0, members: members) }
-        let names    = Dictionary(uniqueKeysWithValues: members.map { ($0.id, $0.displayName) })
-        return GroupBalanceData(owed: owed, owing: owing, entries: entries,
+        let balances  = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
+        let net       = balances[userID] ?? .zero
+        let owed      = net > .zero ? net  : .zero
+        let owing     = net < .zero ? -net : .zero
+        let entries   = expenses.map { RecentEntry(expense: $0, members: members) }
+        let names     = Dictionary(uniqueKeysWithValues: members.map { ($0.id, $0.displayName) })
+        return GroupBalanceData(groupID: group.id, owed: owed, owing: owing, netBalance: net,
+                                memberCount: members.count, entries: entries,
                                 currency: group.currency, balances: balances, names: names)
     }
 }
