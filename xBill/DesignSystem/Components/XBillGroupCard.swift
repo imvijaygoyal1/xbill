@@ -14,6 +14,7 @@ struct XBillGroupCard: View {
     var balanceLabel: String?
     var balanceAmount: Decimal?
     var balanceDirection: AmountDirection = .settled
+    var showsStatusChip: Bool = true
     var showsChevron = true
 
     var body: some View {
@@ -35,15 +36,19 @@ struct XBillGroupCard: View {
                         .lineLimit(2)
                 }
 
-                HStack(spacing: AppSpacing.sm) {
-                    XBillStatusChip(
-                        text: group.isArchived ? "Archived" : "Active",
-                        icon: group.isArchived ? "archivebox.fill" : "checkmark.circle.fill",
-                        color: group.isArchived ? AppColors.textSecondary : AppColors.primary
-                    )
+                if showsStatusChip || avatarUsers != nil {
+                    HStack(spacing: AppSpacing.sm) {
+                        if showsStatusChip {
+                            XBillStatusChip(
+                                text: group.isArchived ? "Archived" : "Active",
+                                icon: group.isArchived ? "archivebox.fill" : "checkmark.circle.fill",
+                                color: group.isArchived ? AppColors.textSecondary : AppColors.primary
+                            )
+                        }
 
-                    if let avatarUsers {
-                        XBillAvatarStack(users: avatarUsers, maxVisible: 3, size: 28)
+                        if let avatarUsers {
+                            XBillAvatarStack(users: avatarUsers, maxVisible: 3, size: 28)
+                        }
                     }
                 }
             }

@@ -51,7 +51,7 @@ extension XBillSectionHeader where Trailing == EmptyView {
 struct XBillMetricCard: View {
     let title: String
     let amount: Decimal
-    let icon: String
+    var icon: String? = nil
     let direction: AmountDirection
     var currency: String = "USD"
 
@@ -80,12 +80,14 @@ struct XBillMetricCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AppSpacing.sm) {
             HStack(spacing: AppSpacing.sm) {
-                Image(systemName: icon)
-                    .font(.appCaptionMedium)
-                    .foregroundStyle(color)
-                    .frame(width: 28, height: 28)
-                    .background(background)
-                    .clipShape(Circle())
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.appCaptionMedium)
+                        .foregroundStyle(color)
+                        .frame(width: 28, height: 28)
+                        .background(background)
+                        .clipShape(Circle())
+                }
                 Text(title)
                     .font(.appCaptionMedium)
                     .foregroundStyle(AppColors.textSecondary)
