@@ -31,7 +31,7 @@ struct HomeView: View {
                     }
             }
         }
-        .task { await vm.startRealtimeUpdates() }
+        .task { vm.startRealtimeUpdates() }
         .errorAlert(item: $vm.errorAlert)
     }
 
@@ -193,6 +193,9 @@ struct HomeView: View {
                         vm: GroupViewModel(group: group),
                         currentUserID: userID
                     )
+                } else {
+                    ProgressView("Loading...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }

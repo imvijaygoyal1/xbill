@@ -143,6 +143,10 @@ final class AuthViewModel {
     }
 
     func handlePasswordReset(newPassword: String) async {
+        guard newPassword.count >= 8 else {
+            errorAlert = ErrorAlert(title: "Password Too Short", message: "Password must be at least 8 characters.")
+            return
+        }
         isLoading = true
         defer { isLoading = false }
         do {

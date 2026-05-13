@@ -98,7 +98,7 @@ final class AuthService: Sendable {
         // which supports both HS256 (email/password) and ES256 (Apple Sign-In) tokens.
         // verify_jwt = false in config.toml bypasses the gateway's HS256-only check.
         try await supabase.client.functions.invoke("delete-account")
-        try await supabase.auth.signOut()
+        try? await supabase.auth.signOut()
     }
 
     // MARK: - Profile
@@ -203,11 +203,10 @@ final class AuthService: Sendable {
     private func isNotFoundError(_ error: Error) -> Bool {
         // AppError.notFound was already mapped upstream.
         if case AppError.notFound = error { return true }
-        // PostgREST returns code "PGRST116" when .single() finds 0 rows.
+        // PostgREST returns code "PGRST116" when .single() finds 0 rows;
+        // also match the HTTP 406 transport signal with a precise substring.
         let desc = error.localizedDescription
-        if desc.contains("PGRST116") { return true }
-        // HTTP 406 is the transport-level signal for "not acceptable" / no rows.
-        if desc.contains("406") { return true }
+        if desc.contains("PGRST116") || desc.range(of: "HTTP 406", options: .caseInsensitive) != nil { return true }
         // The SDK may surface "Row not found" or "The result contains 0 rows" text.
         let lower = desc.lowercased()
         if lower.contains("row not found") || lower.contains("0 rows") { return true }

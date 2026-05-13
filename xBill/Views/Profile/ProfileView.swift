@@ -139,11 +139,23 @@ struct ProfileView: View {
                 XBillStatsCard(items: [
                     .init(title: "Groups", value: "\(vm.totalGroupsCount)"),
                     .init(title: "Expenses", value: "\(vm.totalExpensesCount)"),
-                    .init(title: "Total Paid", value: vm.lifetimePaid.formatted(currencyCode: "USD"))
+                    .init(title: "Total Paid", value: vm.lifetimePaid.formatted(currencyCode: vm.primaryCurrency))
                 ])
             }
 
-            profileSection("Payment Handles") {
+            VStack(alignment: .leading, spacing: AppSpacing.md) {
+                HStack(alignment: .firstTextBaseline) {
+                    XBillSectionHeader("Payment Handles")
+                    Spacer()
+                    if hasUnsavedHandles {
+                        Button("Save") {
+                            Task { await vm.saveProfile(avatarImage: nil) }
+                        }
+                        .font(.appCaption)
+                        .foregroundStyle(AppColors.primary)
+                        .disabled(vm.isLoading)
+                    }
+                }
                 XBillFormSection {
                     VStack(spacing: AppSpacing.lg) {
                         XBillPaymentHandleRow(
@@ -236,6 +248,11 @@ struct ProfileView: View {
 
             footer
         }
+    }
+
+    private var hasUnsavedHandles: Bool {
+        vm.venmoHandle != (vm.user?.venmoHandle ?? "") ||
+        vm.paypalEmail != (vm.user?.paypalEmail ?? "")
     }
 
     private var scrollBottomPadding: CGFloat {

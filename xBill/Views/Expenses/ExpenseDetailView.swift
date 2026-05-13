@@ -188,8 +188,12 @@ struct ExpenseDetailView: View {
         }
         .confirmationDialog("Delete this expense?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
-                onDeleted?()
-                dismiss()
+                Task {
+                    await MainActor.run { isLoading = true }
+                    onDeleted?()
+                    await MainActor.run { isLoading = false }
+                    dismiss()
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -328,7 +332,12 @@ struct ExpenseDetailView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { Task { await saveEdit() } }
                         .disabled(editTitle.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
-                        .overlay { if isSaving { ProgressView() } }
+                        .overlay {
+                            if isSaving {
+                                ProgressView()
+                                    .allowsHitTesting(false)
+                            }
+                        }
                 }
             }
         }
@@ -338,7 +347,10 @@ struct ExpenseDetailView: View {
 
     private func openEditSheet() {
         editTitle      = expense.title
-        editAmountText = NSDecimalNumber(decimal: expense.amount).stringValue
+        var amountCopy = expense.amount
+        var rounded    = Decimal()
+        NSDecimalRound(&rounded, &amountCopy, 2, .bankers)
+        editAmountText = "\(rounded)"
         editCategory   = expense.category
         editNotes      = expense.notes ?? ""
         editPayerID    = expense.payerID

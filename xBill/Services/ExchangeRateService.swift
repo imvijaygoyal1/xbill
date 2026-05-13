@@ -63,13 +63,15 @@ actor ExchangeRateService {
         guard let url = URL(string: "https://open.er-api.com/v6/latest/\(key)") else {
             throw AppError.unknown("Invalid exchange rate URL")
         }
-        let (data, _) = try await session.data(from: url)
-        let response  = try JSONDecoder().decode(ERAPIResponse.self, from: data)
-        guard response.result == "success" else {
-            throw AppError.unknown("Exchange rate API error")
+        let (data, response) = try await session.data(from: url)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw AppError.unknown("Exchange rate unavailable (HTTP \(http.statusCode)). Try again later.")
         }
-        // Convert Double → Decimal via String to preserve decimal precision.
-        let decimalRates = response.rates.mapValues { Decimal(string: String($0)) ?? Decimal($0) }
+        let decoded = try JSONDecoder().decode(ERAPIResponse.self, from: data)
+        guard decoded.result == "success" else {
+            throw AppError.unknown("Exchange rate API returned an error response.")
+        }
+        let decimalRates = decoded.rates.mapValues { Decimal(string: String($0)) ?? Decimal($0) }
         cache[key] = CacheEntry(rates: decimalRates, fetchedAt: Date())
         return decimalRates
     }

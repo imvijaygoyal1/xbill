@@ -28,6 +28,7 @@ final class ProfileViewModel {
     var totalGroupsCount:   Int     = 0
     var totalExpensesCount: Int     = 0
     var lifetimePaid:       Decimal = .zero
+    var primaryCurrency:    String  = "USD"
 
     private let auth           = AuthService.shared
     private let groupService   = GroupService.shared
@@ -94,6 +95,9 @@ final class ProfileViewModel {
 
             totalExpensesCount = expenseCount
             lifetimePaid       = totalPaid
+
+            let freq = groups.reduce(into: [String: Int]()) { $0[$1.currency, default: 0] += 1 }
+            primaryCurrency = freq.max(by: { $0.value < $1.value })?.key ?? "USD"
         } catch {
             // Re-throw auth errors so the caller's session-invalid path can handle them;
             // swallow all other non-critical stats errors silently.
@@ -107,33 +111,40 @@ final class ProfileViewModel {
 
     func saveProfile(avatarImage: UIImage?) async {
         guard let user else { return }
+
+        // H-17: validate display name before any network calls.
+        let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            errorAlert = ErrorAlert(title: "Name required", message: "Please enter a display name.")
+            return
+        }
+        displayName = trimmedName
+
         isLoading = true
         isSaved   = false
         defer { isLoading = false }
 
         do {
-            // Update the profile row first. If the upload later fails, the profile
-            // remains consistent and no orphaned storage object is produced.
-            let handle  = venmoHandle.trimmingCharacters(in: .whitespaces)
-            let paypal  = paypalEmail.trimmingCharacters(in: .whitespaces)
+            let handle = venmoHandle.trimmingCharacters(in: .whitespaces)
+            let paypal = paypalEmail.trimmingCharacters(in: .whitespaces)
+
+            // H-16: resolve the final avatar URL first, then do ONE profile write.
+            // This eliminates the stale-URL first write and the race where step 2 fails
+            // while the DB already has the old URL from step 1.
+            let finalAvatarURL: URL?
+            if let image = avatarImage {
+                finalAvatarURL = try await auth.uploadAvatar(image, userID: user.id)
+            } else {
+                finalAvatarURL = user.avatarURL
+            }
+
             let updated = try await auth.updateProfile(
-                displayName: displayName,
-                avatarURL: user.avatarURL,
+                displayName: trimmedName,
+                avatarURL: finalAvatarURL,
                 venmoHandle: handle.isEmpty ? nil : handle,
                 paypalEmail: paypal.isEmpty ? nil : paypal
             )
             self.user = updated
-
-            if let image = avatarImage {
-                let newURL     = try await auth.uploadAvatar(image, userID: user.id)
-                let withAvatar = try await auth.updateProfile(
-                    displayName: displayName,
-                    avatarURL: newURL,
-                    venmoHandle: handle.isEmpty ? nil : handle,
-                    paypalEmail: paypal.isEmpty ? nil : paypal
-                )
-                self.user = withAvatar
-            }
             isSaved = true
         } catch {
             guard !AppError.isSilent(error) else { return }

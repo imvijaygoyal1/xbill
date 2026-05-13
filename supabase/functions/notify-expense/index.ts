@@ -107,15 +107,17 @@ serve(async (req) => {
 
     // H-05: batch all badge counts in ONE query before the send loop to avoid
     // O(N) round-trips (one per device token).
+    // H-08: use callerID (verified JWT identity) for sender exclusion,
+    // not the body-supplied payerId which is untrusted.
     const recipientIDs = (tokenRows as { token: string; user_id: string }[])
       .map(r => r.user_id)
-      .filter(id => id !== payerId)
+      .filter(id => id !== callerID)
     const badgeMap = await batchUnreadCounts(supabase, recipientIDs)
 
     let sent = 0
     for (const row of (tokenRows as { token: string; user_id: string }[])) {
-      // Don't notify the person who added the expense
-      if (row.user_id === payerId) continue
+      // Don't notify the person who added the expense (use verified callerID, not body payerId)
+      if (row.user_id === callerID) continue
 
       try {
         const badge = badgeMap.get(row.user_id) ?? 0

@@ -29,6 +29,8 @@ final class HomeViewModel {
     var isLoading: Bool = false
     var errorAlert: ErrorAlert?
     @ObservationIgnored private var isComputingBalances = false
+    @ObservationIgnored private var realtimeTask: Task<Void, Never>?
+    @ObservationIgnored private var groupBalancesCache: [UUID: GroupBalanceData] = [:]
 
     struct RecentEntry: Identifiable, Sendable {
         var id: UUID { expense.id }
@@ -84,6 +86,7 @@ final class HomeViewModel {
                 // Fall back to cache on network error
                 if groups.isEmpty { groups = CacheService.shared.loadGroups() }
                 self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
+                await computeBalances(for: user.id)
             }
         } else {
             groups = CacheService.shared.loadGroups()
@@ -137,11 +140,16 @@ final class HomeViewModel {
 
     // MARK: - Realtime
 
-    func startRealtimeUpdates() async {
-        guard let user = currentUser else { return }
-        guard let stream = try? await groupService.groupChanges(userID: user.id) else { return }
-        for await _ in stream {
-            await loadAll()
+    func startRealtimeUpdates() {
+        realtimeTask?.cancel()
+        realtimeTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard let user = self.currentUser else { return }
+            guard let stream = try? await self.groupService.groupChanges(userID: user.id) else { return }
+            for await _ in stream {
+                guard !Task.isCancelled else { return }
+                await self.loadAll()
+            }
         }
     }
 
@@ -182,6 +190,8 @@ final class HomeViewModel {
         guard !isComputingBalances else { return }
         isComputingBalances = true
         defer { isComputingBalances = false }
+        // Invalidate balance cache at the start of each full recompute.
+        groupBalancesCache.removeAll()
         var owed             = Decimal.zero
         var owing            = Decimal.zero
         var allEntries:      [RecentEntry]             = []
@@ -233,10 +243,15 @@ final class HomeViewModel {
     }
 
     private func fullBalancesInGroup(_ group: BillGroup, userID: UUID) async -> GroupBalanceData {
+        // Return cached result if already computed this cycle (avoids redundant network calls).
+        if let cached = groupBalancesCache[group.id] { return cached }
+
         guard let expenses = try? await expenseService.fetchExpenses(groupID: group.id) else {
-            return GroupBalanceData(groupID: group.id, owed: .zero, owing: .zero, netBalance: .zero,
-                                   memberCount: 0, entries: [],
-                                   currency: group.currency, balances: [:], names: [:])
+            let empty = GroupBalanceData(groupID: group.id, owed: .zero, owing: .zero, netBalance: .zero,
+                                         memberCount: 0, entries: [],
+                                         currency: group.currency, balances: [:], names: [:])
+            groupBalancesCache[group.id] = empty
+            return empty
         }
         let members   = (try? await groupService.fetchMembers(groupID: group.id)) ?? []
         let splitsMap = await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService)
@@ -246,8 +261,10 @@ final class HomeViewModel {
         let owing     = net < .zero ? -net : .zero
         let entries   = expenses.map { RecentEntry(expense: $0, members: members) }
         let names     = Dictionary(uniqueKeysWithValues: members.map { ($0.id, $0.displayName) })
-        return GroupBalanceData(groupID: group.id, owed: owed, owing: owing, netBalance: net,
-                                memberCount: members.count, entries: entries,
-                                currency: group.currency, balances: balances, names: names)
+        let data      = GroupBalanceData(groupID: group.id, owed: owed, owing: owing, netBalance: net,
+                                         memberCount: members.count, entries: entries,
+                                         currency: group.currency, balances: balances, names: names)
+        groupBalancesCache[group.id] = data
+        return data
     }
 }

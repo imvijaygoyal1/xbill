@@ -105,11 +105,15 @@ struct MainTabView: View {
             case .addExpense:
                 quickActionScan = false
                 selectedTab = .groups
-                showQuickAddExpense = true
+                if homeVM.currentUser != nil && !homeVM.groups.isEmpty {
+                    showQuickAddExpense = true
+                }
             case .scanReceipt:
                 quickActionScan = true
                 selectedTab = .groups
-                showQuickAddExpense = true
+                if homeVM.currentUser != nil && !homeVM.groups.isEmpty {
+                    showQuickAddExpense = true
+                }
             }
             appState.pendingQuickAction = nil
         }

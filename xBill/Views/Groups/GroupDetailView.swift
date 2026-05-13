@@ -12,7 +12,6 @@ struct GroupDetailView: View {
     let currentUserID: UUID
     var onGroupStatusChanged: (() async -> Void)?
     @State private var showAddExpense = false
-    @State private var showSettleUp = false
     @State private var showInvite = false
     @State private var showInviteLink = false
     @State private var showStats = false
@@ -71,9 +70,6 @@ struct GroupDetailView: View {
                 AddExpenseView(group: vm.group, members: vm.members, currentUserID: currentUserID) {
                     await vm.refresh()
                 }
-            }
-            .sheet(isPresented: $showSettleUp) {
-                SettleUpView(vm: vm)
             }
             .sheet(isPresented: $showInvite) {
                 InviteMembersView(group: vm.group) {
@@ -178,7 +174,7 @@ struct GroupDetailView: View {
                     .padding(.trailing, AppSpacing.md)
             }
         }
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search expenses")
+        .searchable(text: $searchText, prompt: "Search expenses")
     }
 
     // MARK: - Content

@@ -235,7 +235,7 @@ final class GroupService: Sendable {
         struct Params: Encodable { let p_emails: [String] }
         struct Row: Decodable {
             let id: UUID
-            let email: String
+            let email: String?
             let displayName: String
             let avatarURL: String?
             enum CodingKeys: String, CodingKey {
@@ -249,7 +249,7 @@ final class GroupService: Sendable {
             .rpc("lookup_profiles_by_email", params: Params(p_emails: emails))
             .execute()
             .value
-        return rows.map { User(id: $0.id, email: $0.email, displayName: $0.displayName,
+        return rows.map { User(id: $0.id, email: $0.email ?? "", displayName: $0.displayName,
                                avatarURL: $0.avatarURL.flatMap { URL(string: $0) },
                                // createdAt synthesised — not the actual registration date; do not sort by this field.
                                createdAt: Date()) }

@@ -11,6 +11,7 @@ struct SettleUpView: View {
     @Bindable var vm: GroupViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var settlementToConfirm: SettlementSuggestion?
+    @State private var isSettling = false
 
     var body: some View {
         NavigationStack {
@@ -41,10 +42,15 @@ struct SettleUpView: View {
                 titleVisibility: .visible
             ) {
                 Button("Mark as Settled") {
-                    guard let suggestion = settlementToConfirm else { return }
-                    Task { await vm.recordSettlement(suggestion) }
+                    guard let suggestion = settlementToConfirm, !isSettling else { return }
+                    isSettling = true
                     settlementToConfirm = nil
+                    Task {
+                        await vm.recordSettlement(suggestion)
+                        isSettling = false
+                    }
                 }
+                .disabled(isSettling)
                 Button("Cancel", role: .cancel) { settlementToConfirm = nil }
             } message: {
                 if let s = settlementToConfirm {

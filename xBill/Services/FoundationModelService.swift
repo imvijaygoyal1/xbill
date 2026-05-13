@@ -16,13 +16,13 @@ import FoundationModels
 // Requires iOS 26.0+ on an Apple Intelligence capable device.
 
 @available(iOS 26.0, *)
-final class FoundationModelService: Sendable {
+actor FoundationModelService {
     static let shared = FoundationModelService()
     private init() {}
 
     // MARK: - Availability
 
-    var isAvailable: Bool {
+    nonisolated var isAvailable: Bool {
         #if canImport(FoundationModels)
         return SystemLanguageModel.default.isAvailable
         #else
@@ -35,11 +35,9 @@ final class FoundationModelService: Sendable {
     // A single LanguageModelSession is reused across parseReceipt calls.
     // LanguageModelSession creation is expensive; recreating it on every call
     // adds latency with no benefit because the session holds only instruction state.
-    // nonisolated(unsafe) is safe here: the session is effectively read-only after
-    // its first lazy creation (the setter in the stored property is the only writer,
-    // called once under normal usage patterns).
+    // Actor isolation protects _cachedSession from concurrent access.
     #if canImport(FoundationModels)
-    nonisolated(unsafe) private var _cachedSession: LanguageModelSession?
+    private var _cachedSession: LanguageModelSession?
     #endif
 
     // MARK: - Parse
