@@ -63,10 +63,12 @@ DROP FUNCTION IF EXISTS public.add_expense_with_splits(
     public.split_input[]
 );
 
--- M-20: invalidate (delete) invite token after successful use
--- Replace join_group_via_invite to delete the token on success
-CREATE OR REPLACE FUNCTION public.join_group_via_invite(p_token text)
-RETURNS void
+-- M-20: invalidate (delete) invite token after successful use.
+-- Must DROP + CREATE because we can't change return type via CREATE OR REPLACE.
+-- Return type stays uuid (group_id) to match the Swift client.
+DROP FUNCTION IF EXISTS public.join_group_via_invite(text);
+CREATE FUNCTION public.join_group_via_invite(p_token text)
+RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
@@ -86,19 +88,19 @@ BEGIN
         RAISE EXCEPTION 'Invalid or expired invite token';
     END IF;
 
-    -- Already a member? No-op.
-    IF EXISTS (
+    -- Already a member? No-op (still return group_id so caller can navigate).
+    IF NOT EXISTS (
         SELECT 1 FROM public.group_members
         WHERE group_id = v_invite.group_id AND user_id = auth.uid()
     ) THEN
-        RETURN;
+        INSERT INTO public.group_members (group_id, user_id)
+        VALUES (v_invite.group_id, auth.uid());
     END IF;
 
-    INSERT INTO public.group_members (group_id, user_id)
-    VALUES (v_invite.group_id, auth.uid());
-
-    -- Invalidate token after use
+    -- Invalidate token after use (single-use tokens)
     DELETE FROM public.group_invites WHERE token = p_token;
+
+    RETURN v_invite.group_id;
 END;
 $$;
 

@@ -726,9 +726,9 @@ All 11 Critical and 37 High defects from the v3 senior developer audit (DEFECT_R
 - `invite-member` ✅ — group email invites live (2026-05-09); secrets: `RESEND_API_KEY` + `INVITE_FROM_EMAIL=invites@xbill.vijaygoyal.org`
 - Migrations 023 + 024 ✅ — pushed to production DB (2026-05-07)
 - Migration 026 ✅ — `venmo_handle` + `paypal_email` columns live (2026-05-09)
-- `notify-expense` ✅ — H-08 callerID sender-exclusion live (2026-05-10)
-- `notify-settlement` ✅ — H-09 callerID fromUserID/fromName + toUserID group-member validation live (2026-05-10)
-- Migration 027 (pending push) — `027_crit_rls_fixes.sql`: CRIT-03 groups UPDATE (creator-only), M-22 groups DELETE (creator-only), CRIT-04 ious UPDATE WITH CHECK, CRIT-05 friends UPDATE (addressee, accepted/blocked only), CRIT-06 group_invites SELECT (creator or member), CRIT-07 device_tokens FOR ALL WITH CHECK, H-10 profiles email functional index, H-11 drop old 7-param add_expense_with_splits overload, M-20 join_group_via_invite token invalidation on use
+- `notify-expense` ✅ — H-08 callerID sender-exclusion live (2026-05-13)
+- `notify-settlement` ✅ — H-09 callerID fromUserID/fromName + toUserID group-member validation live (2026-05-13)
+- Migration 027 ✅ — pushed to production DB (2026-05-13). CRIT-03 groups UPDATE (creator-only), M-22 groups DELETE (creator-only), CRIT-04 ious UPDATE WITH CHECK, CRIT-05 friends UPDATE (addressee, accepted/blocked only), CRIT-06 group_invites SELECT (creator or member), CRIT-07 device_tokens FOR ALL WITH CHECK, H-10 profiles email functional index, H-11 drop old 7-param add_expense_with_splits overload, M-20 join_group_via_invite single-use token (DROP+CREATE to preserve uuid return type)
 
 ## Low Defect Fixes (2026-05-07)
 
