@@ -97,6 +97,9 @@ final class IOUService: Sendable {
         try await supabase.table("ious")
             .update(Payload())
             .eq("id", value: id)
+            .eq("is_settled", value: false)
+            .select()
+            .single()
             .execute()
     }
 

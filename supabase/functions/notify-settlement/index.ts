@@ -60,18 +60,49 @@ serve(async (req) => {
       settlementId,
       groupId,
       groupName,
-      fromUserID,
-      fromName,
       toUserID,
       amount,
       currency,
       isDevelopment,
     } = await req.json()
 
+    // H-09: use callerID (verified JWT identity) as the sender — never trust body-supplied fromUserID.
+    const fromUserID = callerID
+
     const supabase = createClient(
       SUPABASE_URL,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
+
+    // H-09: fetch fromName from profiles using callerID — never trust body-supplied fromName.
+    const { data: senderProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('id', fromUserID)
+      .single()
+
+    if (profileError || !senderProfile) {
+      return new Response(JSON.stringify({ error: 'Could not resolve sender profile' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    const fromName: string = senderProfile.display_name ?? 'Someone'
+
+    // H-09: validate that toUserID is actually a member of groupId — prevent spoofed pushes.
+    const { data: memberCheck, error: memberCheckError } = await supabase
+      .from('group_members')
+      .select('user_id')
+      .eq('group_id', groupId)
+      .eq('user_id', toUserID)
+      .maybeSingle()
+
+    if (memberCheckError || !memberCheck) {
+      return new Response(JSON.stringify({ error: 'Recipient is not a member of the specified group' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     // Push only the creditor (toUserID) — they are being paid
     const { data: tokenRows } = await supabase

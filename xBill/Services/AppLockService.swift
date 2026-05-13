@@ -41,16 +41,18 @@ final class AppLockService {
         ud.removeObject(forKey: "appLockEnabled")
     }
 
-    // MARK: - Biometry
+    // MARK: - Biometry (cached at init to avoid repeated LAContext creation)
 
-    var biometryType: LABiometryType {
+    private(set) var cachedBiometryType: LABiometryType = {
         let ctx = LAContext()
         _ = ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)
         return ctx.biometryType
-    }
+    }()
+
+    var biometryType: LABiometryType { cachedBiometryType }
 
     var lockIconName: String {
-        switch biometryType {
+        switch cachedBiometryType {
         case .faceID:   return "faceid"
         case .touchID:  return "touchid"
         default:        return "lock.fill"
@@ -58,7 +60,7 @@ final class AppLockService {
     }
 
     var unlockLabel: String {
-        switch biometryType {
+        switch cachedBiometryType {
         case .faceID:  return "Unlock with Face ID"
         case .touchID: return "Unlock with Touch ID"
         default:       return "Enter Passcode"
@@ -76,10 +78,12 @@ final class AppLockService {
         let context = LAContext()
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-            // Device has no passcode — App Lock cannot function; disable it automatically
-            // so users are not permanently locked out of the app.
-            isEnabled = false
-            isLocked = false
+            if let err = error, err.code == LAError.passcodeNotSet.rawValue {
+                // Device has no passcode — App Lock cannot function; disable permanently.
+                isEnabled = false
+                isLocked = false
+            }
+            // For other transient errors (enclave unavailable on reboot, etc.) stay locked.
             return
         }
         do {

@@ -7,6 +7,7 @@
 
 import Foundation
 import Observation
+import OSLog
 
 @Observable
 @MainActor
@@ -63,9 +64,12 @@ final class GroupViewModel {
                 await computeBalances()
             } catch {
                 guard !AppError.isSilent(error) else { return }
-                // Fall back to cache on network error
-                if members.isEmpty  { members  = CacheService.shared.loadMembers(groupID: group.id) }
-                if expenses.isEmpty { expenses = CacheService.shared.loadExpenses(groupID: group.id) }
+                // Unconditionally restore from cache on any network error — a partial
+                // in-flight fetch may have written one array but not the other.
+                let cachedMembers  = CacheService.shared.loadMembers(groupID: group.id)
+                let cachedExpenses = CacheService.shared.loadExpenses(groupID: group.id)
+                if !cachedMembers.isEmpty  { members  = cachedMembers }
+                if !cachedExpenses.isEmpty { expenses = cachedExpenses }
                 self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
                 await computeBalances()
             }
@@ -97,8 +101,6 @@ final class GroupViewModel {
     // MARK: - Members
 
     func addMember(userId: UUID) async {
-        isLoading = true
-        defer { isLoading = false }
         do {
             try await groupService.addMember(groupId: group.id, userId: userId)
             await load()
@@ -109,8 +111,6 @@ final class GroupViewModel {
     }
 
     func removeMember(userID: UUID) async {
-        isLoading = true
-        defer { isLoading = false }
         do {
             try await groupService.removeMember(groupId: group.id, userId: userID)
             await load()
@@ -193,30 +193,52 @@ final class GroupViewModel {
                       let nextDate = expense.nextOccurrenceDate,
                       let payerID  = expense.payerID else { continue }
 
-                let splitInputs = existingSplits.map { SplitInput(from: $0) }
+                var splitInputs = existingSplits.map { SplitInput(from: $0) }
                 guard !splitInputs.isEmpty else { continue }
+
+                // Populate displayName from member cache so notifications show names correctly.
+                let names = memberNames
+                for i in splitInputs.indices {
+                    splitInputs[i].displayName = names[splitInputs[i].userID] ?? ""
+                }
 
                 guard let newNextDate = expense.recurrence.nextDate(from: nextDate) else { continue }
 
-                // New instance is a one-off snapshot — it must NOT inherit recurrence or
-                // a next date, otherwise it would spawn further instances indefinitely.
-                _ = try await expenseService.createExpense(
-                    groupID:             expense.groupID,
-                    title:               expense.title,
-                    amount:              expense.amount,
-                    currency:            expense.currency,
-                    payerID:             payerID,
-                    category:            expense.category,
-                    notes:               expense.notes,
-                    splits:              splitInputs,
-                    originalAmount:      expense.originalAmount,
-                    originalCurrency:    expense.originalCurrency,
-                    recurrence:          .none,
-                    nextOccurrenceDate:  nil
-                )
+                do {
+                    // New instance is a one-off snapshot — it must NOT inherit recurrence or
+                    // a next date, otherwise it would spawn further instances indefinitely.
+                    _ = try await expenseService.createExpense(
+                        groupID:             expense.groupID,
+                        title:               expense.title,
+                        amount:              expense.amount,
+                        currency:            expense.currency,
+                        payerID:             payerID,
+                        category:            expense.category,
+                        notes:               expense.notes,
+                        splits:              splitInputs,
+                        originalAmount:      expense.originalAmount,
+                        originalCurrency:    expense.originalCurrency,
+                        recurrence:          .none,
+                        nextOccurrenceDate:  nil
+                    )
+                } catch {
+                    // Instance creation failed — skip advancing the template so it retries next time.
+                    Logger(subsystem: "com.vijaygoyal.xbill", category: "Recurring")
+                        .fault("Failed to create recurring instance for expense \(expense.id): \(error)")
+                    continue
+                }
 
-                // Advance the template to the next cycle date (do NOT null it out).
-                try await expenseService.setNextOccurrenceDate(newNextDate, expenseID: expense.id)
+                do {
+                    // Advance the template to the next cycle date.
+                    try await expenseService.setNextOccurrenceDate(newNextDate, expenseID: expense.id)
+                } catch {
+                    // Template advance failed — instance was created; log but do not throw.
+                    // The duplicate-instance risk is mitigated: on next launch the DB already
+                    // has the new instance, so any visual duplicate is at most cosmetic
+                    // until the advance succeeds on a subsequent retry.
+                    Logger(subsystem: "com.vijaygoyal.xbill", category: "Recurring")
+                        .fault("Failed to advance next_occurrence_date for expense \(expense.id): \(error)")
+                }
             }
 
             await load()

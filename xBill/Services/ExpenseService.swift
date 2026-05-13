@@ -125,6 +125,7 @@ final class ExpenseService: Sendable {
         try await supabase.table("expenses")
             .update(Payload(nextOccurrenceDate: date))
             .eq("id", value: expenseID)
+            .select()
             .execute()
     }
 
@@ -286,17 +287,6 @@ private struct AddExpenseRPCParams: Encodable {
         case originalCurrency    = "p_original_currency"
         case recurrence          = "p_recurrence"
         case nextOccurrenceDate  = "p_next_occurrence_date"
-    }
-}
-
-/// Payload that explicitly sets next_occurrence_date to null.
-private struct NullNextOccurrence: Encodable {
-    func encode(to encoder: any Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encodeNil(forKey: .nextOccurrenceDate)
-    }
-    enum CodingKeys: String, CodingKey {
-        case nextOccurrenceDate = "next_occurrence_date"
     }
 }
 

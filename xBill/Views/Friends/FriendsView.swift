@@ -17,7 +17,6 @@ struct FriendsView: View {
     @State private var userCache: [UUID: User] = [:]
     @State private var allFriends: [User] = []
     @State private var pendingRequests: [User] = []
-    @State private var contactSuggestions: [User] = []
     @State private var isLoading = false
     @State private var error: AppError?
     @State private var showAddIOU = false
@@ -64,7 +63,8 @@ struct FriendsView: View {
         guard let currentUserID else { return [:] }
         var balances: [String: Decimal] = [:]
         for iou in ious where !iou.isSettled {
-            guard iou.lenderID == friendID || iou.borrowerID == friendID else { continue }
+            guard (iou.lenderID == friendID && iou.borrowerID == currentUserID) ||
+                  (iou.borrowerID == friendID && iou.lenderID == currentUserID) else { continue }
             let delta: Decimal = iou.lenderID == currentUserID ? iou.amount : -iou.amount
             balances[iou.currency, default: .zero] += delta
         }
@@ -72,7 +72,11 @@ struct FriendsView: View {
     }
 
     private func ious(with friendID: UUID) -> [IOU] {
-        ious.filter { $0.lenderID == friendID || $0.borrowerID == friendID }
+        guard let currentUserID else { return [] }
+        return ious.filter {
+            ($0.lenderID == friendID && $0.borrowerID == currentUserID) ||
+            ($0.borrowerID == friendID && $0.lenderID == currentUserID)
+        }
     }
 
     var body: some View {
@@ -88,6 +92,13 @@ struct FriendsView: View {
                 .toolbar(.hidden, for: .navigationBar)
                 .toolbarBackground(AppColors.background, for: .navigationBar)
                 .toolbarBackground(.visible, for: .navigationBar)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        if isLoading && (!ious.isEmpty || !allFriends.isEmpty) {
+                            ProgressView().scaleEffect(0.8)
+                        }
+                    }
+                }
                 .refreshable { await loadAll() }
                 .task { await loadAll() }
                 .errorAlert(error: $error)
@@ -328,16 +339,6 @@ struct FriendsView: View {
         }
     }
 
-    private func quickAdd(_ user: User) async {
-        do {
-            try await friendService.sendFriendRequest(to: user.id)
-            HapticManager.success()
-            contactSuggestions.removeAll { $0.id == user.id }
-            await loadAll()
-        } catch {
-            self.error = AppError.from(error)
-        }
-    }
 }
 
 #Preview("Friends Empty") {

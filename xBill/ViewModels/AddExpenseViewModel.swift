@@ -138,13 +138,16 @@ final class AddExpenseViewModel {
     // MARK: - Save
 
     func save() async {
+        // Fast-path guard before the async suspension point.
         guard canSave, let payerID else { return }
 
         // If foreign currency, resolve conversion first
         if isForeignCurrency && convertedAmount == nil {
             await updateConversion()
-            guard convertedAmount != nil else { return }
         }
+
+        // Re-validate canSave after async suspension; payerID local already bound above.
+        guard canSave else { return }
 
         // Capture finalAmount after conversion is settled and before any further await,
         // so a concurrent amountText edit cannot alter the value mid-save.

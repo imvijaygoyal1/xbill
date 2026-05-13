@@ -15,7 +15,7 @@ enum SplitCalculator {
     // MARK: - Equal Split
 
     /// Divides `total` equally among all `inputs` that are included.
-    /// Handles rounding remainder by adding 1 cent to the first participant.
+    /// Handles rounding remainder by adding it to the last participant.
     static func splitEqually(total: Decimal, inputs: inout [SplitInput]) {
         let included = inputs.indices.filter { inputs[$0].isIncluded }
         guard !included.isEmpty else { return }
@@ -28,18 +28,15 @@ enum SplitCalculator {
         let distributed = rounded * count
         var remainder = total - distributed
 
-        // Assign remainder to last participant for correct percentage accounting.
         var distributedPct = Decimal.zero
         for (offset, index) in included.enumerated() {
+            let isLast = offset == included.count - 1
             var share = rounded
-            if offset == 0 {
+            if isLast {
                 share += remainder
-                remainder = .zero
             }
             inputs[index].amount = share
-            let isLast = offset == included.count - 1
             if isLast {
-                // Give last participant the remainder of 100 to guarantee sum = 100
                 var pct = 100 - distributedPct
                 var pctRounded = Decimal()
                 NSDecimalRound(&pctRounded, &pct, 2, .bankers)
@@ -110,17 +107,22 @@ enum SplitCalculator {
     // MARK: - Exact Split (validate totals)
 
     /// Returns an error string if exact amounts don't sum to total, nil otherwise.
+    /// Shows "over by" when the sum exceeds total, "remaining" when it falls short.
     static func validateExact(total: Decimal, inputs: [SplitInput]) -> String? {
         let sum = inputs.filter(\.isIncluded).reduce(Decimal.zero) { $0 + $1.amount }
         let diff = total - sum
-        // Take absolute value before rounding so over-allocation shows positive remaining.
-        var absValue = diff < .zero ? -diff : diff
         var absDiff = Decimal()
+        var absValue = diff < .zero ? -diff : diff
         NSDecimalRound(&absDiff, &absValue, 2, .bankers)
-        if absDiff != .zero {
-            return "Amounts must add up to \(total). Remaining: \(absDiff)"
+        guard absDiff != .zero else { return nil }
+        var roundedTotal = Decimal()
+        var totalCopy = total
+        NSDecimalRound(&roundedTotal, &totalCopy, 2, .bankers)
+        if diff < .zero {
+            return "Amounts must add up to \(roundedTotal). Over by: \(absDiff)"
+        } else {
+            return "Amounts must add up to \(roundedTotal). Remaining: \(absDiff)"
         }
-        return nil
     }
 
     // MARK: - Settlement Suggestions (debt simplification)

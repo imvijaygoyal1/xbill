@@ -104,28 +104,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotifi
         }
     }
 
-    func application(
-        _ application: UIApplication,
-        continue userActivity: NSUserActivity,
-        restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
-    ) -> Bool {
-        guard userActivity.activityType == CSSearchableItemActionType,
-              let identifier = userActivity.userInfo?[CSSearchableItemActivityIdentifier] as? String
-        else { return false }
-
-        let parts = identifier.split(separator: ":", maxSplits: 1)
-        guard parts.count == 2,
-              let uuidString = parts.last.map(String.init),
-              let uuid = UUID(uuidString: uuidString)
-        else { return false }
-
-        if parts.first == "group" {
-            AppState.shared.spotlightTarget = .group(uuid)
-            return true
-        }
-        return false
-    }
-
     // MARK: - Helpers
 
     private func registerShortcutItems() {

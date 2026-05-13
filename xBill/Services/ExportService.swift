@@ -43,7 +43,9 @@ final class ExportService {
             let recur     = expense.recurrence == .none ? "" : expense.recurrence.shortLabel
             lines.append("\(date),\(title),\(category),\(amount),\(currency),\(paidBy),\(notes),\(recur)")
         }
-        return lines.joined(separator: "\n").data(using: .utf8) ?? Data()
+        let bom = "\u{FEFF}"
+        let csvString = lines.joined(separator: "\r\n")
+        return (bom + csvString).data(using: .utf8) ?? Data()
     }
 
     // MARK: - PDF
@@ -253,6 +255,7 @@ final class ExportService {
         let f = NumberFormatter()
         f.numberStyle = .currency
         f.currencyCode = code
+        f.locale = Locale(identifier: "en_US_POSIX")
         f.minimumFractionDigits = 2
         f.maximumFractionDigits = 2
         return f
