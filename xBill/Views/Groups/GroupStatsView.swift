@@ -39,11 +39,23 @@ struct GroupStatsView: View {
 
     private var memberData: [(name: String, total: Decimal)] {
         let nameMap = Dictionary(uniqueKeysWithValues: members.map { ($0.id, $0.displayName) })
-        // Expenses with a nil payerID (deleted user) are grouped under the "Unknown" key.
-        return Dictionary(grouping: expenses, by: { $0.payerID })
+        let grouped = Dictionary(grouping: expenses, by: { $0.payerID })
             .mapValues { $0.reduce(.zero) { $0 + $1.amount } }
-            .map { (name: $0.key.flatMap { nameMap[$0] } ?? "Unknown", total: $0.value) }
-            .sorted { $0.total > $1.total }
+        // Multiple deleted users all map to nil — append a counter to prevent duplicate
+        // chart IDs which would crash SwiftUI Charts.
+        var result: [(name: String, total: Decimal)] = []
+        var unknownCount = 0
+        for (key, total) in grouped {
+            let name: String
+            if let key, let n = nameMap[key] {
+                name = n
+            } else {
+                unknownCount += 1
+                name = unknownCount == 1 ? "Unknown" : "Unknown (\(unknownCount))"
+            }
+            result.append((name: name, total: total))
+        }
+        return result.sorted { $0.total > $1.total }
     }
 
     // MARK: - Body
