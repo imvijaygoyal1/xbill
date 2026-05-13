@@ -165,10 +165,7 @@ final class GroupViewModel {
     func createDueRecurringInstances(currentUserID: UUID) async {
         guard NetworkMonitor.shared.isConnected else { return }
         do {
-            let dueExpenses = try await expenseService.fetchDueRecurringExpenses(
-                groupID: group.id,
-                payerID: currentUserID
-            )
+            let dueExpenses = try await expenseService.fetchDueRecurringExpenses(groupID: group.id)
             guard !dueExpenses.isEmpty else { return }
 
             // Fetch splits for all due expenses in parallel to avoid N serial round-trips.
@@ -193,16 +190,23 @@ final class GroupViewModel {
                       let nextDate = expense.nextOccurrenceDate,
                       let payerID  = expense.payerID else { continue }
 
+                guard let newNextDate = expense.recurrence.nextDate(from: nextDate) else { continue }
+
                 var splitInputs = existingSplits.map { SplitInput(from: $0) }
-                guard !splitInputs.isEmpty else { continue }
+                guard !splitInputs.isEmpty else {
+                    // No splits means the template is corrupt or the fetch failed silently.
+                    // Advance the date to break the infinite retry loop and log for diagnosis.
+                    Logger(subsystem: "com.vijaygoyal.xbill", category: "Recurring")
+                        .fault("No splits for recurring expense \(expense.id) — advancing date without creating instance")
+                    try? await expenseService.setNextOccurrenceDate(newNextDate, expenseID: expense.id)
+                    continue
+                }
 
                 // Populate displayName from member cache so notifications show names correctly.
                 let names = memberNames
                 for i in splitInputs.indices {
                     splitInputs[i].displayName = names[splitInputs[i].userID] ?? ""
                 }
-
-                guard let newNextDate = expense.recurrence.nextDate(from: nextDate) else { continue }
 
                 do {
                     // New instance is a one-off snapshot — it must NOT inherit recurrence or

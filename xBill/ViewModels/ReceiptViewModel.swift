@@ -50,7 +50,11 @@ final class ReceiptViewModel {
     /// User-edited tip overrides the OCR-scanned value so corrections affect totals.
     var tip: Decimal { Decimal(string: tipAmount.replacingOccurrences(of: ",", with: ".")) ?? scannedReceipt?.tip ?? .zero }
 
-    var grandTotal: Decimal { totalFromItems + tax + tip }
+    /// User-edited total overrides the item-sum so corrections to OCR misreads
+    /// propagate to AddExpenseView. Falls back to item sum + tax + tip when empty.
+    var grandTotal: Decimal {
+        Decimal(string: totalAmount.replacingOccurrences(of: ",", with: ".")) ?? (totalFromItems + tax + tip)
+    }
 
     var confidenceLabel: String {
         switch confidence {

@@ -13,6 +13,8 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var lockService = AppLockService.shared
     @State private var sampleDataError: AppError?
+    // Owned here so onTrySampleData can write into the same instance that MainTabView reads.
+    @State private var homeVM = HomeViewModel()
 
     var body: some View {
         ZStack {
@@ -23,7 +25,7 @@ struct ContentView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             } else if authVM.currentUser != nil {
                 if hasCompletedOnboarding {
-                    MainTabView(authVM: authVM)
+                    MainTabView(authVM: authVM, homeVM: homeVM)
                         .transition(.asymmetric(
                             insertion: .move(edge: .trailing).combined(with: .opacity),
                             removal:   .move(edge: .trailing).combined(with: .opacity)
@@ -36,7 +38,9 @@ struct ContentView: View {
                     } onTrySampleData: {
                         guard let userID = authVM.currentUser?.id else { return }
                         do {
-                            try await HomeViewModel().createSampleData(userID: userID)
+                            try await homeVM.createSampleData(userID: userID)
+                            // Refresh the live VM so groups appear immediately on transition.
+                            await homeVM.loadAll()
                         } catch {
                             sampleDataError = AppError.from(error)
                         }

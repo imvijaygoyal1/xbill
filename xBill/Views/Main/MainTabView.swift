@@ -10,8 +10,8 @@ import UIKit
 
 struct MainTabView: View {
     @Bindable var authVM: AuthViewModel
+    var homeVM: HomeViewModel   // owned by ContentView; passed in so onTrySampleData writes to the same instance
     @Environment(AppState.self) private var appState
-    @State private var homeVM = HomeViewModel()
     @State private var activityVM = ActivityViewModel()
     @State private var profileVM = ProfileViewModel()
     @State private var selectedTab: Tab = .home
@@ -186,5 +186,5 @@ struct MainTabView: View {
 }
 
 #Preview {
-    MainTabView(authVM: AuthViewModel())
+    MainTabView(authVM: AuthViewModel(), homeVM: HomeViewModel())
 }

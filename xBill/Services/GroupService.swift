@@ -140,11 +140,20 @@ final class GroupService: Sendable {
     }
 
     func removeMember(groupId: UUID, userId: UUID) async throws {
-        try await supabase.table("group_members")
+        struct Deleted: Decodable {
+            let userId: UUID
+            enum CodingKeys: String, CodingKey { case userId = "user_id" }
+        }
+        let rows: [Deleted] = try await supabase.table("group_members")
             .delete()
             .eq("group_id", value: groupId)
             .eq("user_id", value: userId)
+            .select("user_id")
             .execute()
+            .value
+        guard !rows.isEmpty else {
+            throw AppError.unknown("Only the group creator can remove other members.")
+        }
     }
 
     // MARK: - Delete

@@ -100,14 +100,16 @@ final class ExpenseService: Sendable {
 
     // MARK: - Recurring
 
-    /// Fetches recurring expenses in a group that are due (next_occurrence_date ≤ now)
-    /// and where the given user is the payer.
-    func fetchDueRecurringExpenses(groupID: UUID, payerID: UUID) async throws -> [Expense] {
-        let nowString = ISO8601DateFormatter().string(from: Date())
+    nonisolated(unsafe) private static let iso8601Formatter = ISO8601DateFormatter()
+
+    /// Fetches all recurring expenses in a group that are due (next_occurrence_date ≤ now),
+    /// regardless of who the payer is. Any group member can trigger instantiation so that
+    /// recurring expenses continue even when the original payer is inactive.
+    func fetchDueRecurringExpenses(groupID: UUID) async throws -> [Expense] {
+        let nowString = Self.iso8601Formatter.string(from: Date())
         return try await supabase.table("expenses")
             .select()
             .eq("group_id",  value: groupID)
-            .eq("paid_by",   value: payerID)
             .neq("recurrence", value: "none")
             .lte("next_occurrence_date", value: nowString)
             .execute()
