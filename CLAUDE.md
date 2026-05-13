@@ -729,6 +729,7 @@ All 11 Critical and 37 High defects from the v3 senior developer audit (DEFECT_R
 - `notify-expense` ✅ — H-08 callerID sender-exclusion live (2026-05-13)
 - `notify-settlement` ✅ — H-09 callerID fromUserID/fromName + toUserID group-member validation live (2026-05-13)
 - Migration 027 ✅ — pushed to production DB (2026-05-13). CRIT-03 groups UPDATE (creator-only), M-22 groups DELETE (creator-only), CRIT-04 ious UPDATE WITH CHECK, CRIT-05 friends UPDATE (addressee, accepted/blocked only), CRIT-06 group_invites SELECT (creator or member), CRIT-07 device_tokens FOR ALL WITH CHECK, H-10 profiles email functional index, H-11 drop old 7-param add_expense_with_splits overload, M-20 join_group_via_invite single-use token (DROP+CREATE to preserve uuid return type)
+- Migration 028 ✅ — pushed to production DB (2026-05-13). M-21 creator DELETE policy on group_members so creator can remove any member.
 
 ## Low Defect Fixes (2026-05-07)
 
@@ -787,6 +788,18 @@ All 47 Low severity defects from the senior developer audit (DEFECT_REPORT.md) f
 - **L-23** — All notify functions: comment added clarifying Deno Edge isolate-scope for `cachedJWT` (no real race condition).
 - **L-46** — `018_lookup_profiles_by_email.sql`: history note added (email removed in migration 025).
 - **L-47** — All 6 Edge Functions: `@supabase/supabase-js@2` pinned to `@2.49.1`.
+
+## Data Correctness Fixes — v3 Medium (2026-05-13)
+
+Selected medium defects from the v3 audit fixed in commit `09d2f7e`:
+
+- **M-06** — `homeVM` moved to `ContentView` (`@State private var homeVM = HomeViewModel()`); `MainTabView` takes `var homeVM: HomeViewModel` (no `@State`). Sample data now writes to the live instance visible on the Groups tab.
+- **M-07** — `GroupViewModel.createDueRecurringInstances`: computes `newNextDate` BEFORE the `splitInputs.isEmpty` guard. Empty-split templates log via `Logger.fault` and advance the date rather than retrying infinitely.
+- **M-08** — `ExpenseService.fetchDueRecurringExpenses(groupID:)`: removed `payerID` parameter + `.eq("paid_by", ...)` filter. All group members' due recurring templates are now instantiated, not just the current user's.
+- **M-09** — `ExpenseService.iso8601Formatter`: marked `nonisolated(unsafe) private static let` to satisfy Swift 6 strict concurrency (`ISO8601DateFormatter` is not `Sendable`).
+- **M-11/M-51** — `ReceiptViewModel.grandTotal`: now reads user-edited `totalAmount` string first (`Decimal(string:) ?? itemSum+tax+tip`) so manual corrections propagate to `AddExpenseView`.
+- **M-17** — `GroupStatsView.memberData`: deduplicates nil-payerID entries ("Unknown", "Unknown (2)", …) using a counter to prevent duplicate chart IDs that crashed SwiftUI Charts.
+- **M-21** — `GroupService.removeMember`: uses `.select("user_id")` to detect silent RLS no-ops (0 rows ⇒ throws "Only the group creator can remove other members."); migration 028 adds the required creator DELETE policy on `group_members`.
 
 ## Medium Defect Fixes (2026-05-07)
 
