@@ -129,8 +129,8 @@
 
 ### Edge Functions
 - `supabase/functions/invite-member/index.ts` — Deno; calls Resend API to send group invite emails; expects `{ groupName, groupEmoji, inviterName, emails[] }`; returns `{ sent, failed[] }`
-- `supabase/functions/notify-expense/index.ts` — Reads tokens from `device_tokens`; excludes sender (`payerId`); per-recipient badge via `getUnreadCount`; JWT cached 55 min; `apns-expiration: +1h`; stale token cleanup on 410/400; sandbox URL when `isDevelopment: true`; expects `{ expenseId, groupId, payerId, payerName, expenseTitle, amount, currency, isDevelopment }`
-- `supabase/functions/notify-settlement/index.ts` — Pushes creditor (toUserID) only; same JWT cache, expiration, stale cleanup, sandbox URL logic; expects `{ settlementId, groupId, groupName, fromUserID, fromName, toUserID, amount, currency, isDevelopment }`
+- `supabase/functions/notify-expense/index.ts` — Reads tokens from `device_tokens`; excludes sender using `callerID` (H-08: verified JWT identity, NOT body-supplied `payerId`); per-recipient badge via `batchUnreadCounts`; JWT cached 55 min; `apns-expiration: +1h`; stale token cleanup on 410/400; sandbox URL when `isDevelopment: true`; expects `{ expenseId, groupId, payerId, payerName, expenseTitle, amount, currency, isDevelopment }`
+- `supabase/functions/notify-settlement/index.ts` — Pushes creditor (toUserID) only; H-09 fixes: `fromUserID` = `callerID` (not body), `fromName` fetched from `profiles` table using `callerID` (not body), `toUserID` validated as member of `groupId` before proceeding (403 if not); same JWT cache, expiration, stale cleanup, sandbox URL logic; expects `{ settlementId, groupId, groupName, toUserID, amount, currency, isDevelopment }` (fromUserID and fromName removed from body)
 - `supabase/functions/notify-comment/index.ts` — Pushes all expense participants (splits + payer) except commenter; 60-char comment preview; same JWT cache, expiration, stale cleanup, sandbox URL; expects `{ expenseId, expenseTitle, groupId, groupName, commenterID, commenterName, commentText, isDevelopment }`
 - `supabase/functions/notify-friend-request/index.ts` — Pushes the addressee when they receive a friend request; same JWT cache, stale-token cleanup, sandbox URL patterns; expects `{ toUserID, fromName, fromUserID, isDevelopment }`; fired fire-and-forget from `FriendService.sendFriendRequest`
 
@@ -234,10 +234,10 @@
 
 ### ViewModels
 - `xBill/ViewModels/AuthViewModel.swift` — `@Observable @MainActor`; `currentUser: User?`, `confirmationEmailSent: Bool`, `isInPasswordRecovery: Bool`, `isLoading`, `error`, `pendingJoinRequest: InviteJoinRequest?`; `startListeningToAuthChanges()` handles `.passwordRecovery` event; `handlePasswordReset(newPassword:)` calls `supabase.auth.update`. `InviteJoinRequest` is a top-level `Identifiable` struct with `token: String`
-- `xBill/ViewModels/HomeViewModel.swift` — loads groups, computes net balance + `recentExpenses: [RecentEntry]` (top 10 across all groups, members co-fetched); `RecentEntry` is `{ expense, members }` identifiable struct; `archivedGroups: [BillGroup]`; `crossGroupSuggestions: [SettlementSuggestion]` (cross-group debt, filtered to current user); `groupMemberCounts: [UUID: Int]` (member count per group, populated in `computeBalances`); `groupNetBalances: [UUID: Decimal]` (net balance per group for the current user, positive = owed to you); `unarchiveGroup(_:)` unarchives and refreshes both lists; `groupsNavigationPath: NavigationPath`; `createSampleData(userID:)` creates demo group + 3 expenses; `fullBalancesInGroup` returns `GroupBalanceData` (groupID, owed, owing, netBalance, memberCount, entries, currency, balances, names); `computeBalances` merges per-currency balance maps, calls `minimizeTransactions`, saves to CacheService, calls `WidgetCenter.shared.reloadAllTimelines()`
-- `xBill/ViewModels/GroupViewModel.swift` — loads members + expenses, computes balances + settlement suggestions, `recordSettlement()`; `archiveGroup()` / `unarchiveGroup()` set `isArchived` via `GroupService.updateGroup` and update `CacheService` immediately (remove/append to active-groups cache); `createDueRecurringInstances(currentUserID:)` fetches due recurring expenses, creates new instances, clears old `next_occurrence_date`
-- `xBill/ViewModels/AddExpenseViewModel.swift` — split calculation; `expenseCurrency` (defaults to group currency); `convertedAmount`/`exchangeRate` computed via `ExchangeRateService.shared`; `updateConversion()` called on currency/amount change; `finalAmount` = converted or raw; `save()` passes `originalAmount`/`originalCurrency` when foreign currency used
-- `xBill/ViewModels/ProfileViewModel.swift` — profile editing; `loadStats(userID:)` fetches groups + expenses concurrently via `withTaskGroup` to compute `totalGroupsCount`, `totalExpensesCount`, `lifetimePaid`; `saveProfile(avatarImage:)` uploads avatar via `AuthService.uploadAvatar` then calls `updateProfile`
+- `xBill/ViewModels/HomeViewModel.swift` — loads groups, computes net balance + `recentExpenses: [RecentEntry]` (top 10 across all groups, members co-fetched); `RecentEntry` is `{ expense, members }` identifiable struct; `archivedGroups: [BillGroup]`; `crossGroupSuggestions: [SettlementSuggestion]` (cross-group debt, filtered to current user); `groupMemberCounts: [UUID: Int]` (member count per group, populated in `computeBalances`); `groupNetBalances: [UUID: Decimal]` (net balance per group for the current user, positive = owed to you); `unarchiveGroup(_:)` unarchives and refreshes both lists; `groupsNavigationPath: NavigationPath`; `createSampleData(userID:)` creates demo group + 3 expenses; `fullBalancesInGroup` returns `GroupBalanceData` (groupID, owed, owing, netBalance, memberCount, entries, currency, balances, names) — results cached in `groupBalancesCache` per refresh cycle; `computeBalances` clears cache, merges per-currency balance maps, calls `minimizeTransactions`, saves to CacheService, calls `WidgetCenter.shared.reloadAllTimelines()`; `startRealtimeUpdates()` is now synchronous, stores a cancellable `realtimeTask: Task<Void, Never>?` and cancel-and-restarts on each call; H-12: `loadAll()` catch block now calls `computeBalances` after cache restore so offline balances are correct
+- `xBill/ViewModels/GroupViewModel.swift` — loads members + expenses, computes balances + settlement suggestions, `recordSettlement()`; `archiveGroup()` / `unarchiveGroup()` set `isArchived` via `GroupService.updateGroup` and update `CacheService` immediately (remove/append to active-groups cache); `createDueRecurringInstances(currentUserID:)` fetches due recurring expenses, creates new instances per-pair in isolated do/catch (CRIT-01 fix: failures on one expense don't abort the batch; template advance logged-but-not-thrown on failure), clears old `next_occurrence_date`; `addMember`/`removeMember` no longer manage `isLoading` directly (GVM-02: `load()` already manages it); CRIT-10: `load()` catch block unconditionally reads both cache arrays (not gated on isEmpty) and applies them if non-empty
+- `xBill/ViewModels/AddExpenseViewModel.swift` — split calculation; `expenseCurrency` (defaults to group currency); `convertedAmount`/`exchangeRate` computed via `ExchangeRateService.shared`; `updateConversion()` called on currency/amount change; `finalAmount` = converted or raw; `save()` passes `originalAmount`/`originalCurrency` when foreign currency used; H-15: `save()` now has two `guard canSave, let payerID` checks — one fast-path at the top and one correctness guard after `await updateConversion()` to prevent stale form state from being saved
+- `xBill/ViewModels/ProfileViewModel.swift` — profile editing; `loadStats(userID:)` fetches groups + expenses concurrently via `withTaskGroup` to compute `totalGroupsCount`, `totalExpensesCount`, `lifetimePaid`; `saveProfile(avatarImage:)`: H-17: validates+trims `displayName` before any network call (shows "Name required" alert if empty); H-16: uploads avatar first, then does ONE `updateProfile` write with final URL (eliminates double-write race where step 2 failure leaves DB with old URL from step 1)
 - `xBill/ViewModels/ActivityViewModel.swift` — `items: [NotificationItem]`; `unreadCount: Int` synced from `NotificationStore`; `markRead(_:)`, `markUnread(_:)`, `delete(_:)`, `markAllRead()`, `refreshUnreadCount()` keep row state and badge count aligned; `hasUnread: Bool` computed
 - `xBill/ViewModels/ReceiptViewModel.swift` — receipt scan + review flow; `capturedPages: [UIImage]` (all scanned pages); `capturedImage: UIImage?` computed from `capturedPages.first`; `suggestedCategory: Expense.Category?` set from `ScanResult`; `scan(pages:)` calls `vision.scanMultiPage(from:)` (multi-page aware); `merchantName`, `totalAmount`, `tipAmount: String` mutable vars; `toggleAssignAll(to:)`, `updateUnitPrice`, `hasUnassignedItems`, `total(for:)`; **`startManually(members:)`** — creates blank Receipt, clears scan state + suggestedCategory, sets members
 
@@ -673,6 +673,47 @@ All 20 defects from the second senior developer audit (v2) fixed. Key changes:
 - **LOW-03** — `AuthViewModel.startListeningToAuthChanges`: session-user-ID dedup skips redundant `loadCurrentUser()` calls; always allows `.userUpdated` through; resets on `.signedOut`.
 - **LOW-04** — Widget balance currency fallback uses `Locale.current.currency?.identifier ?? "USD"` (bundled with MED-03).
 
+## Third-Pass Defect Fixes (2026-05-10)
+
+All 11 Critical and 37 High defects from the v3 senior developer audit (DEFECT_REPORT_V3.md) fixed in commit `35b7940`.
+
+### Critical Fixes
+- **CRIT-01** — `GroupViewModel.createDueRecurringInstances`: per-expense try/catch; one failure no longer aborts batch; `displayName` populated from `memberNames` map after `SplitInput(from:)` mapping.
+- **CRIT-02** — `SplitInput(from:)`: removed `#if DEBUG assertionFailure` block; all builds log via `Logger(...).fault(...)` — no debug-only crash when recurring expense templates have incomplete split data.
+- **CRIT-03/04/05/06/07** — Migration `027_crit_rls_fixes.sql`: `groups` UPDATE `WITH CHECK (auth.uid() = created_by)`, new `groups` DELETE policy (creator only), `ious` UPDATE `WITH CHECK`, `friends` UPDATE restricted to addressee accepting/blocking, `group_invites` SELECT to creator or member, `device_tokens` `WITH CHECK (auth.uid() = user_id)`, profiles email functional index, drop 7-param RPC overload, `join_group_via_invite` deletes token on use (single-use).
+- **CRIT-08** — `IOUService.settleIOU`: added `.eq("is_settled", value: false)` idempotency guard + `.select().single()` so RLS failures throw instead of returning silent HTTP 200.
+- **CRIT-09** — `FoundationModelService`: converted from `final class` to `actor`; `_cachedSession` is actor-isolated `private var`; `isAvailable` is `nonisolated`.
+- **CRIT-10** — `GroupViewModel.load()` catch block unconditionally restores from cache (not gated on `members.isEmpty`).
+- **CRIT-11** — `ExpenseDetailView` delete confirmation: `Task { await ...; onDeleted?(); dismiss() }` — dismiss after async work, not before.
+
+### High Fixes
+- **H-01/H-02** — `SplitCalculator.splitEqually`: remainder goes to LAST participant; percentages computed with `100 - distributedPct` for last entry so they always sum to 100.
+- **H-03** — `AuthViewModel.handlePasswordReset`: password length validated >= 8 before network call.
+- **H-04** — `AuthService.isNotFoundError`: matches `PGRST116` or `HTTP 406` case-insensitively (not broad `"406"` substring).
+- **H-05/H-06** — `ExpenseService.setNextOccurrenceDate`: added `.select()` so RLS failures throw; removed dead `NullNextOccurrence` struct.
+- **H-07** — `xBillApp`: removed duplicate `application(_:continue:userActivity:)` from `AppDelegate` (iOS 17+ uses SwiftUI `.onContinueUserActivity`).
+- **H-08** — `notify-expense/index.ts`: `payerId` for sender exclusion now sourced from `callerID` (verified JWT), not body.
+- **H-09** — `notify-settlement/index.ts`: `fromUserID`/`fromName` sourced from JWT `callerID`; `toUserID` validated as group member before proceeding.
+- **H-12** — `HomeViewModel.loadAll()` catch block calls `computeBalances(for:)` after cache restore so offline balance view is correct.
+- **H-14** — `HomeViewModel.startRealtimeUpdates()`: stores `realtimeTask: Task<Void, Never>?` handle; cancels existing task before creating new one.
+- **H-15** — `AddExpenseViewModel.save()`: re-checks `canSave` after `await updateConversion()` using already-bound local `payerID`.
+- **H-16** — `ProfileViewModel.saveProfile`: uploads avatar first, then does ONE `updateProfile` write with `finalAvatarURL`.
+- **H-17** — `ProfileViewModel.saveProfile`: validates and trims `displayName` before any network call.
+- **H-21** — `FriendsView.ious(with:)` and `netBalances(with:)`: constrained to current user as lender or borrower (no third-party IOUs).
+- **H-22** — `AppLockService`: `cachedBiometryType` stored once at init; removed repeated `LAContext` creation in computed properties.
+- **H-24/H-25** — `ExportService`: CSV uses `\r\n` + UTF-8 BOM; `currencyFormatter.locale = en_US_POSIX`; PDF column widths prevent "Paid By" clipping.
+- **H-26** — `GroupDetailView`: removed `placement: .navigationBarDrawer` from `.searchable` (fails with hidden nav bar).
+- **H-27** — `GroupDetailView`: removed dead `@State private var showSettleUp` and its `.sheet` binding.
+- **H-28** — `HomeView` navigation destination: shows `ProgressView("Loading...")` when `currentUser?.id` is nil.
+- **H-29** — `SettleUpView`: `@State private var isSettling` guard prevents double-tap on "Mark Settled".
+- **H-30/H-31** — `FriendsView`: removed dead `contactSuggestions`/`quickAdd`; added toolbar `ProgressView` during refresh.
+- **H-32** — `MainTabView` quick action: checks `currentUser != nil && !groups.isEmpty` before showing sheet.
+- **H-33** — `ProfileView`: "Payment Handles" section header shows a "Save" button (disabled during load) whenever `venmoHandle` or `paypalEmail` differs from the saved `vm.user` values. Calls `vm.saveProfile(avatarImage: nil)`.
+- **H-34** — `ProfileViewModel`: added `primaryCurrency: String` (most-used currency across fetched groups, default "USD"); `ProfileView` stats card uses `vm.primaryCurrency` instead of hardcoded `"USD"`.
+- **H-35** — `ExpenseDetailView`: ProgressView overlay on Save button has `.allowsHitTesting(false)`.
+- **H-36** — `ExpenseDetailView.openEditSheet()`: uses `NSDecimalRound` to avoid scientific notation in amount string.
+- **H-37** — `ExchangeRateService.rates(base:)`: HTTP status code checked before JSON decoding; non-2xx throws descriptive error.
+
 ## Known TODOs
 - **App Group registration** (for widget data sharing): register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Certificates, IDs & Profiles → Identifiers → App Groups
 - App Store Assets: screenshots, preview video, keyword strategy (only remaining P0 blocker)
@@ -685,6 +726,9 @@ All 20 defects from the second senior developer audit (v2) fixed. Key changes:
 - `invite-member` ✅ — group email invites live (2026-05-09); secrets: `RESEND_API_KEY` + `INVITE_FROM_EMAIL=invites@xbill.vijaygoyal.org`
 - Migrations 023 + 024 ✅ — pushed to production DB (2026-05-07)
 - Migration 026 ✅ — `venmo_handle` + `paypal_email` columns live (2026-05-09)
+- `notify-expense` ✅ — H-08 callerID sender-exclusion live (2026-05-10)
+- `notify-settlement` ✅ — H-09 callerID fromUserID/fromName + toUserID group-member validation live (2026-05-10)
+- Migration 027 (pending push) — `027_crit_rls_fixes.sql`: CRIT-03 groups UPDATE (creator-only), M-22 groups DELETE (creator-only), CRIT-04 ious UPDATE WITH CHECK, CRIT-05 friends UPDATE (addressee, accepted/blocked only), CRIT-06 group_invites SELECT (creator or member), CRIT-07 device_tokens FOR ALL WITH CHECK, H-10 profiles email functional index, H-11 drop old 7-param add_expense_with_splits overload, M-20 join_group_via_invite token invalidation on use
 
 ## Low Defect Fixes (2026-05-07)
 
