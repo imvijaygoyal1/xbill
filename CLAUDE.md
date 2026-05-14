@@ -718,6 +718,36 @@ All 11 Critical and 37 High defects from the v3 senior developer audit (DEFECT_R
 - **App Group registration** (for widget data sharing): register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Certificates, IDs & Profiles → Identifiers → App Groups
 - App Store Assets: screenshots, preview video, keyword strategy (only remaining P0 blocker)
 
+## All v3 Low Defects Fixed (2026-05-13, commit 126ed55)
+
+All 30 v3 Low defects resolved. Key changes:
+
+- **L-01** — `Expense.Category`/`Recurrence` custom decoders fall back to `.other`/`.none` on unrecognized DB values
+- **L-03** — `SplitCalculator.validateExact` formats amounts to 2dp in error strings
+- **L-05** — `AppDelegate` token registration logs failures via `Logger`
+- **L-06** — Dead `fetchUnsettledExpenses` removed from `ExpenseService`
+- **L-08** — `AuthViewModel.passwordResetSent` flag added
+- **L-10** — `splits_settled_consistency` CHECK constraint (migration 030)
+- **L-11** — `join_group_via_invite` unified error message (migration 030)
+- **L-12** — `VisionService.recognizeText` passes `UIImage` orientation to Vision — rotated receipts now OCR correctly
+- **L-13** — `GroupDetailView` FAB `.accessibilityLabel("Add Expense")`
+- **L-14** — `GroupDetailView` export error feedback via `vm.errorAlert`
+- **L-16** — `ActivityView.groupedItems` `DateFormatter` → `private static let`
+- **L-17** — `ProfileView` stats `.redacted(reason:)` skeleton while loading
+- **L-18** — `ProfileView` avatar picker uses `PHPickerViewController` (replaces deprecated `UIImagePickerController`)
+- **L-19** — `HomeView` recent expense rows are tappable `NavigationLink`s to `ExpenseDetailView`
+- **L-20** — `SettleUpView` amount color direction-aware (red=you owe, green=owed to you)
+- **L-21** — `ContentView` sample data alert uses `errorDescription` as title
+- **L-22** — `ReceiptViewModel.confidenceLabel` uses `if/else if` instead of `PartialRangeFrom` switch
+- **L-23** — `ReceiptViewModel.updateUnitPrice/updateQuantity` use copy-mutate pattern
+- **L-24** — `VisionService.validateHeuristic` cached — called only once per scan
+- **L-25** — `ExchangeRateService` persists rates to `UserDefaults` — stale disk cache used offline
+- **L-26** — `AddIOUView` description capped at 200 chars with counter
+- **L-27** — `CacheService.saveBalance` writes single JSON blob atomically
+- **L-28** — `AuthViewModel.hasStartedListener` static flag prevents duplicate auth listeners
+- **L-29** — `InviteJoinRequest` moved to `GroupInvite.swift`
+- **Migration 030** ✅ — L-10 + L-11 pushed to production DB (2026-05-13)
+
 ## Deployed Edge Functions (production)
 - `notify-expense` ✅ — H-05 badge batching live (2026-05-07)
 - `notify-comment` ✅ — H-05 badge batching live (2026-05-07)
