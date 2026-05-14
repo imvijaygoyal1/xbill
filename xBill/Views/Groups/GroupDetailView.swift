@@ -174,6 +174,7 @@ struct GroupDetailView: View {
             // FAB — only on Expenses tab when online
             if selectedTab == 0 && NetworkMonitor.shared.isConnected {
                 FABButton { showAddExpense = true }
+                    .accessibilityLabel("Add Expense")
                     .padding(.bottom, AppSpacing.floatingActionBottomPadding)
                     .padding(.trailing, AppSpacing.md)
             }
@@ -458,8 +459,12 @@ struct GroupDetailView: View {
             memberNames: names
         )
         let filename = "\(vm.group.name.sanitizedForFilename)_expenses.csv"
-        guard let url = try? ExportService.shared.writeTemp(data: data, filename: filename) else { return }
-        shareItem = ExportShareItem(url: url)
+        do {
+            let url = try ExportService.shared.writeTemp(data: data, filename: filename)
+            shareItem = ExportShareItem(url: url)
+        } catch {
+            vm.errorAlert = ErrorAlert(title: "Export Failed", message: error.localizedDescription)
+        }
     }
 
     private func exportPDF() {
@@ -471,8 +476,12 @@ struct GroupDetailView: View {
             balances: vm.balances
         )
         let filename = "\(vm.group.name.sanitizedForFilename)_expenses.pdf"
-        guard let url = try? ExportService.shared.writeTemp(data: data, filename: filename) else { return }
-        shareItem = ExportShareItem(url: url)
+        do {
+            let url = try ExportService.shared.writeTemp(data: data, filename: filename)
+            shareItem = ExportShareItem(url: url)
+        } catch {
+            vm.errorAlert = ErrorAlert(title: "Export Failed", message: error.localizedDescription)
+        }
     }
 }
 

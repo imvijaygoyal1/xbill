@@ -152,16 +152,18 @@ final class VisionService: Sendable {
 
         // Gap 7: Attempt constraint-solving when math fails and delta is small enough
         // to be a single-digit OCR misread rather than a structural parse failure.
+        // L-24: Cache the validation result to avoid calling validateHeuristic twice.
         var mutableCandidates = candidates
+        let initialWarning = validateHeuristic(receipt)
         let warning: String?
         if let total = receipt.total,
-           validateHeuristic(receipt) != nil,
+           initialWarning != nil,
            reconcile(candidates: &mutableCandidates, total: total,
                      tax: receipt.tax ?? .zero, tip: receipt.tip ?? .zero) {
             receipt.items = mutableCandidates.map(\.item)
             warning = nil
         } else {
-            warning = validateHeuristic(receipt)
+            warning = initialWarning
         }
 
         let category = suggestCategory(merchant: receipt.merchant, items: receipt.items)
@@ -336,7 +338,11 @@ final class VisionService: Sendable {
             // Prefer device locales first, always include English as fallback
             request.recognitionLanguages   = preferredRecognitionLanguages()
 
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            // L-12: Pass image orientation so Vision correctly interprets rotated receipts.
+            // Without this, VNImageRequestHandler assumes .up and produces garbage OCR on
+            // portrait photos taken with the device rotated (e.g. landscape shots of receipts).
+            let orientation = CGImagePropertyOrientation(image.imageOrientation)
+            let handler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
             do {
                 try handler.perform([request])
             } catch {
@@ -710,5 +716,25 @@ final class VisionService: Sendable {
             confidence:      0,
             transactionDate: nil
         ))
+    }
+}
+
+// MARK: - L-12: CGImagePropertyOrientation from UIImage.Orientation
+
+/// Maps UIImage.Orientation (EXIF-based) to the CGImagePropertyOrientation values
+/// expected by VNImageRequestHandler so Vision interprets rotated receipts correctly.
+private extension CGImagePropertyOrientation {
+    init(_ uiOrientation: UIImage.Orientation) {
+        switch uiOrientation {
+        case .up:            self = .up
+        case .upMirrored:    self = .upMirrored
+        case .down:          self = .down
+        case .downMirrored:  self = .downMirrored
+        case .left:          self = .left
+        case .leftMirrored:  self = .leftMirrored
+        case .right:         self = .right
+        case .rightMirrored: self = .rightMirrored
+        @unknown default:    self = .up
+        }
     }
 }

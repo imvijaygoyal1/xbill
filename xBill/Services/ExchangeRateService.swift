@@ -63,17 +63,45 @@ actor ExchangeRateService {
         guard let url = URL(string: "https://open.er-api.com/v6/latest/\(key)") else {
             throw AppError.unknown("Invalid exchange rate URL")
         }
-        let (data, response) = try await session.data(from: url)
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            throw AppError.unknown("Exchange rate unavailable (HTTP \(http.statusCode)). Try again later.")
+        do {
+            let (data, response) = try await session.data(from: url)
+            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                throw AppError.unknown("Exchange rate unavailable (HTTP \(http.statusCode)). Try again later.")
+            }
+            let decoded = try JSONDecoder().decode(ERAPIResponse.self, from: data)
+            guard decoded.result == "success" else {
+                throw AppError.unknown("Exchange rate API returned an error response.")
+            }
+            let decimalRates = decoded.rates.mapValues { Decimal(string: String($0)) ?? Decimal($0) }
+            cache[key] = CacheEntry(rates: decimalRates, fetchedAt: Date())
+            persistRates(decimalRates, base: key)
+            return decimalRates
+        } catch {
+            // Network or decode failure — fall back to stale disk cache before rethrowing.
+            if let stale = cachedRates(base: key) {
+                print("[ExchangeRateService] ⚠️ Using stale disk-cached rates for \(key) — \(error.localizedDescription)")
+                // Populate in-memory cache so subsequent calls in this session are fast.
+                cache[key] = CacheEntry(rates: stale, fetchedAt: .distantPast)
+                return stale
+            }
+            throw error
         }
-        let decoded = try JSONDecoder().decode(ERAPIResponse.self, from: data)
-        guard decoded.result == "success" else {
-            throw AppError.unknown("Exchange rate API returned an error response.")
-        }
-        let decimalRates = decoded.rates.mapValues { Decimal(string: String($0)) ?? Decimal($0) }
-        cache[key] = CacheEntry(rates: decimalRates, fetchedAt: Date())
-        return decimalRates
+    }
+
+    // MARK: - Disk persistence (UserDefaults)
+
+    /// Persists a rate dictionary for `base` to UserDefaults so it survives app restarts.
+    private func persistRates(_ rates: [String: Decimal], base: String) {
+        guard let data = try? JSONEncoder().encode(rates) else { return }
+        UserDefaults.standard.set(data, forKey: "er_cache_\(base)")
+    }
+
+    /// Returns a previously persisted rate dictionary for `base`, or nil if absent / undecodable.
+    private func cachedRates(base: String) -> [String: Decimal]? {
+        guard let data = UserDefaults.standard.data(forKey: "er_cache_\(base)"),
+              let dict = try? JSONDecoder().decode([String: Decimal].self, from: data)
+        else { return nil }
+        return dict
     }
 }
 

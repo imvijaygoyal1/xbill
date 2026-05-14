@@ -37,6 +37,15 @@ struct Expense: Codable, Identifiable, Equatable, Sendable {
         case health        = "health"
         case other         = "other"
 
+        // L-01: Graceful fallback for unknown future DB values.
+        // Without this, a new category added in a future migration would cause
+        // the entire Expense to fail to decode rather than gracefully falling back.
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let raw = try container.decode(String.self)
+            self = Self(rawValue: raw) ?? .other
+        }
+
         var displayName: String {
             switch self {
             case .food:          return "Food & Drink"
@@ -71,6 +80,15 @@ struct Expense: Codable, Identifiable, Equatable, Sendable {
         case weekly  = "weekly"
         case monthly = "monthly"
         case yearly  = "yearly"
+
+        // L-01: Graceful fallback for unknown future DB values.
+        // Without this, a new recurrence cadence added in a future migration would cause
+        // the entire Expense to fail to decode rather than gracefully falling back.
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let raw = try container.decode(String.self)
+            self = Self(rawValue: raw) ?? .none
+        }
 
         var displayName: String {
             switch self {

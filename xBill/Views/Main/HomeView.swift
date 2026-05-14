@@ -171,9 +171,23 @@ struct HomeView: View {
 
                             LazyVStack(spacing: 0) {
                                 ForEach(vm.recentExpenses) { entry in
-                                    ExpenseRowView(expense: entry.expense, members: entry.members)
-                                        .padding(.horizontal, AppSpacing.md)
-                                        .padding(.vertical, AppSpacing.xs)
+                                    let group = vm.groups.first(where: { $0.id == entry.expense.groupID })
+                                    NavigationLink {
+                                        if let userID = vm.currentUser?.id {
+                                            ExpenseDetailView(
+                                                expense: entry.expense,
+                                                members: entry.members,
+                                                currency: group?.currency ?? entry.expense.currency,
+                                                groupName: group?.name ?? "",
+                                                currentUserID: userID
+                                            )
+                                        }
+                                    } label: {
+                                        ExpenseRowView(expense: entry.expense, members: entry.members)
+                                            .padding(.horizontal, AppSpacing.md)
+                                            .padding(.vertical, AppSpacing.xs)
+                                    }
+                                    .buttonStyle(.plain)
 
                                     if entry.id != vm.recentExpenses.last?.id {
                                         Divider()

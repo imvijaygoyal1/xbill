@@ -132,10 +132,14 @@ enum SplitCalculator {
         var roundedTotal = Decimal()
         var totalCopy = total
         NSDecimalRound(&roundedTotal, &totalCopy, 2, .bankers)
+        // L-03: Format amounts to 2 decimal places using String(format:) to avoid
+        // Decimal.description emitting raw internal representations like "0.00000001".
+        let totalStr = String(format: "%.2f", NSDecimalNumber(decimal: roundedTotal).doubleValue)
+        let diffStr  = String(format: "%.2f", NSDecimalNumber(decimal: absDiff).doubleValue)
         if diff < .zero {
-            return "Amounts must add up to \(roundedTotal). Over by: \(absDiff)"
+            return "Amounts must add up to \(totalStr). Over by: \(diffStr)"
         } else {
-            return "Amounts must add up to \(roundedTotal). Remaining: \(absDiff)"
+            return "Amounts must add up to \(totalStr). Remaining: \(diffStr)"
         }
     }
 

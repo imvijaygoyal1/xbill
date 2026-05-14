@@ -11,6 +11,18 @@
 import WidgetKit
 import SwiftUI
 
+// MARK: - Balance Snapshot (shared with CacheService)
+
+/// Mirror of `BalanceSnapshot` in CacheService.swift.
+/// Duplicated here so the widget extension compiles without importing the main app module.
+private struct WidgetBalanceSnapshot: Codable {
+    var net: String
+    var owed: String
+    var owing: String
+    var currency: String
+    var available: Bool
+}
+
 // MARK: - Balance Entry
 
 struct BalanceEntry: TimelineEntry {
@@ -27,6 +39,15 @@ struct BalanceEntry: TimelineEntry {
 
 struct BalanceProvider: TimelineProvider {
     private let defaults = UserDefaults(suiteName: "group.com.vijaygoyal.xbill") ?? .standard
+
+    /// The single-key written by CacheService.saveBalance (L-27 atomic fix).
+    private let snapshotKey = "xbill_balance_snapshot"
+    /// Legacy individual keys — read as fallback if the snapshot key is absent.
+    private let legacyNetKey       = "xbill_net_balance"
+    private let legacyOwedKey      = "xbill_total_owed"
+    private let legacyOwingKey     = "xbill_total_owing"
+    private let legacyCurrencyKey  = "xbill_balance_currency"
+    private let legacyAvailableKey = "xbill_balance_available"
 
     func placeholder(in context: Context) -> BalanceEntry {
         BalanceEntry(date: Date(), netBalance: 42.50, totalOwed: 42.50, totalOwing: 0,
@@ -49,15 +70,35 @@ struct BalanceProvider: TimelineProvider {
     }
 
     private func entry(for date: Date) -> BalanceEntry {
-        let dataAvailable = defaults.object(forKey: "xbill_balance_available") != nil
-        // Balances are stored as String (for Decimal precision); convert to Double for display.
-        let net      = Double(defaults.string(forKey: "xbill_net_balance")   ?? "") ?? 0
-        let owed     = Double(defaults.string(forKey: "xbill_total_owed")    ?? "") ?? 0
-        let owing    = Double(defaults.string(forKey: "xbill_total_owing")   ?? "") ?? 0
-        let currency = defaults.string(forKey: "xbill_balance_currency")
-            ?? Locale.current.currency?.identifier ?? "USD"
+        // L-27: read from the atomic single-key snapshot; fall back to legacy keys
+        // so widgets that haven't refreshed yet continue to display valid data.
+        let snapshot = loadSnapshot()
+        guard let snapshot else {
+            return BalanceEntry(date: date, netBalance: 0, totalOwed: 0, totalOwing: 0,
+                                currency: Locale.current.currency?.identifier ?? "USD",
+                                isPositive: true, dataAvailable: false)
+        }
+        let net  = Double(snapshot.net)  ?? 0
+        let owed = Double(snapshot.owed) ?? 0
+        let owing = Double(snapshot.owing) ?? 0
         return BalanceEntry(date: date, netBalance: net, totalOwed: owed, totalOwing: owing,
-                            currency: currency, isPositive: net >= 0, dataAvailable: dataAvailable)
+                            currency: snapshot.currency, isPositive: net >= 0, dataAvailable: snapshot.available)
+    }
+
+    private func loadSnapshot() -> WidgetBalanceSnapshot? {
+        if let data = defaults.data(forKey: snapshotKey),
+           let snapshot = try? JSONDecoder().decode(WidgetBalanceSnapshot.self, from: data) {
+            return snapshot
+        }
+        // Legacy fallback: individual keys written before L-27 fix was deployed.
+        guard defaults.object(forKey: legacyAvailableKey) != nil else { return nil }
+        return WidgetBalanceSnapshot(
+            net: defaults.string(forKey: legacyNetKey) ?? "0",
+            owed: defaults.string(forKey: legacyOwedKey) ?? "0",
+            owing: defaults.string(forKey: legacyOwingKey) ?? "0",
+            currency: defaults.string(forKey: legacyCurrencyKey) ?? "USD",
+            available: true
+        )
     }
 }
 

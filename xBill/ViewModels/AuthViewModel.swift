@@ -8,11 +8,6 @@
 import Foundation
 import Observation
 
-struct InviteJoinRequest: Identifiable, Sendable {
-    let id = UUID()
-    let token: String
-}
-
 @Observable
 @MainActor
 final class AuthViewModel {
@@ -31,12 +26,23 @@ final class AuthViewModel {
     var confirmationEmailSent: Bool = false
     var isInPasswordRecovery: Bool = false
     var pendingJoinRequest: InviteJoinRequest?
+    /// L-08: VM-level success flag for password reset; makes the outcome testable
+    /// independently of the view's own success state.
+    var passwordResetSent: Bool = false
 
     var isLoggedIn: Bool { currentUser != nil }
 
     private let auth = AuthService.shared
     @ObservationIgnored private var isListening = false
     @ObservationIgnored private var lastLoadedUserID: String?
+
+    // L-28: Process-wide guard that survives SwiftUI App struct reconstruction on scene
+    // lifecycle events. If the App struct is recreated, a new AuthViewModel instance is
+    // produced with isListening = false, which would let a second auth listener start.
+    // hasStartedListener is static so a second instance always sees the first one's state.
+    // nonisolated(unsafe) is safe here: the flag is only set true once, in a MainActor
+    // context before the Supabase listener loop begins, and never reset.
+    private nonisolated(unsafe) static var hasStartedListener = false
 
     // MARK: - Computed
 
@@ -62,7 +68,12 @@ final class AuthViewModel {
     /// Call this from the app root so sign-in / sign-out propagates everywhere.
     /// Guards against duplicate subscriptions if called more than once.
     func startListeningToAuthChanges() async {
+        // Instance-level guard: prevents re-entry if the same instance calls this twice.
         guard !isListening else { return }
+        // L-28: Process-level guard: prevents a second AuthViewModel instance (created
+        // by SwiftUI App struct reconstruction) from starting a second concurrent listener.
+        guard !AuthViewModel.hasStartedListener else { return }
+        AuthViewModel.hasStartedListener = true
         isListening = true
         defer { isListening = false }
 
@@ -173,6 +184,9 @@ final class AuthViewModel {
         defer { isLoading = false }
         do {
             try await auth.sendPasswordReset(email: email)
+            // L-08: Set the VM-level flag so tests can assert on success without
+            // depending on the view's own local state.
+            passwordResetSent = true
         } catch {
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }

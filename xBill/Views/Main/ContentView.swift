@@ -75,7 +75,7 @@ struct ContentView: View {
                 lockService.lock()
             }
         }
-        .alert("Sample Data Error", isPresented: Binding(
+        .alert(sampleDataError?.errorDescription ?? "Sample Data Error", isPresented: Binding(
             get: { sampleDataError != nil },
             set: { if !$0 { sampleDataError = nil } }
         )) {

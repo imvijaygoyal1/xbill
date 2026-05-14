@@ -9,6 +9,7 @@ import SwiftUI
 import UIKit
 import CoreSpotlight
 import UserNotifications
+import OSLog
 
 // MARK: - AppDelegate (handles APNs device token + quick actions + notification routing)
 
@@ -56,7 +57,16 @@ class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotifi
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
         let tokenString = deviceToken.map { String(format: "%02x", $0) }.joined()
-        Task { try? await AuthService.shared.updateDeviceToken(tokenString) }
+        // L-05: Log registration failures instead of silently swallowing them.
+        // The previous try? discarded errors making token-registration failures invisible.
+        Task {
+            do {
+                try await AuthService.shared.updateDeviceToken(tokenString)
+            } catch {
+                Logger(subsystem: "com.vijaygoyal.xbill", category: "Push")
+                    .error("Token registration failed: \(error)")
+            }
+        }
     }
 
     func application(

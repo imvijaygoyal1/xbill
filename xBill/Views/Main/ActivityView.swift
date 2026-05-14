@@ -54,15 +54,19 @@ struct ActivityView: View {
 
     // MARK: - Grouped list
 
+    /// Locale-independent ISO-8601 date formatter used as a grouping key.
+    /// Declared as a static let so it is created once for the lifetime of the app
+    /// rather than on every SwiftUI evaluation pass of `groupedItems`.
+    private static let groupKeyFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale     = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
     private var groupedItems: [(header: String, items: [NotificationItem])] {
-        let calendar   = Calendar.current
-        let posixLocale = Locale(identifier: "en_US_POSIX")
-        let keyFormatter: DateFormatter = {
-            let f = DateFormatter()
-            f.locale     = posixLocale
-            f.dateFormat = "yyyy-MM-dd"
-            return f
-        }()
+        let calendar      = Calendar.current
+        let keyFormatter  = ActivityView.groupKeyFormatter
         // Group by locale-independent key to avoid non-deterministic section order.
         let grouped = Dictionary(grouping: vm.items) { item -> String in
             if calendar.isDateInToday(item.createdAt)     { return "0-TODAY" }
