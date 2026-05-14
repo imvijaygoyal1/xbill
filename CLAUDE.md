@@ -730,6 +730,11 @@ All 11 Critical and 37 High defects from the v3 senior developer audit (DEFECT_R
 - `notify-settlement` ✅ — H-09 callerID fromUserID/fromName + toUserID group-member validation live (2026-05-13)
 - Migration 027 ✅ — pushed to production DB (2026-05-13). CRIT-03 groups UPDATE (creator-only), M-22 groups DELETE (creator-only), CRIT-04 ious UPDATE WITH CHECK, CRIT-05 friends UPDATE (addressee, accepted/blocked only), CRIT-06 group_invites SELECT (creator or member), CRIT-07 device_tokens FOR ALL WITH CHECK, H-10 profiles email functional index, H-11 drop old 7-param add_expense_with_splits overload, M-20 join_group_via_invite single-use token (DROP+CREATE to preserve uuid return type)
 - Migration 028 ✅ — pushed to production DB (2026-05-13). M-21 creator DELETE policy on group_members so creator can remove any member.
+- Migration 029 ✅ — pushed to production DB (2026-05-13). M-18 group_members INSERT profile-existence check, M-19 search_profiles 2-char minimum, M-24 composite index on group_members(user_id,group_id), M-48 send_friend_request ON CONFLICT DO NOTHING with pair unique index.
+- `notify-expense` ✅ — M-23 APNs expiry 24h live (2026-05-13)
+- `notify-settlement` ✅ — M-23 APNs expiry 24h live (2026-05-13)
+- `notify-comment` ✅ — M-23 APNs expiry 24h live (2026-05-13)
+- `notify-friend-request` ✅ — M-23 APNs expiry 24h live (2026-05-13)
 
 ## Low Defect Fixes (2026-05-07)
 
@@ -789,9 +794,63 @@ All 47 Low severity defects from the senior developer audit (DEFECT_REPORT.md) f
 - **L-46** — `018_lookup_profiles_by_email.sql`: history note added (email removed in migration 025).
 - **L-47** — All 6 Edge Functions: `@supabase/supabase-js@2` pinned to `@2.49.1`.
 
-## Data Correctness Fixes — v3 Medium (2026-05-13)
+## All v3 Medium Defects Fixed (2026-05-13)
 
-Selected medium defects from the v3 audit fixed in commit `09d2f7e`:
+All 44 remaining Medium defects from the v3 audit fixed in commits `09d2f7e` + `ac9ba65` (2026-05-13).
+
+### Swift fixes (commit ac9ba65)
+- **M-01** — `SplitCalculator.splitByShares` last-participant percentage correction (`100 - distributedPct`)
+- **M-02** — `AuthViewModel`: set `lastLoadedUserID = user.id.uuidString` after direct sign-in to block redundant listener reload
+- **M-03** — `CacheService.save` skips write when `encrypt` returns nil — no plaintext fallback when Keychain unavailable
+- **M-04** — `NotificationStore.clearItems()` dead API removed
+- **M-05** — `IOU.createdBy` changed to `UUID?` — NULL legacy rows no longer crash decoder
+- **M-10** — `IOUService.fetchUserByEmail` uses `.whitespacesAndNewlines` trim
+- **M-12** — `VisionService.extractDecimal` uses `matches.last` — returns rightmost price (line total, not unit price)
+- **M-13** — `VisionService` detects `¥`/`₩` currency symbols → JPY/KRW
+- **M-14** — `FriendsView.friendIDsWithBalance` uses `Set<UUID>` — O(1) lookup instead of O(n²)
+- **M-25** — `IOUService.createIOU` validates caller is lender or borrower before DB call
+- **M-27** — `GroupViewModel.recordSettlement` removes unnecessary `[weak self]`
+- **M-28** — `HomeViewModel.unarchiveGroup` rollback restores both `groups` and `archivedGroups`
+- **M-29** — `HomeViewModel.deleteGroup` `isLoading` guard + cache update after deletion
+- **M-30** — `HomeViewModel.computeBalances` name merge uses `{ _, new in new }` — newer name wins
+- **M-31** — Push pref keys use `CacheService.defaults` (App Group suite, not `.standard`)
+- **M-33** — `AddExpenseViewModel.updateConversion` cancels stale tasks via `conversionTask: Task<Void, Never>?`
+- **M-34** — `ProfileViewModel.loadStats` batches 5 groups at a time instead of all-at-once
+- **M-35** — `GroupDetailView` resets `searchText`/`filterCategory` on tab switch
+- **M-36** — `GroupDetailView` Balances/Settle Up tabs show `ProgressView` while `isLoading`
+- **M-37** — `FriendDetailView` uses `@State private var localIOUs` refreshed after settle
+- **M-38** — `FriendDetailView.loadMutualGroups()` no longer bails silently when `allGroups` is empty
+- **M-39** — `FriendDetailView` uses `XBillPageHeader` with hidden nav bar (design system consistent)
+- **M-40** — `ActivityViewModel.markAllRead()` immediately maps `items` array to `isRead = true`
+- **M-41** — `ReceiptViewModel.asSplitInputs()` single O(N) pass (was O(N×M) per member)
+- **M-42** — `ReceiptViewModel.scan(pages:)` sets `capturedPages = pages` at start — no stale pages
+- **M-43** — `ExpenseDetailView` delete swipe shown only on own comments via per-row `.swipeActions`
+- **M-44** — `ExpenseDetailView` realtime subscription errors logged via `Logger` instead of silent fail
+- **M-45** — `MainTabView` QR deep-link sheet guarded on `currentUser != nil` — no transparent flash
+- **M-46** — `MainTabView` foreground refresh also calls `homeVM.loadAll()` alongside `activityVM.load()`
+- **M-47** — `MainTabView` deep-link uses `fetchProfiles(ids:)` not `searchProfiles` for UUID lookups
+- **M-50** — `ProfileView` bottom padding reduced from ~80pt to `AppSpacing.lg` (no FAB on profile tab)
+- **M-52** — `ProfileViewModel.loadStats` excludes recurring templates from `lifetimePaid`
+
+### Earlier batch (commit 09d2f7e)
+- **M-06/M-07/M-08/M-09/M-11/M-17/M-21/M-51** — see "Data Correctness Fixes" history below
+
+### Backend fixes (migration 029 + edge function deploys)
+- **M-18** — `group_members` INSERT policy requires `user_id` exists in `profiles`
+- **M-19** — `search_profiles` RPC enforces minimum 2-char query
+- **M-23** — APNs `apns-expiration` extended to 24h across all 4 notify functions
+- **M-24** — Composite index `group_members(user_id, group_id)` for RLS query perf
+- **M-48** — `send_friend_request` uses `INSERT … ON CONFLICT DO NOTHING` with unique pair index
+
+### Already correct / confirmed no-ops
+- **M-15** — `ExportService.currencyFormatter` already had `en_US_POSIX` locale
+- **M-16** — `AppLockService.authenticate` already only disables on `passcodeNotSet`
+- **M-20** — Fixed in migration 027 (single-use invite tokens)
+- **M-22** — Fixed in migration 027 (groups DELETE creator-only)
+- **M-26** — `recordSettlement` already correctly scoped by expense pre-filter
+- **M-32** — `canSave` re-check after `await` already in place from H-15
+
+### Previous batch (commit 09d2f7e)
 
 - **M-06** — `homeVM` moved to `ContentView` (`@State private var homeVM = HomeViewModel()`); `MainTabView` takes `var homeVM: HomeViewModel` (no `@State`). Sample data now writes to the live instance visible on the Groups tab.
 - **M-07** — `GroupViewModel.createDueRecurringInstances`: computes `newNextDate` BEFORE the `splitInputs.isEmpty` guard. Empty-split templates log via `Logger.fault` and advance the date rather than retrying infinitely.
