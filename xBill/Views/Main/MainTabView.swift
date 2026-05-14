@@ -148,7 +148,14 @@ struct MainTabView: View {
         // Handle xbill://add/<userID> deep link → open AddFriendView pre-loaded
         .task(id: appState.pendingAddFriendUserID) {
             guard let userID = appState.pendingAddFriendUserID else { return }
-            if let profile = try? await FriendService.shared.searchProfiles(query: userID.uuidString).first {
+            // Guard: do not open sheet when currentUser is not yet loaded — avoids transparent flash.
+            guard homeVM.currentUser != nil else {
+                appState.pendingAddFriendUserID = nil
+                return
+            }
+            // Fetch by ID using fetchProfiles(ids:) — searchProfiles uses ILIKE on email/display_name
+            // and would never match a raw UUID string.
+            if let profile = try? await FriendService.shared.fetchProfiles(ids: [userID]).first {
                 addFriendPreloadedUser = profile
             }
             selectedTab = .friends
@@ -156,16 +163,12 @@ struct MainTabView: View {
             appState.pendingAddFriendUserID = nil
         }
         .sheet(isPresented: $showAddFriendFromQR) {
+            // currentUser is guaranteed non-nil: the task handler guards on it before setting showAddFriendFromQR.
             if let user = homeVM.currentUser {
                 AddFriendView(
                     currentUserID: user.id,
                     preloadedUser: addFriendPreloadedUser
                 ) { }
-            } else {
-                // currentUser not yet loaded — dismiss immediately rather than
-                // opening AddFriendView with a nil user identity.
-                Color.clear
-                    .onAppear { showAddFriendFromQR = false }
             }
         }
         .onChange(of: authVM.currentUser) { _, newUser in
@@ -180,7 +183,10 @@ struct MainTabView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            Task { await activityVM.load() }
+            Task {
+                await activityVM.load()
+                await homeVM.loadAll()
+            }
         }
     }
 }

@@ -9,7 +9,7 @@ import Foundation
 
 struct IOU: Codable, Identifiable, Sendable {
     let id: UUID
-    let createdBy: UUID
+    let createdBy: UUID?  // M-05: nullable for NULL legacy DB rows (pre-constraint backfill)
     let lenderID: UUID    // person who is owed (creditor)
     let borrowerID: UUID  // person who owes (debtor)
     var amount: Decimal

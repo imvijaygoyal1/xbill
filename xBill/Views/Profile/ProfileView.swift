@@ -256,7 +256,7 @@ struct ProfileView: View {
     }
 
     private var scrollBottomPadding: CGFloat {
-        AppSpacing.xxl + AppSpacing.floatingActionBottomPadding
+        AppSpacing.lg
     }
 
     private func profileSection<Content: View>(

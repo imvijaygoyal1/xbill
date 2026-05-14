@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+import OSLog
+
+private let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "ExpenseDetailView")
 
 struct ExpenseDetailView: View {
     let expense: Expense
@@ -137,12 +140,15 @@ struct ExpenseDetailView: View {
                 } else {
                     ForEach(comments) { comment in
                         commentRow(comment)
-                    }
-                    .onDelete { offsets in
-                        for comment in offsets.map({ comments[$0] }) {
-                            guard comment.userID == currentUserID else { continue }
-                            commentToDelete = comment
-                        }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                if comment.userID == currentUserID {
+                                    Button(role: .destructive) {
+                                        commentToDelete = comment
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                            }
                     }
                 }
             }
@@ -179,11 +185,17 @@ struct ExpenseDetailView: View {
             isLoadingComments = false
         }
         .task(id: expense.id) {
-            guard let stream = try? await CommentService.shared.commentChanges(expenseID: expense.id) else { return }
-            for await _ in stream {
-                if let fresh = try? await CommentService.shared.fetchComments(expenseID: expense.id) {
-                    comments = fresh
+            do {
+                let stream = try await CommentService.shared.commentChanges(expenseID: expense.id)
+                for await _ in stream {
+                    do {
+                        comments = try await CommentService.shared.fetchComments(expenseID: expense.id)
+                    } catch {
+                        logger.error("Comment refresh after realtime event failed: \(error, privacy: .public)")
+                    }
                 }
+            } catch {
+                logger.error("Realtime comment subscription failed for expense \(expense.id, privacy: .public): \(error, privacy: .public)")
             }
         }
         .confirmationDialog("Delete this expense?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {

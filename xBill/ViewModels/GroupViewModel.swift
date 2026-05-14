@@ -312,8 +312,7 @@ final class GroupViewModel {
                 splits.filter { $0.userID == suggestion.fromUserID && !$0.isSettled }
             }
 
-            try await withThrowingTaskGroup(of: Void.self) { [weak self] taskGroup in
-                guard let self else { return }
+            try await withThrowingTaskGroup(of: Void.self) { taskGroup in
                 for split in splitsToSettle {
                     taskGroup.addTask {
                         try await self.expenseService.settleSplit(id: split.id)
@@ -330,7 +329,7 @@ final class GroupViewModel {
             NotificationStore.shared.merge([note])
 
             // Await the notification inline; isSaved drives sheet dismissal, not isLoading.
-            if UserDefaults.standard.bool(forKey: "prefPushSettlement") {
+            if CacheService.defaults.bool(forKey: "prefPushSettlement") {
                 await expenseService.notifySettlementRecorded(
                     settlementID: suggestion.id,
                     groupID:      group.id,

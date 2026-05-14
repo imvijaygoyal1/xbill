@@ -96,9 +96,14 @@ final class HomeViewModel {
     func refresh() async { await loadAll() }
 
     func deleteGroup(_ group: BillGroup) async {
+        guard !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
         do {
             try await groupService.deleteGroup(groupId: group.id)
             groups.removeAll { $0.id == group.id }
+            // Keep the persistent cache in sync so the deleted group doesn't reappear on cold launch.
+            CacheService.shared.saveGroups(groups)
         } catch {
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
@@ -116,8 +121,9 @@ final class HomeViewModel {
     }
 
     func unarchiveGroup(_ group: BillGroup) async {
-        // Remember position so we can restore on failure.
+        // Capture pre-attempt state so both arrays can be restored on failure.
         let originalIndex = archivedGroups.firstIndex(where: { $0.id == group.id })
+        let previousGroups = groups
         do {
             var updated = group
             updated.isArchived = false
@@ -125,7 +131,7 @@ final class HomeViewModel {
             archivedGroups.removeAll { $0.id == group.id }
             await loadAll()
         } catch {
-            // Restore the group to archivedGroups if loadAll() (or the service call) threw.
+            // Restore archivedGroups to pre-attempt state.
             if !archivedGroups.contains(where: { $0.id == group.id }) {
                 if let index = originalIndex {
                     archivedGroups.insert(group, at: min(index, archivedGroups.count))
@@ -133,6 +139,8 @@ final class HomeViewModel {
                     archivedGroups.append(group)
                 }
             }
+            // Restore groups to pre-attempt state in case loadAll() left it partially loaded.
+            groups = previousGroups
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
@@ -211,7 +219,7 @@ final class HomeViewModel {
                 for (uid, bal) in data.balances {
                     mergedByCurrency[data.currency, default: [:]][uid, default: .zero] += bal
                 }
-                allNames.merge(data.names) { old, _ in old }
+                allNames.merge(data.names) { _, new in new }
                 groupMemberCounts[data.groupID] = data.memberCount
                 groupNetBalances[data.groupID]  = data.netBalance
             }

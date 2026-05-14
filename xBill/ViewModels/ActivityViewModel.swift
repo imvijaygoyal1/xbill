@@ -47,6 +47,9 @@ final class ActivityViewModel {
 
     func markAllRead() {
         store.markAllRead()
+        // Update the in-memory array so individual rows reflect read state
+        // immediately without waiting for a reload from the store.
+        items = items.map { var i = $0; i.isRead = true; return i }
         // Read back from the store rather than hardcoding 0 so that a silent
         // store failure doesn't permanently suppress the badge.
         unreadCount = store.unreadCount()

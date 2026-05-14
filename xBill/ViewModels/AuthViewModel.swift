@@ -106,7 +106,9 @@ final class AuthViewModel {
         isLoading = true
         defer { isLoading = false }
         do {
-            currentUser = try await auth.signInWithEmail(email: email, password: password)
+            let user = try await auth.signInWithEmail(email: email, password: password)
+            currentUser = user
+            lastLoadedUserID = user.id.uuidString
         } catch {
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Sign In Failed", message: error.localizedDescription)
@@ -118,11 +120,13 @@ final class AuthViewModel {
         isLoading = true
         defer { isLoading = false }
         do {
-            currentUser = try await auth.signUpWithEmail(
+            let user = try await auth.signUpWithEmail(
                 email: email,
                 password: password,
                 displayName: displayName
             )
+            currentUser = user
+            lastLoadedUserID = user.id.uuidString
         } catch AppError.confirmationRequired {
             confirmationEmailSent = true
         } catch {
@@ -135,7 +139,9 @@ final class AuthViewModel {
         isLoading = true
         defer { isLoading = false }
         do {
-            currentUser = try await auth.signInWithApple(idToken: idToken, nonce: nonce, displayName: displayName)
+            let user = try await auth.signInWithApple(idToken: idToken, nonce: nonce, displayName: displayName)
+            currentUser = user
+            lastLoadedUserID = user.id.uuidString
         } catch {
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Sign In Failed", message: error.localizedDescription)

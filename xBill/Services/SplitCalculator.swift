@@ -87,20 +87,34 @@ enum SplitCalculator {
 
         let totalSharesDecimal = Decimal(totalShares)
         var distributed = Decimal.zero
+        var distributedPct = Decimal.zero
 
-        for index in included {
+        for (offset, index) in included.enumerated() {
+            let isLast = offset == included.count - 1
             let shareCount = Decimal(inputs[index].shares)
             var amount = total * shareCount / totalSharesDecimal
             var rounded = Decimal()
             NSDecimalRound(&rounded, &amount, 2, .bankers)
             inputs[index].amount = rounded
-            inputs[index].percentage = (shareCount / totalSharesDecimal * 100).rounded
             distributed += rounded
+
+            if isLast {
+                var pct = 100 - distributedPct
+                var pctRounded = Decimal()
+                NSDecimalRound(&pctRounded, &pct, 2, .bankers)
+                inputs[index].percentage = pctRounded
+            } else {
+                var rawPct = shareCount / totalSharesDecimal * 100
+                var pctRounded = Decimal()
+                NSDecimalRound(&pctRounded, &rawPct, 2, .bankers)
+                inputs[index].percentage = pctRounded
+                distributedPct += pctRounded
+            }
         }
 
-        // Assign remainder to first included participant
-        if let first = included.first {
-            inputs[first].amount += total - distributed
+        // Assign remainder to last included participant (mirrors splitEqually)
+        if let last = included.last {
+            inputs[last].amount += total - distributed
         }
     }
 

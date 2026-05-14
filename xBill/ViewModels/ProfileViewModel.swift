@@ -76,21 +76,35 @@ final class ProfileViewModel {
             var expenseCount = 0
             var totalPaid    = Decimal.zero
 
-            await withTaskGroup(of: (Int, Decimal).self) { taskGroup in
-                for group in groups {
-                    taskGroup.addTask {
-                        let expenses = (try? await self.expenseService.fetchExpenses(groupID: group.id)) ?? []
-                        // totalExpensesCount = expenses paid by this user (not all group expenses)
-                        let paid = expenses
-                            .filter { $0.payerID == userID }
-                            .reduce(Decimal.zero) { $0 + $1.amount }
-                        return (expenses.filter { $0.payerID == userID }.count, paid)
+            // M-34: profile stats don't need maximum parallelism — fetch groups
+            // sequentially to avoid firing 20+ concurrent DB queries at once.
+            // Cap concurrency at 5 to balance latency against DB connection pressure.
+            let concurrencyLimit = 5
+            var index = 0
+            while index < groups.count {
+                let batch = groups[index ..< min(index + concurrencyLimit, groups.count)]
+                await withTaskGroup(of: (Int, Decimal).self) { taskGroup in
+                    for group in batch {
+                        taskGroup.addTask {
+                            let expenses = (try? await self.expenseService.fetchExpenses(groupID: group.id)) ?? []
+                            // M-52: exclude recurring template expenses (recurrence != .none
+                            // AND nextOccurrenceDate != nil) — they are schedule placeholders,
+                            // not real transactions, so they should not inflate lifetimePaid.
+                            let realExpenses = expenses.filter {
+                                $0.recurrence == .none || $0.nextOccurrenceDate == nil
+                            }
+                            // totalExpensesCount = real expenses paid by this user
+                            let paidExpenses = realExpenses.filter { $0.payerID == userID }
+                            let paid = paidExpenses.reduce(Decimal.zero) { $0 + $1.amount }
+                            return (paidExpenses.count, paid)
+                        }
+                    }
+                    for await (count, paid) in taskGroup {
+                        expenseCount += count
+                        totalPaid    += paid
                     }
                 }
-                for await (count, paid) in taskGroup {
-                    expenseCount += count
-                    totalPaid    += paid
-                }
+                index += concurrencyLimit
             }
 
             totalExpensesCount = expenseCount
