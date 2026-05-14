@@ -43,18 +43,26 @@ struct FriendsView: View {
         return (allFriends.map(\.id) + iouFriendIDs).filter { seen.insert($0).inserted }
     }
 
+    /// Set of friend IDs who have at least one unsettled IOU — O(n) precomputed.
+    private var friendIDsWithBalanceSet: Set<UUID> {
+        var result = Set<UUID>()
+        for iou in ious where !iou.isSettled {
+            result.insert(iou.lenderID)
+            result.insert(iou.borrowerID)
+        }
+        return result
+    }
+
     /// Friends who have outstanding (unsettled) IOUs — shown in the primary section.
     private var friendIDsWithBalance: [UUID] {
-        displayFriendIDs.filter { id in
-            ious.contains { iou in
-                !iou.isSettled && (iou.lenderID == id || iou.borrowerID == id)
-            }
-        }
+        let balanceSet = friendIDsWithBalanceSet
+        return displayFriendIDs.filter { balanceSet.contains($0) }
     }
 
     /// Friends with no outstanding balance.
     private var friendIDsSettled: [UUID] {
-        displayFriendIDs.filter { id in !friendIDsWithBalance.contains(id) }
+        let balanceSet = friendIDsWithBalanceSet
+        return displayFriendIDs.filter { !balanceSet.contains($0) }
     }
 
     /// Net balance (from my perspective) with a friend, per currency.
@@ -360,14 +368,15 @@ struct FriendDetailView: View {
     var allGroups:     [BillGroup] = []
     let onSettled:     () async -> Void
 
+    @State private var localIOUs: [IOU] = []
     @State private var mutualGroups: [BillGroup] = []
     @State private var showAddIOU = false
     @State private var isSettling = false
     @State private var error: AppError?
     @Environment(\.dismiss) private var dismiss
 
-    private var unsettledIOUs: [IOU] { allIOUs.filter { !$0.isSettled } }
-    private var settledIOUs:   [IOU] { allIOUs.filter { $0.isSettled } }
+    private var unsettledIOUs: [IOU] { localIOUs.filter { !$0.isSettled } }
+    private var settledIOUs:   [IOU] { localIOUs.filter { $0.isSettled } }
 
     var body: some View {
         List {
@@ -418,7 +427,7 @@ struct FriendDetailView: View {
                 }
             }
 
-            if allIOUs.isEmpty {
+            if localIOUs.isEmpty {
                 EmptyStateView(
                     icon: "checkmark.circle.fill",
                     title: "No IOUs",
@@ -429,14 +438,24 @@ struct FriendDetailView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .navigationTitle(friend?.displayName ?? "Friend")
-        .navigationBarTitleDisplayMode(.large)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showAddIOU = true } label: {
-                    Image(systemName: "plus")
+        .navigationBarBackButtonHidden()
+        .toolbar(.hidden, for: .navigationBar)
+        .safeAreaInset(edge: .top) {
+            XBillPageHeader(
+                title: friend?.displayName ?? "Friend",
+                showsBackButton: true,
+                backAction: { dismiss() },
+                trailing: {
+                    Button { showAddIOU = true } label: {
+                        Image(systemName: "plus")
+                            .font(.title3)
+                            .foregroundStyle(AppColors.primary)
+                            .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Add IOU")
                 }
-            }
+            )
         }
         .sheet(isPresented: $showAddIOU) {
             AddIOUView(currentUserID: currentUserID, preselectedFriendID: friendID, preselectedFriend: friend) {
@@ -444,17 +463,21 @@ struct FriendDetailView: View {
             }
         }
         .errorAlert(error: $error)
-        .task { await loadMutualGroups() }
+        .task {
+            // Seed localIOUs from the snapshot passed at navigation time.
+            if localIOUs.isEmpty { localIOUs = allIOUs }
+            await loadMutualGroups()
+        }
     }
 
     private func loadMutualGroups() async {
-        guard !allGroups.isEmpty else { return }
         do {
             let mutualIDs = try await FriendService.shared.fetchMutualGroupIDs(
                 currentUserID: currentUserID, friendID: friendID)
+            // Filter against allGroups if loaded; result may be empty if no shared groups exist.
             mutualGroups = allGroups.filter { mutualIDs.contains($0.id) }
         } catch {
-            // Non-fatal — mutual groups section stays empty
+            // Non-fatal — mutual groups section stays empty on error.
         }
     }
 
@@ -489,6 +512,12 @@ struct FriendDetailView: View {
         defer { isSettling = false }
         do {
             try await IOUService.shared.settleAllIOUs(with: friendID, currentUserID: currentUserID)
+            // Refresh localIOUs so the view reflects the settled state immediately.
+            localIOUs = localIOUs.map { iou in
+                var copy = iou
+                copy.isSettled = true
+                return copy
+            }
             HapticManager.success()
             await onSettled()
             dismiss()

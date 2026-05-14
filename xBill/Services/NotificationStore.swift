@@ -50,10 +50,6 @@ final class NotificationStore: @unchecked Sendable {
         lock.withLock { _save(_loadAll().filter { $0.id != id }) }
     }
 
-    func clearItems() {
-        lock.withLock { CacheService.defaults.removeObject(forKey: itemsKey) }
-    }
-
     // MARK: - Read tracking
 
     func lastViewedAt() -> Date {

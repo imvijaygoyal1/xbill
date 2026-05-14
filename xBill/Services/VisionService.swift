@@ -488,10 +488,13 @@ final class VisionService: Sendable {
         }
 
         // Currency from any symbol found anywhere in the text
+        // M-13: added ¥/￥ → JPY and ₩ → KRW
         let allText = rows.flatMap { $0 }.map(\.text).joined()
-        if allText.contains("£")      { currency = "GBP" }
-        else if allText.contains("€") { currency = "EUR" }
-        else if allText.contains("₹") { currency = "INR" }
+        if allText.contains("£")                            { currency = "GBP" }
+        else if allText.contains("€")                      { currency = "EUR" }
+        else if allText.contains("₹")                      { currency = "INR" }
+        else if allText.contains("¥") || allText.contains("￥") { currency = "JPY" }
+        else if allText.contains("₩")                      { currency = "KRW" }
 
         for row in rows.dropFirst() {
             let fullText = row.map(\.text).joined(separator: " ")
@@ -642,10 +645,13 @@ final class VisionService: Sendable {
     }
 
     private func extractDecimal(from string: String) -> Decimal? {
-        let pattern = #"[\$£€₹]?\s*(\d{1,6}[.,]\d{2})"#
+        let pattern = #"[\$£€₹¥￥₩]?\s*(\d{1,6}[.,]\d{2})"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
         let range = NSRange(string.startIndex..., in: string)
-        guard let match = regex.firstMatch(in: string, range: range),
+        // M-12: use lastMatch so that on lines like "2x BURGER 4.99 9.98" we
+        // pick up the rightmost value (line total) instead of the unit price.
+        let matches = regex.matches(in: string, range: range)
+        guard let match = matches.last,
               let capRange = Range(match.range(at: 1), in: string) else { return nil }
         let raw = string[capRange].replacingOccurrences(of: ",", with: ".")
         return Decimal(string: raw)

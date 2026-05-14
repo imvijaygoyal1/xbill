@@ -115,6 +115,10 @@ final class AddExpenseViewModel {
 
     // MARK: - Currency Conversion
 
+    /// Tracks the in-flight conversion task so stale responses from earlier
+    /// currency changes cannot overwrite the result from the most recent change.
+    private var conversionTask: Task<Void, Never>?
+
     func updateConversion() async {
         guard isForeignCurrency, amount > .zero else {
             convertedAmount = nil
@@ -122,17 +126,28 @@ final class AddExpenseViewModel {
             recomputeSplits()
             return
         }
-        isFetchingRate = true
-        defer { isFetchingRate = false }
-        do {
-            let rate = try await ExchangeRateService.shared.rate(from: expenseCurrency, to: currency)
-            exchangeRate    = rate
-            convertedAmount = (amount * rate).rounded(scale: 2)
-            recomputeSplits()
-        } catch {
-            guard !AppError.isSilent(error) else { return }
-            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
+
+        // Cancel any previous in-flight rate fetch so that a slow response
+        // from an earlier currency selection cannot overwrite a newer one.
+        conversionTask?.cancel()
+        conversionTask = Task {
+            isFetchingRate = true
+            defer { isFetchingRate = false }
+            do {
+                let rate = try await ExchangeRateService.shared.rate(from: expenseCurrency, to: currency)
+                // If this task was cancelled while awaiting the network call,
+                // discard the stale result rather than writing it to state.
+                guard !Task.isCancelled else { return }
+                exchangeRate    = rate
+                convertedAmount = (amount * rate).rounded(scale: 2)
+                recomputeSplits()
+            } catch {
+                guard !Task.isCancelled else { return }
+                guard !AppError.isSilent(error) else { return }
+                self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
+            }
         }
+        await conversionTask?.value
     }
 
     // MARK: - Save
@@ -183,7 +198,7 @@ final class AddExpenseViewModel {
             let payerName = members.first(where: { $0.id == payerID })?.displayName
                 ?? (payerID == currentUserID ? members.first(where: { $0.id == currentUserID })?.displayName : nil)
                 ?? "Someone"
-            if UserDefaults.standard.bool(forKey: "prefPushExpense") {
+            if CacheService.defaults.bool(forKey: "prefPushExpense") {
                 await expenseService.notifyExpenseAdded(
                     expenseID:    expense.id,
                     groupID:      group.id,

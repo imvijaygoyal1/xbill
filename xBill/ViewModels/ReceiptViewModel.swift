@@ -75,6 +75,7 @@ final class ReceiptViewModel {
     func scan(pages: [UIImage]) async {
         // Clear all state from any previous scan before starting the new one
         // so a failed scan never shows stale results alongside a new error.
+        capturedPages     = pages   // M-42: always replace stale pages from the previous scan
         scannedReceipt    = nil
         items             = []
         merchantName      = ""
@@ -146,10 +147,34 @@ final class ReceiptViewModel {
     // MARK: - Convert to SplitInputs
 
     func asSplitInputs() -> [SplitInput] {
-        members.map { member in
+        // M-41: precompute all member totals in a single O(N) pass over items
+        // instead of calling total(for:) N×M times (which iterates items once
+        // per member, producing O(N×M) work on the MainActor).
+
+        // Determine which members participate (have ≥1 item assigned).
+        let participatingIDs = Set(items.flatMap(\.assignedUserIDs))
+
+        // Per-member item share: one pass over items, inner loop over assignedUserIDs.
+        var itemShares: [UUID: Decimal] = [:]
+        for item in items {
+            guard !item.assignedUserIDs.isEmpty else { continue }
+            let perHead = item.totalPrice / Decimal(item.assignedUserIDs.count)
+            for uid in item.assignedUserIDs {
+                itemShares[uid, default: .zero] += perHead
+            }
+        }
+
+        // Shared extras (tax + tip) split equally among participating members.
+        let sharedExtra: Decimal = participatingIDs.isEmpty
+            ? .zero
+            : (tax + tip) / Decimal(participatingIDs.count)
+
+        return members.map { member in
             var input = SplitInput(userID: member.id, displayName: member.displayName,
                                    avatarURL: member.avatarURL)
-            let memberTotal  = total(for: member.id)
+            let share = itemShares[member.id, default: .zero]
+            let extra = participatingIDs.contains(member.id) ? sharedExtra : .zero
+            let memberTotal = (share + extra).rounded
             input.amount     = memberTotal
             // Include the member even at $0 so they appear in the split list;
             // mark them excluded so validations don't treat them as participants.

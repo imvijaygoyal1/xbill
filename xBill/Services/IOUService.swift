@@ -44,7 +44,9 @@ final class IOUService: Sendable {
             }
         }
         struct Params: Encodable { let p_emails: [String] }
-        let normalised = email.lowercased().trimmingCharacters(in: .whitespaces)
+        // M-10: use whitespacesAndNewlines (superset of .whitespaces) to also strip
+        // non-breaking spaces (U+00A0) and other invisible characters from pasted emails.
+        let normalised = email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let rows: [Row] = try await supabase.client
             .rpc("lookup_profiles_by_email", params: Params(p_emails: [normalised]))
             .execute()
@@ -65,6 +67,12 @@ final class IOUService: Sendable {
         currency:    String,
         description: String?
     ) async throws -> IOU {
+        // M-25: client-side guard mirrors the DB CHECK constraint
+        // (created_by = lender_id OR created_by = borrower_id).
+        // Prevents callers from accidentally setting a third-party as a party.
+        guard createdBy == lenderID || createdBy == borrowerID else {
+            throw AppError.validationFailed("You must be either the lender or borrower of an IOU you create.")
+        }
         struct Payload: Encodable {
             let createdBy:   UUID
             let lenderID:    UUID

@@ -66,6 +66,10 @@ struct GroupDetailView: View {
                 await vm.createDueRecurringInstances(currentUserID: currentUserID)
             }
             .refreshable { await vm.refresh() }
+            .onChange(of: selectedTab) { _, _ in
+                searchText = ""
+                filterCategory = nil
+            }
             .sheet(isPresented: $showAddExpense) {
                 AddExpenseView(group: vm.group, members: vm.members, currentUserID: currentUserID) {
                     await vm.refresh()
@@ -230,8 +234,20 @@ struct GroupDetailView: View {
             // Tab content
             switch selectedTab {
             case 0: expensesTab
-            case 1: balancesTab
-            default: settleUpTabEmbedded
+            case 1:
+                if vm.isLoading {
+                    ProgressView("Loading…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    balancesTab
+                }
+            default:
+                if vm.isLoading {
+                    ProgressView("Loading…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    settleUpTabEmbedded
+                }
             }
         }
         .background(AppColors.background)

@@ -121,7 +121,9 @@ final class CacheService: Sendable {
         let enc = JSONEncoder()
         enc.dateEncodingStrategy = .secondsSince1970
         guard let plain = try? enc.encode(value) else { return }
-        let data = CacheService.encrypt(plain) ?? plain
+        // M-03: if encryption fails (e.g. Keychain unavailable on first-unlock devices),
+        // skip the write entirely rather than persisting plaintext financial data.
+        guard let data = CacheService.encrypt(plain) else { return }
         CacheService.defaults.set(data, forKey: key)
     }
 

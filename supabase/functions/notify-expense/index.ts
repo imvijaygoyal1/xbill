@@ -101,7 +101,8 @@ serve(async (req) => {
     const apnsHost = isDevelopment
       ? 'https://api.sandbox.push.apple.com'
       : 'https://api.push.apple.com'
-    const expiration = String(Math.floor(Date.now() / 1000) + 3600)
+    // M-23: 24 h expiration so notifications survive an offline device (was 1 h)
+    const expiration = String(Math.floor(Date.now() / 1000) + 86400)
 
     const jwt = await getAPNsJWT(teamId, keyId, pem)
 
