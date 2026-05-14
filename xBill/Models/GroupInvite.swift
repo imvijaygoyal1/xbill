@@ -7,6 +7,17 @@
 
 import Foundation
 
+// MARK: - InviteJoinRequest
+// L-29: Moved here from AuthViewModel.swift — logically belongs alongside GroupInvite
+// since both types represent the group-invite flow.
+
+struct InviteJoinRequest: Identifiable, Sendable {
+    let id = UUID()
+    let token: String
+}
+
+// MARK: - GroupInvite
+
 struct GroupInvite: Codable, Identifiable, Sendable {
     let token: String
     let groupID: UUID

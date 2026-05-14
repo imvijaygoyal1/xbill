@@ -57,11 +57,9 @@ final class ReceiptViewModel {
     }
 
     var confidenceLabel: String {
-        switch confidence {
-        case 0.90...: return "High confidence"
-        case 0.75...: return "Good confidence"
-        default:      return "Low confidence — please review"
-        }
+        if confidence >= 0.90 { return "High confidence" }
+        if confidence >= 0.75 { return "Good confidence" }
+        return "Low confidence — please review"
     }
 
     /// True when members exist but at least one item has no one assigned.
@@ -211,12 +209,11 @@ final class ReceiptViewModel {
 
     func updateUnitPrice(itemID: UUID, unitPrice: Decimal) {
         guard let index = items.firstIndex(where: { $0.id == itemID }) else { return }
-        let existing = items[index]
-        // Perform both mutations in a single assignment to avoid two @Observable UI updates.
-        var updated = ReceiptItem(id: existing.id, name: existing.name,
-                                  quantity: existing.quantity, unitPrice: unitPrice)
-        updated.assignedUserIDs = existing.assignedUserIDs
-        items[index] = updated
+        // Copy-then-mutate: preserves all existing fields (including any future additions
+        // to ReceiptItem) without needing to enumerate them here.
+        var item = items[index]
+        item.unitPrice = unitPrice
+        items[index] = item
     }
 
     func updateItem(_ item: ReceiptItem) {
@@ -234,11 +231,10 @@ final class ReceiptViewModel {
     func updateQuantity(itemID: UUID, quantity: Int) {
         guard quantity >= 1,
               let index = items.firstIndex(where: { $0.id == itemID }) else { return }
-        let existing = items[index]
-        // Perform both mutations in a single assignment to avoid two @Observable UI updates.
-        var updated = ReceiptItem(id: existing.id, name: existing.name,
-                                  quantity: quantity, unitPrice: existing.unitPrice)
-        updated.assignedUserIDs = existing.assignedUserIDs
-        items[index] = updated
+        // Copy-then-mutate: preserves all existing fields (including any future additions
+        // to ReceiptItem) without needing to enumerate them here.
+        var item = items[index]
+        item.quantity = quantity
+        items[index] = item
     }
 }

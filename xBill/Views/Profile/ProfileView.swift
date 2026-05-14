@@ -7,41 +7,43 @@
 
 import SwiftUI
 import UIKit
+import PhotosUI
 
-// MARK: - ImagePicker
+// MARK: - PhotoPickerView
 
-private struct ImagePicker: UIViewControllerRepresentable {
+private struct PhotoPickerView: UIViewControllerRepresentable {
     @Binding var selectedImage: UIImage?
-    @Binding var isPresented: Bool
 
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.sourceType = .photoLibrary
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration()
+        config.filter = .images
+        config.selectionLimit = 1
+        let picker = PHPickerViewController(configuration: config)
         picker.delegate = context.coordinator
         return picker
     }
 
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
 
-    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let parent: ImagePicker
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
 
-        init(_ parent: ImagePicker) {
-            self.parent = parent
-        }
+    final class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let parent: PhotoPickerView
 
-        func imagePickerController(
-            _ picker: UIImagePickerController,
-            didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
-        ) {
-            parent.selectedImage = info[.originalImage] as? UIImage
-            parent.isPresented = false
-        }
+        init(_ parent: PhotoPickerView) { self.parent = parent }
 
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.isPresented = false
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            picker.dismiss(animated: true)
+            guard let provider = results.first?.itemProvider,
+                  provider.canLoadObject(ofClass: UIImage.self) else { return }
+            provider.loadObject(ofClass: UIImage.self) { [weak self] image, _ in
+                guard let self, let uiImage = image as? UIImage else { return }
+                Task { @MainActor [self] in
+                    self.parent.selectedImage = uiImage
+                }
+            }
         }
     }
 }
@@ -141,6 +143,7 @@ struct ProfileView: View {
                     .init(title: "Expenses", value: "\(vm.totalExpensesCount)"),
                     .init(title: "Total Paid", value: vm.lifetimePaid.formatted(currencyCode: vm.primaryCurrency))
                 ])
+                .redacted(reason: vm.isLoading ? .placeholder : [])
             }
 
             VStack(alignment: .leading, spacing: AppSpacing.md) {
@@ -362,7 +365,7 @@ struct ProfileView: View {
             .navigationBarBackButtonHidden()
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showAvatarPicker) {
-                ImagePicker(selectedImage: $selectedAvatar, isPresented: $showAvatarPicker)
+                PhotoPickerView(selectedImage: $selectedAvatar)
                     .ignoresSafeArea()
             }
         }

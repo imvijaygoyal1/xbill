@@ -12,8 +12,24 @@ import CryptoKit
 // Persists groups, expenses, and members to UserDefaults for offline reading.
 // Dates encoded as secondsSince1970 to avoid ISO8601 fractional-second edge cases.
 
-// MARK: - Cached balance keys (for Widget access)
+// MARK: - Balance snapshot (for Widget access)
+
+/// Single-key atomic balance snapshot written and read by both the app and widget.
+/// Encoding all fields into one JSON blob under `xbill_balance_snapshot` avoids the
+/// partial-state race that occurred when a widget read mid-write while the app was
+/// setting five separate UserDefaults keys (L-27).
+struct BalanceSnapshot: Codable {
+    var net: String
+    var owed: String
+    var owing: String
+    var currency: String
+    var available: Bool
+}
+
 extension CacheService {
+    static let balanceSnapshotKey = "xbill_balance_snapshot"
+
+    // Legacy individual keys kept for migration-read only; no longer written.
     static let netBalanceKey       = "xbill_net_balance"
     static let totalOwedKey        = "xbill_total_owed"
     static let totalOwingKey       = "xbill_total_owing"
@@ -62,35 +78,59 @@ final class CacheService: Sendable {
 
     // MARK: - Balance Summary (for Widget)
 
+    /// Atomically encodes all balance fields into a single JSON blob under one key.
+    /// This prevents the widget from observing partial state while the main app is
+    /// mid-write across multiple separate UserDefaults keys (L-27 fix).
     func saveBalance(netBalance: Decimal, totalOwed: Decimal, totalOwing: Decimal, currency: String = "USD") {
-        let defaults = CacheService.defaults
-        // Store as String to preserve full Decimal precision (avoids Double rounding for large
-        // amounts in JPY/IDR/etc.). Widget reads these back with Decimal(string:) → Double.
-        defaults.set(netBalance.description, forKey: CacheService.netBalanceKey)
-        defaults.set(totalOwed.description,  forKey: CacheService.totalOwedKey)
-        defaults.set(totalOwing.description, forKey: CacheService.totalOwingKey)
-        defaults.set(currency, forKey: CacheService.balanceCurrencyKey)
-        defaults.set(true,     forKey: CacheService.balanceAvailableKey)
+        let snapshot = BalanceSnapshot(
+            net: netBalance.description,
+            owed: totalOwed.description,
+            owing: totalOwing.description,
+            currency: currency,
+            available: true
+        )
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        CacheService.defaults.set(data, forKey: CacheService.balanceSnapshotKey)
+    }
+
+    /// Loads the balance snapshot, falling back to the legacy individual keys for
+    /// clients that wrote the old multi-key format before this migration.
+    private func loadSnapshot() -> BalanceSnapshot? {
+        if let data = CacheService.defaults.data(forKey: CacheService.balanceSnapshotKey),
+           let snapshot = try? JSONDecoder().decode(BalanceSnapshot.self, from: data) {
+            return snapshot
+        }
+        // Legacy fallback: if the new key is absent, read the old individual keys.
+        guard CacheService.defaults.object(forKey: CacheService.balanceAvailableKey) != nil else {
+            return nil
+        }
+        return BalanceSnapshot(
+            net: CacheService.defaults.string(forKey: CacheService.netBalanceKey) ?? "0",
+            owed: CacheService.defaults.string(forKey: CacheService.totalOwedKey) ?? "0",
+            owing: CacheService.defaults.string(forKey: CacheService.totalOwingKey) ?? "0",
+            currency: CacheService.defaults.string(forKey: CacheService.balanceCurrencyKey) ?? "USD",
+            available: true
+        )
     }
 
     func loadNetBalance() -> Decimal {
-        Decimal(string: CacheService.defaults.string(forKey: CacheService.netBalanceKey) ?? "") ?? .zero
+        Decimal(string: loadSnapshot()?.net ?? "") ?? .zero
     }
 
     func loadTotalOwed() -> Decimal {
-        Decimal(string: CacheService.defaults.string(forKey: CacheService.totalOwedKey) ?? "") ?? .zero
+        Decimal(string: loadSnapshot()?.owed ?? "") ?? .zero
     }
 
     func loadTotalOwing() -> Decimal {
-        Decimal(string: CacheService.defaults.string(forKey: CacheService.totalOwingKey) ?? "") ?? .zero
+        Decimal(string: loadSnapshot()?.owing ?? "") ?? .zero
     }
 
     func loadBalanceCurrency() -> String {
-        CacheService.defaults.string(forKey: CacheService.balanceCurrencyKey) ?? "USD"
+        loadSnapshot()?.currency ?? "USD"
     }
 
     func loadBalanceAvailable() -> Bool {
-        CacheService.defaults.object(forKey: CacheService.balanceAvailableKey) != nil
+        loadSnapshot()?.available ?? false
     }
 
     // MARK: - Encryption helpers

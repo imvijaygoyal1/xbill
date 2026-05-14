@@ -245,7 +245,16 @@ struct AddIOUView: View {
 
     private var noteSection: some View {
         formCard("REASON") {
-            XBillTextField(placeholder: "What's this for?", text: $description)
+            VStack(alignment: .trailing, spacing: AppSpacing.xs) {
+                XBillTextField(placeholder: "What's this for?", text: $description)
+                    .onChange(of: description) { _, new in
+                        if new.count > 200 { description = String(new.prefix(200)) }
+                    }
+                Text("\(description.count)/200")
+                    .font(.appCaption)
+                    .foregroundStyle(description.count >= 200 ? AppColors.error : AppColors.textTertiary)
+                    .monospacedDigit()
+            }
         }
     }
 

@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SettleUpView: View {
     @Bindable var vm: GroupViewModel
+    let currentUserID: UUID
     @Environment(\.dismiss) private var dismiss
     @State private var settlementToConfirm: SettlementSuggestion?
     @State private var isSettling = false
@@ -76,10 +77,14 @@ struct SettleUpView: View {
                         .font(.headline)
                 }
 
-                // Amount
+                // Amount — red when current user owes, green when owed to current user
                 Text(suggestion.amount.formatted(currencyCode: suggestion.currency))
                     .font(.title2.bold())
-                    .foregroundStyle(Color.moneyNegative)
+                    .foregroundStyle(
+                        suggestion.fromUserID == currentUserID
+                            ? Color.moneyNegative
+                            : Color.moneyPositive
+                    )
 
                 // Payment buttons
                 HStack(spacing: 10) {
@@ -110,9 +115,12 @@ struct SettleUpView: View {
 }
 
 #Preview {
-    SettleUpView(vm: GroupViewModel(group: BillGroup(
-        id: UUID(), name: "Trip", emoji: "✈️",
-        createdBy: UUID(), isArchived: false,
-        currency: "USD", createdAt: Date()
-    )))
+    SettleUpView(
+        vm: GroupViewModel(group: BillGroup(
+            id: UUID(), name: "Trip", emoji: "✈️",
+            createdBy: UUID(), isArchived: false,
+            currency: "USD", createdAt: Date()
+        )),
+        currentUserID: UUID()
+    )
 }

@@ -46,17 +46,6 @@ final class ExpenseService: Sendable {
             .value
     }
 
-    func fetchUnsettledExpenses(groupID: UUID, userID: UUID) async throws -> [Expense] {
-        // Returns expenses where the user has at least one unsettled split
-        try await supabase.table("expenses")
-            .select("*, splits!inner(*)")
-            .eq("group_id", value: groupID)
-            .eq("splits.user_id", value: userID)
-            .eq("splits.is_settled", value: false)
-            .execute()
-            .value
-    }
-
     // MARK: - Create
 
     /// Atomically inserts expense + splits using the `add_expense_with_splits` RPC.
