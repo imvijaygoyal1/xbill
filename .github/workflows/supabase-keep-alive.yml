@@ -12,9 +12,13 @@ jobs:
       - name: Ping Supabase REST API
         run: |
           curl --fail --silent --show-error \
-            "${SUPABASE_URL}/rest/v1/keep_alive?select=id&limit=1" \
+            -X PATCH \
+            "${SUPABASE_URL}/rest/v1/keep_alive?id=eq.1" \
             -H "apikey: ${SUPABASE_ANON_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}"
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            --data "{\"updated_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
