@@ -6,7 +6,7 @@ feature of xBill without needing to invite friends or add their own data.
 
 Credentials:
   Email:    appreviewer@xbill.vijaygoyal.org
-  Password: <REDACTED_REVIEWER_PASSWORD>
+  Password: set outside git in Supabase Auth and App Store Connect review notes
 
 Current status: seeded and verified on 2026-06-14 against the linked Supabase
 project `rhdhazevigbchmwzesok`.
@@ -31,7 +31,7 @@ Run in Supabase Dashboard → SQL Editor:
 -- NOTE: if the user already exists, skip to Step 2
 SELECT supabase.auth.admin.create_user(
   email := 'appreviewer@xbill.vijaygoyal.org',
-  password := '<REDACTED_REVIEWER_PASSWORD>',
+  password := '<set-a-rotated-reviewer-password-outside-git>',
   email_confirm := true   -- skip email confirmation
 );
 ```
@@ -73,7 +73,7 @@ INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, role)
 VALUES (
   'aaaaaaaa-0001-0001-0001-000000000001',
   'alice.seed@xbill.vijaygoyal.org',
-  crypt('<REDACTED_SEED_PASSWORD>', gen_salt('bf')),
+  null,
   now(),
   'authenticated'
 ) ON CONFLICT DO NOTHING;
@@ -87,7 +87,7 @@ INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, role)
 VALUES (
   'aaaaaaaa-0002-0002-0002-000000000002',
   'bob.seed@xbill.vijaygoyal.org',
-  crypt('<REDACTED_SEED_PASSWORD>', gen_salt('bf')),
+  null,
   now(),
   'authenticated'
 ) ON CONFLICT DO NOTHING;
@@ -282,7 +282,7 @@ Add this to App Store Connect → App Review Information → Notes:
 ```
 TEST ACCOUNT
 Email:    appreviewer@xbill.vijaygoyal.org
-Password: <REDACTED_REVIEWER_PASSWORD>
+Password: <enter the rotated password from your password manager>
 
 The account has been pre-seeded with:
   • 1 group: "Tokyo Trip 🗼" with 3 members
@@ -307,7 +307,7 @@ Privacy Policy: https://xbill.vijaygoyal.org/privacy
 ---
 
 ## Acceptance criteria
-- [ ] Reviewer can sign in with appreviewer@xbill.vijaygoyal.org / <REDACTED_REVIEWER_PASSWORD>
+- [ ] Reviewer can sign in with appreviewer@xbill.vijaygoyal.org and the rotated password stored outside git
 - [ ] Home screen shows non-zero "You are owed" balance
 - [ ] Tokyo Trip group shows 5 expenses
 - [ ] Settle Up shows 2–3 suggested payments
