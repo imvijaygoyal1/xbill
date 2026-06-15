@@ -48,6 +48,7 @@ final class HomeViewModel {
         let currency:    String
         let balances:    [UUID: Decimal]
         let names:       [UUID: String]
+        let loadFailed:   Bool
     }
 
     private let groupService = GroupService.shared
@@ -153,7 +154,11 @@ final class HomeViewModel {
         realtimeTask = Task { @MainActor [weak self] in
             guard let self else { return }
             guard let user = self.currentUser else { return }
-            guard let stream = try? await self.groupService.groupChanges(userID: user.id) else { return }
+            if self.groups.isEmpty && self.archivedGroups.isEmpty {
+                await self.loadAll()
+            }
+            let groupIDs = (self.groups + self.archivedGroups).map(\.id)
+            guard let stream = try? await self.groupService.groupChanges(userID: user.id, groupIDs: groupIDs) else { return }
             for await _ in stream {
                 guard !Task.isCancelled else { return }
                 await self.loadAll()
@@ -182,7 +187,7 @@ final class HomeViewModel {
             var split = SplitInput(userID: userID, displayName: "You")
             split.amount     = amount
             split.isIncluded = true
-            try await expenseService.createExpense(
+            _ = try await expenseService.createExpense(
                 groupID: group.id, title: title, amount: amount,
                 currency: "USD", payerID: userID, category: category,
                 notes: "Sample expense — feel free to delete", splits: [split]
@@ -222,6 +227,12 @@ final class HomeViewModel {
                 allNames.merge(data.names) { _, new in new }
                 groupMemberCounts[data.groupID] = data.memberCount
                 groupNetBalances[data.groupID]  = data.netBalance
+                if data.loadFailed, errorAlert == nil {
+                    errorAlert = ErrorAlert(
+                        title: "Some balances may be stale",
+                        message: "xBill could not refresh one or more groups. Cached data is shown when available."
+                    )
+                }
             }
         }
 
@@ -254,14 +265,24 @@ final class HomeViewModel {
         // Return cached result if already computed this cycle (avoids redundant network calls).
         if let cached = groupBalancesCache[group.id] { return cached }
 
-        guard let expenses = try? await expenseService.fetchExpenses(groupID: group.id) else {
-            let empty = GroupBalanceData(groupID: group.id, owed: .zero, owing: .zero, netBalance: .zero,
-                                         memberCount: 0, entries: [],
-                                         currency: group.currency, balances: [:], names: [:])
-            groupBalancesCache[group.id] = empty
-            return empty
+        let loadFailed: Bool
+        let expenses: [Expense]
+        do {
+            expenses = try await expenseService.fetchExpenses(groupID: group.id)
+            CacheService.shared.saveExpenses(expenses, groupID: group.id)
+            loadFailed = false
+        } catch {
+            expenses = CacheService.shared.loadExpenses(groupID: group.id)
+            loadFailed = true
         }
-        let members   = (try? await groupService.fetchMembers(groupID: group.id)) ?? []
+
+        let members: [User]
+        do {
+            members = try await groupService.fetchMembers(groupID: group.id, includeInactive: true)
+            CacheService.shared.saveMembers(members, groupID: group.id)
+        } catch {
+            members = CacheService.shared.loadMembers(groupID: group.id)
+        }
         let splitsMap = await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService)
         let balances  = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
         let net       = balances[userID] ?? .zero
@@ -270,9 +291,12 @@ final class HomeViewModel {
         let entries   = expenses.map { RecentEntry(expense: $0, members: members) }
         let names     = Dictionary(uniqueKeysWithValues: members.map { ($0.id, $0.displayName) })
         let data      = GroupBalanceData(groupID: group.id, owed: owed, owing: owing, netBalance: net,
-                                         memberCount: members.count, entries: entries,
-                                         currency: group.currency, balances: balances, names: names)
-        groupBalancesCache[group.id] = data
+                                         memberCount: members.filter(\.isActive).count, entries: entries,
+                                         currency: group.currency, balances: balances, names: names,
+                                         loadFailed: loadFailed)
+        if !loadFailed {
+            groupBalancesCache[group.id] = data
+        }
         return data
     }
 }

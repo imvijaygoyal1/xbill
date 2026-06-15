@@ -241,14 +241,22 @@ struct CacheServiceBalanceTests {
         #expect(abs(Double(truncating: owing as NSDecimalNumber) - 57.50)  < 0.001)
 
         // Clean up
+        CacheService.defaults.removeObject(forKey: CacheService.balanceSnapshotKey)
         CacheService.defaults.removeObject(forKey: CacheService.netBalanceKey)
         CacheService.defaults.removeObject(forKey: CacheService.totalOwedKey)
         CacheService.defaults.removeObject(forKey: CacheService.totalOwingKey)
+        CacheService.defaults.removeObject(forKey: CacheService.balanceCurrencyKey)
+        CacheService.defaults.removeObject(forKey: CacheService.balanceAvailableKey)
     }
 
     @Test("loadNetBalance returns zero when nothing saved")
     func netBalanceDefaultsZero() {
+        CacheService.defaults.removeObject(forKey: CacheService.balanceSnapshotKey)
         CacheService.defaults.removeObject(forKey: CacheService.netBalanceKey)
+        CacheService.defaults.removeObject(forKey: CacheService.totalOwedKey)
+        CacheService.defaults.removeObject(forKey: CacheService.totalOwingKey)
+        CacheService.defaults.removeObject(forKey: CacheService.balanceCurrencyKey)
+        CacheService.defaults.removeObject(forKey: CacheService.balanceAvailableKey)
         let net = CacheService.shared.loadNetBalance()
         // Decimal(0.0) == .zero; double-check via NSDecimalNumber
         #expect(Double(truncating: net as NSDecimalNumber) == 0.0)

@@ -18,7 +18,7 @@ final class ProfileViewModel {
     var user:         User?
     var displayName:  String  = ""
     var venmoHandle:  String  = ""
-    var paypalEmail:  String  = ""
+    var paypalHandle: String = ""
     var isLoading:    Bool    = false
     var isSaved:      Bool    = false
     var isEditing:    Bool    = false
@@ -57,7 +57,7 @@ final class ProfileViewModel {
             if !isEditing {
                 displayName  = loaded.displayName
                 venmoHandle  = loaded.venmoHandle ?? ""
-                paypalEmail  = loaded.paypalEmail ?? ""
+                paypalHandle = loaded.paypalHandle ?? ""
             }
             await loadStats(userID: loaded.id)
         } catch {
@@ -139,8 +139,8 @@ final class ProfileViewModel {
         defer { isLoading = false }
 
         do {
-            let handle = venmoHandle.trimmingCharacters(in: .whitespaces)
-            let paypal = paypalEmail.trimmingCharacters(in: .whitespaces)
+            let handle = Self.normalizedPaymentHandle(venmoHandle)
+            let paypal = Self.normalizedPaymentHandle(paypalHandle)
 
             // H-16: resolve the final avatar URL first, then do ONE profile write.
             // This eliminates the stale-URL first write and the race where step 2 fails
@@ -155,8 +155,8 @@ final class ProfileViewModel {
             let updated = try await auth.updateProfile(
                 displayName: trimmedName,
                 avatarURL: finalAvatarURL,
-                venmoHandle: handle.isEmpty ? nil : handle,
-                paypalEmail: paypal.isEmpty ? nil : paypal
+                venmoHandle: handle,
+                paypalHandle: paypal
             )
             self.user = updated
             isSaved = true
@@ -164,6 +164,14 @@ final class ProfileViewModel {
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
+    }
+
+    private static func normalizedPaymentHandle(_ value: String) -> String? {
+        var trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("@") {
+            trimmed.removeFirst()
+        }
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     // MARK: - Sign Out
@@ -175,7 +183,7 @@ final class ProfileViewModel {
             user                = nil
             displayName         = ""
             venmoHandle         = ""
-            paypalEmail         = ""
+            paypalHandle        = ""
             totalGroupsCount    = 0
             totalExpensesCount  = 0
             lifetimePaid        = .zero

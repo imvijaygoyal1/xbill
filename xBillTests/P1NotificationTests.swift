@@ -11,19 +11,13 @@ import Foundation
 
 // MARK: - NotificationStore
 
-// M-46: Test isolation for NotificationStore.
-// NotificationStore is a singleton backed by the App Group UserDefaults
-// ("group.com.vijaygoyal.xbill"), which falls back to .standard when the App Group
-// is unregistered on the test runner device.  Because NotificationStore does not
-// support UserDefaults injection, each test calls clearAll() in setUp/tearDown to
-// prevent state from leaking between test runs.  This is the safest approach
-// without changing production code; the limitation is documented here so a future
-// refactor can add DI if needed.
+// M-46/M-64: Test isolation for NotificationStore.
+// Production uses NotificationStore.shared backed by the App Group UserDefaults.
+// Persistence tests use per-test keys so parallel Swift Testing suites cannot
+// clear or mutate the same shared notification list mid-assertion.
 
 @Suite("NotificationStore — Persistence", .serialized)
 struct NotificationStoreTests {
-
-    private let store = NotificationStore.shared
 
     private func makeExpenseItem(
         title: String = "Coffee",
@@ -43,8 +37,17 @@ struct NotificationStoreTests {
         )
     }
 
+    private func makeStore() -> NotificationStore {
+        let suffix = UUID().uuidString
+        return NotificationStore(
+            itemsKey: "xbill_notifications_test_\(suffix)",
+            lastViewedKey: "xbill_notifications_last_viewed_test_\(suffix)"
+        )
+    }
+
     @Test("merge adds new items and deduplicates by id")
     func mergeDeduplicates() {
+        let store = makeStore()
         store.clearAll()
         let item = makeExpenseItem(title: "Lunch")
         store.merge([item])
@@ -55,6 +58,7 @@ struct NotificationStoreTests {
 
     @Test("merge preserves existing read state for known ids")
     func mergePreservesReadState() {
+        let store = makeStore()
         store.clearAll()
         let item = makeExpenseItem(title: "Dinner")
         store.merge([item])
@@ -70,6 +74,7 @@ struct NotificationStoreTests {
 
     @Test("loadAll returns newest items first")
     func loadAllSortedNewestFirst() {
+        let store = makeStore()
         store.clearAll()
         let old  = makeExpenseItem(title: "Old", daysAgo: 3)
         let mid  = makeExpenseItem(title: "Mid", daysAgo: 1)
@@ -83,6 +88,7 @@ struct NotificationStoreTests {
 
     @Test("unreadCount is 0 before any items added")
     func unreadCountStartsZero() {
+        let store = makeStore()
         store.clearAll()
         #expect(store.unreadCount() == 0)
         // no teardown needed — store is already clear
@@ -90,6 +96,7 @@ struct NotificationStoreTests {
 
     @Test("unreadCount equals items added after markAllRead baseline")
     func unreadCountAfterNewItems() {
+        let store = makeStore()
         store.clearAll()
         store.markAllRead()
         let item = NotificationItem(
@@ -109,6 +116,7 @@ struct NotificationStoreTests {
 
     @Test("markAllRead resets unread count to zero")
     func markAllReadResetsCount() {
+        let store = makeStore()
         store.clearAll()
         let item = makeExpenseItem(title: "Tea")
         store.merge([item])
@@ -122,6 +130,7 @@ struct NotificationStoreTests {
 
     @Test("markRead and markUnread update one item")
     func markReadUnreadSingleItem() {
+        let store = makeStore()
         store.clearAll()
         let first = makeExpenseItem(title: "First")
         let second = makeExpenseItem(title: "Second")
@@ -140,6 +149,7 @@ struct NotificationStoreTests {
 
     @Test("delete removes one notification")
     func deleteRemovesItem() {
+        let store = makeStore()
         store.clearAll()
         let first = makeExpenseItem(title: "First")
         let second = makeExpenseItem(title: "Second")
@@ -154,6 +164,7 @@ struct NotificationStoreTests {
 
     @Test("store caps items at 100")
     func storeCapsAt100() {
+        let store = makeStore()
         store.clearAll()
         let items = (0..<120).map { i in
             NotificationItem(

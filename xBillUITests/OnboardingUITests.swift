@@ -52,18 +52,18 @@ final class OnboardingUITests: XCTestCase {
     // MARK: - Email Sign Up Flow
 
     func testEmailSignUpFlow() throws {
-        app.buttons["Continue with Email"].tap()
+        openEmailAuth()
 
         // Verify sign-in screen
-        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Sign In"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.textFields["you@example.com"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.secureTextFields["Min. 8 characters"].exists)
         XCTAssertTrue(app.otherElements["xBill.walletIllustration"].exists)
-        XCTAssertTrue(app.staticTexts["Sign in with email"].exists)
         XCTAssertTrue(app.staticTexts["Enter your xBill email and password."].exists)
 
         // Switch to sign-up
         signUpToggle.tap()
         XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Create Account"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.staticTexts["Create your account"].exists)
+        XCTAssertTrue(app.staticTexts["Use your name, email, and a secure password."].exists)
 
         // Fill in fields
         let nameField = app.textFields["Your name"]
@@ -77,8 +77,8 @@ final class OnboardingUITests: XCTestCase {
 
         // M-60: access password fields by placeholder text instead of positional index,
         // so the test is robust against field-order changes in the view hierarchy.
-        let passwordField = app.secureTextFields["Password"]
-        let confirmPasswordField = app.secureTextFields["Confirm Password"]
+        let passwordField = app.secureTextFields["Min. 8 characters"]
+        let confirmPasswordField = app.secureTextFields["Repeat password"]
         XCTAssertTrue(passwordField.waitForExistence(timeout: 2))
         XCTAssertTrue(confirmPasswordField.waitForExistence(timeout: 2))
         passwordField.tap()
@@ -87,16 +87,16 @@ final class OnboardingUITests: XCTestCase {
         confirmPasswordField.typeText("TestPass123!")
 
         // Submit — this test stops before network submission.
-        let createButton = app.buttons["Create Account"]
+        let createButton = app.buttons["xBill.emailAuth.submitButton"]
         XCTAssertTrue(createButton.exists)
     }
 
     // MARK: - Email Sign In Validation
 
     func testSignInValidatesEmail() {
-        app.buttons["Continue with Email"].tap()
+        openEmailAuth()
 
-        let signInButton = app.buttons["Sign In"]
+        let signInButton = app.buttons["xBill.emailAuth.submitButton"]
         XCTAssertTrue(signInButton.waitForExistence(timeout: 3))
 
         // Initially disabled (no email/password)
@@ -114,7 +114,7 @@ final class OnboardingUITests: XCTestCase {
         XCTAssertFalse(signInButton.isEnabled)
 
         // M-61: verify button becomes enabled once a password is also provided
-        let passwordField = app.secureTextFields["Password"]
+        let passwordField = app.secureTextFields["Min. 8 characters"]
         XCTAssertTrue(passwordField.waitForExistence(timeout: 2))
         passwordField.tap()
         passwordField.typeText("TestPass123!")
@@ -124,19 +124,19 @@ final class OnboardingUITests: XCTestCase {
     // MARK: - Toggle Between Sign In and Sign Up
 
     func testToggleBetweenSignInAndSignUp() {
-        app.buttons["Continue with Email"].tap()
+        openEmailAuth()
 
-        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Sign In"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.textFields["you@example.com"].waitForExistence(timeout: 3))
         signUpToggle.tap()
-        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Create Account"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.textFields["Your name"].waitForExistence(timeout: 2))
         signInToggle.tap()
-        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Sign In"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["Forgot password?"].waitForExistence(timeout: 2))
     }
 
     // MARK: - Password Reset
 
     func testForgotPasswordVisible() {
-        app.buttons["Continue with Email"].tap()
+        openEmailAuth()
         XCTAssertTrue(app.buttons["Forgot password?"].waitForExistence(timeout: 3))
     }
 }
@@ -144,6 +144,18 @@ final class OnboardingUITests: XCTestCase {
 // MARK: - XCUIElement helpers
 
 private extension OnboardingUITests {
+    func openEmailAuth() {
+        let emailButton = app.buttons["Continue with Email"].firstMatch
+        XCTAssertTrue(emailButton.waitForExistence(timeout: 8))
+        XCTAssertTrue(emailButton.isHittable)
+        emailButton.tap()
+        if !app.buttons["Forgot password?"].waitForExistence(timeout: 8) {
+            XCTAssertTrue(emailButton.waitForExistence(timeout: 2))
+            emailButton.tap()
+        }
+        XCTAssertTrue(app.buttons["Forgot password?"].waitForExistence(timeout: 8))
+    }
+
     var signUpToggle: XCUIElement {
         app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Create one'")).firstMatch
     }

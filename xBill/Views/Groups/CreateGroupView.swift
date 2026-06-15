@@ -10,6 +10,7 @@ import SwiftUI
 struct CreateGroupView: View {
     let onCreated: (BillGroup) async -> Void
     var inviterName: String = "Someone"
+    var onCancel: (() -> Void)?
 
     @State private var name: String = ""
     @State private var selectedEmoji: String = "💸"
@@ -50,7 +51,13 @@ struct CreateGroupView: View {
                             title: "New Group",
                             subtitle: "Name your group, pick a visual, and choose a default currency.",
                             showsBackButton: true,
-                            backAction: { dismiss() }
+                            backAction: {
+                                if let onCancel {
+                                    onCancel()
+                                } else {
+                                    dismiss()
+                                }
+                            }
                         )
                         .padding(.horizontal, -AppSpacing.lg)
 
@@ -116,7 +123,7 @@ struct CreateGroupView: View {
     // MARK: - Action
 
     private func create() async {
-        guard let userID = await AuthService.shared.currentUserID else {
+        guard let userID = AuthService.shared.currentUserID else {
             error = .unauthenticated
             return
         }

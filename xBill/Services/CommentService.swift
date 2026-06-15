@@ -53,7 +53,7 @@ final class CommentService: Sendable {
             .value
         // M-21: use App Group suite so the preference is shared with the widget extension,
         // consistent with all other push-preference reads in the app.
-        if (UserDefaults(suiteName: "group.com.vijaygoyal.xbill") ?? .standard).bool(forKey: "prefPushComment") {
+        if CacheService.defaults.bool(forKey: NotificationService.commentPreferenceKey) {
             Task {
                 await notifyComment(
                     expenseID:     expenseID,
@@ -125,7 +125,7 @@ final class CommentService: Sendable {
             AnyAction.self,
             schema: "public",
             table:  "comments",
-            filter: "expense_id=eq.\(expenseID.uuidString)"
+            filter: .eq("expense_id", value: expenseID)
         )
         try await channel.subscribeWithError()
         let client = supabase.client

@@ -10,6 +10,8 @@ import SwiftUI
 struct HomeView: View {
     @Bindable var vm: HomeViewModel
     @State private var showCreateGroup = false
+    @State private var showQuickAddExpense = false
+    @State private var quickActionScan = false
 
     var body: some View {
         NavigationStack {
@@ -28,6 +30,16 @@ struct HomeView: View {
                             onCreated: { _ in await vm.refresh() },
                             inviterName: vm.currentUser?.displayName ?? "Someone"
                         )
+                    }
+                    .sheet(isPresented: $showQuickAddExpense) {
+                        if let userID = vm.currentUser?.id {
+                            QuickAddExpenseSheet(
+                                groups: vm.groups,
+                                currentUserID: userID,
+                                startWithScan: quickActionScan,
+                                onSaved: { await vm.loadAll() }
+                            )
+                        }
                     }
             }
         }
@@ -77,6 +89,8 @@ struct HomeView: View {
                 bottomPadding: AppSpacing.floatingActionBottomPadding + AppSpacing.lg,
                 spacing: AppSpacing.lg
             ) {
+                    dashboardHeader
+
                     BalanceHeroCard(
                         label: vm.netBalance == .zero ? "All settled" : vm.netBalance > .zero ? "Net balance owed to you" : "Net balance you owe",
                         amount: abs(vm.netBalance),
@@ -100,6 +114,8 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, AppSpacing.lg)
 
+                    quickActions
+
                     VStack(alignment: .leading, spacing: AppSpacing.sm) {
                         XBillSectionHeader("My Groups", subtitle: "\(vm.groups.count) active") {
                             if NetworkMonitor.shared.isConnected {
@@ -115,8 +131,10 @@ struct HomeView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityLabel("Create group")
+                                .accessibilityIdentifier("xBill.groups.createButton")
                             }
                         }
+                        .accessibilityIdentifier("xBill.home.groupsHeader")
                         .padding(.horizontal, AppSpacing.lg)
 
                         VStack(spacing: AppSpacing.sm) {
@@ -125,6 +143,9 @@ struct HomeView: View {
                                     homeGroupCard(group)
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("\(group.name) group, active, \(group.currency)")
+                                .accessibilityIdentifier("xBill.group.active.\(group.id.uuidString)")
                             }
                         }
                         .padding(.horizontal, AppSpacing.lg)
@@ -213,6 +234,103 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    private var dashboardHeader: some View {
+        XBillScreenHeader(
+            title: "Home",
+            subtitle: NetworkMonitor.shared.isConnected
+                ? "Track balances and add expenses across your groups."
+                : "Offline mode. You can review cached groups, but changes need a connection."
+        )
+        .padding(.horizontal, AppSpacing.lg)
+    }
+
+    private var quickActions: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            XBillSectionHeader("Quick Actions")
+                .padding(.horizontal, AppSpacing.lg)
+
+            HStack(spacing: AppSpacing.sm) {
+                quickActionCard(
+                    icon: "plus.circle.fill",
+                    title: "Add Expense",
+                    subtitle: actionSubtitle,
+                    isEnabled: canAddExpense
+                ) {
+                    quickActionScan = false
+                    showQuickAddExpense = true
+                }
+
+                quickActionCard(
+                    icon: "doc.text.viewfinder",
+                    title: "Scan Receipt",
+                    subtitle: actionSubtitle,
+                    isEnabled: canAddExpense
+                ) {
+                    quickActionScan = true
+                    showQuickAddExpense = true
+                }
+            }
+            .padding(.horizontal, AppSpacing.lg)
+        }
+    }
+
+    private var canAddExpense: Bool {
+        NetworkMonitor.shared.isConnected && !vm.groups.isEmpty && vm.currentUser != nil
+    }
+
+    private var actionSubtitle: String {
+        if !NetworkMonitor.shared.isConnected { return "Unavailable offline" }
+        if vm.groups.isEmpty { return "Create a group first" }
+        return "Choose a group"
+    }
+
+    private func quickActionCard(
+        icon: String,
+        title: String,
+        subtitle: String,
+        isEnabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            guard isEnabled else { return }
+            action()
+        } label: {
+            VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                Image(systemName: icon)
+                    .font(.appH2)
+                    .foregroundStyle(isEnabled ? AppColors.primary : AppColors.textTertiary)
+                    .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                    .background(AppColors.surfaceSoft)
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                    Text(title)
+                        .font(.appTitle)
+                        .foregroundStyle(isEnabled ? AppColors.textPrimary : AppColors.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                    Text(subtitle)
+                        .font(.appCaption)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minHeight: 118)
+            .padding(AppSpacing.md)
+            .background(isEnabled ? AppColors.surface : AppColors.surfaceSoft)
+            .clipShape(RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
+                    .stroke(AppColors.border, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .accessibilityLabel("\(title). \(subtitle)")
     }
 }
 

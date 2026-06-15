@@ -46,14 +46,22 @@ Deno.serve(async (req: Request) => {
     .eq('user_id', user.id)
   if (tokenError) console.error('device_tokens delete:', tokenError.message)
 
-  // 3. Delete profile row — non-fatal
+  // 3. Delete avatar storage object — non-fatal
+  const { error: avatarError } = await adminClient
+    .storage
+    .from('avatars')
+    .remove([`${user.id}.jpg`])
+  if (avatarError) console.error('avatar delete:', avatarError.message)
+
+  // 4. Delete profile row — non-fatal. Shared group ledger rows are retained by
+  // database policy/FKs so other members do not lose their expense history.
   const { error: profileError } = await adminClient
     .from('profiles')
     .delete()
     .eq('id', user.id)
   if (profileError) console.error('profile delete:', profileError.message)
 
-  // 4. Delete auth user — always last; fatal if this fails
+  // 5. Delete auth user — always last; fatal if this fails
   const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id)
   if (deleteError) {
     return new Response(

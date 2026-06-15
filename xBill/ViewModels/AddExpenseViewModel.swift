@@ -198,7 +198,7 @@ final class AddExpenseViewModel {
             let payerName = members.first(where: { $0.id == payerID })?.displayName
                 ?? (payerID == currentUserID ? members.first(where: { $0.id == currentUserID })?.displayName : nil)
                 ?? "Someone"
-            if CacheService.defaults.bool(forKey: "prefPushExpense") {
+            if CacheService.defaults.bool(forKey: NotificationService.expensePreferenceKey) {
                 await expenseService.notifyExpenseAdded(
                     expenseID:    expense.id,
                     groupID:      group.id,

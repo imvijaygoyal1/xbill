@@ -199,46 +199,58 @@ struct PayPalUsernameValidationTests {
                              amount: 25.00, currency: "USD")
     }
 
+    private func recipient(paypalHandle: String?) -> User {
+        User(
+            id: UUID(),
+            email: "",
+            displayName: "Recipient Display Name",
+            avatarURL: nil,
+            venmoHandle: nil,
+            paypalEmail: paypalHandle,
+            createdAt: Date()
+        )
+    }
+
     @Test("Valid alphanumeric username returns a URL")
     func validAlphanumeric() {
-        let url = service.paymentLink(for: makeSettlement(name: "john123"), method: .paypal)
+        let url = service.paymentLink(for: makeSettlement(name: "Display Name"), recipient: recipient(paypalHandle: "john123"), method: .paypal)
         #expect(url != nil)
         #expect(url?.absoluteString.contains("paypal.me/john123") == true)
     }
 
     @Test("Username with allowed special chars (dot, hyphen, underscore) returns a URL")
     func validWithAllowedSpecialChars() {
-        let url = service.paymentLink(for: makeSettlement(name: "john.doe-42_a"), method: .paypal)
+        let url = service.paymentLink(for: makeSettlement(name: "Display Name"), recipient: recipient(paypalHandle: "john.doe-42_a"), method: .paypal)
         #expect(url != nil)
     }
 
     @Test("Username with space returns nil")
     func spaceInUsername() {
-        let url = service.paymentLink(for: makeSettlement(name: "john doe"), method: .paypal)
+        let url = service.paymentLink(for: makeSettlement(name: "Display Name"), recipient: recipient(paypalHandle: "john doe"), method: .paypal)
         #expect(url == nil)
     }
 
     @Test("Username with path traversal returns nil")
     func pathTraversalCharacters() {
-        let url = service.paymentLink(for: makeSettlement(name: "../evil"), method: .paypal)
+        let url = service.paymentLink(for: makeSettlement(name: "Display Name"), recipient: recipient(paypalHandle: "../evil"), method: .paypal)
         #expect(url == nil)
     }
 
     @Test("Empty username returns nil")
     func emptyUsername() {
-        let url = service.paymentLink(for: makeSettlement(name: ""), method: .paypal)
+        let url = service.paymentLink(for: makeSettlement(name: "Display Name"), recipient: recipient(paypalHandle: ""), method: .paypal)
         #expect(url == nil)
     }
 
-    @Test("Username with @ symbol returns nil")
+    @Test("Leading @ is normalized")
     func atSymbolInUsername() {
-        let url = service.paymentLink(for: makeSettlement(name: "user@example"), method: .paypal)
-        #expect(url == nil)
+        let url = service.paymentLink(for: makeSettlement(name: "Display Name"), recipient: recipient(paypalHandle: "@john123"), method: .paypal)
+        #expect(url?.absoluteString.contains("paypal.me/john123") == true)
     }
 
     @Test("Username with percent-encoded char returns nil")
     func percentEncodedUsername() {
-        let url = service.paymentLink(for: makeSettlement(name: "user%20name"), method: .paypal)
+        let url = service.paymentLink(for: makeSettlement(name: "Display Name"), recipient: recipient(paypalHandle: "user%20name"), method: .paypal)
         #expect(url == nil)
     }
 }

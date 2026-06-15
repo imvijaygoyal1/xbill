@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 import Supabase
 
 // MARK: - ExpenseService
@@ -13,6 +14,7 @@ import Supabase
 final class ExpenseService: Sendable {
     static let shared = ExpenseService()
     private let supabase = SupabaseManager.shared
+    private let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "ExpenseService")
 
     private init() {}
 
@@ -57,7 +59,6 @@ final class ExpenseService: Sendable {
         payerID:              UUID,
         category:             Expense.Category,
         notes:                String?,
-        receiptURL:           URL? = nil,
         splits:               [SplitInput],
         originalAmount:       Decimal? = nil,
         originalCurrency:     String?  = nil,
@@ -75,7 +76,7 @@ final class ExpenseService: Sendable {
             category:            category.rawValue,
             currency:            currency,
             notes:               notes,
-            receiptURL:          receiptURL?.absoluteString,
+            receiptURL:          nil,
             splits:              splitParams,
             originalAmount:      originalAmount,
             originalCurrency:    originalCurrency,
@@ -118,6 +119,38 @@ final class ExpenseService: Sendable {
             .eq("id", value: expenseID)
             .select()
             .execute()
+    }
+
+    /// Atomically claims a due recurring template, creates a one-off instance, copies
+    /// its splits, and advances the template date. Returns nil if another client
+    /// already claimed that occurrence.
+    func createRecurringInstance(
+        templateID: UUID,
+        expectedNextOccurrence: Date,
+        newNextOccurrence: Date
+    ) async throws -> Expense? {
+        struct Params: Encodable {
+            let templateID: UUID
+            let expectedNextOccurrence: Date
+            let newNextOccurrence: Date
+
+            enum CodingKeys: String, CodingKey {
+                case templateID = "p_template_id"
+                case expectedNextOccurrence = "p_expected_next_occurrence"
+                case newNextOccurrence = "p_new_next_occurrence"
+            }
+        }
+
+        return try await supabase.client.rpc(
+            "create_recurring_expense_instance",
+            params: Params(
+                templateID: templateID,
+                expectedNextOccurrence: expectedNextOccurrence,
+                newNextOccurrence: newNextOccurrence
+            )
+        )
+        .execute()
+        .value
     }
 
     // MARK: - Update
@@ -173,8 +206,12 @@ final class ExpenseService: Sendable {
             amount:        NSDecimalNumber(decimal: amount).doubleValue,
             isDevelopment: dev
         )
-        _ = try? await supabase.client.functions
-            .invoke("notify-expense", options: .init(body: payload))
+        do {
+            _ = try await supabase.client.functions
+                .invoke("notify-expense", options: .init(body: payload))
+        } catch {
+            logger.error("notify-expense failed for expense \(expenseID.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     func notifySettlementRecorded(
@@ -208,8 +245,12 @@ final class ExpenseService: Sendable {
             amount:        NSDecimalNumber(decimal: amount).doubleValue,
             isDevelopment: dev
         )
-        _ = try? await supabase.client.functions
-            .invoke("notify-settlement", options: .init(body: payload))
+        do {
+            _ = try await supabase.client.functions
+                .invoke("notify-settlement", options: .init(body: payload))
+        } catch {
+            logger.error("notify-settlement failed for settlement \(settlementID.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     // MARK: - Delete
@@ -221,22 +262,6 @@ final class ExpenseService: Sendable {
             .execute()
     }
 
-    // MARK: - Receipt Upload
-
-    func uploadReceiptImage(_ data: Data, expenseID: UUID) async throws -> URL {
-        let path = "receipts/\(expenseID.uuidString)/\(UUID().uuidString).jpg"
-        try await SupabaseManager.shared.client.storage
-            .from("receipts")
-            .upload(path, data: data)
-        let urlString = try SupabaseManager.shared.client.storage
-            .from("receipts")
-            .getPublicURL(path: path)
-            .absoluteString
-        guard let url = URL(string: urlString) else {
-            throw AppError.serverError("Invalid receipt URL returned from storage.")
-        }
-        return url
-    }
 }
 
 // MARK: - RPC Payloads

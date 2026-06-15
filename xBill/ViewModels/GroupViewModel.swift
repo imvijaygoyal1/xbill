@@ -25,6 +25,7 @@ final class GroupViewModel {
 
     private var splitsMap: [UUID: [Split]] = [:]
     @ObservationIgnored private var isComputingBalances = false
+    @ObservationIgnored private var shouldRecomputeBalances = false
     private let groupService = GroupService.shared
     private let expenseService = ExpenseService.shared
 
@@ -42,6 +43,14 @@ final class GroupViewModel {
         expenses.sorted { $0.createdAt > $1.createdAt }
     }
 
+    var activeMembers: [User] {
+        members.filter(\.isActive)
+    }
+
+    var canChangeCurrency: Bool {
+        expenses.isEmpty
+    }
+
     func balance(for userID: UUID) -> Decimal {
         balances[userID] ?? .zero
     }
@@ -54,7 +63,7 @@ final class GroupViewModel {
 
         if NetworkMonitor.shared.isConnected {
             do {
-                async let membersTask  = groupService.fetchMembers(groupID: group.id)
+                async let membersTask  = groupService.fetchMembers(groupID: group.id, includeInactive: true)
                 async let expensesTask = expenseService.fetchExpenses(groupID: group.id)
                 let (fetchedMembers, fetchedExpenses) = try await (membersTask, expensesTask)
                 members  = fetchedMembers
@@ -85,17 +94,24 @@ final class GroupViewModel {
     // MARK: - Balances
 
     private func computeBalances() async {
-        guard !isComputingBalances else { return }
+        if isComputingBalances {
+            shouldRecomputeBalances = true
+            return
+        }
         isComputingBalances = true
         defer { isComputingBalances = false }
-        splitsMap = await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService)
-        let rawBalances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
-        balances = rawBalances
-        settlementSuggestions = SplitCalculator.minimizeTransactions(
-            balances: rawBalances,
-            names: memberNames,
-            currency: group.currency
-        )
+
+        repeat {
+            shouldRecomputeBalances = false
+            splitsMap = await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService)
+            let rawBalances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
+            balances = rawBalances
+            settlementSuggestions = SplitCalculator.minimizeTransactions(
+                balances: rawBalances,
+                names: memberNames,
+                currency: group.currency
+            )
+        } while shouldRecomputeBalances
     }
 
     // MARK: - Members
@@ -114,6 +130,37 @@ final class GroupViewModel {
         do {
             try await groupService.removeMember(groupId: group.id, userId: userID)
             await load()
+        } catch {
+            guard !AppError.isSilent(error) else { return }
+            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
+        }
+    }
+
+    func updateGroupDetails(name: String, emoji: String, currency: String) async {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            errorAlert = ErrorAlert(title: "Missing Group Name", message: "Enter a group name before saving.")
+            return
+        }
+
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            var updated = group
+            updated.name = trimmedName
+            updated.emoji = emoji
+            if currency != group.currency {
+                guard canChangeCurrency else {
+                    throw AppError.validationFailed("Currency cannot be changed after expenses have been added to this group.")
+                }
+                updated.currency = currency
+            }
+            group = try await groupService.updateGroup(updated)
+            var cached = CacheService.shared.loadGroups()
+            if let index = cached.firstIndex(where: { $0.id == group.id }) {
+                cached[index] = group
+                CacheService.shared.saveGroups(cached)
+            }
         } catch {
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
@@ -168,80 +215,21 @@ final class GroupViewModel {
             let dueExpenses = try await expenseService.fetchDueRecurringExpenses(groupID: group.id)
             guard !dueExpenses.isEmpty else { return }
 
-            // Fetch splits for all due expenses in parallel to avoid N serial round-trips.
-            var expenseSplitPairs: [(expense: Expense, splits: [Split])] = []
-            await withTaskGroup(of: (Expense, [Split]).self) { taskGroup in
-                for expense in dueExpenses {
-                    guard expense.recurrence != .none,
-                          expense.nextOccurrenceDate != nil,
-                          expense.payerID != nil else { continue }
-                    taskGroup.addTask {
-                        let splits = (try? await self.expenseService.fetchSplits(expenseID: expense.id)) ?? []
-                        return (expense, splits)
-                    }
-                }
-                for await pair in taskGroup {
-                    expenseSplitPairs.append((expense: pair.0, splits: pair.1))
-                }
-            }
-
-            for (expense, existingSplits) in expenseSplitPairs {
+            for expense in dueExpenses {
                 guard expense.recurrence != .none,
-                      let nextDate = expense.nextOccurrenceDate,
-                      let payerID  = expense.payerID else { continue }
+                      let nextDate = expense.nextOccurrenceDate else { continue }
 
                 guard let newNextDate = expense.recurrence.nextDate(from: nextDate) else { continue }
 
-                var splitInputs = existingSplits.map { SplitInput(from: $0) }
-                guard !splitInputs.isEmpty else {
-                    // No splits means the template is corrupt or the fetch failed silently.
-                    // Advance the date to break the infinite retry loop and log for diagnosis.
-                    Logger(subsystem: "com.vijaygoyal.xbill", category: "Recurring")
-                        .fault("No splits for recurring expense \(expense.id) — advancing date without creating instance")
-                    try? await expenseService.setNextOccurrenceDate(newNextDate, expenseID: expense.id)
-                    continue
-                }
-
-                // Populate displayName from member cache so notifications show names correctly.
-                let names = memberNames
-                for i in splitInputs.indices {
-                    splitInputs[i].displayName = names[splitInputs[i].userID] ?? ""
-                }
-
                 do {
-                    // New instance is a one-off snapshot — it must NOT inherit recurrence or
-                    // a next date, otherwise it would spawn further instances indefinitely.
-                    _ = try await expenseService.createExpense(
-                        groupID:             expense.groupID,
-                        title:               expense.title,
-                        amount:              expense.amount,
-                        currency:            expense.currency,
-                        payerID:             payerID,
-                        category:            expense.category,
-                        notes:               expense.notes,
-                        splits:              splitInputs,
-                        originalAmount:      expense.originalAmount,
-                        originalCurrency:    expense.originalCurrency,
-                        recurrence:          .none,
-                        nextOccurrenceDate:  nil
+                    _ = try await expenseService.createRecurringInstance(
+                        templateID: expense.id,
+                        expectedNextOccurrence: nextDate,
+                        newNextOccurrence: newNextDate
                     )
                 } catch {
-                    // Instance creation failed — skip advancing the template so it retries next time.
                     Logger(subsystem: "com.vijaygoyal.xbill", category: "Recurring")
                         .fault("Failed to create recurring instance for expense \(expense.id): \(error)")
-                    continue
-                }
-
-                do {
-                    // Advance the template to the next cycle date.
-                    try await expenseService.setNextOccurrenceDate(newNextDate, expenseID: expense.id)
-                } catch {
-                    // Template advance failed — instance was created; log but do not throw.
-                    // The duplicate-instance risk is mitigated: on next launch the DB already
-                    // has the new instance, so any visual duplicate is at most cosmetic
-                    // until the advance succeeds on a subsequent retry.
-                    Logger(subsystem: "com.vijaygoyal.xbill", category: "Recurring")
-                        .fault("Failed to advance next_occurrence_date for expense \(expense.id): \(error)")
                 }
             }
 
@@ -307,9 +295,29 @@ final class GroupViewModel {
                 }
             }
 
-            // Collect unsettled splits where the debtor owes the creditor.
-            let splitsToSettle: [Split] = freshSplitsMap.flatMap { (_, splits) in
-                splits.filter { $0.userID == suggestion.fromUserID && !$0.isSettled }
+            // Collect whole matching splits up to the suggested amount. Splits do not support
+            // partial settlement, so never mark more debt settled than the user confirmed.
+            let candidateSplits: [Split] = freshSplitsMap
+                .sorted { $0.key.uuidString < $1.key.uuidString }
+                .flatMap { (_, splits) in
+                    splits
+                        .filter { $0.userID == suggestion.fromUserID && !$0.isSettled }
+                        .sorted { $0.id.uuidString < $1.id.uuidString }
+                }
+
+            var remaining = suggestion.amount
+            let epsilon = Decimal(string: "0.005") ?? Decimal(5) / Decimal(1000)
+            var splitsToSettle: [Split] = []
+            for split in candidateSplits {
+                guard split.amount <= remaining + epsilon else { continue }
+                splitsToSettle.append(split)
+                remaining -= split.amount
+                if remaining <= epsilon { break }
+            }
+            guard !splitsToSettle.isEmpty, remaining <= epsilon else {
+                throw AppError.validationFailed(
+                    "This settlement cannot be matched to the current expense splits. Refresh the group and try again."
+                )
             }
 
             try await withThrowingTaskGroup(of: Void.self) { taskGroup in
@@ -329,7 +337,7 @@ final class GroupViewModel {
             NotificationStore.shared.merge([note])
 
             // Await the notification inline; isSaved drives sheet dismissal, not isLoading.
-            if CacheService.defaults.bool(forKey: "prefPushSettlement") {
+            if CacheService.defaults.bool(forKey: NotificationService.settlementPreferenceKey) {
                 await expenseService.notifySettlementRecorded(
                     settlementID: suggestion.id,
                     groupID:      group.id,

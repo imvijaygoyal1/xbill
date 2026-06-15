@@ -14,6 +14,11 @@ final class NotificationService: Sendable {
     static let shared = NotificationService()
     private init() {}
 
+    static let preferenceConfiguredKey = "prefPushConfiguredAfterPermission"
+    static let expensePreferenceKey = "prefPushExpense"
+    static let settlementPreferenceKey = "prefPushSettlement"
+    static let commentPreferenceKey = "prefPushComment"
+
     // MARK: - Authorization
 
     func requestAuthorization() async throws -> Bool {
@@ -23,6 +28,18 @@ final class NotificationService: Sendable {
 
     func authorizationStatus() async -> UNAuthorizationStatus {
         await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    }
+
+    func isPushAuthorized() async -> Bool {
+        await authorizationStatus().allowsPushRegistration
+    }
+
+    func enableDefaultPreferencesAfterPermissionIfNeeded(defaults: UserDefaults = CacheService.defaults) {
+        guard !defaults.bool(forKey: Self.preferenceConfiguredKey) else { return }
+        defaults.set(true, forKey: Self.expensePreferenceKey)
+        defaults.set(true, forKey: Self.settlementPreferenceKey)
+        defaults.set(true, forKey: Self.commentPreferenceKey)
+        defaults.set(true, forKey: Self.preferenceConfiguredKey)
     }
 
     // MARK: - Local Notifications
@@ -61,5 +78,18 @@ final class NotificationService: Sendable {
     @MainActor
     func clearBadge() {
         UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
+    }
+}
+
+extension UNAuthorizationStatus {
+    var allowsPushRegistration: Bool {
+        switch self {
+        case .authorized, .provisional, .ephemeral:
+            return true
+        case .notDetermined, .denied:
+            return false
+        @unknown default:
+            return false
+        }
     }
 }

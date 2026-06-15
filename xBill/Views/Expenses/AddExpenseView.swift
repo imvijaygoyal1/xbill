@@ -42,8 +42,8 @@ struct AddExpenseView: View {
                             backAction: { dismiss() }
                         )
 
-                        XBillReceiptIllustration(size: 190)
-                            .frame(maxWidth: .infinity)
+                        receiptScanCallout
+                            .padding(.horizontal, XBillSpacing.base)
 
                         // MARK: Amount hero
                         VStack(spacing: XBillSpacing.xs) {
@@ -254,17 +254,6 @@ struct AddExpenseView: View {
                             .padding(.horizontal, XBillSpacing.base)
                         }
 
-                        // MARK: Scan receipt
-                        Button {
-                            receiptVM = ReceiptViewModel()
-                            showReceiptScan = true
-                        } label: {
-                            Label("Scan Receipt", systemImage: "doc.text.viewfinder")
-                                .font(.xbillButtonMedium)
-                                .foregroundStyle(Color.brandPrimary)
-                        }
-                        .padding(.horizontal, XBillSpacing.base)
-
                         Spacer(minLength: XBillSpacing.xxxl)
                     }
                     .padding(.top, XBillSpacing.base)
@@ -307,6 +296,44 @@ struct AddExpenseView: View {
     }
 
     // MARK: - Conversion Preview
+
+    private var receiptScanCallout: some View {
+        Button {
+            receiptVM = ReceiptViewModel()
+            showReceiptScan = true
+        } label: {
+            HStack(spacing: AppSpacing.md) {
+                XBillReceiptIllustration(size: 82)
+                    .frame(width: 82, height: 82)
+
+                VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                    Text("Scan Receipt")
+                        .font(.appTitle)
+                        .foregroundStyle(AppColors.textPrimary)
+                    Text("Extract amount and splits without saving the image.")
+                        .font(.appCaption)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: AppSpacing.sm)
+
+                Image(systemName: "chevron.right")
+                    .font(.appCaptionMedium)
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+            .padding(AppSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AppColors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
+                    .stroke(AppColors.border, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Scan receipt")
+    }
 
     private var conversionPreview: some View {
         Group {

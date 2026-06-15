@@ -8,6 +8,7 @@
 import SwiftUI
 import UIKit
 import PhotosUI
+import UserNotifications
 
 // MARK: - PhotoPickerView
 
@@ -64,9 +65,11 @@ struct ProfileView: View {
     @State private var showTerms = false
     @State private var showMyQR = false
 
-    @AppStorage("prefPushExpense") private var prefPushExpense = true
-    @AppStorage("prefPushSettlement") private var prefPushSettlement = true
-    @AppStorage("prefPushComment") private var prefPushComment = true
+    @State private var prefPushExpense = false
+    @State private var prefPushSettlement = false
+    @State private var prefPushComment = false
+    @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+    @State private var isRequestingNotifications = false
     @State private var lockService = AppLockService.shared
 
     var body: some View {
@@ -85,6 +88,14 @@ struct ProfileView: View {
             .task {
                 if loadsOnAppear {
                     await vm.load()
+                }
+                await refreshNotificationStatus()
+                loadNotificationPreferences()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                Task {
+                    await refreshNotificationStatus()
+                    loadNotificationPreferences()
                 }
             }
             .sheet(isPresented: $isEditing) {
@@ -119,7 +130,7 @@ struct ProfileView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This permanently removes your profile and signs you out. Expenses you created will remain in your groups.")
+                Text("This permanently removes your profile, avatar, payment handles, and notification tokens. Shared expense records stay in groups so other members keep their history.")
             }
         }
         .errorAlert(item: $vm.errorAlert)
@@ -155,61 +166,41 @@ struct ProfileView: View {
                             Task { await vm.saveProfile(avatarImage: nil) }
                         }
                         .font(.appCaption)
-                        .foregroundStyle(AppColors.primary)
-                        .disabled(vm.isLoading)
+                        .foregroundStyle(canSaveHandles ? AppColors.primary : AppColors.textTertiary)
+                        .disabled(!canSaveHandles)
                     }
                 }
                 XBillFormSection {
                     VStack(spacing: AppSpacing.lg) {
-                        XBillPaymentHandleRow(
-                            providerName: "Venmo",
-                            systemImage: "dollarsign.circle.fill",
-                            placeholder: "@venmo-handle",
-                            text: $vm.venmoHandle
-                        )
+                        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                            XBillPaymentHandleRow(
+                                providerName: "Venmo",
+                                systemImage: "dollarsign.circle.fill",
+                                placeholder: "@venmo-handle",
+                                text: $vm.venmoHandle
+                            )
+                            validationText(venmoValidationMessage)
+                        }
 
                         Divider()
                             .overlay(AppColors.border)
 
-                        XBillPaymentHandleRow(
-                            providerName: "PayPal",
-                            systemImage: "p.circle.fill",
-                            placeholder: "paypal@email.com",
-                            text: $vm.paypalEmail,
-                            keyboardType: .emailAddress
-                        )
+                        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                            XBillPaymentHandleRow(
+                                providerName: "PayPal",
+                                systemImage: "p.circle.fill",
+                                placeholder: "paypalme-handle",
+                                text: $vm.paypalHandle,
+                                keyboardType: .default
+                            )
+                            validationText(paypalValidationMessage)
+                        }
                     }
                 }
             }
 
             profileSection("Notifications") {
-                XBillFormSection {
-                    VStack(spacing: AppSpacing.sm) {
-                        XBillSettingsRow(icon: "plus.circle", title: "New Expenses") {
-                            Toggle("", isOn: $prefPushExpense)
-                                .labelsHidden()
-                                .tint(AppColors.primary)
-                        }
-
-                        Divider()
-                            .overlay(AppColors.border)
-
-                        XBillSettingsRow(icon: "checkmark.seal", title: "Settlements") {
-                            Toggle("", isOn: $prefPushSettlement)
-                                .labelsHidden()
-                                .tint(AppColors.primary)
-                        }
-
-                        Divider()
-                            .overlay(AppColors.border)
-
-                        XBillSettingsRow(icon: "bubble.left", title: "Comments") {
-                            Toggle("", isOn: $prefPushComment)
-                                .labelsHidden()
-                                .tint(AppColors.primary)
-                        }
-                    }
-                }
+                notificationsSection
             }
 
             profileSection("Security") {
@@ -255,7 +246,30 @@ struct ProfileView: View {
 
     private var hasUnsavedHandles: Bool {
         vm.venmoHandle != (vm.user?.venmoHandle ?? "") ||
-        vm.paypalEmail != (vm.user?.paypalEmail ?? "")
+        vm.paypalHandle != (vm.user?.paypalHandle ?? "")
+    }
+
+    private var canSaveHandles: Bool {
+        hasUnsavedHandles && !vm.isLoading && venmoValidationMessage == nil && paypalValidationMessage == nil
+    }
+
+    private var venmoValidationMessage: String? {
+        let value = vm.venmoHandle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return nil }
+        guard value.hasPrefix("@") else { return "Venmo handles should start with @." }
+        let handle = value.dropFirst()
+        guard handle.count >= 2 else { return "Enter at least 2 characters after @." }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        return handle.unicodeScalars.allSatisfy { allowed.contains($0) } ? nil : "Use letters, numbers, dot, dash, or underscore."
+    }
+
+    private var paypalValidationMessage: String? {
+        let value = vm.paypalHandle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return nil }
+        let handle = value.hasPrefix("@") ? value.dropFirst() : Substring(value)
+        guard handle.count >= 2 else { return "Enter at least 2 characters." }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        return handle.unicodeScalars.allSatisfy { allowed.contains($0) } ? nil : "Use your PayPal.me handle: letters, numbers, dot, dash, or underscore."
     }
 
     private var scrollBottomPadding: CGFloat {
@@ -269,6 +283,158 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: AppSpacing.md) {
             XBillSectionHeader(title)
             content()
+        }
+    }
+
+    @ViewBuilder
+    private var notificationsSection: some View {
+        if notificationStatus.allowsPushRegistration {
+            XBillFormSection {
+                VStack(spacing: AppSpacing.sm) {
+                    XBillSettingsRow(icon: "plus.circle", title: "New Expenses") {
+                        Toggle("", isOn: $prefPushExpense)
+                            .labelsHidden()
+                            .tint(AppColors.primary)
+                            .onChange(of: prefPushExpense) { _, value in
+                                CacheService.defaults.set(value, forKey: NotificationService.expensePreferenceKey)
+                            }
+                    }
+
+                    Divider()
+                        .overlay(AppColors.border)
+
+                    XBillSettingsRow(icon: "checkmark.seal", title: "Settlements") {
+                        Toggle("", isOn: $prefPushSettlement)
+                            .labelsHidden()
+                            .tint(AppColors.primary)
+                            .onChange(of: prefPushSettlement) { _, value in
+                                CacheService.defaults.set(value, forKey: NotificationService.settlementPreferenceKey)
+                            }
+                    }
+
+                    Divider()
+                        .overlay(AppColors.border)
+
+                    XBillSettingsRow(icon: "bubble.left", title: "Comments") {
+                        Toggle("", isOn: $prefPushComment)
+                            .labelsHidden()
+                            .tint(AppColors.primary)
+                            .onChange(of: prefPushComment) { _, value in
+                                CacheService.defaults.set(value, forKey: NotificationService.commentPreferenceKey)
+                            }
+                    }
+                }
+            }
+        } else {
+            XBillFormSection {
+                VStack(alignment: .leading, spacing: AppSpacing.md) {
+                    XBillSettingsRow(
+                        icon: "bell.badge",
+                        title: notificationPermissionTitle,
+                        subtitle: notificationPermissionSubtitle
+                    ) {
+                        notificationPermissionAction
+                    }
+
+                    Text("Expense, settlement, and comment notification preferences are available after notifications are enabled.")
+                        .font(.appCaption)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private var notificationPermissionTitle: String {
+        switch notificationStatus {
+        case .denied:
+            return "Notifications Off"
+        case .notDetermined:
+            return "Enable Notifications"
+        default:
+            return "Notifications Unavailable"
+        }
+    }
+
+    private var notificationPermissionSubtitle: String {
+        switch notificationStatus {
+        case .denied:
+            return "Use iOS Settings to turn them on."
+        case .notDetermined:
+            return "Get group and expense updates."
+        default:
+            return "Notification permission is not currently available."
+        }
+    }
+
+    @ViewBuilder
+    private var notificationPermissionAction: some View {
+        switch notificationStatus {
+        case .notDetermined:
+            Button {
+                Task { await requestNotificationsFromProfile() }
+            } label: {
+                if isRequestingNotifications {
+                    ProgressView()
+                } else {
+                    Text("Enable")
+                        .font(.appCaption)
+                        .fontWeight(.semibold)
+                }
+            }
+            .disabled(isRequestingNotifications)
+        case .denied:
+            Button("Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            .font(.appCaption)
+            .fontWeight(.semibold)
+        default:
+            EmptyView()
+        }
+    }
+
+    @MainActor
+    private func refreshNotificationStatus() async {
+        notificationStatus = await NotificationService.shared.authorizationStatus()
+        if notificationStatus == .denied {
+            try? await AuthService.shared.deleteDeviceTokens()
+        }
+    }
+
+    @MainActor
+    private func loadNotificationPreferences() {
+        prefPushExpense = CacheService.defaults.bool(forKey: NotificationService.expensePreferenceKey)
+        prefPushSettlement = CacheService.defaults.bool(forKey: NotificationService.settlementPreferenceKey)
+        prefPushComment = CacheService.defaults.bool(forKey: NotificationService.commentPreferenceKey)
+    }
+
+    @MainActor
+    private func requestNotificationsFromProfile() async {
+        isRequestingNotifications = true
+        defer { isRequestingNotifications = false }
+
+        let granted = (try? await NotificationService.shared.requestAuthorization()) ?? false
+        notificationStatus = await NotificationService.shared.authorizationStatus()
+
+        if granted || notificationStatus.allowsPushRegistration {
+            NotificationService.shared.enableDefaultPreferencesAfterPermissionIfNeeded()
+            loadNotificationPreferences()
+            UIApplication.shared.registerForRemoteNotifications()
+        } else {
+            try? await AuthService.shared.deleteDeviceTokens()
+        }
+    }
+
+    @ViewBuilder
+    private func validationText(_ message: String?) -> some View {
+        if let message {
+            Text(message)
+                .font(.appCaption)
+                .foregroundStyle(AppColors.error)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -410,6 +576,6 @@ private func previewProfileViewModel(name: String, email: String) -> ProfileView
     vm.lifetimePaid = 420
     vm.displayName = name
     vm.venmoHandle = "@vijay"
-    vm.paypalEmail = email
+    vm.paypalHandle = email
     return vm
 }

@@ -14,11 +14,18 @@ import Foundation
 
 final class NotificationStore: @unchecked Sendable {
     static let shared = NotificationStore()
-    private init() {}
 
-    private let itemsKey      = "xbill_notifications_v1"
-    private let lastViewedKey = "xbill_notifications_last_viewed"
+    private let itemsKey: String
+    private let lastViewedKey: String
     private let maxCount      = 100
+
+    init(
+        itemsKey: String = "xbill_notifications_v1",
+        lastViewedKey: String = "xbill_notifications_last_viewed"
+    ) {
+        self.itemsKey = itemsKey
+        self.lastViewedKey = lastViewedKey
+    }
 
     // Serialises all read-modify-write cycles to prevent TOCTOU races when
     // multiple tasks call merge/markRead/delete concurrently.

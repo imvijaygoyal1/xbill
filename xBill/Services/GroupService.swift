@@ -47,6 +47,7 @@ final class GroupService: Sendable {
         let rows: [Row] = try await supabase.table("group_members")
             .select("group_id")
             .eq("user_id", value: userID)
+            .eq("is_active", value: true)
             .execute()
             .value
         return rows.map(\.groupId)
@@ -61,24 +62,52 @@ final class GroupService: Sendable {
             .value
     }
 
-    func fetchMembers(groupID: UUID) async throws -> [User] {
-        // Two-step: get user_ids from group_members, then fetch their profiles
+    func fetchMembers(groupID: UUID, includeInactive: Bool = false) async throws -> [User] {
         struct Row: Decodable {
             let userId: UUID
-            enum CodingKeys: String, CodingKey { case userId = "user_id" }
+            let isActive: Bool
+            let displayNameSnapshot: String?
+            let avatarURLSnapshot: String?
+            let joinedAt: Date
+
+            enum CodingKeys: String, CodingKey {
+                case userId = "user_id"
+                case isActive = "is_active"
+                case displayNameSnapshot = "display_name_snapshot"
+                case avatarURLSnapshot = "avatar_url_snapshot"
+                case joinedAt = "joined_at"
+            }
         }
-        let rows: [Row] = try await supabase.table("group_members")
-            .select("user_id")
+        var query = supabase.table("group_members")
+            .select("user_id,is_active,display_name_snapshot,avatar_url_snapshot,joined_at")
             .eq("group_id", value: groupID)
-            .execute()
-            .value
+        if !includeInactive {
+            query = query.eq("is_active", value: true)
+        }
+        let rows: [Row] = try await query.execute().value
         let ids = rows.map(\.userId)
         guard !ids.isEmpty else { return [] }
-        return try await supabase.table("profiles")
+        let profiles: [User] = try await supabase.table("profiles")
             .select()
             .in("id", values: ids)
             .execute()
             .value
+        let profileMap = Dictionary(uniqueKeysWithValues: profiles.map { ($0.id, $0) })
+
+        return rows.map { row in
+            if var profile = profileMap[row.userId] {
+                profile.isActive = row.isActive
+                return profile
+            }
+            return User(
+                id: row.userId,
+                email: "",
+                displayName: row.displayNameSnapshot ?? "Deleted User",
+                avatarURL: row.avatarURLSnapshot.flatMap { URL(string: $0) },
+                isActive: row.isActive,
+                createdAt: row.joinedAt
+            )
+        }
     }
 
     // MARK: - Create
@@ -130,12 +159,11 @@ final class GroupService: Sendable {
             let groupId: UUID
             let userId: UUID
             enum CodingKeys: String, CodingKey {
-                case groupId = "group_id"
-                case userId  = "user_id"
+                case groupId = "p_group_id"
+                case userId  = "p_user_id"
             }
         }
-        try await supabase.table("group_members")
-            .insert(Payload(groupId: groupId, userId: userId))
+        try await supabase.client.rpc("add_or_reactivate_group_member", params: Payload(groupId: groupId, userId: userId))
             .execute()
     }
 
@@ -144,11 +172,10 @@ final class GroupService: Sendable {
             let userId: UUID
             enum CodingKeys: String, CodingKey { case userId = "user_id" }
         }
-        let rows: [Deleted] = try await supabase.table("group_members")
-            .delete()
-            .eq("group_id", value: groupId)
-            .eq("user_id", value: userId)
-            .select("user_id")
+        let rows: [Deleted] = try await supabase.client.rpc(
+            "deactivate_group_member",
+            params: DeactivateGroupMemberParams(groupId: groupId, userId: userId)
+        )
             .execute()
             .value
         guard !rows.isEmpty else {
@@ -267,7 +294,7 @@ final class GroupService: Sendable {
     // MARK: - Realtime
 
     /// Returns an AsyncStream that yields whenever the current user's group memberships or group metadata change.
-    func groupChanges(userID: UUID) async throws -> AsyncStream<Void> {
+    func groupChanges(userID: UUID, groupIDs: [UUID]) async throws -> AsyncStream<Void> {
         let topic = "groups-\(userID.uuidString)"
         // The SDK caches channels by topic; remove any existing subscribed channel
         // before registering new callbacks to avoid "callbacks after subscribe" error.
@@ -275,8 +302,21 @@ final class GroupService: Sendable {
         await supabase.client.removeChannel(stale)
 
         let channel = supabase.client.channel(topic)
-        let membersStream = channel.postgresChange(AnyAction.self, schema: "public", table: "group_members")
-        let groupsStream  = channel.postgresChange(AnyAction.self, schema: "public", table: "groups")
+        let membersStream = channel.postgresChange(
+            AnyAction.self,
+            schema: "public",
+            table: "group_members",
+            filter: .eq("user_id", value: userID)
+        )
+        let groupFilter: RealtimePostgresFilter = groupIDs.isEmpty
+            ? .eq("id", value: UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+            : .in("id", values: groupIDs)
+        let groupsStream = channel.postgresChange(
+            AnyAction.self,
+            schema: "public",
+            table: "groups",
+            filter: groupFilter
+        )
         try await channel.subscribeWithError()
         let client = supabase.client
         return AsyncStream { continuation in
@@ -291,5 +331,15 @@ final class GroupService: Sendable {
                 Task { await client.removeChannel(channel) }
             }
         }
+    }
+}
+
+private struct DeactivateGroupMemberParams: Encodable {
+    let groupId: UUID
+    let userId: UUID
+
+    enum CodingKeys: String, CodingKey {
+        case groupId = "p_group_id"
+        case userId = "p_user_id"
     }
 }

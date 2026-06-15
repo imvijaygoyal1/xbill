@@ -44,7 +44,7 @@ final class AuthService: Sendable {
         // Apple only provides fullName on the very first authorization.
         // Upsert it immediately so the trigger's fallback ("User") is overwritten.
         if let name = displayName, !name.isEmpty {
-            try? await supabase.table("profiles")
+            _ = try? await supabase.table("profiles")
                 .update(DisplayNamePayload(displayName: name))
                 .eq("id", value: session.user.id)
                 .execute()
@@ -103,9 +103,9 @@ final class AuthService: Sendable {
 
     // MARK: - Profile
 
-    func updateProfile(displayName: String, avatarURL: URL?, venmoHandle: String? = nil, paypalEmail: String? = nil) async throws -> User {
+    func updateProfile(displayName: String, avatarURL: URL?, venmoHandle: String? = nil, paypalHandle: String? = nil) async throws -> User {
         guard let userID = currentUserID else { throw AppError.unauthenticated }
-        let update = UserUpdatePayload(displayName: displayName, avatarURL: avatarURL, venmoHandle: venmoHandle, paypalEmail: paypalEmail)
+        let update = UserUpdatePayload(displayName: displayName, avatarURL: avatarURL, venmoHandle: venmoHandle, paypalHandle: paypalHandle)
         return try await supabase.table("profiles")
             .update(update)
             .eq("id", value: userID)
@@ -140,6 +140,14 @@ final class AuthService: Sendable {
             .delete()
             .eq("user_id", value: userID)
             .neq("token", value: token)
+            .execute()
+    }
+
+    func deleteDeviceTokens() async throws {
+        guard let userID = currentUserID else { return }
+        try await supabase.table("device_tokens")
+            .delete()
+            .eq("user_id", value: userID)
             .execute()
     }
 
@@ -237,11 +245,11 @@ private struct UserUpdatePayload: Encodable {
     let displayName: String
     let avatarURL: URL?
     let venmoHandle: String?
-    let paypalEmail: String?
+    let paypalHandle: String?
     enum CodingKeys: String, CodingKey {
         case displayName  = "display_name"
         case avatarURL    = "avatar_url"
         case venmoHandle  = "venmo_handle"
-        case paypalEmail  = "paypal_email"
+        case paypalHandle = "paypal_handle"
     }
 }

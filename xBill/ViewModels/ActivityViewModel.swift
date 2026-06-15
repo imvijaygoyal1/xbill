@@ -24,7 +24,7 @@ final class ActivityViewModel {
         isLoading = true
         defer { isLoading = false }
         do {
-            guard let userID = await auth.currentUserID else { throw AppError.unauthenticated }
+            guard let userID = auth.currentUserID else { throw AppError.unauthenticated }
             // Read unreadCount before the fetch/merge so the badge reflects the
             // pre-fetch state and isn't overwritten by a concurrent markRead call.
             let fetchedItems = try await service.fetchRecentActivity(userID: userID)

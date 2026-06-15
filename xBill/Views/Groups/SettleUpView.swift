@@ -88,9 +88,20 @@ struct SettleUpView: View {
 
                 // Payment buttons
                 HStack(spacing: 10) {
-                    if let venmoURL = PaymentLinkService.shared.paymentLink(for: suggestion, method: .venmo) {
+                    if let recipient = vm.members.first(where: { $0.id == suggestion.toUserID }),
+                       let venmoURL = PaymentLinkService.shared.paymentLink(for: suggestion, recipient: recipient, method: .venmo) {
                         Link(destination: venmoURL) {
                             Label("Venmo", systemImage: "link")
+                                .font(.caption.bold())
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .liquidGlassButton(fallback: Color.blue.opacity(0.15), in: Capsule())
+                        }
+                    }
+                    if let recipient = vm.members.first(where: { $0.id == suggestion.toUserID }),
+                       let paypalURL = PaymentLinkService.shared.paymentLink(for: suggestion, recipient: recipient, method: .paypal) {
+                        Link(destination: paypalURL) {
+                            Label("PayPal", systemImage: "link")
                                 .font(.caption.bold())
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)

@@ -29,10 +29,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotifi
         #endif
 
         UNUserNotificationCenter.current().delegate = self
-        UserDefaults.standard.register(defaults: [
-            "prefPushExpense":    true,
-            "prefPushSettlement": true,
-            "prefPushComment":    true,
+        CacheService.defaults.register(defaults: [
+            NotificationService.expensePreferenceKey:     false,
+            NotificationService.settlementPreferenceKey:  false,
+            NotificationService.commentPreferenceKey:     false,
+            NotificationService.preferenceConfiguredKey:  false,
         ])
         registerShortcutItems()
         // One-time cleanup: remove expense Spotlight entries — expense titles contain
@@ -61,6 +62,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotifi
         // The previous try? discarded errors making token-registration failures invisible.
         Task {
             do {
+                guard await NotificationService.shared.isPushAuthorized() else {
+                    try await AuthService.shared.deleteDeviceTokens()
+                    return
+                }
                 try await AuthService.shared.updateDeviceToken(tokenString)
             } catch {
                 Logger(subsystem: "com.vijaygoyal.xbill", category: "Push")

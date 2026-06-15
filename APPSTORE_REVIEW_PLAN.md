@@ -1,6 +1,6 @@
 # xBill App Store Review Plan
 
-Last reviewed: 2026-05-03
+Last reviewed: 2026-06-14
 
 This plan tracks issues that can block or slow App Store review. It is intentionally limited to future work; do not treat any item here as implemented unless the referenced code or metadata has changed.
 
@@ -24,17 +24,17 @@ This plan tracks issues that can block or slow App Store review. It is intention
 - Web status: Cloudflare Pages serves `https://xbill.vijaygoyal.org/privacy` as valid raw HTML; `/privacy` redirects to `/privacy/` then returns `HTTP 200`.
 - Plan:
   - Ensure it explicitly covers Supabase, Resend email invites, APNs/device tokens, contact-email lookup, avatar uploads, receipt images/OCR, exchange-rate network calls, deletion and retention policy, and support contact.
-  - Match App Store Connect privacy nutrition labels to `xBill/PrivacyInfo.xcprivacy`.
+  - Use `APPSTORE_PRIVACY_RECONCILIATION.md` as the source of truth for App Store Connect privacy labels.
   - Keep `web/privacy/index.html` aligned with any future code or backend data-flow changes.
 
 ### 3. Make Account Deletion Scope Review-Proof
 
-- Risk: Apple requires in-app account deletion for apps with account creation. The app has deletion UI and an Edge Function, but currently deletion removes `device_tokens`, `profiles`, and the auth user while group expenses, splits, comments, invite records, receipt storage objects, and avatar storage may remain depending on database/storage rules.
-- Current evidence: `delete-account` deletes only device tokens, profile, and auth user; Profile UI says expenses remain in groups.
+- Risk: Apple requires in-app account deletion for apps with account creation. The app has deletion UI and an Edge Function, and shared expense history is intentionally retained for other group members.
+- Current evidence: `delete-account` removes device tokens, the profile row, the auth user, and the user's avatar object from Supabase Storage. Profile UI says shared expense records remain in groups. Migration 036 keeps inactive historical group-membership snapshots so names can remain readable after access is removed.
 - Plan:
   - Decide the product retention policy for shared expenses after an account is deleted.
-  - Update deletion flow and policy copy so they clearly distinguish account deletion, shared group record retention, anonymization, and storage cleanup.
-  - If retaining shared records, anonymize or detach deleted-user identifiers and delete direct personal data such as avatar and device token.
+  - Keep deletion flow and policy copy aligned so they clearly distinguish account deletion, shared group record retention, historical member snapshots, and storage cleanup.
+  - If retaining shared records, keep direct personal data removal limited to profile/avatar/device-token cleanup and document retained shared history for reviewers.
   - Add a reviewer note explaining shared expense retention if retained for other group members.
 
 ### 4. Review Contact Discovery for Consent and Data Minimization
@@ -59,30 +59,31 @@ This plan tracks issues that can block or slow App Store review. It is intention
 
 ### 6. Receipt and Photo Data Consistency
 
-- Risk: Privacy manifest declares photos/videos as unlinked, but the app has a receipt upload method that stores receipt images under an expense ID. If that path is used, receipt images become linked to a user/group/expense and should be disclosed accordingly.
-- Current evidence: receipt scan is on-device, but `ExpenseService.uploadReceiptImage(_:expenseID:)` uploads to Supabase Storage.
+- Status: Product decision is OCR-only receipt scanning. Receipt images are used temporarily for Vision/OCR and are not uploaded or attached to saved expenses.
+- Current evidence: `ExpenseService.createExpense(...)` always sends `p_receipt_url = nil`, and the unused Supabase receipt-image upload helper was removed.
 - Plan:
-  - Verify whether receipt image upload is reachable in production.
-  - If reachable, update privacy nutrition labels and privacy policy to treat receipt images as linked financial/user content.
-  - If not reachable, document that receipt OCR is on-device and images are not uploaded.
+  - Keep App Store privacy labels and the privacy policy aligned with OCR-only behavior.
+  - If receipt attachment is added later, reintroduce upload deliberately and update privacy labels/policy before release.
 
 ### 7. Required Reason API Reason for App Group UserDefaults
 
-- Risk: Privacy manifest declares UserDefaults reason `CA92.1`, which is for app-only storage. The app also uses an App Group suite so the widget can read cached balance data. Apple may treat App Group sharing as outside the narrow "only accessible to the app itself" wording.
-- Current evidence: `CacheService.defaults` uses `UserDefaults(suiteName: "group.com.vijaygoyal.xbill")`; both app and widget declare `CA92.1`.
+- Status: fixed in manifests on 2026-06-14 after checking Apple's current required-reason API documentation.
+- Previous risk: privacy manifests declared only UserDefaults reason `CA92.1`, which Apple defines for information accessible only to the app itself. The app and widget also use an App Group suite so the widget can read cached balance data.
+- Current evidence: `CacheService.defaults` and `xBillBalanceWidget` use `UserDefaults(suiteName: "group.com.vijaygoyal.xbill")`. Apple documents `1C8F.1` for UserDefaults data accessible to apps, app extensions, and App Clips in the same App Group. Both `xBill/PrivacyInfo.xcprivacy` and `xBillWidget/PrivacyInfo.xcprivacy` now declare `CA92.1` and `1C8F.1`.
 - Plan:
-  - Re-check Apple's current required-reason list before submission for the best App Group/widget reason.
+  - Re-check Apple's current required-reason list again immediately before submission in case Apple changes reason IDs.
   - Keep sensitive cached groups, expenses, members, and notifications encrypted.
   - Document that the widget receives only balance summary values and encrypted app data is unreadable without the app keychain key.
 
 ### 8. Push Notification Defaults and Consent
 
-- Risk: In-app notification category toggles default to enabled before OS-level permission. This is probably acceptable because OS permission is still requested through a pre-prompt, but App Review can scrutinize notification consent flows.
-- Current evidence: defaults are registered as `true`; OS permission is requested only after `NotificationPermissionView`.
+- Status: fixed in app code on 2026-06-14.
+- Previous risk: in-app notification category toggles defaulted to enabled before OS-level permission. App Review can scrutinize consent semantics when preference UI appears enabled before permission is granted.
+- Current evidence: notification category defaults are registered as off until permission is granted; first-grant flow enables category defaults once. Profile shows either an enable/settings state or editable category toggles only when iOS authorization allows push registration. APNs token upload is guarded by current authorization, and stored device tokens are deleted when permission is denied.
 - Plan:
   - Keep all app functionality usable when notifications are declined.
-  - Consider defaulting category preferences only after the user taps "Allow Notifications" to avoid confusing consent semantics.
-  - Make privacy policy mention device token collection only after notification registration.
+  - Keep privacy policy wording limited to storing device push tokens if the user allows notifications.
+  - Re-test the fresh-install, denied, and granted notification states before submission.
 
 ### 9. App Completeness and Reviewer Access
 
@@ -109,6 +110,7 @@ This plan tracks issues that can block or slow App Store review. It is intention
 - Build Release with production entitlements and production APNs.
 - Validate `xBill/PrivacyInfo.xcprivacy` and `xBillWidget/PrivacyInfo.xcprivacy` are included in built products.
 - Confirm App Store Connect privacy labels match the app, widget, Supabase, Edge Functions, and privacy policy.
+- Confirm App Store Connect privacy labels match `APPSTORE_PRIVACY_RECONCILIATION.md`.
 - Confirm Terms and Privacy links work from logged-out and logged-in states.
 - Confirm account deletion succeeds for email/password and Sign in with Apple users.
 - Confirm deletion removes or anonymizes direct personal data according to the published retention policy.

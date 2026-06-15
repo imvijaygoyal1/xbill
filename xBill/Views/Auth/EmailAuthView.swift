@@ -144,6 +144,7 @@ struct EmailAuthView: View {
                     else              { await vm.signIn() }
                 }
             }
+            .accessibilityIdentifier("xBill.emailAuth.submitButton")
 
             Button { vm.toggleMode() } label: {
                 Text(vm.isSigningUp

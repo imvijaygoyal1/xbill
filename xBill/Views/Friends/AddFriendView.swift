@@ -121,6 +121,8 @@ struct AddFriendView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Import from Contacts")
 
+            contactDisclosureText
+
             if let addFriendURL {
                 ShareLink(
                     item: addFriendURL,
@@ -138,9 +140,21 @@ struct AddFriendView: View {
         }
     }
 
+    private var contactDisclosureText: some View {
+        Text("Only contacts you select are shared with xBill. Selected email addresses are checked against xBill users for friend discovery.")
+            .font(.xbillCaption)
+            .foregroundStyle(Color.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityLabel("Only contacts you select are shared with xBill. Selected email addresses are checked against xBill users for friend discovery.")
+    }
+
     private var suggestionsSection: some View {
         VStack(alignment: .leading, spacing: AppSpacing.md) {
             XBillSectionHeader("From Your Contacts", subtitle: "\(contactSuggestions.count) found")
+            Text("These suggestions come only from the contacts you selected.")
+                .font(.xbillCaption)
+                .foregroundStyle(Color.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
             ForEach(contactSuggestions) { user in
                 userRow(user)
             }

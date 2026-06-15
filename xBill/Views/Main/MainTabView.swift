@@ -14,7 +14,7 @@ struct MainTabView: View {
     @Environment(AppState.self) private var appState
     @State private var activityVM = ActivityViewModel()
     @State private var profileVM = ProfileViewModel()
-    @State private var selectedTab: Tab = .home
+    @State private var selectedTab: Tab
     @State private var showQuickAddExpense = false
     @State private var quickActionScan = false
     @State private var showNotificationPrompt = false
@@ -26,31 +26,52 @@ struct MainTabView: View {
         case home, groups, friends, activity, profile
     }
 
+    init(authVM: AuthViewModel, homeVM: HomeViewModel) {
+        self.authVM = authVM
+        self.homeVM = homeVM
+        _selectedTab = State(initialValue: Self.initialTab)
+    }
+
     var body: some View {
         TabView(selection: $selectedTab) {
             HomeView(vm: homeVM)
-                .tabItem { Label("Home", systemImage: "house.fill") }
+                .tabItem {
+                    Label("Home", systemImage: "house.fill")
+                        .accessibilityIdentifier("xBill.tab.home")
+                }
                 .tag(Tab.home)
 
             GroupListView(vm: homeVM)
-                .tabItem { Label("Groups", systemImage: "person.3.fill") }
+                .tabItem {
+                    Label("Groups", systemImage: "person.3.fill")
+                        .accessibilityIdentifier("xBill.tab.groups")
+                }
                 .tag(Tab.groups)
 
             // Only pass a real userID — UUID() causes IOU ownership direction to be
             // wrong for the whole session if this renders before loadCurrentUser() completes.
             FriendsView(currentUserID: homeVM.currentUser?.id, allGroups: homeVM.groups)
-                .tabItem { Label("Friends", systemImage: "person.2.fill") }
+                .tabItem {
+                    Label("Friends", systemImage: "person.2.fill")
+                        .accessibilityIdentifier("xBill.tab.friends")
+                }
                 .tag(Tab.friends)
 
             ActivityView(vm: activityVM)
-                .tabItem { Label("Alerts", systemImage: "bell.fill") }
+                .tabItem {
+                    Label("Recent", systemImage: "bell.fill")
+                        .accessibilityIdentifier("xBill.tab.activity")
+                }
                 .badge(activityVM.unreadCount)
                 .tag(Tab.activity)
 
             ProfileView(vm: profileVM, onSignOut: {
                 Task { await authVM.signOut() }
             })
-            .tabItem { Label("Profile", systemImage: "person.fill") }
+            .tabItem {
+                Label("Profile", systemImage: "person.fill")
+                    .accessibilityIdentifier("xBill.tab.profile")
+            }
             .tag(Tab.profile)
         }
         .tint(AppColors.primary)
@@ -74,8 +95,11 @@ struct MainTabView: View {
             await homeVM.loadAll()
             await activityVM.load()
             let status = await NotificationService.shared.authorizationStatus()
-            if status == .authorized || status == .provisional {
+            if status.allowsPushRegistration {
+                NotificationService.shared.enableDefaultPreferencesAfterPermissionIfNeeded()
                 UIApplication.shared.registerForRemoteNotifications()
+            } else if status == .denied {
+                try? await AuthService.shared.deleteDeviceTokens()
             } else if status == .notDetermined && !hasPromptedNotification {
                 showNotificationPrompt = true
             }
@@ -85,7 +109,12 @@ struct MainTabView: View {
                 hasPromptedNotification = true
                 showNotificationPrompt  = false
                 let granted = (try? await NotificationService.shared.requestAuthorization()) ?? false
-                if granted { UIApplication.shared.registerForRemoteNotifications() }
+                if granted {
+                    NotificationService.shared.enableDefaultPreferencesAfterPermissionIfNeeded()
+                    UIApplication.shared.registerForRemoteNotifications()
+                } else {
+                    try? await AuthService.shared.deleteDeviceTokens()
+                }
             } onSkip: {
                 hasPromptedNotification = true
                 showNotificationPrompt  = false
@@ -189,6 +218,20 @@ struct MainTabView: View {
             }
         }
     }
+
+    private static var initialTab: Tab {
+        #if UI_TESTING
+        let process = ProcessInfo.processInfo
+        return process.arguments.contains("--initial-tab-groups")
+            || process.environment["XBILL_INITIAL_TAB"] == "groups"
+            || UserDefaults.standard.string(forKey: "XBILL_INITIAL_TAB") == "groups"
+            ? .groups
+            : .home
+        #else
+        return .home
+        #endif
+    }
+
 }
 
 #Preview {

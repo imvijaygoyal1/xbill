@@ -8,6 +8,18 @@ Credentials:
   Email:    appreviewer@xbill.vijaygoyal.org
   Password: <REDACTED_REVIEWER_PASSWORD>
 
+Current status: seeded and verified on 2026-06-14 against the linked Supabase
+project `rhdhazevigbchmwzesok`.
+
+Repeatable setup:
+
+```bash
+supabase db query --file supabase/seed_app_store_review_account.sql --linked
+```
+
+The seed script is idempotent and matches the current production schema. Prefer
+the script above over the older manual SQL snippets below.
+
 ---
 
 ## Step 1 — Create the auth user in Supabase
@@ -257,9 +269,9 @@ GROUP BY e.paid_by;
 ```
 
 Expected result for reviewer Home screen:
-  Owed to you:  ~$155.00  (Alice + Bob owe across 3 expenses reviewer paid)
+  Owed to you:  ~$220.00  (Alice + Bob owe across 3 expenses reviewer paid)
   You owe:      ~$50.00   (reviewer owes Alice $30 + Bob $20)
-  Net:          ~+$105.00
+  Net:          ~+$170.00
 
 ---
 
@@ -276,7 +288,7 @@ The account has been pre-seeded with:
   • 1 group: "Tokyo Trip 🗼" with 3 members
   • 5 expenses across Food, Travel, Accommodation, Transport, Shopping categories
   • Mixed split types (equal and custom amounts)
-  • Positive net balance (owed $155, owes $50) so the Home screen shows real data
+  • Positive net balance (owed $220, owes $50) so the Home screen shows real data
   • 1 Friend IOU in the Friends tab
 
 Key features to review:

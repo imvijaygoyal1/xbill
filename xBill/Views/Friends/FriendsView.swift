@@ -22,6 +22,7 @@ struct FriendsView: View {
     @State private var showAddIOU = false
     @State private var showAddFriend = false
     @State private var selectedFriendID: UUID?
+    @State private var searchText = ""
 
     private let iouService    = IOUService.shared
     private let friendService = FriendService.shared
@@ -56,13 +57,20 @@ struct FriendsView: View {
     /// Friends who have outstanding (unsettled) IOUs — shown in the primary section.
     private var friendIDsWithBalance: [UUID] {
         let balanceSet = friendIDsWithBalanceSet
-        return displayFriendIDs.filter { balanceSet.contains($0) }
+        return displayFriendIDs.filter { balanceSet.contains($0) && matchesSearch($0) }
     }
 
     /// Friends with no outstanding balance.
     private var friendIDsSettled: [UUID] {
         let balanceSet = friendIDsWithBalanceSet
-        return displayFriendIDs.filter { !balanceSet.contains($0) }
+        return displayFriendIDs.filter { !balanceSet.contains($0) && matchesSearch($0) }
+    }
+
+    private var hasSearchResults: Bool {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        !friendIDsWithBalance.isEmpty ||
+        !friendIDsSettled.isEmpty ||
+        !pendingRequests.filter { matchesSearch($0) }.isEmpty
     }
 
     /// Net balance (from my perspective) with a friend, per currency.
@@ -156,9 +164,18 @@ struct FriendsView: View {
     private var friendsContent: some View {
         XBillScrollView(spacing: AppSpacing.xl) {
             friendsHeader
+            if !displayFriendIDs.isEmpty || !pendingRequests.isEmpty {
+                XBillSearchBar(placeholder: "Search friends", text: $searchText)
+            }
 
             if displayFriendIDs.isEmpty && pendingRequests.isEmpty {
                 emptyStateContent
+            } else if !hasSearchResults {
+                XBillEmptyState(
+                    icon: "magnifyingglass",
+                    title: "No Results",
+                    message: "No friends match your search."
+                )
             } else {
                 friendSections
             }
@@ -179,10 +196,11 @@ struct FriendsView: View {
 
     @ViewBuilder
     private var friendSections: some View {
-        if !pendingRequests.isEmpty {
+        let visibleRequests = pendingRequests.filter { matchesSearch($0) }
+        if !visibleRequests.isEmpty {
             VStack(alignment: .leading, spacing: AppSpacing.md) {
-                XBillSectionHeader("Requests", subtitle: "\(pendingRequests.count) pending")
-                ForEach(pendingRequests) { requester in
+                XBillSectionHeader("Requests", subtitle: "\(visibleRequests.count) pending")
+                ForEach(visibleRequests) { requester in
                     requestRow(requester)
                 }
             }
@@ -287,6 +305,18 @@ struct FriendsView: View {
 
     private func friendCountText(_ count: Int) -> String {
         "\(count) friend\(count == 1 ? "" : "s")"
+    }
+
+    private func matchesSearch(_ friendID: UUID) -> Bool {
+        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return true }
+        guard let friend = userCache[friendID] else { return false }
+        return matchesSearch(friend)
+    }
+
+    private func matchesSearch(_ user: User) -> Bool {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else { return true }
+        return user.displayName.lowercased().contains(query) || user.email.lowercased().contains(query)
     }
 
     // MARK: - Load

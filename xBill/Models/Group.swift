@@ -28,16 +28,24 @@ struct BillGroup: Codable, Identifiable, Equatable, Hashable, Sendable {
 }
 
 // MARK: - GroupMember
-// Matches public.group_members schema (composite PK, no id/role columns).
+// Matches public.group_members schema (composite PK plus historical membership state).
 
 struct GroupMember: Codable, Sendable {
     let groupId: UUID
     let userId: UUID
     let joinedAt: Date
+    let isActive: Bool
+    let removedAt: Date?
+    let displayNameSnapshot: String?
+    let avatarURLSnapshot: URL?
 
     enum CodingKeys: String, CodingKey {
-        case groupId  = "group_id"
-        case userId   = "user_id"
-        case joinedAt = "joined_at"
+        case groupId             = "group_id"
+        case userId              = "user_id"
+        case joinedAt            = "joined_at"
+        case isActive            = "is_active"
+        case removedAt           = "removed_at"
+        case displayNameSnapshot = "display_name_snapshot"
+        case avatarURLSnapshot   = "avatar_url_snapshot"
     }
 }

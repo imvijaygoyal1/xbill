@@ -185,9 +185,14 @@ final class VisionService: Sendable {
         let ciImage = CIImage(cgImage: cgImage)
         let context = VisionService.ciContext
 
-        // Exposure: average luminance < 12% → too dark for OCR
-        if let luminance = averageLuminance(ciImage, context: context), luminance < 0.12 {
-            throw AppError.validationFailed("Image is too dark — move to better lighting and try again.")
+        // Exposure: < 12% → too dark; > 92% → glare/overexposed
+        if let luminance = averageLuminance(ciImage, context: context) {
+            if luminance < 0.12 {
+                throw AppError.validationFailed("Image is too dark — move to better lighting and try again.")
+            }
+            if luminance > 0.92 {
+                throw AppError.validationFailed("Image is too bright — reduce glare or avoid direct flash.")
+            }
         }
 
         // Blur: average Laplacian edge energy < 2% → too blurry for OCR
@@ -290,8 +295,7 @@ final class VisionService: Sendable {
             if let out = f.outputImage { current = out }
         }
 
-        let context = CIContext(options: [.useSoftwareRenderer: false])
-        guard let outputCG = context.createCGImage(current, from: current.extent) else { return image }
+        guard let outputCG = Self.ciContext.createCGImage(current, from: current.extent) else { return image }
         return UIImage(cgImage: outputCG)
     }
 
@@ -616,7 +620,7 @@ final class VisionService: Sendable {
 
     private func parseQuantity(from text: String, totalPrice: Decimal) -> (Int, Decimal) {
         let patterns: [(String, NSRegularExpression?)] = [
-            (#"^(\d+)\s*[xX@]\s*"#,    try? NSRegularExpression(pattern: #"^(\d+)\s*[xX@]\s*"#)),
+            (#"^(\d+)\s*[xX@×]\s*"#,    try? NSRegularExpression(pattern: #"^(\d+)\s*[xX@×]\s*"#)),
             (#"^[Qq][Tt][Yy]\s*(\d+)"#, try? NSRegularExpression(pattern: #"^[Qq][Tt][Yy]\s*(\d+)"#)),
         ]
         for (_, regex) in patterns {

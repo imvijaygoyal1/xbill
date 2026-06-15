@@ -49,7 +49,7 @@ final class ActivityService: Sendable {
     private func items(for group: BillGroup) async -> Result<[NotificationItem], Error> {
         do {
             async let expensesTask = expenseService.fetchExpenses(groupID: group.id, limit: 50)
-            async let membersTask  = groupService.fetchMembers(groupID: group.id)
+            async let membersTask  = groupService.fetchMembers(groupID: group.id, includeInactive: true)
             let expenses = try await expensesTask
             let members  = try await membersTask
             let nameMap  = Dictionary(uniqueKeysWithValues: members.map { ($0.id, $0.displayName) })

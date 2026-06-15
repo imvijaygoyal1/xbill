@@ -12,6 +12,17 @@ struct GroupListView: View {
     @State private var showCreateGroup = false
     @State private var showArchived = false
     @State private var searchText = ""
+    private let opensCreatedGroupAfterCreate: Bool
+
+    init(
+        vm: HomeViewModel,
+        presentsCreateGroupOnAppear: Bool = false,
+        opensCreatedGroupAfterCreate: Bool = false
+    ) {
+        self.vm = vm
+        self.opensCreatedGroupAfterCreate = opensCreatedGroupAfterCreate
+        _showCreateGroup = State(initialValue: presentsCreateGroupOnAppear)
+    }
 
     private var filteredGroups: [BillGroup] {
         filter(vm.groups)
@@ -59,6 +70,10 @@ struct GroupListView: View {
                     onCreated: { newGroup in
                         vm.groups.append(newGroup)
                         SpotlightService.indexGroups(vm.groups)
+                        if opensCreatedGroupAfterCreate {
+                            vm.groupsNavigationPath = NavigationPath()
+                            vm.groupsNavigationPath.append(newGroup)
+                        }
                     },
                     inviterName: vm.currentUser?.displayName ?? "Someone"
                 )
@@ -67,7 +82,9 @@ struct GroupListView: View {
                 await vm.refresh()
                 await vm.loadArchivedGroups()
             }
-            .task { await vm.loadArchivedGroups() }
+            .task {
+                await vm.loadArchivedGroups()
+            }
         }
         .errorAlert(item: $vm.errorAlert)
     }
@@ -91,6 +108,9 @@ struct GroupListView: View {
                     ForEach(filteredGroups) { group in
                         NavigationLink(value: group) { groupRow(group, isArchived: false) }
                             .buttonStyle(.plain)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("\(group.name) group, active, \(group.currency)")
+                            .accessibilityIdentifier("xBill.group.active.\(group.id.uuidString)")
                     }
                 }
             }
@@ -113,6 +133,9 @@ struct GroupListView: View {
                         ForEach(filteredArchivedGroups) { group in
                             NavigationLink(value: group) { groupRow(group, isArchived: true) }
                                 .buttonStyle(.plain)
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("\(group.name) group, archived, \(group.currency)")
+                                .accessibilityIdentifier("xBill.group.archived.\(group.id.uuidString)")
                                 .contextMenu {
                                     Button {
                                         Task { await vm.unarchiveGroup(group) }

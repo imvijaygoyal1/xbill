@@ -31,11 +31,20 @@ struct QuickAddExpenseSheet: View {
             memberLoadError = nil
             pendingGroup = group
             do {
-                members = try await GroupService.shared.fetchMembers(groupID: group.id)
+                let fetchedMembers = try await GroupService.shared.fetchMembers(groupID: group.id)
+                CacheService.shared.saveMembers(fetchedMembers, groupID: group.id)
+                members = fetchedMembers
                 selectedGroup = group
                 showAddExpense = true
             } catch {
-                memberLoadError = error.localizedDescription
+                let cachedMembers = CacheService.shared.loadMembers(groupID: group.id)
+                if cachedMembers.isEmpty {
+                    memberLoadError = error.localizedDescription
+                } else {
+                    members = cachedMembers
+                    selectedGroup = group
+                    showAddExpense = true
+                }
             }
             isLoadingMembers = false
         }

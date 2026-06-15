@@ -57,7 +57,7 @@ struct InviteMembersView: View {
                 } header: {
                     Text("Invite by email")
                 } footer: {
-                    Text("They'll receive a link to join \(group.name).")
+                    Text("They'll receive a link to join \(group.name). Only contacts you select are shared with xBill. Selected email addresses are checked against xBill users for member discovery.")
                 }
 
                 if !pendingInvites.isEmpty {
@@ -121,11 +121,11 @@ struct InviteMembersView: View {
 
     private func addEmails(_ emails: [String]) {
         let newEmails = emails.filter { !pendingInvites.contains($0) }
-        pendingInvites.append(contentsOf: newEmails)
-        if !newEmails.isEmpty {
-            Task { await lookupXBillUsers(newEmails) }
+            pendingInvites.append(contentsOf: newEmails)
+            if !newEmails.isEmpty {
+                Task { await lookupXBillUsers(newEmails) }
+            }
         }
-    }
 
     private func lookupXBillUsers(_ emails: [String]) async {
         isLookingUp = true

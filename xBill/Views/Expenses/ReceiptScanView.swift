@@ -37,19 +37,26 @@ private struct DocumentCameraView: UIViewControllerRepresentable {
             didFinishWith scan: VNDocumentCameraScan
         ) {
             // Capture every page so multi-page receipts are fully processed
-            parent.scannedPages = (0..<scan.pageCount).map { scan.imageOfPage(at: $0) }
-            parent.isPresented  = false
+            let pages = (0..<scan.pageCount).map { scan.imageOfPage(at: $0) }
+            Task { @MainActor [parent] in
+                parent.scannedPages = pages
+                parent.isPresented  = false
+            }
         }
 
         func documentCameraViewControllerDidCancel(_ controller: VNDocumentCameraViewController) {
-            parent.isPresented = false
+            Task { @MainActor [parent] in
+                parent.isPresented = false
+            }
         }
 
         func documentCameraViewController(
             _ controller: VNDocumentCameraViewController,
             didFailWithError error: Error
         ) {
-            parent.isPresented = false
+            Task { @MainActor [parent] in
+                parent.isPresented = false
+            }
         }
     }
 }
@@ -129,7 +136,7 @@ struct ReceiptScanView: View {
                             Image(systemName: "doc.text.viewfinder")
                                 .font(.system(size: 56))
                                 .foregroundStyle(.secondary)
-                            Text("Scan or upload a receipt")
+                            Text("Scan a receipt for OCR")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -151,7 +158,7 @@ struct ReceiptScanView: View {
                         .accessibilityHint(VNDocumentCameraViewController.isSupported ? "" : "Document camera is not available on this device")
 
                         PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                            Label("Choose from Library", systemImage: "photo.fill")
+                            Label("Analyze Photo", systemImage: "photo.fill")
                                 .frame(maxWidth: .infinity)
                                 .padding()
                                 .background(Color(.systemGray5))

@@ -14,6 +14,7 @@ struct GroupDetailView: View {
     @State private var showAddExpense = false
     @State private var showInvite = false
     @State private var showInviteLink = false
+    @State private var showGroupSettings = false
     @State private var showStats = false
     @State private var showArchiveConfirm = false
     @State private var showUnarchiveConfirm = false
@@ -71,13 +72,19 @@ struct GroupDetailView: View {
                 filterCategory = nil
             }
             .sheet(isPresented: $showAddExpense) {
-                AddExpenseView(group: vm.group, members: vm.members, currentUserID: currentUserID) {
+                AddExpenseView(group: vm.group, members: vm.activeMembers, currentUserID: currentUserID) {
                     await vm.refresh()
+                }
+            }
+            .sheet(isPresented: $showGroupSettings) {
+                GroupSettingsView(vm: vm, currentUserID: currentUserID) {
+                    await onGroupStatusChanged?()
                 }
             }
             .sheet(isPresented: $showInvite) {
                 InviteMembersView(group: vm.group) {
                     await vm.load()
+                    await onGroupStatusChanged?()
                 }
             }
             .sheet(isPresented: $showInviteLink) {
@@ -171,10 +178,10 @@ struct GroupDetailView: View {
             }
             .errorAlert(item: $vm.errorAlert)
 
-            // FAB — only on Expenses tab when online
-            if selectedTab == 0 && NetworkMonitor.shared.isConnected {
-                FABButton { showAddExpense = true }
-                    .accessibilityLabel("Add Expense")
+            // Keep the primary action visible offline, then explain why it cannot continue.
+            if selectedTab == 0 {
+                FABButton { openAddExpense() }
+                    .accessibilityLabel(NetworkMonitor.shared.isConnected ? "Add Expense" : "Add Expense unavailable offline")
                     .padding(.bottom, AppSpacing.floatingActionBottomPadding)
                     .padding(.trailing, AppSpacing.md)
             }
@@ -259,13 +266,16 @@ struct GroupDetailView: View {
             XBillAvatarPlaceholder(name: vm.group.emoji, size: 56)
             VStack(alignment: .leading, spacing: AppSpacing.xs) {
                 HStack(spacing: AppSpacing.sm) {
-                    XBillAvatarStack(users: vm.members, maxVisible: 4, size: 28)
-                    Text("\(vm.members.count) member\(vm.members.count == 1 ? "" : "s")")
+                    XBillAvatarStack(users: vm.activeMembers, maxVisible: 4, size: 28)
+                    Text("\(vm.activeMembers.count) active member\(vm.activeMembers.count == 1 ? "" : "s")")
                         .font(.appCaption)
                         .foregroundStyle(AppColors.textSecondary)
                 }
             }
             Spacer()
+            XBillPillButton(title: "Manage", icon: "slider.horizontal.3", style: .secondary) {
+                showGroupSettings = true
+            }
         }
         .padding(AppSpacing.md)
         .background(AppColors.background)
@@ -281,7 +291,7 @@ struct GroupDetailView: View {
                     title: "No Expenses",
                     message: "Add the first expense to this group.",
                     actionLabel: "Add Expense",
-                    action: { showAddExpense = true }
+                    action: { openAddExpense() }
                 )
             } else if filteredExpenses.isEmpty {
                 EmptyStateView(
@@ -388,6 +398,23 @@ struct GroupDetailView: View {
             XBillButton(title: "Mark as Settled", style: .primary) {
                 settlementToConfirm = suggestion
             }
+            if let recipient = vm.members.first(where: { $0.id == suggestion.toUserID }) {
+                HStack(spacing: AppSpacing.sm) {
+                    if let venmoURL = PaymentLinkService.shared.paymentLink(for: suggestion, recipient: recipient, method: .venmo) {
+                        Link(destination: venmoURL) {
+                            Label("Venmo", systemImage: "link")
+                                .font(.appCaptionMedium)
+                        }
+                    }
+                    if let paypalURL = PaymentLinkService.shared.paymentLink(for: suggestion, recipient: recipient, method: .paypal) {
+                        Link(destination: paypalURL) {
+                            Label("PayPal", systemImage: "link")
+                                .font(.appCaptionMedium)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .padding(.vertical, XBillSpacing.sm)
     }
@@ -396,11 +423,14 @@ struct GroupDetailView: View {
 
     private var groupMenu: some View {
         Menu {
-            Button { showAddExpense = true } label: {
+            Button { openAddExpense() } label: {
                 Label("Add Expense", systemImage: "plus")
             }
             Button { showStats = true } label: {
                 Label("Stats", systemImage: "chart.bar.fill")
+            }
+            Button { showGroupSettings = true } label: {
+                Label("Manage Group", systemImage: "slider.horizontal.3")
             }
 
             Divider()
@@ -451,6 +481,17 @@ struct GroupDetailView: View {
 
     // MARK: - Export
 
+    private func openAddExpense() {
+        guard NetworkMonitor.shared.isConnected else {
+            vm.errorAlert = ErrorAlert(
+                title: "You're Offline",
+                message: "Connect to the internet before adding an expense."
+            )
+            return
+        }
+        showAddExpense = true
+    }
+
     private func exportCSV() {
         let names = vm.memberNames
         let data = ExportService.shared.generateCSV(
@@ -482,6 +523,255 @@ struct GroupDetailView: View {
         } catch {
             vm.errorAlert = ErrorAlert(title: "Export Failed", message: error.localizedDescription)
         }
+    }
+}
+
+// MARK: - Group Settings
+
+private struct GroupSettingsView: View {
+    @Bindable var vm: GroupViewModel
+    let currentUserID: UUID
+    let onChanged: () async -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @State private var emoji: String
+    @State private var currency: String
+    @State private var showInvite = false
+    @State private var showInviteLink = false
+    @State private var memberToRemove: User?
+
+    private let icons = ["🏠", "✈️", "🍽️", "🎉", "🏖️", "🏢", "🎮", "🚗", "🎵", "💼"]
+
+    init(vm: GroupViewModel, currentUserID: UUID, onChanged: @escaping () async -> Void) {
+        self.vm = vm
+        self.currentUserID = currentUserID
+        self.onChanged = onChanged
+        _name = State(initialValue: vm.group.name)
+        _emoji = State(initialValue: vm.group.emoji)
+        _currency = State(initialValue: vm.group.currency)
+    }
+
+    private var isOwner: Bool {
+        vm.group.createdBy == currentUserID
+    }
+
+    private var canSave: Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !vm.isLoading else { return false }
+        let currencyChanged = vm.canChangeCurrency && currency != vm.group.currency
+        return trimmed != vm.group.name || emoji != vm.group.emoji || currencyChanged
+    }
+
+    var body: some View {
+        NavigationStack {
+            XBillScreenContainer(
+                horizontalPadding: AppSpacing.lg,
+                contentSpacing: AppSpacing.xl,
+                bottomPadding: AppSpacing.xl
+            ) {
+                XBillPageHeader(
+                    title: "Manage Group",
+                    subtitle: "Edit details, invites, and members.",
+                    showsBackButton: true,
+                    backAction: { dismiss() }
+                )
+                .padding(.horizontal, -AppSpacing.lg)
+
+                detailsSection
+                inviteSection
+                membersSection
+            }
+            .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $showInvite) {
+                InviteMembersView(group: vm.group) {
+                    await vm.load()
+                    await onChanged()
+                }
+            }
+            .sheet(isPresented: $showInviteLink) {
+                GroupInviteView(group: vm.group, currentUserID: currentUserID)
+            }
+            .confirmationDialog(
+                "Remove Member?",
+                isPresented: Binding(
+                    get: { memberToRemove != nil },
+                    set: { if !$0 { memberToRemove = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Remove", role: .destructive) {
+                    guard let member = memberToRemove else { return }
+                    Task {
+                        await vm.removeMember(userID: member.id)
+                        if vm.errorAlert == nil {
+                            await onChanged()
+                            memberToRemove = nil
+                        }
+                    }
+                }
+                Button("Cancel", role: .cancel) { memberToRemove = nil }
+            } message: {
+                if let memberToRemove {
+                    Text("\(memberToRemove.displayName) will lose access to this group. Their historical expenses and splits stay visible.")
+                }
+            }
+        }
+        .errorAlert(item: $vm.errorAlert)
+    }
+
+    private var detailsSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            XBillSectionHeader("Details")
+            XBillFormSection {
+                VStack(alignment: .leading, spacing: AppSpacing.lg) {
+                    XBillTextField(placeholder: "Group name", text: $name)
+                        .accessibilityLabel("Group name")
+
+                    VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                        Text("Icon")
+                            .font(.appCaptionMedium)
+                            .foregroundStyle(AppColors.textSecondary)
+                        XBillIconPickerGrid(icons: icons, selectedIcon: $emoji)
+                    }
+
+                    HStack(spacing: AppSpacing.md) {
+                        Text("Currency")
+                            .font(.appBody)
+                            .foregroundStyle(AppColors.textPrimary)
+                        Spacer()
+                        Picker("Currency", selection: $currency) {
+                            ForEach(ExchangeRateService.commonCurrencies, id: \.self) { code in
+                                Text(code).tag(code)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .tint(AppColors.primary)
+                        .disabled(!vm.canChangeCurrency)
+                    }
+                    if !vm.canChangeCurrency {
+                        Text("Currency is locked after the first expense to keep historical amounts accurate.")
+                            .font(.appCaption)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+
+                    XBillPrimaryButton(
+                        title: "Save Changes",
+                        icon: "checkmark",
+                        isLoading: vm.isLoading,
+                        isDisabled: !canSave
+                    ) {
+                        Task {
+                            await vm.updateGroupDetails(name: name, emoji: emoji, currency: currency)
+                            name = vm.group.name
+                            emoji = vm.group.emoji
+                            currency = vm.group.currency
+                            await onChanged()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var inviteSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            XBillSectionHeader("Invites")
+            XBillActionCard(
+                icon: "envelope.fill",
+                title: "Invite by Email",
+                subtitle: "Send a group invite to a member."
+            ) {
+                showInvite = true
+            }
+            XBillActionCard(
+                icon: "qrcode",
+                title: "Invite Link",
+                subtitle: "Share a reusable link or QR code."
+            ) {
+                showInviteLink = true
+            }
+        }
+    }
+
+    private var membersSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            XBillSectionHeader("Members", subtitle: "\(vm.activeMembers.count) active · \(vm.members.count) historical")
+            XBillFormSection {
+                VStack(spacing: 0) {
+                    ForEach(Array(vm.members.enumerated()), id: \.element.id) { index, member in
+                        memberRow(member)
+                        if index < vm.members.count - 1 {
+                            Divider()
+                                .overlay(AppColors.border)
+                        }
+                    }
+
+                    if vm.members.isEmpty {
+                        Text("Members will appear after the group finishes loading.")
+                            .font(.appCaption)
+                            .foregroundStyle(AppColors.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+
+            if !isOwner {
+                Text("Only the group owner can remove members.")
+                    .font(.appCaption)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+        }
+    }
+
+    private func memberRow(_ member: User) -> some View {
+        HStack(spacing: AppSpacing.md) {
+            AvatarView(name: member.displayName, url: member.avatarURL, size: XBillIcon.avatarSm)
+            VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                Text(member.displayName)
+                    .font(.appBody)
+                    .foregroundStyle(AppColors.textPrimary)
+                if !member.email.isEmpty {
+                    Text(member.email)
+                        .font(.appCaption)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer()
+
+            if vm.group.createdBy == member.id {
+                Text("Owner")
+                    .font(.appCaptionMedium)
+                    .foregroundStyle(AppColors.primary)
+                    .padding(.horizontal, AppSpacing.sm)
+                    .frame(minHeight: 28)
+                    .background(AppColors.surfaceSoft)
+                    .clipShape(Capsule())
+            } else if isOwner {
+                Button(role: .destructive) {
+                    memberToRemove = member
+                } label: {
+                    Image(systemName: member.isActive ? "person.crop.circle.badge.minus" : "clock.badge")
+                        .font(.appTitle)
+                        .foregroundStyle(member.isActive ? AppColors.error : AppColors.textTertiary)
+                        .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                }
+                .buttonStyle(.plain)
+                .disabled(!member.isActive)
+                .accessibilityLabel("Remove \(member.displayName)")
+            }
+            if !member.isActive {
+                Text("Inactive")
+                    .font(.appCaptionMedium)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .padding(.horizontal, AppSpacing.sm)
+                    .frame(minHeight: 28)
+                    .background(AppColors.surfaceSoft)
+                    .clipShape(Capsule())
+            }
+        }
+        .padding(.vertical, AppSpacing.sm)
     }
 }
 

@@ -17,43 +17,45 @@ final class PaymentLinkService: Sendable {
 
     func paymentLink(
         for suggestion: SettlementSuggestion,
+        recipient: User,
         method: Settlement.PaymentMethod
     ) -> URL? {
         switch method {
-        case .venmo:   return venmoLink(to: suggestion.toName, amount: suggestion.amount, note: "xBill settlement")
-        case .paypal:  return paypalLink(to: suggestion.toName, amount: suggestion.amount, currency: suggestion.currency)
+        case .venmo:
+            guard let username = normalizedHandle(recipient.venmoHandle, allowsAtPrefix: true) else { return nil }
+            return venmoLink(to: username, amount: suggestion.amount, note: "xBill settlement")
+        case .paypal:
+            guard let username = normalizedHandle(recipient.paypalHandle, allowsAtPrefix: true) else { return nil }
+            return paypalLink(to: username, amount: suggestion.amount, currency: suggestion.currency)
         case .upi:     return nil   // UPI links are user-specific; handled separately
         default:       return nil
         }
     }
 
+    private func normalizedHandle(_ raw: String?, allowsAtPrefix: Bool) -> String? {
+        var value = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if allowsAtPrefix, value.hasPrefix("@") {
+            value.removeFirst()
+        }
+        guard value.range(of: "^[a-zA-Z0-9._-]{2,}$", options: .regularExpression) != nil else {
+            return nil
+        }
+        return value
+    }
+
     // MARK: - Venmo
 
-    /// Builds a Venmo URL. When the recipient looks like a display name (contains spaces
-    /// or non-username characters), falls back to a profile search so the user can find
-    /// and pay the correct person manually — avoids sending to the wrong Venmo account.
     private func venmoLink(to username: String, amount: Decimal, note: String) -> URL? {
-        let looksLikeUsername = username.range(of: "^[a-zA-Z0-9._-]+$", options: .regularExpression) != nil
-        if looksLikeUsername {
-            var components = URLComponents()
-            components.scheme = "venmo"
-            components.host   = "paycharge"
-            components.queryItems = [
-                URLQueryItem(name: "txn",        value: "pay"),
-                URLQueryItem(name: "recipients", value: username),
-                URLQueryItem(name: "amount",     value: "\(amount)"),
-                URLQueryItem(name: "note",       value: note)
-            ]
-            return components.url
-        } else {
-            // Display name — open Venmo user search so the payer can locate the
-            // correct account rather than generating a payment to the wrong person.
-            var components = URLComponents()
-            components.scheme = "venmo"
-            components.host   = "users"
-            components.path   = "/\(username)"
-            return components.url
-        }
+        var components = URLComponents()
+        components.scheme = "venmo"
+        components.host   = "paycharge"
+        components.queryItems = [
+            URLQueryItem(name: "txn",        value: "pay"),
+            URLQueryItem(name: "recipients", value: username),
+            URLQueryItem(name: "amount",     value: "\(amount)"),
+            URLQueryItem(name: "note",       value: note)
+        ]
+        return components.url
     }
 
     // MARK: - PayPal

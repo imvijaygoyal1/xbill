@@ -10,6 +10,12 @@ import SwiftUI
 struct ActivityView: View {
     @Bindable var vm: ActivityViewModel
     @State private var selectedItem: NotificationItem?
+    @State private var selectedFilter = ActivityFilter.all
+
+    private enum ActivityFilter: Hashable {
+        case all
+        case unread
+    }
 
     var body: some View {
         NavigationStack {
@@ -68,7 +74,8 @@ struct ActivityView: View {
         let calendar      = Calendar.current
         let keyFormatter  = ActivityView.groupKeyFormatter
         // Group by locale-independent key to avoid non-deterministic section order.
-        let grouped = Dictionary(grouping: vm.items) { item -> String in
+        let source = selectedFilter == .unread ? vm.items.filter { !$0.isRead } : vm.items
+        let grouped = Dictionary(grouping: source) { item -> String in
             if calendar.isDateInToday(item.createdAt)     { return "0-TODAY" }
             if calendar.isDateInYesterday(item.createdAt) { return "1-YESTERDAY" }
             return "2-\(keyFormatter.string(from: item.createdAt))"
@@ -105,7 +112,7 @@ struct ActivityView: View {
             XBillEmptyState(
                 icon: "bell.fill",
                 title: "No Activity Yet",
-                message: "New expenses and settlements across your groups will appear here.",
+                message: "Recent expenses and settlement updates across your groups will appear here.",
                 illustration: .notifications,
                 illustrationAccessibilityLabel: "No notifications"
             )
@@ -116,12 +123,24 @@ struct ActivityView: View {
     private var activityList: some View {
         XBillScrollView(spacing: AppSpacing.xl) {
             notificationsHeader
+            XBillSegmentedControl(
+                options: [(ActivityFilter.all, "All"), (ActivityFilter.unread, "Unread")],
+                selection: $selectedFilter
+            )
 
-            ForEach(groupedItems, id: \.header) { section in
-                VStack(alignment: .leading, spacing: AppSpacing.md) {
-                    XBillSectionHeader(section.header)
-                    ForEach(section.items) { item in
-                        notificationButton(for: item)
+            if selectedFilter == .unread && groupedItems.isEmpty {
+                XBillEmptyState(
+                    icon: "checkmark.circle.fill",
+                    title: "All Caught Up",
+                    message: "Unread activity will appear here."
+                )
+            } else {
+                ForEach(groupedItems, id: \.header) { section in
+                    VStack(alignment: .leading, spacing: AppSpacing.md) {
+                        XBillSectionHeader(section.header)
+                        ForEach(section.items) { item in
+                            notificationButton(for: item)
+                        }
                     }
                 }
             }
@@ -130,7 +149,7 @@ struct ActivityView: View {
     }
 
     private var notificationsHeader: some View {
-        XBillScreenHeader(title: "Notifications") {
+        XBillPageHeader(title: "Recent Activity") {
             if vm.hasUnread {
                 Button {
                     HapticManager.selection()
@@ -141,8 +160,6 @@ struct ActivityView: View {
                         .foregroundStyle(AppColors.primary)
                         .frame(minHeight: AppSpacing.tapTarget)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Mark all notifications as read")
             }
         }
         .padding(.horizontal, -AppSpacing.lg)
@@ -161,7 +178,7 @@ struct ActivityView: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityHint("Opens notification details")
+        .accessibilityHint("Opens activity details")
         .contextMenu {
             if item.isRead {
                 Button {
@@ -184,21 +201,7 @@ struct ActivityView: View {
             }
         }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
-            if item.isRead {
-                Button {
-                    vm.markUnread(item)
-                } label: {
-                    Label("Mark Unread", systemImage: "envelope.badge")
-                }
-                .tint(AppColors.primary)
-            } else {
-                Button {
-                    vm.markRead(item)
-                } label: {
-                    Label("Mark Read", systemImage: "envelope.open")
-                }
-                .tint(AppColors.success)
-            }
+            readStateSwipeButton(for: item)
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {
@@ -206,6 +209,25 @@ struct ActivityView: View {
             } label: {
                 Label("Delete", systemImage: "trash")
             }
+        }
+    }
+
+    @ViewBuilder
+    private func readStateSwipeButton(for item: NotificationItem) -> some View {
+        if item.isRead {
+            Button {
+                vm.markUnread(item)
+            } label: {
+                Label("Mark Unread", systemImage: "envelope.badge")
+            }
+            .tint(AppColors.primary)
+        } else {
+            Button {
+                vm.markRead(item)
+            } label: {
+                Label("Mark Read", systemImage: "envelope.open")
+            }
+            .tint(AppColors.success)
         }
     }
 
@@ -230,7 +252,7 @@ private struct NotificationDetailSheet: View {
                 bottomPadding: AppSpacing.xl
             ) {
                 XBillPageHeader(
-                    title: "Alert Details",
+                    title: "Recent Activity",
                     subtitle: item.createdAt.formatted(date: .abbreviated, time: .shortened),
                     showsBackButton: true,
                     backAction: { dismiss() }
@@ -252,7 +274,7 @@ private struct NotificationDetailSheet: View {
                         }
                     }
 
-                    XBillSecondaryButton(title: "Delete Alert", icon: "trash") {
+                    XBillSecondaryButton(title: "Delete Item", icon: "trash") {
                         delete()
                     }
                 }
@@ -291,11 +313,11 @@ private struct NotificationDetailSheet: View {
     }
 }
 
-#Preview("Notifications") {
+#Preview("Activity") {
     ActivityView(vm: ActivityViewModel())
 }
 
-#Preview("Notifications Dark") {
+#Preview("Activity Dark") {
     ActivityView(vm: ActivityViewModel())
         .preferredColorScheme(.dark)
 }

@@ -16,6 +16,20 @@
 - **Design system plan:** `DESIGN.md`
 - **App Store review plan:** `APPSTORE_REVIEW_PLAN.md`
 
+## Recent Fix Log — 2026-06-14
+- **App Group UserDefaults required-reason review — 2026-06-14** — Checked Apple's current required-reason API documentation. Apple defines `CA92.1` for app-only UserDefaults and `1C8F.1` for UserDefaults shared among apps/extensions/App Clips in the same App Group. Updated both `xBill/PrivacyInfo.xcprivacy` and `xBillWidget/PrivacyInfo.xcprivacy` to declare `CA92.1` plus `1C8F.1`, matching xBill's standard defaults and `group.com.vijaygoyal.xbill` App Group defaults. Updated `APPSTORE_REVIEW_PLAN.md` and `APPSTORE_PRIVACY_RECONCILIATION.md`.
+- **Push notification consent semantics — 2026-06-14** — Notification category preferences now default off until iOS notification permission is granted. First grant enables expense/settlement/comment preferences once via `NotificationService.enableDefaultPreferencesAfterPermissionIfNeeded()`. Profile no longer shows enabled category toggles before OS permission; it shows an Enable action for not-determined status and a Settings action for denied status. APNs token upload is guarded by current authorization and `AuthService.deleteDeviceTokens()` removes stored tokens when permission is denied. Updated `APPSTORE_REVIEW_PLAN.md` to mark the consent-default risk fixed.
+- **Contact discovery disclosure — 2026-06-14** — Added visible contact-import disclosure copy in `AddFriendView` and `InviteMembersView` before users open the contact picker. Copy states that only selected contacts are shared with xBill and selected email addresses are checked against xBill users for friend/member discovery. Updated `web/privacy/index.html` and `APPSTORE_PRIVACY_RECONCILIATION.md` to mirror the same selected-contact/no-full-address-book disclosure.
+- **App Store reviewer demo account — 2026-06-14** — Added `supabase/seed_app_store_review_account.sql`, an idempotent hosted Supabase seed for `appreviewer@xbill.vijaygoyal.org`. The seed reuses the existing reviewer auth user, normalizes Supabase Auth metadata required for password sign-in, creates/updates the Tokyo Trip review group, 3 active members, 5 expenses, 15 splits, 1 IOU, 2 comments, and accepted friend rows. Verified live Auth sign-in with `<REDACTED_REVIEWER_PASSWORD>` and REST/RLS reads for 1 group, 5 expenses, and 1 IOU. Updated `SETUP_REVIEW_ACCOUNT.md` with the repeatable command and corrected expected balances: owed `$220`, owes `$50`, net `$170`.
+- **App Store privacy reconciliation — 2026-06-14** — Added `APPSTORE_PRIVACY_RECONCILIATION.md` as the source of truth for App Store Connect privacy labels. Updated `xBill/PrivacyInfo.xcprivacy` so avatar photos and selected contacts are treated as linked data, and added linked `UserID` plus `OtherUserContactInfo` for Supabase/user identifiers and optional Venmo/PayPal handles. Updated `web/privacy/index.html` to explicitly cover internal account IDs, profile-photo uploads, OCR-only receipt images, selected contact email lookup through the backend, and payment handles. Updated `APPSTORE_REVIEW_PLAN.md` to point privacy-label work at the reconciliation artifact.
+- **Balance recompute coalescing** — `GroupViewModel.computeBalances()` no longer drops recompute requests that arrive while async split fetching is already in progress; a pending recompute flag reruns balance/suggestion calculation with the latest state.
+- **Settlement split safety** — `GroupViewModel.recordSettlement(_:)` now settles only whole matching splits up to the confirmed suggestion amount and fails visibly when a minimized settlement cannot be matched to current split rows, avoiding over-settling raw debt.
+- **Scoped group realtime** — `GroupService.groupChanges(userID:groupIDs:)` filters `group_members` events by `user_id` and `groups` events by known group IDs; `HomeViewModel.startRealtimeUpdates()` loads group IDs before subscribing.
+- **Notification diagnostics** — `ExpenseService.notifyExpenseAdded` and `notifySettlementRecorded` now log Edge Function failures with `Logger` instead of silently swallowing them.
+- **Auth UI-test stability** — `EmailAuthView` exposes `xBill.emailAuth.submitButton`; `OnboardingUITests` target current placeholders/copy, retry first email-form navigation once, and avoid brittle page-header assertions for the auth form.
+- **Cache test isolation** — `CacheServiceBalanceTests` clears the atomic `xbill_balance_snapshot` key plus legacy balance keys before checking default zero values.
+- **Verification** — `xcodebuild test -only-testing:xBillTests` passed on iPhone 17 / iOS 26.5. `OnboardingUITests.testEmailSignUpFlow` passed after the retry fix; the preceding full onboarding run passed the other five onboarding tests and failed only that stale pre-retry test.
+
 ## Simulator
 - **iPhone 17 Pro:** `DA97985A-F7CC-44F6-8281-9DD24C22B978` ← primary test device
 - Build command:
@@ -218,7 +232,7 @@
 - `xBill/Services/CommentService.swift` — `fetchComments(expenseID:)`, `addComment(expenseID:userID:text:)`, `deleteComment(id:)`, `commentChanges(expenseID:) → AsyncStream<Void>` (Realtime subscription filtered by expense_id)
 - `xBill/Services/AuthService.swift` — `signUpWithEmail`, `signInWithEmail`, `signInWithApple` (CryptoKit SHA256 nonce), `signOut`, `fetchProfile`, `currentUser()`; `sendPasswordReset` includes `redirectTo: URL(string: "xbill://reset")!` so deep link triggers `.passwordRecovery` event; `deleteAccount()` calls `delete-account` Edge Function with JWT header then signs out — throws `AppError.unauthenticated` if no session; all table refs use `"profiles"` (not `"users"`)
 - `xBill/Services/GroupService.swift` — `fetchGroups(for:)` / `fetchArchivedGroups(for:)` (both two-step: `memberGroupIDs` → `groups` with server-side `is_archived` filter), `fetchMembers(groupID:)`, `createGroup(...)`, `addMember(groupId:userId:)`, `removeMember(groupId:userId:)`, `inviteMembers(emails:groupName:groupEmoji:inviterName:)`, `groupChanges(userID:) → AsyncStream<Void>` (subscribes to both `group_members` + `groups` tables), `createInvite(groupID:createdBy:)`, `fetchInvite(token:)`, `joinGroupViaInvite(token:) → UUID`
-- `xBill/Services/ExpenseService.swift` — `fetchExpenses(groupID:)`, `fetchExpense(id:)`, `fetchSplits(expenseID:)`, `fetchUnsettledExpenses(groupID:userID:)`, `createExpense(...)` (uses `add_expense_with_splits` RPC — atomic), `updateExpense(_:)`, `settleSplit(id:)`, `deleteExpense(id:)`, `uploadReceiptImage(_:expenseID:)`
+- `xBill/Services/ExpenseService.swift` — `fetchExpenses(groupID:)`, `fetchExpense(id:)`, `fetchSplits(expenseID:)`, `fetchUnsettledExpenses(groupID:userID:)`, `createExpense(...)` (uses `add_expense_with_splits` RPC — atomic; receipt images are OCR-only and not uploaded), `updateExpense(_:)`, `settleSplit(id:)`, `deleteExpense(id:)`
 - `xBill/Services/SplitCalculator.swift` — `splitEqually`, `splitByPercentage`, `splitByShares`, `validateExact`, `netBalances(expenses:splits:)`, `minimizeTransactions(balances:names:currency:)`. `splitByShares` distributes proportionally to each `SplitInput.shares` value with rounding absorbed by first participant. `netBalances` skips settled splits and payer's own split — only unsettled non-payer splits affect balances. Used by both `GroupViewModel` and `HomeViewModel` for consistent balance computation.
 - `xBill/Services/SpotlightService.swift` — `enum SpotlightService`; `indexGroups(_:)` / `removeGroup(id:)` and `indexExpenses(_:groupName:groupEmoji:)` / `removeExpense(id:)` — fire-and-forget CSSearchableIndex operations; identifiers use `"group:<uuid>"` / `"expense:<uuid>"` prefixes
 - `xBill/Services/PaymentLinkService.swift` — Venmo deep-link URL generation
@@ -228,7 +242,7 @@
 - `xBill/Services/ActivityService.swift` — returns `[NotificationItem]`; fetches expenses per group in parallel, merges into `NotificationStore`, returns combined list sorted newest-first
 - `xBill/Services/NotificationService.swift` — Local push notifications; settlement reminders only (`scheduleExpenseAddedNotification` removed — was firing locally for the person who added the expense, which is useless)
 - `xBill/Services/ExpenseService.swift` — `notifyExpenseAdded(...)` and `notifySettlementRecorded(...)` both invoke Edge Functions as fire-and-forget `Task`s; both gated on `UserDefaults prefPush*` prefs
-- `xBill/Services/CommentService.swift` — `addComment(expenseID:userID:text:expenseTitle:groupID:groupName:commenterName:)` fires `notify-comment` Edge Function after insert; gated on `prefPushComment`
+- `xBill/Services/CommentService.swift` — `addComment(expenseID:userID:text:expenseTitle:groupID:groupName:commenterName:)` fires `notify-comment` Edge Function after insert; gated on `NotificationService.commentPreferenceKey`
 - `xBill/Views/Main/NotificationPermissionView.swift` — Pre-prompt sheet explaining push value before triggering OS dialog; "Allow Notifications" / "Not Now"; shown once via `@AppStorage("hasPromptedNotificationPermission")`
 - `xBill/Services/ExportService.swift` — `@MainActor`; `generateCSV(group:expenses:memberNames:) -> Data`; `generatePDF(group:expenses:memberNames:balances:) -> Data` (PDFKit A4 report with summary, balances, expense table); `writeTemp(data:filename:) throws -> URL` for share sheet
 
@@ -955,6 +969,9 @@ All 62 Medium severity defects from the senior developer audit (DEFECT_REPORT.md
 - **M-59** — `GroupFlowUITests`: `app.buttons["Cancel"].firstMatch.tap()` replaces normalized coordinate tap.
 - **M-60** — `OnboardingUITests`: `app.secureTextFields["Password"]` / `app.secureTextFields["Confirm Password"]`.
 - **M-61** — `OnboardingUITests`: Added `XCTAssertTrue(signInButton.isEnabled)` after valid input.
+- **M-62** — `GroupFlowUITests`: Added `test000SignInWithEnvironmentCredentials()` and helpers to sign in through the email auth UI when `XBILL_TEST_EMAIL` / `XBILL_TEST_PASSWORD` are supplied by environment or test-bundle metadata. No credentials are stored in source.
+- **M-63** — `GroupFlowUITests` verification on 2026-06-09: review-account sign-in drove the simulator to the authenticated Home screen with active groups visible. Full `GroupFlowUITests` run then reported `17` skipped / `0` failures because every deeper test still gates on `app.tabBars.buttons["Groups"]`; the app is signed in visually, but the selector does not match the current tab UI accessibility tree, so deeper group/expense flows were not exercised.
+- **M-64** — `NotificationStoreTests`: `NotificationStore` now supports custom `itemsKey` / `lastViewedKey` initialization. Persistence tests use per-test keys to avoid parallel Swift Testing races with `ActivityViewModelUnreadTests` clearing `NotificationStore.shared`; fixed intermittent `mergePreservesReadState()` failure. Final full `xcodebuild test` on iPhone 17 iOS 26.5: `119` passed, `17` skipped, `0` failed.
 
 ### Pending backend deploys
 - Migration 025 (`send_friend_request` dedup + `lookup_profiles_by_email` email redaction): `supabase db push`
@@ -1041,6 +1058,77 @@ All 62 Medium severity defects from the senior developer audit (DEFECT_REPORT.md
 - `Expense.payerID` CodingKey maps to `"paid_by"` (DB column name, not `"payer_id"`)
 - `Expense` does NOT have an `updatedAt` field — DB column does not exist; do not add it to previews or tests
 - `ExpenseService.createExpense` uses `add_expense_with_splits` RPC (atomic); splits are encoded as `[RPCSplitParam]` with CodingKeys `p_*` prefix
+
+## Recent Fix Log — 2026-06-09
+
+### M-70 — Member history, backend alignment, and final review cleanup
+- Added migration `supabase/migrations/036_member_history_and_paypal_handle.sql`, deployed to project `rhdhazevigbchmwzesok` on 2026-06-12/2026-06-13. Local and remote migration history now match through version 036.
+- Backend now stores PayPal.me usernames in `profiles.paypal_handle`. The app decodes legacy `paypal_email` for compatibility but writes the new `paypal_handle` field.
+- `group_members` now keeps historical membership state with `is_active`, `removed_at`, `display_name_snapshot`, and `avatar_url_snapshot`. Member removal deactivates access instead of deleting history.
+- Added RPCs `add_or_reactivate_group_member(...)` and `deactivate_group_member(...)`; invite acceptance reactivates existing inactive memberships instead of failing on conflict.
+- Active membership now gates group access and invite visibility, while historical members can still render names/avatars for old expenses, splits, activity rows, and balances.
+- Group Detail now shows active vs historical member counts, disables removal for inactive members, and uses active members for new expenses.
+- Home balances and Recent Activity now fetch historical members where needed so older expense history does not degrade when someone is removed.
+- PayPal naming cleanup: app logic now uses `paypalHandle`/PayPal.me semantics while keeping a compatibility alias for older model call sites.
+- Review/privacy cleanup: updated `APPSTORE_REVIEW_PLAN.md` and `web/privacy/index.html` for OCR-only receipts, avatar deletion, retained shared expense history, payment handles, and historical membership snapshots.
+- UI test hardening: `GroupFlowUITests.testActiveGroupShowsArchiveNotUnarchive` now uses the same 6-second detail readiness wait as the shared helper.
+- Verification: `xcodebuild build -project xBill.xcodeproj -scheme xBill -destination 'platform=iOS Simulator,id=CA2078AC-6559-4BF3-93CB-370CF27E92EA'` succeeded before deployment on 2026-06-12.
+- Regression: `xcodebuild test -project xBill.xcodeproj -scheme xBill -destination 'platform=iOS Simulator,id=CA2078AC-6559-4BF3-93CB-370CF27E92EA' -only-testing:xBillTests` succeeded on 2026-06-13 after the PayPal handle model rename.
+- UI regression: full `GroupFlowUITests` exposed one short-wait failure; after patching, the targeted failing test passed on 2026-06-13.
+- Simulator: current build installed on iPhone 17 Pro iOS 26.5 simulator `CA2078AC-6559-4BF3-93CB-370CF27E92EA`.
+
+### M-69 — Senior review findings remediation pass
+- Payment links no longer use settlement display names as Venmo/PayPal identifiers. `PaymentLinkService.paymentLink` now requires the recipient `User` and only generates links from saved, valid handles.
+- PayPal profile entry now uses PayPal.me handle semantics instead of email validation; saved Venmo/PayPal handles are normalized by removing a leading `@`.
+- Group currency is locked after the first expense. Name/icon edits remain available, but currency changes are blocked to avoid relabeling historical amounts without conversion.
+- Member removal now checks financial history before deleting group membership. Members who have paid expenses or appear in splits are retained as historical members so settlement/history names stay intact.
+- Recurring expense instantiation moved to backend RPC `create_recurring_expense_instance(...)` via migration 034, atomically claiming the template occurrence, creating the one-off instance, copying splits, and advancing `next_occurrence_date`.
+- Added migration 035 to preserve `splits.user_id` values when an auth account is deleted, preventing split rows from being cascaded away and changing shared group history.
+- Home balance refresh now falls back to cached expenses/members with a stale-data warning instead of caching fake zero balances on fetch failure.
+- Quick Add now opens with cached members when live member fetch fails.
+- Receipt scanner delegate now updates bindings on the main actor.
+- Recent Activity UI copy now describes the current surface as recent expense/settlement activity rather than a complete audit log.
+- Account deletion Edge Function now also removes the user's avatar object from Supabase Storage; delete confirmation copy clarifies retained shared expense records.
+- Added backend migrations: `supabase/migrations/034_recurring_instance_rpc.sql` and `supabase/migrations/035_preserve_splits_on_account_delete.sql`.
+- Verification: `xcodebuild build -project xBill.xcodeproj -scheme xBill -destination 'platform=iOS Simulator,id=CA2078AC-6559-4BF3-93CB-370CF27E92EA'` succeeded on 2026-06-12.
+- Regression: `xcodebuild test -project xBill.xcodeproj -scheme xBill -destination 'platform=iOS Simulator,id=CA2078AC-6559-4BF3-93CB-370CF27E92EA' -only-testing:xBillTests` succeeded on 2026-06-12.
+- Deployment: `supabase db push` applied migrations 034 and 035 to project `rhdhazevigbchmwzesok` on 2026-06-12; `supabase functions deploy delete-account` deployed the avatar-cleanup function update. Added local no-op `031_remote_history_placeholder.sql` because remote migration history already contained version 031 and the local file was missing.
+
+### M-68 — Receipt scan product decision: OCR-only
+- Product decision: receipt scanning is OCR-only. Images are used temporarily for Vision/OCR and are not uploaded or attached to saved expenses.
+- Removed the unused `ExpenseService.uploadReceiptImage(_:expenseID:)` Supabase Storage helper.
+- `ExpenseService.createExpense(...)` now always sends `p_receipt_url = nil`, preserving the existing backend RPC shape while making saved expenses image-free.
+- Updated Add Expense / Receipt Scan copy from attachment-style wording to OCR analysis wording.
+- Updated `APPSTORE_REVIEW_PLAN.md` so privacy review treats receipt images as temporary OCR inputs unless receipt attachment is deliberately added later.
+- Verification: `xcodebuild build -project xBill.xcodeproj -scheme xBill -destination 'platform=iOS Simulator,id=CA2078AC-6559-4BF3-93CB-370CF27E92EA'` succeeded on 2026-06-12.
+
+### M-67 — UI/Product audit implementation pass
+- Senior UI audit found Home lacked orientation and global quick actions, Add Expense hid receipt scanning too low in a long form, Group Detail hid management actions behind a dense menu, Alerts/Notifications naming was inconsistent, offline actions disappeared without explanation, group/member management UI was incomplete, and Profile payment handles lacked validation feedback.
+- Implementation target: keep backend schema unchanged, reuse existing `QuickAddExpenseSheet`, `GroupService.updateGroup`, `GroupViewModel.removeMember`, invite email/link views, and design-system components.
+- Implemented Home dashboard orientation and visible quick actions for Add Expense / Scan Receipt with offline or missing-group disabled copy.
+- Moved Add Expense receipt scanning into a primary top callout so users do not have to reach the bottom of the form to scan.
+- Added Group Detail `Manage` entry points and a `GroupSettingsView` sheet for editing group name/icon/currency, inviting by email/link, viewing members, and owner-only member removal.
+- Kept Add Expense visible on Group Detail while offline and now shows a clear offline error instead of silently hiding the action.
+- Renamed Alerts/Notifications surfaces to `Activity` consistently and added an All/Unread activity filter.
+- Added Friends search and Profile payment-handle validation for Venmo/PayPal before save.
+- Verification: `xcodebuild build -project xBill.xcodeproj -scheme xBill -destination 'platform=iOS Simulator,id=CA2078AC-6559-4BF3-93CB-370CF27E92EA'` succeeded on 2026-06-12.
+- Regression: `xcodebuild test -project xBill.xcodeproj -scheme xBill -destination 'platform=iOS Simulator,id=CA2078AC-6559-4BF3-93CB-370CF27E92EA' -only-testing:xBillUITests/GroupFlowUITests` passed `17` tests / `0` failures on 2026-06-12.
+
+### M-65 — GroupFlowUITests iOS 26 simulator accessibility investigation
+- Added DEBUG-only Groups startup path in `ContentView` while investigating iOS 26/XCTest tab-bar issues; explicit simulator install verified the Debug app can mount `GroupListView` directly.
+- Added accessibility identifiers to native `MainTabView` tab labels and group/create controls, plus active/archived group row labels in Home/Groups.
+- Added a DEBUG-only UIKit hit target over the Groups create button to try to give XCTest a real `UIButton` accessibility element.
+- Updated `GroupFlowUITests` to launch with Groups startup flags, tolerate the simulator already being signed in, and use fallback coordinates when XCTest cannot find SwiftUI elements.
+- Verification: `test000SignInWithEnvironmentCredentials` passes. `testCreateGroupSheetOpens` still fails on iPhone 17 / iOS 26.5 because XCTest does not expose the visible Groups header/create elements and synthetic taps do not open the sheet. This remains an unresolved simulator/XCTest interaction blocker, not a Supabase/backend failure.
+
+### M-66 — Dedicated UI test route harness for iOS 26 simulator instability
+- Added a `UITesting` Xcode build configuration and switched the shared scheme's `TestAction` to use it. The app target compiles test runs with `DEBUG UI_TESTING`.
+- Added a runtime-gated DEBUG route harness in `ContentView` activated only by `--uitesting` / `XBILL_UITESTING`. Normal Debug launches still render `MainTabView`; UI tests can start directly on `groups`, `createGroup`, `createGroupThenOpen`, or `firstGroupDetail`.
+- Removed the DEBUG-only invisible UIKit create-button overlay from `GroupListView`; `GroupListView` now has explicit launch-presentation options used by the harness to present Create Group or open a newly created group deterministically.
+- Updated `GroupFlowUITests` to use `--uitest-route`, fixed `groupSurfaceExists` so it no longer always returns true, and made create-form tests start from the presented Create Group screen.
+- Added an iOS 26-safe archive confirmation cancel helper that searches all accessibility element types before using an outside-sheet dismissal tap.
+- Verification on 2026-06-11, iPhone 17 Pro iOS 26.5 (`CA2078AC-6559-4BF3-93CB-370CF27E92EA`): `xcodebuild test -project xBill.xcodeproj -scheme xBill -destination 'platform=iOS Simulator,id=CA2078AC-6559-4BF3-93CB-370CF27E92EA' -only-testing:xBillUITests/GroupFlowUITests` passed `17` tests / `0` failures.
+- Rationale: XCTest on iOS 26.5 can visually render SwiftUI screens while failing to expose/tap the tab bar and native confirmation-dialog cancel action consistently. The harness bypasses fragile setup navigation while keeping the actual feature screens and backend service flows under test.
 
 ## Group Flow — Fixed Issues (audited 2026-04-28, all fixed same day)
 

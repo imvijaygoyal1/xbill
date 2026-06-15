@@ -1,0 +1,6 @@
+-- Placeholder for migration version 031.
+--
+-- The linked Supabase project already has migration 031 recorded in
+-- supabase_migrations.schema_migrations, but the local file is absent.
+-- Keep this no-op file so `supabase db push` can compare local and remote
+-- migration history without attempting to repair or rewrite remote history.

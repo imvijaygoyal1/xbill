@@ -92,18 +92,6 @@
       "idiom" : "ios-marketing",
       "scale" : "1x",
       "size" : "1024x1024"
-    },
-    {
-      "filename" : "Icon-20@1x.png",
-      "idiom" : "iphone",
-      "scale" : "1x",
-      "size" : "20x20"
-    },
-    {
-      "filename" : "Icon-40@1x.png",
-      "idiom" : "iphone",
-      "scale" : "1x",
-      "size" : "40x40"
     }
   ],
   "info" : {

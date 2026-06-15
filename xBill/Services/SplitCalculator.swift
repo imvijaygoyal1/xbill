@@ -26,7 +26,7 @@ enum SplitCalculator {
         NSDecimalRound(&rounded, &base, 2, .bankers)
 
         let distributed = rounded * count
-        var remainder = total - distributed
+        let remainder = total - distributed
 
         var distributedPct = Decimal.zero
         for (offset, index) in included.enumerated() {
