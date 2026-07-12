@@ -198,13 +198,6 @@ final class GroupFlowUITests: XCTestCase {
            !value.hasPrefix("$(") {
             return value
         }
-        if let url = Bundle(for: Self.self).url(forResource: "UITestCredentials", withExtension: "plist"),
-           let credentials = NSDictionary(contentsOf: url) as? [String: String],
-           let value = credentials[key],
-           !value.isEmpty,
-           !value.hasPrefix("$(") {
-            return value
-        }
         return nil
     }
 

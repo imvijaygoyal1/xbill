@@ -333,7 +333,7 @@ final class RegressionUITests: XCTestCase {
 
         guard let email = testCredential(named: "XBILL_TEST_EMAIL"),
               let password = testCredential(named: "XBILL_TEST_PASSWORD") else {
-            throw XCTSkip("Set XBILL_TEST_EMAIL and XBILL_TEST_PASSWORD, or provide xBillUITests/UITestCredentials.plist.")
+            throw XCTSkip("Set XBILL_TEST_EMAIL and XBILL_TEST_PASSWORD to run authenticated regression tests.")
         }
 
         let emailButton = app.buttons["Continue with Email"].firstMatch
@@ -394,13 +394,6 @@ final class RegressionUITests: XCTestCase {
             return value
         }
         if let value = Bundle(for: Self.self).object(forInfoDictionaryKey: key) as? String,
-           !value.isEmpty,
-           !value.hasPrefix("$(") {
-            return value
-        }
-        if let url = Bundle(for: Self.self).url(forResource: "UITestCredentials", withExtension: "plist"),
-           let credentials = NSDictionary(contentsOf: url) as? [String: String],
-           let value = credentials[key],
            !value.isEmpty,
            !value.hasPrefix("$(") {
             return value
