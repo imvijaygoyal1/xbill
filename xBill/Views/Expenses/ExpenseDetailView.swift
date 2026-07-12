@@ -156,6 +156,7 @@ struct ExpenseDetailView: View {
         .safeAreaInset(edge: .bottom) {
             commentInputBar
         }
+        .accessibilityIdentifier("xBill.expenseDetail.screen")
         .navigationTitle(expense.title)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
@@ -270,6 +271,7 @@ struct ExpenseDetailView: View {
         HStack(spacing: XBillSpacing.sm) {
             TextField("Add a comment…", text: $newCommentText, axis: .vertical)
                 .lineLimit(1...4)
+                .accessibilityIdentifier("xBill.expenseDetail.commentField")
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(Color.inputBg)
@@ -294,6 +296,8 @@ struct ExpenseDetailView: View {
                 }
             }
             .disabled(newCommentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isPostingComment)
+            .accessibilityLabel("Post comment")
+            .accessibilityIdentifier("xBill.expenseDetail.postCommentButton")
         }
         .padding(.horizontal, XBillSpacing.base)
         .padding(.vertical, XBillSpacing.sm)

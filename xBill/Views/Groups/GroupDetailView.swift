@@ -72,8 +72,8 @@ struct GroupDetailView: View {
                 filterCategory = nil
             }
             .sheet(isPresented: $showAddExpense) {
-                AddExpenseView(group: vm.group, members: vm.activeMembers, currentUserID: currentUserID) {
-                    await vm.refresh()
+                AddExpenseView(group: vm.group, members: vm.activeMembers, currentUserID: currentUserID) { savedExpense in
+                    vm.recordCreatedExpense(savedExpense)
                 }
             }
             .sheet(isPresented: $showGroupSettings) {
@@ -319,6 +319,9 @@ struct GroupDetailView: View {
                         } label: {
                             ExpenseRowView(expense: expense, members: vm.members, showAmountBadge: true)
                         }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(expense.title) expense, \(expense.amount.formatted(currencyCode: expense.currency))")
+                        .accessibilityIdentifier("xBill.expenseRow.\(expense.title)")
                         .listRowBackground(Color.bgCard)
                     }
                     .onDelete { offsets in

@@ -23,108 +23,15 @@ struct ContentView: View {
         ZStack {
             XBillTheme.background.ignoresSafeArea()
 
-            if authVM.isInPasswordRecovery {
-                ResetPasswordView(authVM: authVM)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            } else if authVM.currentUser != nil {
-                if hasCompletedOnboarding {
-                    #if DEBUG
-                    if let uitestRoute {
-                        switch uitestRoute {
-                        case .groups:
-                            GroupListView(vm: homeVM)
-                                .task {
-                                    await homeVM.loadCurrentUser()
-                                    await homeVM.loadAll()
-                                }
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                                    removal:   .move(edge: .trailing).combined(with: .opacity)
-                                ))
-                        case .createGroup:
-                            UITestCreateGroupRootView(vm: homeVM)
-                                .task {
-                                    await homeVM.loadCurrentUser()
-                                    await homeVM.loadAll()
-                                }
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                                    removal:   .move(edge: .trailing).combined(with: .opacity)
-                                ))
-                        case .createGroupThenOpen:
-                            UITestCreateGroupRootView(vm: homeVM, opensCreatedGroupAfterCreate: true)
-                                .task {
-                                    await homeVM.loadCurrentUser()
-                                    await homeVM.loadAll()
-                                }
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                                    removal:   .move(edge: .trailing).combined(with: .opacity)
-                                ))
-                        case .firstGroupDetail:
-                            GroupListView(vm: homeVM)
-                                .task {
-                                    await homeVM.loadCurrentUser()
-                                    await homeVM.loadAll()
-                                    if let firstGroup = homeVM.groups.first {
-                                        homeVM.groupsNavigationPath = NavigationPath()
-                                        homeVM.groupsNavigationPath.append(firstGroup)
-                                    }
-                                }
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                                    removal:   .move(edge: .trailing).combined(with: .opacity)
-                                ))
-                        }
-                    } else {
-                        MainTabView(authVM: authVM, homeVM: homeVM)
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .trailing).combined(with: .opacity),
-                                removal:   .move(edge: .trailing).combined(with: .opacity)
-                            ))
-                    }
-                    #else
-                    MainTabView(authVM: authVM, homeVM: homeVM)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal:   .move(edge: .trailing).combined(with: .opacity)
-                        ))
-                    #endif
-                } else {
-                    OnboardingView {
-                        withAnimation(.easeInOut(duration: 0.4)) {
-                            hasCompletedOnboarding = true
-                        }
-                    } onTrySampleData: {
-                        guard let userID = authVM.currentUser?.id else { return }
-                        do {
-                            try await homeVM.createSampleData(userID: userID)
-                            // Refresh the live VM so groups appear immediately on transition.
-                            await homeVM.loadAll()
-                        } catch {
-                            sampleDataError = AppError.from(error)
-                        }
-                        withAnimation(.easeInOut(duration: 0.4)) {
-                            hasCompletedOnboarding = true
-                        }
-                    }
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .bottom).combined(with: .opacity),
-                        removal:   .move(edge: .bottom).combined(with: .opacity)
-                    ))
-                }
-
-                if lockService.isLocked {
-                    AppLockView()
-                        .transition(.opacity)
-                }
+            #if DEBUG
+            if let uitestRoute, uitestRoute.isAuthIndependent {
+                uitestRouteView(for: uitestRoute)
             } else {
-                AuthView(vm: authVM)
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .leading).combined(with: .opacity),
-                        removal:   .move(edge: .leading).combined(with: .opacity)
-                    ))
+                mainContent
             }
+            #else
+            mainContent
+            #endif
         }
         .animation(.easeInOut(duration: 0.4), value: authVM.isInPasswordRecovery)
         .animation(.easeInOut(duration: 0.4), value: authVM.currentUser != nil)
@@ -150,6 +57,67 @@ struct ContentView: View {
         #endif
     }
 
+    @ViewBuilder
+    private var mainContent: some View {
+        if authVM.isInPasswordRecovery {
+            ResetPasswordView(authVM: authVM)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+        } else if authVM.currentUser != nil {
+            if hasCompletedOnboarding {
+                #if DEBUG
+                if let uitestRoute {
+                    uitestRouteView(for: uitestRoute)
+                } else {
+                    mainTabContent
+                }
+                #else
+                mainTabContent
+                #endif
+            } else {
+                OnboardingView {
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        hasCompletedOnboarding = true
+                    }
+                } onTrySampleData: {
+                    guard let userID = authVM.currentUser?.id else { return }
+                    do {
+                        try await homeVM.createSampleData(userID: userID)
+                        // Refresh the live VM so groups appear immediately on transition.
+                        await homeVM.loadAll()
+                    } catch {
+                        sampleDataError = AppError.from(error)
+                    }
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        hasCompletedOnboarding = true
+                    }
+                }
+                .transition(.asymmetric(
+                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                    removal:   .move(edge: .bottom).combined(with: .opacity)
+                ))
+            }
+
+            if lockService.isLocked {
+                AppLockView()
+                    .transition(.opacity)
+            }
+        } else {
+            AuthView(vm: authVM)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .leading).combined(with: .opacity),
+                    removal:   .move(edge: .leading).combined(with: .opacity)
+                ))
+        }
+    }
+
+    private var mainTabContent: some View {
+        MainTabView(authVM: authVM, homeVM: homeVM)
+            .transition(.asymmetric(
+                insertion: .move(edge: .trailing).combined(with: .opacity),
+                removal:   .move(edge: .trailing).combined(with: .opacity)
+            ))
+    }
+
     #if DEBUG
     private func refreshUITestRouteDuringLaunch() async {
         for _ in 0..<20 {
@@ -158,6 +126,56 @@ struct ContentView: View {
                 uitestRoute = route
             }
             try? await Task.sleep(for: .milliseconds(250))
+        }
+    }
+
+    @ViewBuilder
+    private func uitestRouteView(for route: UITestLaunchRoute) -> some View {
+        switch route {
+        case .groups:
+            GroupListView(vm: homeVM)
+                .task {
+                    await homeVM.loadCurrentUser()
+                    await homeVM.loadAll()
+                }
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal:   .move(edge: .trailing).combined(with: .opacity)
+                ))
+        case .createGroup:
+            UITestCreateGroupRootView(vm: homeVM)
+                .task {
+                    await homeVM.loadCurrentUser()
+                    await homeVM.loadAll()
+                }
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal:   .move(edge: .trailing).combined(with: .opacity)
+                ))
+        case .createGroupThenOpen:
+            UITestCreateGroupRootView(vm: homeVM, opensCreatedGroupAfterCreate: true)
+                .task {
+                    await homeVM.loadCurrentUser()
+                    await homeVM.loadAll()
+                }
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal:   .move(edge: .trailing).combined(with: .opacity)
+                ))
+        case .firstGroupDetail:
+            GroupListView(vm: homeVM)
+                .task {
+                    await homeVM.loadCurrentUser()
+                    await homeVM.loadAll()
+                    if let firstGroup = homeVM.groups.first {
+                        homeVM.groupsNavigationPath = NavigationPath()
+                        homeVM.groupsNavigationPath.append(firstGroup)
+                    }
+                }
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal:   .move(edge: .trailing).combined(with: .opacity)
+                ))
         }
     }
     #endif
@@ -192,6 +210,15 @@ private enum UITestLaunchRoute: Equatable {
             return .firstGroupDetail
         default:
             return .groups
+        }
+    }
+
+    var isAuthIndependent: Bool {
+        switch self {
+        case .createGroup:
+            return true
+        case .groups, .createGroupThenOpen, .firstGroupDetail:
+            return false
         }
     }
 }

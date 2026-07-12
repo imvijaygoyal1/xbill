@@ -1,5 +1,6 @@
 # Supabase credentials — never commit
 Secrets.xcconfig
+xBillUITests/UITestCredentials.plist
 
 # macOS
 .DS_Store
@@ -7,6 +8,7 @@ Secrets.xcconfig
 # Xcode derived data
 xcuserdata/
 DerivedData/
+TestResults/
 *.xccheckout
 *.moved-aside
 

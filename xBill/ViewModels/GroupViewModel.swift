@@ -24,6 +24,7 @@ final class GroupViewModel {
     var errorAlert: ErrorAlert?
 
     private var splitsMap: [UUID: [Split]] = [:]
+    @ObservationIgnored private var locallyCreatedExpenses: [UUID: Expense] = [:]
     @ObservationIgnored private var isComputingBalances = false
     @ObservationIgnored private var shouldRecomputeBalances = false
     private let groupService = GroupService.shared
@@ -67,9 +68,9 @@ final class GroupViewModel {
                 async let expensesTask = expenseService.fetchExpenses(groupID: group.id)
                 let (fetchedMembers, fetchedExpenses) = try await (membersTask, expensesTask)
                 members  = fetchedMembers
-                expenses = fetchedExpenses
+                applyFetchedExpenses(fetchedExpenses)
                 CacheService.shared.saveMembers(fetchedMembers, groupID: group.id)
-                CacheService.shared.saveExpenses(fetchedExpenses, groupID: group.id)
+                CacheService.shared.saveExpenses(expenses, groupID: group.id)
                 await computeBalances()
             } catch {
                 guard !AppError.isSilent(error) else { return }
@@ -90,6 +91,24 @@ final class GroupViewModel {
     }
 
     func refresh() async { await load() }
+
+    func recordCreatedExpense(_ expense: Expense) {
+        locallyCreatedExpenses[expense.id] = expense
+        if !expenses.contains(where: { $0.id == expense.id }) {
+            expenses.append(expense)
+        }
+    }
+
+    private func applyFetchedExpenses(_ fetchedExpenses: [Expense]) {
+        var mergedExpenses = fetchedExpenses
+        for expense in locallyCreatedExpenses.values where !mergedExpenses.contains(where: { $0.id == expense.id }) {
+            mergedExpenses.append(expense)
+        }
+        for expense in fetchedExpenses {
+            locallyCreatedExpenses.removeValue(forKey: expense.id)
+        }
+        expenses = mergedExpenses
+    }
 
     // MARK: - Balances
 

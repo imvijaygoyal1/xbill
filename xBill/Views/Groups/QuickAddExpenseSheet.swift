@@ -126,7 +126,7 @@ struct QuickAddExpenseSheet: View {
                         members: members,
                         currentUserID: currentUserID,
                         startWithScan: startWithScan,
-                        onSaved: {
+                        onSaved: { _ in
                             await onSaved()
                             dismiss()
                         }

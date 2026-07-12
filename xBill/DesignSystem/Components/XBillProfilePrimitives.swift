@@ -88,6 +88,7 @@ struct XBillPaymentHandleRow: View {
 
             XBillTextField(placeholder: placeholder, text: $text, keyboardType: keyboardType)
                 .accessibilityLabel("\(providerName) payment handle")
+                .accessibilityIdentifier("xBill.profile.\(providerName.lowercased())Field")
         }
         .padding(.vertical, AppSpacing.xs)
         .accessibilityElement(children: .contain)

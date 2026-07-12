@@ -9,6 +9,7 @@ struct XBillSearchBar: View {
     let placeholder: String
     @Binding var text: String
     var accessibilityLabel: String?
+    var accessibilityIdentifier: String?
 
     var body: some View {
         HStack(spacing: AppSpacing.sm) {
@@ -19,6 +20,7 @@ struct XBillSearchBar: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .accessibilityLabel(accessibilityLabel ?? placeholder)
+                .accessibilityIdentifier(accessibilityIdentifier ?? accessibilityLabel ?? placeholder)
             if !text.isEmpty {
                 Button {
                     text = ""

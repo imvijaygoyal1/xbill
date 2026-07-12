@@ -12,14 +12,21 @@ struct AddExpenseView: View {
     let members: [User]
     let currentUserID: UUID
     let startWithScan: Bool
-    let onSaved: () async -> Void
+    let onSaved: (Expense) async -> Void
 
     @State private var vm: AddExpenseViewModel
     @State private var showReceiptScan = false
     @State private var receiptVM = ReceiptViewModel()
+    @FocusState private var focusedField: Field?
     @Environment(\.dismiss) private var dismiss
 
-    init(group: BillGroup, members: [User], currentUserID: UUID, startWithScan: Bool = false, onSaved: @escaping () async -> Void) {
+    private enum Field {
+        case title
+        case amount
+        case notes
+    }
+
+    init(group: BillGroup, members: [User], currentUserID: UUID, startWithScan: Bool = false, onSaved: @escaping (Expense) async -> Void) {
         self.group         = group
         self.members       = members
         self.currentUserID = currentUserID
@@ -75,6 +82,8 @@ struct AddExpenseView: View {
                                     .multilineTextAlignment(.center)
                                     .keyboardType(.decimalPad)
                                     .foregroundStyle(Color.textPrimary)
+                                    .accessibilityIdentifier("xBill.addExpense.amountField")
+                                    .focused($focusedField, equals: .amount)
                                     .onChange(of: vm.amountText) { _, _ in
                                         Task { await vm.updateConversion() }
                                     }
@@ -96,6 +105,8 @@ struct AddExpenseView: View {
                         VStack(alignment: .leading, spacing: XBillSpacing.sm) {
                             sectionHeader("Expense")
                             XBillTextField(placeholder: "What was it for?", text: $vm.title)
+                                .accessibilityIdentifier("xBill.addExpense.titleField")
+                                .focused($focusedField, equals: .title)
                                 .padding(.horizontal, XBillSpacing.base)
                         }
 
@@ -141,6 +152,7 @@ struct AddExpenseView: View {
                                     .font(.xbillBodyLarge)
                                     .foregroundStyle(Color.textPrimary)
                                     .lineLimit(2...4)
+                                    .focused($focusedField, equals: .notes)
                             }
                             .padding(.horizontal, XBillSpacing.base)
                         }
@@ -261,6 +273,15 @@ struct AddExpenseView: View {
                 }
             }
             .navigationBarBackButtonHidden()
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        focusedField = nil
+                    }
+                    .accessibilityIdentifier("xBill.keyboard.doneButton")
+                }
+            }
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(AppColors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
@@ -273,6 +294,7 @@ struct AddExpenseView: View {
                 ) {
                     Task { await save() }
                 }
+                .accessibilityIdentifier("xBill.addExpense.saveButton")
                 .padding(AppSpacing.md)
                 .background(.ultraThinMaterial)
             }
@@ -371,9 +393,9 @@ struct AddExpenseView: View {
 
     private func save() async {
         await vm.save()
-        if vm.isSaved {
+        if vm.isSaved, let savedExpense = vm.savedExpense {
             HapticManager.success()
-            await onSaved()
+            await onSaved(savedExpense)
             dismiss()
         }
     }
@@ -424,6 +446,6 @@ private struct CategoryChipView: View {
                      currency: "USD", createdAt: Date()),
         members: [],
         currentUserID: UUID(),
-        onSaved: { }
+        onSaved: { _ in }
     )
 }

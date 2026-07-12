@@ -92,7 +92,11 @@ struct GroupListView: View {
     private var groupList: some View {
         XBillScrollView(spacing: AppSpacing.xl) {
             groupsHeader
-            XBillSearchBar(placeholder: "Search groups", text: $searchText)
+            XBillSearchBar(
+                placeholder: "Search groups",
+                text: $searchText,
+                accessibilityIdentifier: "xBill.groups.searchField"
+            )
 
             if !searchText.isEmpty && filteredGroups.isEmpty && filteredArchivedGroups.isEmpty {
                 ContentUnavailableView(
@@ -128,6 +132,7 @@ struct GroupListView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("xBill.groups.archivedSectionButton")
 
                     if showArchived {
                         ForEach(filteredArchivedGroups) { group in

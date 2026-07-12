@@ -16,7 +16,15 @@
 - **Design system plan:** `DESIGN.md`
 - **App Store review plan:** `APPSTORE_REVIEW_PLAN.md`
 
-## Recent Fix Log — 2026-06-15
+## Recent Fix Log — 2026-07-12
+- **End-to-end test/coverage progress log — 2026-07-12** — Expanded automated regression coverage in priority order and documented the current verification flow. Key outcomes today: `RegressionUITests` became the preferred repeatable UI regression suite with 9 passing UI tests and no expected pending skips; `ViewModelCoverageTests` added 9 focused unit tests for expense/group view-model state and exposed two production bugs; `scripts/run-coverage.sh` now automates coverage-enabled runs and writes `.xcresult`, text, and JSON reports. Verification trail: focused ViewModel tests passed at `Test-xBill-2026.07.12_16-25-33--0400.xcresult`; `SplitCalculatorTests` passed at `Test-xBill-2026.07.12_16-59-14--0400.xcresult`; full `xBillTests` passed at `Test-xBill-2026.07.12_17-01-01--0400.xcresult`; coverage run passed at `TestResults/Coverage/2026.07.12_17-24-48-unit.xcresult`. Simulator verification: built app installed and launched on `DA97985A-F7CC-44F6-8281-9DD24C22B978`; latest launch PID was `73849`; screenshot `/tmp/xbill-simulator.png` confirmed xBill was rendering the welcome/sign-in screen even when the Simulator window was not visible to the user.
+- **Automated coverage runner — 2026-07-12** — Added `scripts/run-coverage.sh` to make coverage runs repeatable. Default mode is `unit`, which runs `xBillTests` with `-enableCodeCoverage YES`; `full` runs the full `xBill` scheme; `regression-ui` runs `xBillUITests/RegressionUITests`. The script writes timestamped artifacts to `TestResults/Coverage/`: the `.xcresult`, a text `xccov` report, and a JSON `xccov` report, then prints only the top-level coverage summary. `TestResults/` is gitignored. Usage: `scripts/run-coverage.sh`, `scripts/run-coverage.sh full`, or `scripts/run-coverage.sh regression-ui`. Verification: `scripts/run-coverage.sh unit` passed and produced `TestResults/Coverage/2026.07.12_17-24-48-unit.xcresult` with top-level app coverage `xBill.app 6.28% (1792/28515)`.
+- **ViewModel coverage expansion — 2026-07-12** — Added `xBillTests/ViewModelCoverageTests.swift` with 9 focused Swift Testing unit tests for `AddExpenseViewModel` and `GroupViewModel` local state: initial payer/currency/split defaults, amount parsing, `canSave` gating, exact split validation, equal split recompute after toggling participants, foreign-currency conversion gating, sorted expenses, active members, balances, `canChangeCurrency`, and optimistic `recordCreatedExpense` idempotency. The new tests exposed and fixed two production issues: comma decimal input such as `12,34` was previously parsed as `12`, and split recompute could leave stale amounts on excluded participants. `AddExpenseViewModel.amount` now normalizes comma decimals before POSIX parsing; `SplitCalculator` clears excluded participant amount/percentage values before equal/percentage/shares recompute. Verification: focused ViewModel tests passed at `/Users/vijaygoyal/Library/Developer/Xcode/DerivedData/xBill-gigdzmkxlvnxfwffqeafujuupnja/Logs/Test/Test-xBill-2026.07.12_16-25-33--0400.xcresult`; existing `SplitCalculatorTests` passed at `/Users/vijaygoyal/Library/Developer/Xcode/DerivedData/xBill-gigdzmkxlvnxfwffqeafujuupnja/Logs/Test/Test-xBill-2026.07.12_16-59-14--0400.xcresult`.
+- **Automated UI regression suite execution — 2026-07-12** — `xBillUITests/RegressionUITests.swift` is the primary repeatable UI regression suite. It now executes all 9 regression tests with no expected pending skips: auth validation, main-tab loading, create-group validation, add-expense form validation, core group/expense/archive, expense-detail comments, archive/unarchive, profile/payment-handle validation, and friends add/search no-results. The remaining `XCTSkip` is only the credential guard for missing `XBILL_TEST_EMAIL` / `XBILL_TEST_PASSWORD`; unavailable app surfaces now fail instead of skip. `project.yml` excludes local ignored `xBillUITests/UITestCredentials.plist` so regenerated projects do not commit a machine-local credentials build input. Fixed the Add Expense validation cleanup path to return to the Groups route instead of trying to archive from the form-validation state. Verification on 2026-07-12: `xcodebuild test -project xBill.xcodeproj -scheme xBill -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:xBillUITests/RegressionUITests` passed with `Executed 9 tests, with 0 failures (0 unexpected)`. Result bundle: `/Users/vijaygoyal/Library/Developer/Xcode/DerivedData/xBill-gigdzmkxlvnxfwffqeafujuupnja/Logs/Test/Test-xBill-2026.07.12_15-23-29--0400.xcresult`.
+
+## Recent Fix Log — 2026-07-11
+- **Release verification runbook — 2026-07-08** — Added `RELEASE_VERIFICATION.md` as the consolidated checklist for backend verification, reviewer seed checks, simulator smoke tests, realtime verification, account deletion, App Store privacy/review notes, assets, and known non-blocking caveats. Use it before App Store submission or after backend changes instead of reconstructing steps from scattered logs.
+- **Groups realtime publication migration — 2026-07-08** — Backend verification found only `public.comments` in `supabase_realtime`, while the app subscribes to `public.groups` and `public.group_members` in `GroupService.groupChanges(userID:groupIDs:)` for Home/Groups refresh. Added migration `037_groups_realtime_publication.sql` with guarded `ALTER PUBLICATION supabase_realtime ADD TABLE` statements for `public.groups` and `public.group_members`. Deployed via `supabase db push --linked`; remote migration history now matches local through `037`, and publication verification shows `comments`, `group_members`, and `groups`.
 - **Supabase keep-alive workflow hardening — 2026-06-24** — Diagnosed project pause despite GitHub Actions keep-alive. GitHub API showed `.github/workflows/supabase-keep-alive.yml` is active and ran successfully on 2026-06-09 manual dispatch plus scheduled runs on 2026-06-10, 06-13, 06-16, 06-19, and 06-22, so the issue was not that GitHub Actions "did nothing." Local DNS for `rhdhazevigbchmwzesok.supabase.co` returned no records while paused. Hardened the workflow so future runs validate that `SUPABASE_URL` points to expected project ref `rhdhazevigbchmwzesok`, fail loudly if secrets are missing or point to another project, PATCH `public.keep_alive`, then read back `id,updated_at` and fail if the row cannot be verified. This does not guarantee Supabase will count REST API traffic as free-tier activity; it makes the workflow self-verifying and exposes wrong secrets/paused endpoint failures. (`.github/workflows/supabase-keep-alive.yml`, `CLAUDE.md`)
 - **VisionService Tier-1 improvements — 2026-06-15** — Three targeted fixes: (1) `preprocessForOCR` now uses the shared `Self.ciContext` (Metal GPU pipeline) instead of allocating a new `CIContext` per scan call. (2) `checkImageQuality` now also rejects images with luminance > 0.92 (`AppError.validationFailed("Image is too bright — reduce glare or avoid direct flash.")`) before the blur check, so flash-glare on thermal paper produces a meaningful error instead of a misleading "too blurry". (3) Quantity regex character class extended from `[xX@]` to `[xX@×]` so European receipt format `"2×1.99"` (U+00D7) parses qty=2 correctly. Five new tests in `xBillTests/VisionServiceTier1Tests.swift` cover all three changes; full 124-test suite passes.
 
@@ -49,6 +57,17 @@
   ```
   DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer /Applications/Xcode.app/Contents/Developer/usr/bin/simctl boot DA97985A-F7CC-44F6-8281-9DD24C22B978
   ```
+- If `simctl launch` succeeds but the Simulator window is not visible, force-open and activate the device:
+  ```
+  open -a Simulator --args -CurrentDeviceUDID DA97985A-F7CC-44F6-8281-9DD24C22B978
+  osascript -e 'tell application "Simulator" to activate'
+  ```
+  Confirm state and rendering:
+  ```
+  xcrun simctl list devices | rg 'DA97985A|Booted'
+  xcrun simctl io DA97985A-F7CC-44F6-8281-9DD24C22B978 screenshot /tmp/xbill-simulator.png
+  ```
+  Verified 2026-07-12: macOS reported Simulator frontmost/visible with window `iPhone 17 Pro - iOS 26.2`; screenshot `/tmp/xbill-simulator.png` showed xBill's welcome/sign-in screen. If the user still cannot see it, check Mission Control/Spaces/displays or Dock → Simulator → Show All Windows.
 - **Always build, install, and launch on simulator after implementing a code change.** Do not stop at build/test success; the current app must be installed on `DA97985A-F7CC-44F6-8281-9DD24C22B978` unless the user explicitly says not to.
 
 ## Supabase
@@ -337,8 +356,10 @@
 - `xBillTests/P2FeatureTests.swift` — 18 tests across 5 suites: CrossGroupDebt (balance merging, currency separation, minimisation), AppLock (lock/no-op state transitions, MainActor), ManualReceipt (startManually creates blank receipt, assigns members, clears previous scan), CacheServiceBalance (.serialized, round-trip and zero-default), ContactDiscovery (email validation, dedup, lowercasing).
 - `xBillTests/P1NotificationTests.swift` — 17 tests across 4 suites: NotificationStore (.serialized, merge dedup, read-state preservation, sort order, unread count, markAllRead, markRead/markUnread, delete, 100-item cap), NotificationItemFactory (expense + settlement factory field mapping), ActivityViewModelUnread (hasUnread flag, markAllRead zeros VM, per-item read/delete VM state), NotificationItemCodable (expense + settlement JSON round-trip).
 - `xBillTests/GroupFlowTests.swift` — 27 tests across 6 suites: GroupFlowCachePattern (archive/unarchive array-manipulation logic, idempotency), BillGroupModel (Codable roundtrip, snake_case CodingKeys, Equatable, value-type semantics), GroupCreationLogic (onCreated append, canCreate guard, invite email trim), GroupArchiveLogic (balance-warning conditions, plural/singular, toolbar action context), CurrencyList (count=20, original 8 + 12 new, no duplicates), RealtimeContract (topic scoping). All tests are parallel-safe (no shared UserDefaults state).
+- `xBillTests/ViewModelCoverageTests.swift` — 9 focused unit tests for `AddExpenseViewModel` and `GroupViewModel` deterministic local state, validation, split recompute, foreign-currency gating, sorted/active member views, balances, currency-change gating, and optimistic created-expense idempotency.
 - `xBillUITests/OnboardingUITests.swift` — 6 focused login/onboarding XCUITests for the redesigned pre-auth entry screen, SwiftUI illustration identifiers, canonical `XBillPageHeader` title identifiers, accessible legal links, email sign-up form content, sign-in validation, sign-in/sign-up toggling, and forgot-password visibility. Launches with `--uitesting --reset-state`; DEBUG app launch handling clears UserDefaults and Keychain session data so each test starts unauthenticated.
 - `xBillUITests/GroupFlowUITests.swift` — 14 XCUITests for group creation (form validation, Create button enable/disable, cancel, new group appears in list immediately), archive flow (toolbar menu, confirmation dialog, group moves to archived section on confirm), and unarchive flow (archived section expand/collapse, swipe-right Unarchive action, Unarchive from detail-view toolbar). All tests skip gracefully with `XCTSkip` when not signed in or when prerequisite data (groups, archived groups) is absent.
+- `xBillUITests/RegressionUITests.swift` — 9 E2E/smoke XCUITests intended as the main repeatable UI regression suite. Checks cover auth validation, Create Group validation, Add Expense form validation, core group/expense/archive, expense-detail comments, archive/unarchive, real main-tab navigation, Friends add/search no-results, and Profile edit/payment-handle validation. Reads credentials from environment or test-bundle metadata; missing credentials are the only expected skip path.
 
 ## Key Patterns
 
@@ -359,11 +380,34 @@
 
 ### UI Test Auth State
 - UI tests should launch with `--uitesting --reset-state` when they need an unauthenticated app. In DEBUG builds, `xBillApp.AppDelegate` responds by clearing the app's UserDefaults domain and deleting xBill Keychain generic-password entries through `KeychainManager.deleteAllForUITesting()`.
+- Authenticated UI tests should use `XBILL_TEST_EMAIL` / `XBILL_TEST_PASSWORD` environment variables. `xBillUITests/UITestCredentials.plist` is gitignored and excluded from XcodeGen sources so real credentials are not committed as build inputs.
+- Current full UI regression command:
+  ```
+  xcodebuild test -project xBill.xcodeproj -scheme xBill -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:xBillUITests/RegressionUITests
+  ```
+- Verified 2026-07-12: `RegressionUITests` executed 9 selected tests with 0 failures and no expected pending skips on iPhone 17 / iOS 26.5. Latest result bundle: `/Users/vijaygoyal/Library/Developer/Xcode/DerivedData/xBill-gigdzmkxlvnxfwffqeafujuupnja/Logs/Test/Test-xBill-2026.07.12_15-23-29--0400.xcresult`.
 - Current focused login validation command:
   ```
   DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test -scheme xBill -destination 'id=DA97985A-F7CC-44F6-8281-9DD24C22B978' -only-testing:xBillUITests/OnboardingUITests
   ```
 - Verified 2026-05-04: `OnboardingUITests` executed 6 tests with 0 failures on simulator `DA97985A-F7CC-44F6-8281-9DD24C22B978`, including assertions for the onboarding split-bill illustration, sign-in wallet illustration, and canonical auth page header identifiers.
+
+### Coverage Automation
+- Preferred command for fast code-coverage signal:
+  ```
+  scripts/run-coverage.sh unit
+  ```
+- Full scheme coverage, including UI tests:
+  ```
+  scripts/run-coverage.sh full
+  ```
+- UI regression coverage only:
+  ```
+  scripts/run-coverage.sh regression-ui
+  ```
+- Outputs are timestamped under `TestResults/Coverage/` as `<timestamp>-<mode>.xcresult`, `<timestamp>-<mode>-report.txt`, and `<timestamp>-<mode>-report.json`. `TestResults/` is intentionally gitignored.
+- Latest verified unit coverage run on 2026-07-12: `TestResults/Coverage/2026.07.12_17-24-48-unit.xcresult`; top-level app coverage was `xBill.app 6.28% (1792/28515)`, with `xBillTests.xctest 99.25% (1727/1740)`, `xBillUITests.xctest 0.00%`, and `xBillWidget.appex 0.00%`.
+- Use `xcrun xccov view --report <path>.xcresult` for a readable report and `xcrun xccov view --report --json <path>.xcresult` for JSON.
 
 ### Auth Configuration Troubleshooting
 - If email/password or Apple sign-in reports "A server with the specified hostname could not be found," first inspect the compiled app Info.plist, not the source plist:
@@ -974,7 +1018,7 @@ All 62 Medium severity defects from the senior developer audit (DEFECT_REPORT.md
 - **M-60** — `OnboardingUITests`: `app.secureTextFields["Password"]` / `app.secureTextFields["Confirm Password"]`.
 - **M-61** — `OnboardingUITests`: Added `XCTAssertTrue(signInButton.isEnabled)` after valid input.
 - **M-62** — `GroupFlowUITests`: Added `test000SignInWithEnvironmentCredentials()` and helpers to sign in through the email auth UI when `XBILL_TEST_EMAIL` / `XBILL_TEST_PASSWORD` are supplied by environment or test-bundle metadata. No credentials are stored in source.
-- **M-63** — `GroupFlowUITests` verification on 2026-06-09: review-account sign-in drove the simulator to the authenticated Home screen with active groups visible. Full `GroupFlowUITests` run then reported `17` skipped / `0` failures because every deeper test still gates on `app.tabBars.buttons["Groups"]`; the app is signed in visually, but the selector does not match the current tab UI accessibility tree, so deeper group/expense flows were not exercised.
+- **M-63** — Superseded by 2026-07-12 regression work. Earlier `GroupFlowUITests` verification on 2026-06-09 signed in but skipped deeper tests due to brittle tab selectors. The current `RegressionUITests` suite uses the dedicated UI-test route harness for feature flows and a separate real-tab-shell smoke test; latest verification passed 9 selected tests with 0 failures and no expected pending skips on 2026-07-12.
 - **M-64** — `NotificationStoreTests`: `NotificationStore` now supports custom `itemsKey` / `lastViewedKey` initialization. Persistence tests use per-test keys to avoid parallel Swift Testing races with `ActivityViewModelUnreadTests` clearing `NotificationStore.shared`; fixed intermittent `mergePreservesReadState()` failure. Final full `xcodebuild test` on iPhone 17 iOS 26.5: `119` passed, `17` skipped, `0` failed.
 
 ### Pending backend deploys
@@ -1123,7 +1167,7 @@ All 62 Medium severity defects from the senior developer audit (DEFECT_REPORT.md
 - Added accessibility identifiers to native `MainTabView` tab labels and group/create controls, plus active/archived group row labels in Home/Groups.
 - Added a DEBUG-only UIKit hit target over the Groups create button to try to give XCTest a real `UIButton` accessibility element.
 - Updated `GroupFlowUITests` to launch with Groups startup flags, tolerate the simulator already being signed in, and use fallback coordinates when XCTest cannot find SwiftUI elements.
-- Verification: `test000SignInWithEnvironmentCredentials` passes. `testCreateGroupSheetOpens` still fails on iPhone 17 / iOS 26.5 because XCTest does not expose the visible Groups header/create elements and synthetic taps do not open the sheet. This remains an unresolved simulator/XCTest interaction blocker, not a Supabase/backend failure.
+- Historical note: `testCreateGroupSheetOpens` previously failed on iPhone 17 / iOS 26.5 because XCTest did not expose/tap the visible Groups header/create elements. This was later addressed by the dedicated route harness and the 2026-07-11 `RegressionUITests` suite, which passed end-to-end create/expense/archive/unarchive flows.
 
 ### M-66 — Dedicated UI test route harness for iOS 26 simulator instability
 - Added a `UITesting` Xcode build configuration and switched the shared scheme's `TestAction` to use it. The app target compiles test runs with `DEBUG UI_TESTING`.

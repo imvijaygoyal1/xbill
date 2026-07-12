@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 
 // MARK: - ExchangeRateService
 // Uses open.er-api.com (no API key, 1500 req/month free tier).
@@ -14,6 +15,7 @@ import Foundation
 actor ExchangeRateService {
     static let shared = ExchangeRateService()
     private init() {}
+    private let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "ExchangeRates")
 
     private struct CacheEntry {
         // Rates stored as Decimal (converted via String roundtrip to avoid
@@ -79,7 +81,7 @@ actor ExchangeRateService {
         } catch {
             // Network or decode failure — fall back to stale disk cache before rethrowing.
             if let stale = cachedRates(base: key) {
-                print("[ExchangeRateService] ⚠️ Using stale disk-cached rates for \(key) — \(error.localizedDescription)")
+                logger.warning("Using stale disk-cached rates for \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 // Populate in-memory cache so subsequent calls in this session are fast.
                 cache[key] = CacheEntry(rates: stale, fetchedAt: .distantPast)
                 return stale

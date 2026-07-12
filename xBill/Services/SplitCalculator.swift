@@ -17,6 +17,7 @@ enum SplitCalculator {
     /// Divides `total` equally among all `inputs` that are included.
     /// Handles rounding remainder by adding it to the last participant.
     static func splitEqually(total: Decimal, inputs: inout [SplitInput]) {
+        clearExcludedAmounts(in: &inputs)
         let included = inputs.indices.filter { inputs[$0].isIncluded }
         guard !included.isEmpty else { return }
 
@@ -56,6 +57,7 @@ enum SplitCalculator {
     /// Distributes `total` proportionally to each input's `percentage`.
     /// Adjusts the first participant to absorb rounding error.
     static func splitByPercentage(total: Decimal, inputs: inout [SplitInput]) {
+        clearExcludedAmounts(in: &inputs)
         let included = inputs.indices.filter { inputs[$0].isIncluded }
         guard !included.isEmpty else { return }
 
@@ -79,6 +81,7 @@ enum SplitCalculator {
     /// Distributes `total` proportionally to each input's `shares` value.
     /// Adjusts the first included participant to absorb rounding error.
     static func splitByShares(total: Decimal, inputs: inout [SplitInput]) {
+        clearExcludedAmounts(in: &inputs)
         let included = inputs.indices.filter { inputs[$0].isIncluded }
         guard !included.isEmpty else { return }
 
@@ -115,6 +118,13 @@ enum SplitCalculator {
         // Assign remainder to last included participant (mirrors splitEqually)
         if let last = included.last {
             inputs[last].amount += total - distributed
+        }
+    }
+
+    private static func clearExcludedAmounts(in inputs: inout [SplitInput]) {
+        for index in inputs.indices where !inputs[index].isIncluded {
+            inputs[index].amount = .zero
+            inputs[index].percentage = .zero
         }
     }
 

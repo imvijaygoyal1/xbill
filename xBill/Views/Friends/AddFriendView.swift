@@ -93,7 +93,12 @@ struct AddFriendView: View {
         VStack(alignment: .leading, spacing: AppSpacing.md) {
             XBillSectionHeader("Find People")
 
-            XBillSearchBar(placeholder: "Name or email", text: $searchText, accessibilityLabel: "Search friends")
+            XBillSearchBar(
+                placeholder: "Name or email",
+                text: $searchText,
+                accessibilityLabel: "Search friends",
+                accessibilityIdentifier: "xBill.addFriend.searchField"
+            )
                 .onChange(of: searchText) { _, new in scheduleSearch(query: new) }
 
             if isSearching {
@@ -120,6 +125,7 @@ struct AddFriendView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Import from Contacts")
+            .accessibilityIdentifier("xBill.addFriend.importContactsButton")
 
             contactDisclosureText
 

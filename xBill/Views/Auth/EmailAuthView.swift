@@ -93,6 +93,7 @@ struct EmailAuthView: View {
                 keyboardType: .emailAddress,
                 isFocused: focusedField == .email
             )
+            .accessibilityIdentifier("xBill.emailAuth.emailField")
             .autocorrectionDisabled()
             .textInputAutocapitalization(.never)
             .focused($focusedField, equals: .email)
@@ -105,6 +106,7 @@ struct EmailAuthView: View {
                 isSecure: true,
                 isFocused: focusedField == .password
             )
+            .accessibilityIdentifier("xBill.emailAuth.passwordField")
             .focused($focusedField, equals: .password)
             .submitLabel(.go)
             .onSubmit {
@@ -122,6 +124,7 @@ struct EmailAuthView: View {
                     isSecure: true,
                     isFocused: focusedField == .confirm
                 )
+                .accessibilityIdentifier("xBill.emailAuth.confirmPasswordField")
                 .focused($focusedField, equals: .confirm)
 
                 if !vm.confirmPassword.isEmpty && !vm.passwordsMatch {
@@ -156,6 +159,7 @@ struct EmailAuthView: View {
                     .frame(minHeight: AppSpacing.tapTarget)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("xBill.emailAuth.toggleModeButton")
 
             if !vm.isSigningUp {
                 Button {
@@ -170,6 +174,7 @@ struct EmailAuthView: View {
                         .frame(minHeight: AppSpacing.tapTarget)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("xBill.emailAuth.forgotPasswordButton")
             }
         }
         .xbillCard()

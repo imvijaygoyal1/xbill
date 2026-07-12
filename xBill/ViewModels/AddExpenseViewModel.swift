@@ -33,6 +33,7 @@ final class AddExpenseViewModel {
 
     var isLoading: Bool = false
     var isSaved: Bool = false
+    var savedExpense: Expense?
     var errorAlert: ErrorAlert?
 
     let group: BillGroup
@@ -57,13 +58,20 @@ final class AddExpenseViewModel {
     // MARK: - Computed
 
     var amount: Decimal {
-        // Try POSIX locale first (handles "1234.56" and "1.234.56" gracefully).
-        // If that fails, replace commas with dots to handle European "1,50" → "1.50".
+        // Normalize comma decimals before Decimal(string:) because POSIX parsing can
+        // partially parse "12,34" as 12 instead of failing.
+        if amountText.contains(",") {
+            let normalized = amountText.replacingOccurrences(of: ",", with: ".")
+            if let value = Decimal(string: normalized, locale: Locale(identifier: "en_US_POSIX")) {
+                return value
+            }
+        }
+
+        // Try POSIX locale for standard decimal input.
         if let value = Decimal(string: amountText, locale: Locale(identifier: "en_US_POSIX")) {
             return value
         }
-        return Decimal(string: amountText.replacingOccurrences(of: ",", with: "."),
-                       locale: Locale(identifier: "en_US_POSIX")) ?? .zero
+        return .zero
     }
 
     var isForeignCurrency: Bool { expenseCurrency != currency }
@@ -189,6 +197,7 @@ final class AddExpenseViewModel {
                 recurrence:          recurrence,
                 nextOccurrenceDate:  nextOccurrence
             )
+            savedExpense = expense
             isSaved = true
 
             // Await the notification inline — isSaved drives sheet dismissal, not isLoading.

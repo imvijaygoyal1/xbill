@@ -173,27 +173,29 @@ struct ProfileView: View {
                 XBillFormSection {
                     VStack(spacing: AppSpacing.lg) {
                         VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                            XBillPaymentHandleRow(
-                                providerName: "Venmo",
-                                systemImage: "dollarsign.circle.fill",
-                                placeholder: "@venmo-handle",
-                                text: $vm.venmoHandle
-                            )
-                            validationText(venmoValidationMessage)
+                        XBillPaymentHandleRow(
+                            providerName: "Venmo",
+                            systemImage: "dollarsign.circle.fill",
+                            placeholder: "@venmo-handle",
+                            text: $vm.venmoHandle
+                        )
+                        .accessibilityIdentifier("xBill.profile.venmoField")
+                        validationText(venmoValidationMessage)
                         }
 
                         Divider()
                             .overlay(AppColors.border)
 
                         VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                            XBillPaymentHandleRow(
-                                providerName: "PayPal",
-                                systemImage: "p.circle.fill",
-                                placeholder: "paypalme-handle",
-                                text: $vm.paypalHandle,
-                                keyboardType: .default
-                            )
-                            validationText(paypalValidationMessage)
+                        XBillPaymentHandleRow(
+                            providerName: "PayPal",
+                            systemImage: "p.circle.fill",
+                            placeholder: "paypalme-handle",
+                            text: $vm.paypalHandle,
+                            keyboardType: .default
+                        )
+                        .accessibilityIdentifier("xBill.profile.paypalField")
+                        validationText(paypalValidationMessage)
                         }
                     }
                 }
@@ -225,6 +227,7 @@ struct ProfileView: View {
                             isDestructive: true,
                             action: { showSignOutConfirm = true }
                         )
+                        .accessibilityIdentifier("xBill.profile.signOutButton")
 
                         Divider()
                             .overlay(AppColors.border)
@@ -236,6 +239,7 @@ struct ProfileView: View {
                             isDestructive: true,
                             action: { showDeleteConfirm = true }
                         )
+                        .accessibilityIdentifier("xBill.profile.deleteAccountButton")
                     }
                 }
             }
@@ -509,6 +513,7 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: AppSpacing.md) {
                     XBillSectionHeader("Display Name")
                     XBillTextField(placeholder: "Your name", text: $vm.displayName)
+                        .accessibilityIdentifier("xBill.profile.editNameField")
                 }
             } stickyBottom: {
                 XBillPrimaryButton(
@@ -525,6 +530,7 @@ struct ProfileView: View {
                         }
                     }
                 }
+                .accessibilityIdentifier("xBill.profile.editSaveButton")
                 .padding(AppSpacing.md)
                 .background(.ultraThinMaterial)
             }
