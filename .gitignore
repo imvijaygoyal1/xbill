@@ -1,6 +1,7 @@
 # Supabase credentials — never commit
 Secrets.xcconfig
 xBillUITests/UITestCredentials.plist
+xBillUITests/Generated/
 
 # macOS
 .DS_Store

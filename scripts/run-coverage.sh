@@ -8,6 +8,7 @@ SCHEME="xBill"
 DESTINATION="platform=iOS Simulator,name=iPhone 17"
 MODE="unit"
 TIMESTAMP="$(date +"%Y.%m.%d_%H-%M-%S")"
+UITEST_CREDENTIALS_PLIST="${PROJECT_ROOT}/xBillUITests/UITestCredentials.plist"
 
 usage() {
   cat <<'USAGE'
@@ -74,14 +75,34 @@ XCODEBUILD_ARGS=(
   -resultBundlePath "${RESULT_BUNDLE}"
 )
 
+prepare_ui_test_credentials() {
+  if [[ -z "${XBILL_TEST_EMAIL:-}" && -f "${UITEST_CREDENTIALS_PLIST}" ]]; then
+    XBILL_TEST_EMAIL="$(/usr/libexec/PlistBuddy -c 'Print :XBILL_TEST_EMAIL' "${UITEST_CREDENTIALS_PLIST}" 2>/dev/null || true)"
+  fi
+  if [[ -z "${XBILL_TEST_PASSWORD:-}" && -f "${UITEST_CREDENTIALS_PLIST}" ]]; then
+    XBILL_TEST_PASSWORD="$(/usr/libexec/PlistBuddy -c 'Print :XBILL_TEST_PASSWORD' "${UITEST_CREDENTIALS_PLIST}" 2>/dev/null || true)"
+  fi
+
+  if [[ -z "${XBILL_TEST_EMAIL:-}" || -z "${XBILL_TEST_PASSWORD:-}" ]]; then
+    echo "error: UI regression requires XBILL_TEST_EMAIL and XBILL_TEST_PASSWORD." >&2
+    echo "       Export them or create ignored xBillUITests/UITestCredentials.plist." >&2
+    exit 2
+  fi
+
+  export XBILL_TEST_EMAIL
+  export XBILL_TEST_PASSWORD
+}
+
 case "${MODE}" in
   unit)
     XCODEBUILD_ARGS+=(-only-testing:xBillTests)
     ;;
   regression-ui)
+    prepare_ui_test_credentials
     XCODEBUILD_ARGS+=(-only-testing:xBillUITests/RegressionUITests)
     ;;
   full)
+    prepare_ui_test_credentials
     ;;
 esac
 

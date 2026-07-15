@@ -64,7 +64,6 @@
 		40432904BC8DC540C1D9D13B /* IOU.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F29BC8FA6C787B22A4757B /* IOU.swift */; };
 		41B1F6B4DD1E94171AF635E8 /* XBillBalanceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBCE472130832E81B615A30F /* XBillBalanceCard.swift */; };
 		464045D307F457B3959641F4 /* FoundationModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 611DE33380E550496F06686B /* FoundationModelService.swift */; };
-		484D41E72455408D7A77A896 /* HomeHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E4B12C5BA5853C94A19DDA /* HomeHeader.swift */; };
 		4BE39F6E00BB93CB97AFD04B /* XBillArchivedRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBF1DDE8687F48A6C3C10FAD /* XBillArchivedRow.swift */; };
 		50EF0B7D1ED40C45ACBFB2AD /* P3HelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EB95AF7F1C155D9C83D8E6B /* P3HelperTests.swift */; };
 		52BC19AF7D364ADA25F658F6 /* GroupChipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F0634D4C601FD9464A0F10 /* GroupChipView.swift */; };
@@ -363,7 +362,6 @@
 		ED15D014D17E3C1040C4845D /* OfflineBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineBanner.swift; sourceTree = "<group>"; };
 		ED1F81BD1F1817FCBF7438D7 /* IOUService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOUService.swift; sourceTree = "<group>"; };
 		F0F0634D4C601FD9464A0F10 /* GroupChipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChipView.swift; sourceTree = "<group>"; };
-		F1E4B12C5BA5853C94A19DDA /* HomeHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHeader.swift; sourceTree = "<group>"; };
 		F3579B0A2FDA39F331B61D49 /* XBillNotificationRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillNotificationRow.swift; sourceTree = "<group>"; };
 		F38393AE0CF6D1799617DF5B /* BalanceBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalanceBadge.swift; sourceTree = "<group>"; };
 		F3B09DB08A10227EBBB8F379 /* EmailAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAuthView.swift; sourceTree = "<group>"; };
@@ -373,7 +371,7 @@
 		F4FA0DF138FAAA01522B668E /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
 		F684542CE9913F0736FC5EC2 /* XBillFloatingAddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFloatingAddButton.swift; sourceTree = "<group>"; };
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
-		"TEMP_3BEA53F4-3E04-4214-9A0A-FBD134E69FFB" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_C73F7928-3600-4929-B4F2-30B2AD5A63BF" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -646,7 +644,6 @@
 		CEADC176C34808EA31EAFC13 /* Components */ = {
 			isa = PBXGroup;
 			children = (
-				F1E4B12C5BA5853C94A19DDA /* HomeHeader.swift */,
 				9EB816E24270B4C654962814 /* XBillActionCard.swift */,
 				4DD851F2B2A58922E91AD724 /* XBillActionRow.swift */,
 				CBF1DDE8687F48A6C3C10FAD /* XBillArchivedRow.swift */,
@@ -775,10 +772,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_F8470650-F41D-4323-B9DB-60271EB84FF2" /* xBill */ = {
+		"TEMP_EEE1976B-EA4E-4CA9-A104-4F6456846B96" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_3BEA53F4-3E04-4214-9A0A-FBD134E69FFB" /* Secrets.xcconfig */,
+				"TEMP_C73F7928-3600-4929-B4F2-30B2AD5A63BF" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1000,7 +997,6 @@
 				9FCBA411853C06D848043A83 /* GroupStatsView.swift in Sources */,
 				0B74C8FCE76ECB5B2C91A349 /* GroupViewModel.swift in Sources */,
 				0ADB22C3506F27AB43A4F2AF /* HapticManager.swift in Sources */,
-				484D41E72455408D7A77A896 /* HomeHeader.swift in Sources */,
 				C0A34302D61036B54C10B112 /* HomeView.swift in Sources */,
 				3F082297FBB1C82A02B8D706 /* HomeViewModel.swift in Sources */,
 				40432904BC8DC540C1D9D13B /* IOU.swift in Sources */,
@@ -1128,7 +1124,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_3BEA53F4-3E04-4214-9A0A-FBD134E69FFB" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_C73F7928-3600-4929-B4F2-30B2AD5A63BF" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1221,7 +1217,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = xBillUITests/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1319,7 +1316,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_3BEA53F4-3E04-4214-9A0A-FBD134E69FFB" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_C73F7928-3600-4929-B4F2-30B2AD5A63BF" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1401,7 +1398,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = xBillUITests/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

@@ -67,7 +67,7 @@ final class RegressionUITests: XCTestCase {
 
         let nameField = app.textFields["e.g. Weekend Trip"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 3), "New group name field should be visible.")
-        nameField.tap()
+        XCTAssertTrue(focusTextInput(nameField), "New group name field should accept keyboard focus.")
         nameField.typeText(uniqueName(prefix: "Validation"))
 
         XCTAssertTrue(submitButton.isEnabled, "Create button should enable after a valid group name is entered.")
@@ -233,6 +233,188 @@ final class RegressionUITests: XCTestCase {
         XCTAssertTrue(signOut.waitForExistence(timeout: 6), "Sign Out row should be available.")
     }
 
+    func testReceiptManualReviewRegression() throws {
+        try signInIfNeeded()
+
+        let groupName = uniqueName(prefix: "ReceiptManual")
+        try createGroup(named: groupName)
+        try openGroup(named: groupName)
+        try openAddExpenseForm()
+
+        let scanReceipt = app.buttons["xBill.addExpense.scanReceiptButton"].firstMatch
+        XCTAssertTrue(scanReceipt.waitForExistence(timeout: 4), "Scan Receipt entry point should be available from Add Expense.")
+        scanReceipt.tap()
+
+        XCTAssertTrue(app.navigationBars["Scan Receipt"].waitForExistence(timeout: 6)
+                      || app.staticTexts["Scan a receipt for OCR"].waitForExistence(timeout: 2),
+                      "Receipt scan screen should open.")
+        XCTAssertTrue(app.buttons["xBill.receiptScan.cameraButton"].waitForExistence(timeout: 4), "Camera scan action should be visible.")
+        XCTAssertTrue(app.buttons["xBill.receiptScan.photoButton"].waitForExistence(timeout: 4), "Analyze photo action should be visible.")
+
+        let manualButton = app.buttons["xBill.receiptScan.manualButton"]
+        XCTAssertTrue(manualButton.waitForExistence(timeout: 4), "Manual receipt entry should be available.")
+        manualButton.tap()
+
+        XCTAssertTrue(app.navigationBars["Review Receipt"].waitForExistence(timeout: 6), "Manual receipt review should open.")
+        XCTAssertTrue(app.textFields["xBill.receiptReview.merchantField"].waitForExistence(timeout: 4), "Receipt merchant field should be editable.")
+        XCTAssertTrue(app.textFields["xBill.receiptReview.totalField"].waitForExistence(timeout: 4), "Receipt total field should be editable.")
+        XCTAssertTrue(app.buttons["xBill.receiptReview.addItemButton"].waitForExistence(timeout: 4), "Receipt review should allow adding items.")
+        XCTAssertTrue(app.buttons["xBill.receiptReview.useSplitsButton"].waitForExistence(timeout: 4), "Receipt review should expose split confirmation.")
+
+        tapVisibleBackButton()
+        tapCancelIfPossible()
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Add Expense"].waitForExistence(timeout: 4)
+                      || app.buttons["Group actions"].waitForExistence(timeout: 2),
+                      "Canceling receipt review should return to the expense or group flow.")
+    }
+
+    func testSplitModeControlsRegression() throws {
+        try signInIfNeeded()
+
+        let groupName = uniqueName(prefix: "SplitModes")
+        try createGroup(named: groupName)
+        try openGroup(named: groupName)
+        try openAddExpenseForm()
+
+        let titleField = app.textFields["xBill.addExpense.titleField"]
+        XCTAssertTrue(titleField.waitForExistence(timeout: 4), "Expense title field should be visible.")
+        titleField.tap()
+        titleField.typeText("Split mode validation \(uniqueSuffix())")
+
+        let amountField = app.textFields["xBill.addExpense.amountField"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 4), "Amount field should be visible.")
+        amountField.tap()
+        amountField.typeText("30.00")
+        dismissKeyboardIfNeeded()
+
+        XCTAssertTrue(app.buttons["Equal"].waitForExistence(timeout: 4), "Equal split segment should be visible.")
+        XCTAssertTrue(app.buttons["Exact"].waitForExistence(timeout: 4), "Exact split segment should be visible.")
+        XCTAssertTrue(app.buttons["By %"].waitForExistence(timeout: 4), "Percentage split segment should be visible.")
+        XCTAssertTrue(app.buttons["Shares"].waitForExistence(timeout: 4), "Shares split segment should be visible.")
+
+        app.buttons["Exact"].tap()
+        let exactField = app.textFields.matching(NSPredicate(format: "identifier BEGINSWITH %@", "xBill.addExpense.exactAmountField.")).firstMatch
+        XCTAssertTrue(exactField.waitForExistence(timeout: 4), "Exact split mode should show amount entry fields.")
+
+        app.buttons["Shares"].tap()
+        let increaseShares = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "xBill.addExpense.increaseShares.")).firstMatch
+        XCTAssertTrue(increaseShares.waitForExistence(timeout: 4), "Shares split mode should show share steppers.")
+
+        app.buttons["By %"].tap()
+        XCTAssertTrue(app.buttons["xBill.addExpense.saveButton"].waitForExistence(timeout: 4), "Percentage split mode should keep the save action available.")
+
+        tapVisibleBackButton()
+        XCTAssertTrue(app.buttons["Group actions"].waitForExistence(timeout: 4), "Back should dismiss Add Expense after split-mode validation.")
+    }
+
+    func testGroupSettingsInviteAndCurrencyLockRegression() throws {
+        try signInIfNeeded()
+
+        let groupName = uniqueName(prefix: "GroupSettings")
+        try createGroup(named: groupName)
+        try openGroup(named: groupName)
+
+        let manageButton = app.buttons["xBill.group.manageButton"]
+        XCTAssertTrue(manageButton.waitForExistence(timeout: 4), "Manage action should be visible on group detail.")
+        manageButton.tap()
+
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Manage Group"].waitForExistence(timeout: 6)
+                      || app.navigationBars["Manage Group"].waitForExistence(timeout: 2),
+                      "Manage Group sheet should open.")
+        XCTAssertTrue(app.textFields["xBill.groupSettings.nameField"].waitForExistence(timeout: 4), "Group name should be editable.")
+        XCTAssertTrue(app.buttons["xBill.groupSettings.inviteEmailButton"].waitForExistence(timeout: 4), "Invite by Email action should be visible.")
+        XCTAssertTrue(app.buttons["xBill.groupSettings.inviteLinkButton"].waitForExistence(timeout: 4), "Invite Link action should be visible.")
+
+        app.buttons["xBill.groupSettings.inviteEmailButton"].tap()
+        XCTAssertTrue(app.navigationBars["Invite Members"].waitForExistence(timeout: 6), "Invite Members sheet should open.")
+        tapCancelIfPossible()
+
+        app.buttons["xBill.groupSettings.inviteLinkButton"].tap()
+        XCTAssertTrue(app.navigationBars["Invite via Link"].waitForExistence(timeout: 6), "Invite Link sheet should open.")
+        tapVisibleBackButton()
+
+        tapVisibleBackButton()
+        XCTAssertTrue(app.buttons["Group actions"].waitForExistence(timeout: 4), "Back should dismiss Manage Group.")
+
+        try addExpense(title: "Currency lock \(uniqueSuffix())", amount: "5.00")
+        XCTAssertTrue(app.buttons["xBill.group.manageButton"].waitForExistence(timeout: 4), "Manage action should be visible after adding an expense.")
+        app.buttons["xBill.group.manageButton"].tap()
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Manage Group"].waitForExistence(timeout: 6)
+                      || app.navigationBars["Manage Group"].waitForExistence(timeout: 2),
+                      "Manage Group sheet should reopen after adding an expense.")
+        let currencyLockedMessage = app.staticTexts["xBill.groupSettings.currencyLockedMessage"]
+        scrollToElement(currencyLockedMessage, maxSwipes: 3)
+        XCTAssertTrue(currencyLockedMessage.waitForExistence(timeout: 6),
+                      "Currency lock explanation should appear after the first expense.")
+        tapVisibleBackButton()
+        try archiveCurrentGroup()
+    }
+
+    func testSettleUpAndActivitySurfacesRegression() throws {
+        launch(route: "groups")
+        try signInIfNeeded()
+        dismissNotificationPromptIfNeeded()
+
+        let groupName = uniqueName(prefix: "SettleSurface")
+        try createGroup(named: groupName)
+        try openGroup(named: groupName)
+
+        try openGroupTab("Settle Up")
+        XCTAssertTrue(app.staticTexts["All Settled Up!"].waitForExistence(timeout: 6)
+                      || app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "xBill.settleUp.markSettledButton.")).firstMatch.waitForExistence(timeout: 2),
+                      "Settle Up tab should show either empty state or settlement actions.")
+
+        launchMainApp(initialTab: "groups")
+        dismissNotificationPromptIfNeeded()
+
+        tapTab(identifier: "xBill.tab.activity", label: "Recent")
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Recent Activity"].waitForExistence(timeout: 8), "Recent Activity tab should load.")
+        XCTAssertTrue(app.buttons["All"].waitForExistence(timeout: 4), "Activity All filter should be visible.")
+        XCTAssertTrue(app.buttons["Unread"].waitForExistence(timeout: 4), "Activity Unread filter should be visible.")
+        app.buttons["Unread"].tap()
+        XCTAssertTrue(app.staticTexts["All Caught Up"].waitForExistence(timeout: 4)
+                      || app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "xBill.activity.item.")).firstMatch.waitForExistence(timeout: 2)
+                      || app.buttons["xBill.activity.markAllReadButton"].waitForExistence(timeout: 2),
+                      "Unread Activity should show an empty state or unread items.")
+    }
+
+    func testProfileQRCodeAndAccountCancelRegression() throws {
+        launchMainApp(initialTab: "groups")
+        try signInIfNeeded()
+        dismissNotificationPromptIfNeeded()
+
+        tapTab(identifier: "xBill.tab.profile", label: "Profile")
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Profile"].waitForExistence(timeout: 8), "Profile tab should load.")
+
+        let qrButton = app.buttons["xBill.profile.showQRCodeButton"]
+        XCTAssertTrue(qrButton.waitForExistence(timeout: 6), "Profile QR action should be visible.")
+        qrButton.tap()
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.My QR Code"].waitForExistence(timeout: 6)
+                      || app.navigationBars["My QR Code"].waitForExistence(timeout: 2),
+                      "My QR Code screen should open.")
+        XCTAssertTrue(app.otherElements["xBill.profile.qrCodeCard"].waitForExistence(timeout: 6)
+                      || app.otherElements["xBill.profile.qrIllustration"].waitForExistence(timeout: 2),
+                      "QR surface should render.")
+        tapVisibleBackButton()
+
+        let deleteAccount = app.buttons["xBill.profile.deleteAccountButton"]
+        scrollToElement(deleteAccount, maxSwipes: 8)
+        XCTAssertTrue(deleteAccount.waitForExistence(timeout: 6), "Delete account action should be visible.")
+        deleteAccount.tap()
+        XCTAssertTrue(app.buttons["Delete account"].waitForExistence(timeout: 4)
+                      || app.staticTexts["Delete your account?"].waitForExistence(timeout: 2),
+                      "Delete account confirmation should appear.")
+        tapCancelIfPossible()
+
+        let signOut = app.buttons["xBill.profile.signOutButton"]
+        scrollToElement(signOut, maxSwipes: 8)
+        XCTAssertTrue(signOut.waitForExistence(timeout: 6), "Sign Out action should be visible.")
+        signOut.tap()
+        XCTAssertTrue(app.buttons["Sign Out"].waitForExistence(timeout: 4), "Sign Out confirmation should appear.")
+        tapCancelIfPossible()
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Profile"].waitForExistence(timeout: 4), "Canceling account actions should leave Profile open.")
+    }
+
     func testFriendsAddSearchRegression() throws {
         launchMainApp(initialTab: "groups")
         try signInIfNeeded()
@@ -333,7 +515,8 @@ final class RegressionUITests: XCTestCase {
 
         guard let email = testCredential(named: "XBILL_TEST_EMAIL"),
               let password = testCredential(named: "XBILL_TEST_PASSWORD") else {
-            throw XCTSkip("Set XBILL_TEST_EMAIL and XBILL_TEST_PASSWORD to run authenticated regression tests.")
+            XCTFail("Set XBILL_TEST_EMAIL and XBILL_TEST_PASSWORD to run authenticated regression tests.")
+            throw RegressionFailure()
         }
 
         let emailButton = app.buttons["Continue with Email"].firstMatch
@@ -396,6 +579,12 @@ final class RegressionUITests: XCTestCase {
         if let value = Bundle(for: Self.self).object(forInfoDictionaryKey: key) as? String,
            !value.isEmpty,
            !value.hasPrefix("$(") {
+            return value
+        }
+        if let url = Bundle(for: Self.self).url(forResource: "UITestCredentials", withExtension: "plist"),
+           let credentials = NSDictionary(contentsOf: url),
+           let value = credentials[key] as? String,
+           !value.isEmpty {
             return value
         }
         return nil
@@ -462,6 +651,26 @@ final class RegressionUITests: XCTestCase {
         element.typeText(text)
     }
 
+    private func focusTextInput(_ element: XCUIElement, timeout: TimeInterval = 3) -> Bool {
+        guard element.waitForExistence(timeout: timeout) else { return false }
+
+        for _ in 0..<3 {
+            if element.isHittable {
+                element.tap()
+            } else {
+                element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+
+            if app.keyboards.firstMatch.waitForExistence(timeout: 1) {
+                return true
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+
+        return app.keyboards.firstMatch.exists
+    }
+
     // MARK: - Groups
 
     private func openCreateGroupForm() throws {
@@ -475,8 +684,7 @@ final class RegressionUITests: XCTestCase {
             app.buttons["xBill.groups.createButton"],
             app.buttons["Create Group"].firstMatch
         ] where candidate.waitForExistence(timeout: 2) {
-            if candidate.isHittable {
-                candidate.tap()
+            if tapElement(candidate) {
                 if app.staticTexts["xBill.pageHeader.title.New Group"].waitForExistence(timeout: 3) {
                     return
                 }
@@ -492,7 +700,7 @@ final class RegressionUITests: XCTestCase {
         try openCreateGroupForm()
         let nameField = app.textFields["e.g. Weekend Trip"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 3), "New group name field should be visible.")
-        nameField.tap()
+        XCTAssertTrue(focusTextInput(nameField), "New group name field should accept keyboard focus.")
         nameField.typeText(groupName)
         app.buttons["xBill.createGroup.submitButton"].tap()
 
@@ -503,7 +711,9 @@ final class RegressionUITests: XCTestCase {
         let group = activeGroupButton(named: groupName)
         XCTAssertTrue(group.waitForExistence(timeout: 8), "Group row should be visible before opening detail.")
         group.tap()
-        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.\(groupName)"].waitForExistence(timeout: 8), "Group detail should open.")
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.\(groupName)"].waitForExistence(timeout: 8)
+                      || app.buttons["Group actions"].waitForExistence(timeout: 4),
+                      "Group detail should open.")
         XCTAssertTrue(app.buttons["Group actions"].waitForExistence(timeout: 4), "Group detail actions should be available.")
     }
 
@@ -611,7 +821,14 @@ final class RegressionUITests: XCTestCase {
     private func groupSurfaceExists(timeout: TimeInterval) -> Bool {
         app.staticTexts["xBill.pageHeader.title.Groups"].waitForExistence(timeout: timeout)
             || app.otherElements["xBill.home.groupsHeader"].firstMatch.waitForExistence(timeout: 0.5)
-            || activeGroupButtons.firstMatch.waitForExistence(timeout: 0.5)
+            || elementIsUsable(app.buttons["xBill.groups.createButton"], timeout: 0.5)
+            || elementIsUsable(groupsSearchField(), timeout: 0.5)
+            || elementIsUsable(activeGroupButtons.firstMatch, timeout: 0.5)
+    }
+
+    private func elementIsUsable(_ element: XCUIElement, timeout: TimeInterval) -> Bool {
+        guard element.waitForExistence(timeout: timeout) else { return false }
+        return element.isHittable || app.frame.contains(element.frame.center)
     }
 
     private func tapGroupsTabIfPossible() {
@@ -751,6 +968,13 @@ final class RegressionUITests: XCTestCase {
         let tab = app.buttons[title]
         XCTAssertTrue(tab.waitForExistence(timeout: 4), "\(title) tab should exist.")
         tab.tap()
+    }
+
+    private func openAddExpenseForm() throws {
+        let addExpenseButton = app.buttons["Add Expense"].firstMatch
+        XCTAssertTrue(addExpenseButton.waitForExistence(timeout: 4), "Add Expense action should be available.")
+        addExpenseButton.tap()
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Add Expense"].waitForExistence(timeout: 6), "Add Expense screen should open.")
     }
 
     private func expenseRowButton(title: String) -> XCUIElement {

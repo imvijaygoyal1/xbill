@@ -276,6 +276,7 @@ struct GroupDetailView: View {
             XBillPillButton(title: "Manage", icon: "slider.horizontal.3", style: .secondary) {
                 showGroupSettings = true
             }
+            .accessibilityIdentifier("xBill.group.manageButton")
         }
         .padding(AppSpacing.md)
         .background(AppColors.background)
@@ -401,6 +402,7 @@ struct GroupDetailView: View {
             XBillButton(title: "Mark as Settled", style: .primary) {
                 settlementToConfirm = suggestion
             }
+            .accessibilityIdentifier("xBill.settleUp.markSettledButton.\(suggestion.id.uuidString)")
             if let recipient = vm.members.first(where: { $0.id == suggestion.toUserID }) {
                 HStack(spacing: AppSpacing.sm) {
                     if let venmoURL = PaymentLinkService.shared.paymentLink(for: suggestion, recipient: recipient, method: .venmo) {
@@ -420,6 +422,7 @@ struct GroupDetailView: View {
             }
         }
         .padding(.vertical, XBillSpacing.sm)
+        .accessibilityIdentifier("xBill.settleUp.suggestionRow.\(suggestion.id.uuidString)")
     }
 
     // MARK: - Toolbar
@@ -630,6 +633,7 @@ private struct GroupSettingsView: View {
                 VStack(alignment: .leading, spacing: AppSpacing.lg) {
                     XBillTextField(placeholder: "Group name", text: $name)
                         .accessibilityLabel("Group name")
+                        .accessibilityIdentifier("xBill.groupSettings.nameField")
 
                     VStack(alignment: .leading, spacing: AppSpacing.sm) {
                         Text("Icon")
@@ -651,11 +655,13 @@ private struct GroupSettingsView: View {
                         .pickerStyle(.menu)
                         .tint(AppColors.primary)
                         .disabled(!vm.canChangeCurrency)
+                        .accessibilityIdentifier("xBill.groupSettings.currencyPicker")
                     }
                     if !vm.canChangeCurrency {
                         Text("Currency is locked after the first expense to keep historical amounts accurate.")
                             .font(.appCaption)
                             .foregroundStyle(AppColors.textSecondary)
+                            .accessibilityIdentifier("xBill.groupSettings.currencyLockedMessage")
                     }
 
                     XBillPrimaryButton(
@@ -672,6 +678,7 @@ private struct GroupSettingsView: View {
                             await onChanged()
                         }
                     }
+                    .accessibilityIdentifier("xBill.groupSettings.saveButton")
                 }
             }
         }
@@ -687,6 +694,7 @@ private struct GroupSettingsView: View {
             ) {
                 showInvite = true
             }
+            .accessibilityIdentifier("xBill.groupSettings.inviteEmailButton")
             XBillActionCard(
                 icon: "qrcode",
                 title: "Invite Link",
@@ -694,6 +702,7 @@ private struct GroupSettingsView: View {
             ) {
                 showInviteLink = true
             }
+            .accessibilityIdentifier("xBill.groupSettings.inviteLinkButton")
         }
     }
 

@@ -155,6 +155,7 @@ struct ReceiptScanView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
                         .disabled(!VNDocumentCameraViewController.isSupported)
+                        .accessibilityIdentifier("xBill.receiptScan.cameraButton")
                         .accessibilityHint(VNDocumentCameraViewController.isSupported ? "" : "Document camera is not available on this device")
 
                         PhotosPicker(selection: $selectedPhoto, matching: .images) {
@@ -165,6 +166,7 @@ struct ReceiptScanView: View {
                                 .foregroundStyle(.primary)
                                 .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
+                        .accessibilityIdentifier("xBill.receiptScan.photoButton")
 
                         Button {
                             vm.startManually(members: members)
@@ -177,6 +179,7 @@ struct ReceiptScanView: View {
                                 .foregroundStyle(.primary)
                                 .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
+                        .accessibilityIdentifier("xBill.receiptScan.manualButton")
                     }
                     .padding(.horizontal, 24)
                 }
@@ -189,6 +192,7 @@ struct ReceiptScanView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .accessibilityIdentifier("xBill.receiptScan.cancelButton")
                 }
             }
             .navigationDestination(isPresented: $showReview) {

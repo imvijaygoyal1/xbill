@@ -16,6 +16,7 @@ import XCTest
 final class GroupFlowUITests: XCTestCase {
 
     private var app: XCUIApplication!
+    private struct GroupFlowFailure: Error {}
 
     override func setUp() async throws {
         try await super.setUp()
@@ -106,6 +107,8 @@ final class GroupFlowUITests: XCTestCase {
     private func groupSurfaceExists(timeout: TimeInterval) -> Bool {
         if groupsTitle.waitForExistence(timeout: timeout)
             || homeGroupsHeader.waitForExistence(timeout: 0.5)
+            || app.buttons["xBill.groups.createButton"].waitForExistence(timeout: 0.5)
+            || app.textFields["xBill.groups.searchField"].waitForExistence(timeout: 0.5)
             || activeGroupButtons.firstMatch.waitForExistence(timeout: 0.5) {
             return true
         }
@@ -198,6 +201,12 @@ final class GroupFlowUITests: XCTestCase {
            !value.hasPrefix("$(") {
             return value
         }
+        if let url = Bundle(for: Self.self).url(forResource: "UITestCredentials", withExtension: "plist"),
+           let credentials = NSDictionary(contentsOf: url),
+           let value = credentials[key] as? String,
+           !value.isEmpty {
+            return value
+        }
         return nil
     }
 
@@ -240,7 +249,8 @@ final class GroupFlowUITests: XCTestCase {
               let password = testCredential(named: "XBILL_TEST_PASSWORD"),
               !email.isEmpty,
               !password.isEmpty else {
-            throw XCTSkip("Set XBILL_TEST_EMAIL and XBILL_TEST_PASSWORD to sign in before group-flow tests.")
+            XCTFail("Set XBILL_TEST_EMAIL and XBILL_TEST_PASSWORD to sign in before group-flow tests.")
+            throw GroupFlowFailure()
         }
 
         openEmailAuthIfNeeded()

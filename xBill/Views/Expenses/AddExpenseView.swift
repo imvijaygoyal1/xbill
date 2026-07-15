@@ -182,6 +182,7 @@ struct AddExpenseView: View {
                                 }
                                 .pickerStyle(.segmented)
                                 .tint(Color.brandPrimary)
+                                .accessibilityIdentifier("xBill.addExpense.splitStrategyPicker")
                                 .onChange(of: vm.splitStrategy) { _, _ in vm.recomputeSplits() }
                                 .onChange(of: vm.amountText)    { _, _ in vm.recomputeSplits() }
                             }
@@ -207,6 +208,7 @@ struct AddExpenseView: View {
                                                     .multilineTextAlignment(.trailing)
                                                     .frame(width: 70)
                                                     .foregroundStyle(Color.textPrimary)
+                                                    .accessibilityIdentifier("xBill.addExpense.exactAmountField.\(input.userID.uuidString)")
                                             } else if vm.splitStrategy == .shares {
                                                 HStack(spacing: XBillSpacing.xs) {
                                                     Button {
@@ -219,6 +221,7 @@ struct AddExpenseView: View {
                                                             .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                                                     }
                                                     .buttonStyle(.plain)
+                                                    .accessibilityIdentifier("xBill.addExpense.decreaseShares.\(input.userID.uuidString)")
                                                     Text("\(input.shares)×")
                                                         .font(.xbillLabel)
                                                         .foregroundStyle(Color.textPrimary)
@@ -232,6 +235,7 @@ struct AddExpenseView: View {
                                                             .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                                                     }
                                                     .buttonStyle(.plain)
+                                                    .accessibilityIdentifier("xBill.addExpense.increaseShares.\(input.userID.uuidString)")
                                                 }
                                                 Text(input.amount.formatted(currencyCode: vm.currency))
                                                     .font(.xbillSmallAmount)
@@ -354,6 +358,7 @@ struct AddExpenseView: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("xBill.addExpense.scanReceiptButton")
         .accessibilityLabel("Scan receipt")
     }
 

@@ -37,6 +37,7 @@ struct MyQRCodeView: View {
 
                 XBillQRCodeIllustration(size: 210)
                     .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("xBill.profile.qrIllustration")
 
                 Text("Share your code to let friends add you on xBill.")
                     .font(.appBody)
@@ -46,6 +47,7 @@ struct MyQRCodeView: View {
                 if let image = qrImage {
                     XBillQRCodeCard(image: image, label: "Scan to add \(displayName)")
                         .accessibilityLabel("QR code for \(displayName)")
+                        .accessibilityIdentifier("xBill.profile.qrCodeCard")
                 } else {
                     ProgressView()
                         .frame(width: 220, height: 220)
@@ -59,6 +61,7 @@ struct MyQRCodeView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
+                    .accessibilityIdentifier("xBill.profile.qrShareLink")
                 }
             }
             .navigationBarBackButtonHidden()

@@ -48,6 +48,7 @@ struct ReceiptReviewView: View {
                         placeholder: "Merchant name",
                         text: $vm.merchantName
                     )
+                    .accessibilityIdentifier("xBill.receiptReview.merchantField")
                 }
             }
 
@@ -60,6 +61,7 @@ struct ReceiptReviewView: View {
                 Button { showAddItem = true } label: {
                     Label("Add Item", systemImage: "plus")
                 }
+                .accessibilityIdentifier("xBill.receiptReview.addItemButton")
             }
 
             Section("Extras") {
@@ -97,6 +99,7 @@ struct ReceiptReviewView: View {
                         text: $vm.totalAmount,
                         keyboardType: .decimalPad
                     )
+                    .accessibilityIdentifier("xBill.receiptReview.totalField")
                 }
             }
 
@@ -120,6 +123,7 @@ struct ReceiptReviewView: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Use These Splits") { onConfirmed(vm.asSplitInputs()) }
                     .fontWeight(.semibold)
+                    .accessibilityIdentifier("xBill.receiptReview.useSplitsButton")
             }
         }
         .alert("Add Item", isPresented: $showAddItem) {

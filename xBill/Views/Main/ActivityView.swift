@@ -127,6 +127,7 @@ struct ActivityView: View {
                 options: [(ActivityFilter.all, "All"), (ActivityFilter.unread, "Unread")],
                 selection: $selectedFilter
             )
+            .accessibilityIdentifier("xBill.activity.filterControl")
 
             if selectedFilter == .unread && groupedItems.isEmpty {
                 XBillEmptyState(
@@ -160,6 +161,7 @@ struct ActivityView: View {
                         .foregroundStyle(AppColors.primary)
                         .frame(minHeight: AppSpacing.tapTarget)
                 }
+                .accessibilityIdentifier("xBill.activity.markAllReadButton")
             }
         }
         .padding(.horizontal, -AppSpacing.lg)
@@ -178,6 +180,7 @@ struct ActivityView: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("xBill.activity.item.\(item.id.uuidString)")
         .accessibilityHint("Opens activity details")
         .contextMenu {
             if item.isRead {

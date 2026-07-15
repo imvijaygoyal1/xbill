@@ -52,6 +52,7 @@ struct XBillProfileCard: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Show QR code")
+                .accessibilityIdentifier("xBill.profile.showQRCodeButton")
 
                 Button("Edit", action: onEdit)
                     .font(.appCaptionMedium)
@@ -65,6 +66,7 @@ struct XBillProfileCard: View {
                     .fixedSize(horizontal: true, vertical: false)
                     .buttonStyle(.plain)
                     .accessibilityLabel("Edit profile")
+                    .accessibilityIdentifier("xBill.profile.editButton")
             }
         }
         .padding(AppSpacing.md)

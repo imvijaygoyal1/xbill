@@ -116,13 +116,16 @@ targets:
     sources:
       - path: xBillUITests
         excludes:
+          - "Info.plist"
           - "UITestCredentials.plist"
+          - "Generated/**"
     dependencies:
       - target: xBill
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vijaygoyal.xbill.uitests
-        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: xBillUITests/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
 
 schemes:
   xBill:
