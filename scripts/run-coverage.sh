@@ -13,16 +13,18 @@ UITEST_CREDENTIALS_PLIST="${PROJECT_ROOT}/xBillUITests/UITestCredentials.plist"
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/run-coverage.sh [unit|full|regression-ui] [--destination DESTINATION]
+  scripts/run-coverage.sh [unit|widget|full|regression-ui] [--destination DESTINATION]
 
 Modes:
   unit           Run xBillTests only. Fastest reliable coverage signal. Default.
+  widget         Run xBillWidgetTests only.
   full           Run the full xBill scheme, including UI tests.
   regression-ui  Run xBillUITests/RegressionUITests only.
 
 Examples:
   scripts/run-coverage.sh
   scripts/run-coverage.sh unit
+  scripts/run-coverage.sh widget
   scripts/run-coverage.sh full
   scripts/run-coverage.sh regression-ui
   scripts/run-coverage.sh unit --destination 'platform=iOS Simulator,name=iPhone 17'
@@ -36,7 +38,7 @@ USAGE
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    unit|full|regression-ui)
+    unit|widget|full|regression-ui)
       MODE="$1"
       shift
       ;;
@@ -96,6 +98,9 @@ prepare_ui_test_credentials() {
 case "${MODE}" in
   unit)
     XCODEBUILD_ARGS+=(-only-testing:xBillTests)
+    ;;
+  widget)
+    XCODEBUILD_ARGS+=(-only-testing:xBillWidgetTests)
     ;;
   regression-ui)
     prepare_ui_test_credentials

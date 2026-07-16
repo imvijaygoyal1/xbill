@@ -1,6 +1,6 @@
 //
 //  xBillBalanceWidget.swift
-//  xBillWidget
+//  xBillWidgetCore
 //
 //  Copyright © 2026 Vijay Goyal. All rights reserved.
 //
@@ -8,19 +8,49 @@
 //  Until registered, the widget reads from UserDefaults.standard (data may be stale).
 //
 
-import WidgetKit
+import Foundation
 import SwiftUI
+import WidgetKit
 
 // MARK: - Balance Snapshot (shared with CacheService)
 
 /// Mirror of `BalanceSnapshot` in CacheService.swift.
 /// Duplicated here so the widget extension compiles without importing the main app module.
-private struct WidgetBalanceSnapshot: Codable {
+struct WidgetBalanceSnapshot: Codable {
     var net: String
     var owed: String
     var owing: String
     var currency: String
     var available: Bool
+}
+
+enum WidgetBalanceKeys {
+    static let snapshot = "xbill_balance_snapshot"
+    static let legacyNet = "xbill_net_balance"
+    static let legacyOwed = "xbill_total_owed"
+    static let legacyOwing = "xbill_total_owing"
+    static let legacyCurrency = "xbill_balance_currency"
+    static let legacyAvailable = "xbill_balance_available"
+}
+
+enum WidgetBalanceFormatting {
+    static func formatted(_ value: Double, currency: String) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = currency
+        formatter.maximumFractionDigits = 2
+        formatter.minimumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: value)) ?? "\(currency) \(String(format: "%.2f", value))"
+    }
+
+    static func formattedShort(_ value: Double, currency: String) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = currency
+        formatter.maximumFractionDigits = 0
+        formatter.minimumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: value)) ?? "\(currency) \(Int(value))"
+    }
 }
 
 // MARK: - Balance Entry
@@ -38,16 +68,11 @@ struct BalanceEntry: TimelineEntry {
 // MARK: - Timeline Provider
 
 struct BalanceProvider: TimelineProvider {
-    private let defaults = UserDefaults(suiteName: "group.com.vijaygoyal.xbill") ?? .standard
+    private let defaults: UserDefaults
 
-    /// The single-key written by CacheService.saveBalance (L-27 atomic fix).
-    private let snapshotKey = "xbill_balance_snapshot"
-    /// Legacy individual keys — read as fallback if the snapshot key is absent.
-    private let legacyNetKey       = "xbill_net_balance"
-    private let legacyOwedKey      = "xbill_total_owed"
-    private let legacyOwingKey     = "xbill_total_owing"
-    private let legacyCurrencyKey  = "xbill_balance_currency"
-    private let legacyAvailableKey = "xbill_balance_available"
+    init(defaults: UserDefaults = UserDefaults(suiteName: "group.com.vijaygoyal.xbill") ?? .standard) {
+        self.defaults = defaults
+    }
 
     func placeholder(in context: Context) -> BalanceEntry {
         BalanceEntry(date: Date(), netBalance: 42.50, totalOwed: 42.50, totalOwing: 0,
@@ -60,16 +85,20 @@ struct BalanceProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<BalanceEntry>) -> Void) {
         let now = Date()
-        let entries = [
-            entry(for: now),
-            entry(for: now.addingTimeInterval(30 * 60)),
-            entry(for: now.addingTimeInterval(60 * 60)),
-        ]
+        let entries = timelineEntries(startingAt: now)
         // .atEnd triggers the next fetch after the last entry's date elapses.
         completion(Timeline(entries: entries, policy: .atEnd))
     }
 
-    private func entry(for date: Date) -> BalanceEntry {
+    func timelineEntries(startingAt date: Date) -> [BalanceEntry] {
+        [
+            entry(for: date),
+            entry(for: date.addingTimeInterval(30 * 60)),
+            entry(for: date.addingTimeInterval(60 * 60)),
+        ]
+    }
+
+    func entry(for date: Date) -> BalanceEntry {
         // L-27: read from the atomic single-key snapshot; fall back to legacy keys
         // so widgets that haven't refreshed yet continue to display valid data.
         let snapshot = loadSnapshot()
@@ -85,18 +114,18 @@ struct BalanceProvider: TimelineProvider {
                             currency: snapshot.currency, isPositive: net >= 0, dataAvailable: snapshot.available)
     }
 
-    private func loadSnapshot() -> WidgetBalanceSnapshot? {
-        if let data = defaults.data(forKey: snapshotKey),
+    func loadSnapshot() -> WidgetBalanceSnapshot? {
+        if let data = defaults.data(forKey: WidgetBalanceKeys.snapshot),
            let snapshot = try? JSONDecoder().decode(WidgetBalanceSnapshot.self, from: data) {
             return snapshot
         }
         // Legacy fallback: individual keys written before L-27 fix was deployed.
-        guard defaults.object(forKey: legacyAvailableKey) != nil else { return nil }
+        guard defaults.object(forKey: WidgetBalanceKeys.legacyAvailable) != nil else { return nil }
         return WidgetBalanceSnapshot(
-            net: defaults.string(forKey: legacyNetKey) ?? "0",
-            owed: defaults.string(forKey: legacyOwedKey) ?? "0",
-            owing: defaults.string(forKey: legacyOwingKey) ?? "0",
-            currency: defaults.string(forKey: legacyCurrencyKey) ?? "USD",
+            net: defaults.string(forKey: WidgetBalanceKeys.legacyNet) ?? "0",
+            owed: defaults.string(forKey: WidgetBalanceKeys.legacyOwed) ?? "0",
+            owing: defaults.string(forKey: WidgetBalanceKeys.legacyOwing) ?? "0",
+            currency: defaults.string(forKey: WidgetBalanceKeys.legacyCurrency) ?? "USD",
             available: true
         )
     }
@@ -156,16 +185,16 @@ struct BalanceWidgetView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
 
-            Text(formatted(abs(entry.netBalance), currency: entry.currency))
+            Text(WidgetBalanceFormatting.formatted(abs(entry.netBalance), currency: entry.currency))
                 .font(.title2.monospacedDigit().weight(.semibold))
                 .foregroundStyle(entry.isPositive ? positive : negative)
 
             if entry.totalOwed > 0 && entry.totalOwing > 0 {
                 HStack(spacing: 4) {
-                    Label(formattedShort(entry.totalOwed, currency: entry.currency), systemImage: "arrow.down")
+                    Label(WidgetBalanceFormatting.formattedShort(entry.totalOwed, currency: entry.currency), systemImage: "arrow.down")
                         .foregroundStyle(positive)
                     Spacer()
-                    Label(formattedShort(entry.totalOwing, currency: entry.currency), systemImage: "arrow.up")
+                    Label(WidgetBalanceFormatting.formattedShort(entry.totalOwing, currency: entry.currency), systemImage: "arrow.up")
                         .foregroundStyle(negative)
                 }
                 .font(.caption2.monospacedDigit())
@@ -174,32 +203,16 @@ struct BalanceWidgetView: View {
         .padding()
         .containerBackground(.fill.tertiary, for: .widget)
     }
-
-    private func formatted(_ value: Double, currency: String) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = currency
-        formatter.maximumFractionDigits = 2
-        formatter.minimumFractionDigits = 2
-        return formatter.string(from: NSNumber(value: value)) ?? "\(currency) \(String(format: "%.2f", value))"
-    }
-
-    private func formattedShort(_ value: Double, currency: String) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = currency
-        formatter.maximumFractionDigits = 0
-        formatter.minimumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: value)) ?? "\(currency) \(Int(value))"
-    }
 }
 
 // MARK: - Widget Configuration
 
-struct xBillBalanceWidget: Widget {
-    let kind: String = "xBillBalanceWidget"
+public struct xBillBalanceWidget: Widget {
+    public let kind: String = "xBillBalanceWidget"
 
-    var body: some WidgetConfiguration {
+    public init() {}
+
+    public var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: BalanceProvider()) { entry in
             BalanceWidgetView(entry: entry)
         }

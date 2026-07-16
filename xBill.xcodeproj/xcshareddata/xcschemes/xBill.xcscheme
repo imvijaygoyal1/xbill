@@ -63,6 +63,34 @@
                ReferencedContainer = "container:xBill.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "593BDF0E3B1F54FB2F7A84EC"
+               BuildableName = "xBillWidgetCore.framework"
+               BlueprintName = "xBillWidgetCore"
+               ReferencedContainer = "container:xBill.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "DD9E38D8FBE9428F619D5478"
+               BuildableName = "xBillWidgetTests.xctest"
+               BlueprintName = "xBillWidgetTests"
+               ReferencedContainer = "container:xBill.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -90,6 +118,17 @@
                BlueprintIdentifier = "2A8CCA5DB802F8C919BE5DE4"
                BuildableName = "xBillTests.xctest"
                BlueprintName = "xBillTests"
+               ReferencedContainer = "container:xBill.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "DD9E38D8FBE9428F619D5478"
+               BuildableName = "xBillWidgetTests.xctest"
+               BlueprintName = "xBillWidgetTests"
                ReferencedContainer = "container:xBill.xcodeproj">
             </BuildableReference>
          </TestableReference>

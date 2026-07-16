@@ -40,7 +40,7 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>xBill uses Face ID to protect your expense data.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>xBill accesses your photo library to import receipt images.</string>
+	<string>xBill accesses selected photos to analyze receipt images and update your profile photo.</string>
 	<key>SUPABASE_ANON_KEY</key>
 	<string>$(SUPABASE_ANON_KEY)</string>
 	<key>SUPABASE_URL</key>

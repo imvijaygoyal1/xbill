@@ -70,18 +70,6 @@ struct XBillSecondaryButton: View {
     }
 }
 
-struct XBillBlackButton: View {
-    let title: String
-    var icon: String?
-    var isLoading = false
-    var isDisabled = false
-    let action: () -> Void
-
-    var body: some View {
-        XBillButtonBase(title: title, icon: icon, background: AppColors.blackNav, foreground: AppColors.textInverse, isLoading: isLoading, isDisabled: isDisabled, action: action)
-    }
-}
-
 struct XBillPillButton: View {
     let title: String
     var icon: String?

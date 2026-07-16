@@ -1,6 +1,6 @@
 # xBill App Store Review Plan
 
-Last reviewed: 2026-06-14
+Last reviewed: 2026-07-15
 
 This plan tracks issues that can block or slow App Store review. It is intentionally limited to future work; do not treat any item here as implemented unless the referenced code or metadata has changed.
 
@@ -60,10 +60,21 @@ This plan tracks issues that can block or slow App Store review. It is intention
 ### 6. Receipt and Photo Data Consistency
 
 - Status: Product decision is OCR-only receipt scanning. Receipt images are used temporarily for Vision/OCR and are not uploaded or attached to saved expenses.
-- Current evidence: `ExpenseService.createExpense(...)` always sends `p_receipt_url = nil`, and the unused Supabase receipt-image upload helper was removed.
+- Current evidence: `ExpenseService.createExpense(...)` always sends `p_receipt_url = nil`, and the unused Supabase receipt-image upload helper was removed. `NSPhotoLibraryUsageDescription` now says selected photos are used to analyze receipt images and update profile photos.
 - Plan:
   - Keep App Store privacy labels and the privacy policy aligned with OCR-only behavior.
   - If receipt attachment is added later, reintroduce upload deliberately and update privacy labels/policy before release.
+
+### 6a. In-App Reporting, Blocking, and Release Config
+
+- Status: fixed in app code and deployed to Supabase on 2026-07-15.
+- Current evidence: `ExpenseDetailView` has Report Content; `FriendDetailView` has Report User and Block User; `FriendService.blockUser(id:)` calls `block_user`; migration `038` removes existing friend rows, records a blocked row, and prevents future friend requests while a blocked row exists.
+- Current evidence: `SupabaseClient.swift` lets Debug fall back for previews/UI tests, but Release fails fast for missing, placeholder, non-HTTPS, or unresolved `$(...)` Supabase URL/key values.
+- Deployment evidence: `supabase db push --linked` applied `038_block_user_rpc.sql`; `supabase migration list` confirmed local and remote migration histories match through `038`.
+- Plan:
+  - Run one manual signed-in smoke test that blocks a friend and confirms the blocked pair cannot create a new friend request.
+  - Add these moderation/support paths to reviewer notes if the submission asks how users can report or block abusive users.
+  - Keep the support email in `XBillURLs.supportEmail` aligned with privacy policy and App Store Connect support metadata.
 
 ### 7. Required Reason API Reason for App Group UserDefaults
 

@@ -7,6 +7,7 @@
 
 import WidgetKit
 import SwiftUI
+import xBillWidgetCore
 
 @main
 struct xBillWidgetBundle: WidgetBundle {

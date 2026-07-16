@@ -112,6 +112,15 @@ final class FriendService: Sendable {
             .execute()
     }
 
+    /// Blocks another user. The backend removes any existing friend row and
+    /// creates a blocked row that prevents future requests in either direction.
+    func blockUser(id blockedUserID: UUID) async throws {
+        struct Params: Encodable { let p_user_id: UUID }
+        try await supabase.client
+            .rpc("block_user", params: Params(p_user_id: blockedUserID))
+            .execute()
+    }
+
     // MARK: - Discovery
 
     /// Partial match on email or display_name (case-insensitive, max 20 results).

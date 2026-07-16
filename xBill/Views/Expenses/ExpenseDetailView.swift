@@ -42,6 +42,7 @@ struct ExpenseDetailView: View {
     @State private var showDeleteConfirm = false
     @State private var commentToDelete: Comment?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     private func memberName(_ id: UUID) -> String {
         members.first(where: { $0.id == id })?.displayName ?? "Unknown"
@@ -162,6 +163,9 @@ struct ExpenseDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button { reportExpense() } label: {
+                        Label("Report Content", systemImage: "exclamationmark.bubble")
+                    }
                     Button { openEditSheet() } label: {
                         Label("Edit Expense", systemImage: "pencil")
                     }
@@ -371,6 +375,23 @@ struct ExpenseDetailView: View {
         editNotes      = expense.notes ?? ""
         editPayerID    = expense.payerID
         isEditing      = true
+    }
+
+    private func reportExpense() {
+        openURL(XBillURLs.supportMailURL(
+            subject: "xBill content report",
+            body: """
+            Please review this content report.
+
+            Group: \(groupName)
+            Group ID: \(expense.groupID.uuidString)
+            Expense: \(expense.title)
+            Expense ID: \(expense.id.uuidString)
+            Reporting user ID: \(currentUserID.uuidString)
+
+            Describe the issue:
+            """
+        ))
     }
 
     private func saveEdit() async {

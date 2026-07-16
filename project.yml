@@ -66,6 +66,27 @@ targets:
           DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
           GCC_GENERATE_DEBUGGING_SYMBOLS: NO
 
+  xBillWidgetCore:
+    type: framework
+    platform: iOS
+    sources:
+      - path: xBillWidgetCore
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.vijaygoyal.xbill.widgetcore
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "6.0"
+        ENABLE_STRICT_CONCURRENCY: complete
+        TARGETED_DEVICE_FAMILY: "1"
+      configs:
+        debug:
+          SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+        release:
+          SWIFT_OPTIMIZATION_LEVEL: "-O"
+
   xBillWidget:
     type: app-extension
     platform: iOS
@@ -80,6 +101,8 @@ targets:
         includes:
           - "**/*.plist"
           - "**/*.xcprivacy"
+    dependencies:
+      - target: xBillWidgetCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vijaygoyal.xbill.widget
@@ -110,6 +133,18 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.vijaygoyal.xbill.tests
         GENERATE_INFOPLIST_FILE: YES
 
+  xBillWidgetTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: xBillWidgetTests
+    dependencies:
+      - target: xBillWidgetCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.vijaygoyal.xbill.widget.tests
+        GENERATE_INFOPLIST_FILE: YES
+
   xBillUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -132,8 +167,10 @@ schemes:
     build:
       targets:
         xBill: all
+        xBillWidgetCore: all
         xBillWidget: all
         xBillTests: [test]
+        xBillWidgetTests: [test]
         xBillUITests: [test]
     run:
       config: Debug
@@ -143,6 +180,7 @@ schemes:
         - name: xBillTests
           parallelizable: true
           randomExecutionOrder: true
+        - name: xBillWidgetTests
         - name: xBillUITests
     profile:
       config: Release

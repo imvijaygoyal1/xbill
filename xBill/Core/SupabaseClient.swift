@@ -16,8 +16,10 @@ final class SupabaseManager: Sendable {
     let client: SupabaseClient
 
     private init() {
-        let urlString = Bundle.main.infoDictionary?["SUPABASE_URL"] as? String ?? ""
-        let key = Bundle.main.infoDictionary?["SUPABASE_ANON_KEY"] as? String ?? ""
+        let urlString = (Bundle.main.infoDictionary?["SUPABASE_URL"] as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let key = (Bundle.main.infoDictionary?["SUPABASE_ANON_KEY"] as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
         #if DEBUG
         // Keep previews and local UI-only tests from crashing before credentials
@@ -25,7 +27,15 @@ final class SupabaseManager: Sendable {
         let resolvedURL = URL(string: urlString) ?? URL(string: "https://placeholder.supabase.co")!
         let resolvedKey = key.isEmpty ? "placeholder-key" : key
         #else
-        guard let resolvedURL = URL(string: urlString), !key.isEmpty else {
+        guard
+            let resolvedURL = URL(string: urlString),
+            resolvedURL.scheme == "https",
+            resolvedURL.host?.contains("placeholder") == false,
+            !urlString.contains("$("),
+            !key.isEmpty,
+            key != "placeholder-key",
+            !key.contains("$(")
+        else {
             preconditionFailure("Missing or invalid Supabase configuration in app Info.plist")
         }
         let resolvedKey = key

@@ -401,9 +401,12 @@ struct FriendDetailView: View {
     @State private var localIOUs: [IOU] = []
     @State private var mutualGroups: [BillGroup] = []
     @State private var showAddIOU = false
+    @State private var showBlockConfirm = false
     @State private var isSettling = false
+    @State private var isBlocking = false
     @State private var error: AppError?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     private var unsettledIOUs: [IOU] { localIOUs.filter { !$0.isSettled } }
     private var settledIOUs:   [IOU] { localIOUs.filter { $0.isSettled } }
@@ -476,14 +479,27 @@ struct FriendDetailView: View {
                 showsBackButton: true,
                 backAction: { dismiss() },
                 trailing: {
-                    Button { showAddIOU = true } label: {
-                        Image(systemName: "plus")
+                    Menu {
+                        Button { showAddIOU = true } label: {
+                            Label("Add IOU", systemImage: "plus")
+                        }
+                        Button { reportFriend() } label: {
+                            Label("Report User", systemImage: "exclamationmark.bubble")
+                        }
+                        Button(role: .destructive) {
+                            showBlockConfirm = true
+                        } label: {
+                            Label("Block User", systemImage: "hand.raised")
+                        }
+                        .disabled(isBlocking)
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                             .font(.title3)
                             .foregroundStyle(AppColors.primary)
                             .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Add IOU")
+                    .accessibilityLabel("Friend actions")
                 }
             )
         }
@@ -493,6 +509,14 @@ struct FriendDetailView: View {
             }
         }
         .errorAlert(error: $error)
+        .confirmationDialog("Block this user?", isPresented: $showBlockConfirm, titleVisibility: .visible) {
+            Button("Block User", role: .destructive) {
+                Task { await blockFriend() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the friend connection and prevents future friend requests with this user.")
+        }
         .task {
             // Seed localIOUs from the snapshot passed at navigation time.
             if localIOUs.isEmpty { localIOUs = allIOUs }
@@ -552,6 +576,36 @@ struct FriendDetailView: View {
             await onSettled()
             dismiss()
         } catch {
+            self.error = AppError.from(error)
+        }
+    }
+
+    private func reportFriend() {
+        let name = friend?.displayName ?? "Unknown"
+        openURL(XBillURLs.supportMailURL(
+            subject: "xBill user report",
+            body: """
+            Please review this user report.
+
+            Reported user name: \(name)
+            Reported user ID: \(friendID.uuidString)
+            Reporting user ID: \(currentUserID.uuidString)
+
+            Describe the issue:
+            """
+        ))
+    }
+
+    private func blockFriend() async {
+        isBlocking = true
+        defer { isBlocking = false }
+        do {
+            try await FriendService.shared.blockUser(id: friendID)
+            HapticManager.success()
+            await onSettled()
+            dismiss()
+        } catch {
+            HapticManager.error()
             self.error = AppError.from(error)
         }
     }
