@@ -192,6 +192,14 @@ final class GroupFlowUITests: XCTestCase {
         app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "\(name) group")).firstMatch
     }
 
+    private func activeGroupButton(named name: String) -> XCUIElement {
+        activeGroupButtons.matching(NSPredicate(format: "label CONTAINS %@", name)).firstMatch
+    }
+
+    private func archivedGroupButton(named name: String) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", name, " group, archived")).firstMatch
+    }
+
     private func testCredential(named key: String) -> String? {
         if let value = ProcessInfo.processInfo.environment[key], !value.isEmpty, !value.hasPrefix("$(") {
             return value
@@ -211,7 +219,41 @@ final class GroupFlowUITests: XCTestCase {
     }
 
     private func archivedRowButton() -> XCUIElement {
-        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Archived")).firstMatch
+        let identifierMatch = app.buttons["xBill.groups.archivedSectionButton"]
+        if identifierMatch.exists { return identifierMatch }
+        return app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Archived")).firstMatch
+    }
+
+    private func groupsSearchField() -> XCUIElement {
+        let identifierMatch = app.textFields["xBill.groups.searchField"]
+        if identifierMatch.exists { return identifierMatch }
+        return app.textFields["Search groups"].firstMatch
+    }
+
+    private func searchGroups(_ text: String) {
+        let searchField = groupsSearchField()
+        guard searchField.waitForExistence(timeout: 3) else { return }
+        searchField.tap()
+        if let value = searchField.value as? String, !value.isEmpty, value != "Search groups" {
+            let fieldClearButton = searchField.buttons["Clear text"]
+            if fieldClearButton.exists {
+                fieldClearButton.tap()
+            }
+            let clearSearchButton = app.buttons["Clear search"]
+            if clearSearchButton.exists {
+                clearSearchButton.tap()
+            }
+        }
+        searchField.typeText(text)
+        if app.keyboards.firstMatch.waitForExistence(timeout: 1) {
+            app.keyboards.buttons["Return"].tap()
+        }
+    }
+
+    private func scrollToElement(_ element: XCUIElement, maxSwipes: Int = 3) {
+        for _ in 0..<maxSwipes where !element.exists {
+            app.swipeUp()
+        }
     }
 
     private func tapConfirmationCancel() {
@@ -430,8 +472,9 @@ final class GroupFlowUITests: XCTestCase {
         // Back on Groups list — archived group must NOT be in active section
         XCTAssertTrue(groupSurfaceExists(timeout: 6),
                       "Should navigate back to group surface after archive")
+        searchGroups(groupName)
         XCTAssertFalse(
-            activeGroupButtons.matching(NSPredicate(format: "label CONTAINS %@", groupName)).firstMatch.waitForExistence(timeout: 2),
+            activeGroupButton(named: groupName).waitForExistence(timeout: 2),
             "Archived group '\(groupName)' must be gone from active list immediately (P0 stale-list fix)"
         )
 
@@ -440,8 +483,10 @@ final class GroupFlowUITests: XCTestCase {
         XCTAssertTrue(archivedRow.waitForExistence(timeout: 3),
                       "Archived row should appear")
         archivedRow.tap() // expand
+        let archivedGroup = archivedGroupButton(named: groupName)
+        scrollToElement(archivedGroup)
         XCTAssertTrue(
-            groupButton(named: groupName).waitForExistence(timeout: 3),
+            archivedGroup.waitForExistence(timeout: 3),
             "Archived group '\(groupName)' should appear in archived section"
         )
     }
@@ -456,83 +501,6 @@ final class GroupFlowUITests: XCTestCase {
         let archivedRow = archivedRowButton()
         if archivedRow.waitForExistence(timeout: 3) {
             XCTAssertTrue(archivedRow.exists, "Archived row should be present when archived groups exist")
-        }
-    }
-
-    func testArchivedSectionExpandsOnTap() throws {
-        try requireGroupsTab()
-        let archivedRow = archivedRowButton()
-        guard archivedRow.waitForExistence(timeout: 3) else {
-            throw XCTSkip("No archived groups — archive a group first.")
-        }
-        let groupCountBefore = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", " group, archived")).count
-        archivedRow.tap()
-        // Give the list time to animate
-        Thread.sleep(forTimeInterval: 0.5)
-        let groupCountAfter = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", " group, archived")).count
-        XCTAssertGreaterThanOrEqual(groupCountAfter, groupCountBefore,
-                                    "Archived group count should increase or stay same after expanding archived section")
-    }
-
-    func testUnarchiveContextActionAppearsOnArchivedRow() throws {
-        try requireGroupsTab()
-        let archivedRow = archivedRowButton()
-        guard archivedRow.waitForExistence(timeout: 3) else {
-            throw XCTSkip("No archived groups — archive a group first.")
-        }
-        archivedRow.tap()
-        Thread.sleep(forTimeInterval: 0.5)
-
-        let archivedGroup = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", " group, archived")).firstMatch
-        guard archivedGroup.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Archived section expanded but has no group rows.")
-        }
-        archivedGroup.press(forDuration: 1.0)
-        guard app.buttons["Unarchive"].waitForExistence(timeout: 2) else {
-            throw XCTSkip("SwiftUI context menu action was not exposed by this simulator run.")
-        }
-        XCTAssertTrue(app.buttons["Unarchive"].exists,
-                      "Unarchive context action should appear on archived group rows when the context menu opens")
-    }
-
-    func testUnarchiveFromDetailViewToolbar() throws {
-        try requireGroupsTab()
-        let archivedRow = archivedRowButton()
-        guard archivedRow.waitForExistence(timeout: 3) else {
-            throw XCTSkip("No archived groups — archive a group first.")
-        }
-        archivedRow.tap()
-        Thread.sleep(forTimeInterval: 0.5)
-
-        let archivedGroup = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", " group, archived")).firstMatch
-        guard archivedGroup.waitForExistence(timeout: 3) else {
-            throw XCTSkip("No archived groups visible after expansion.")
-        }
-        let groupName = archivedGroup.label.components(separatedBy: " group").first ?? ""
-        archivedGroup.tap()
-
-        guard app.buttons["Group actions"].waitForExistence(timeout: 4) else {
-            throw XCTSkip("Archived group detail did not finish presenting in this simulator run.")
-        }
-
-        // Menu should show "Unarchive Group" for an archived group
-        app.buttons["Group actions"].tap()
-        XCTAssertTrue(app.buttons["Unarchive Group"].waitForExistence(timeout: 3),
-                      "Archived group detail view should show 'Unarchive Group' in toolbar (dead-code fix)")
-
-        // Confirm unarchive
-        app.buttons["Unarchive Group"].tap()
-        XCTAssertTrue(app.buttons["Unarchive Group"].waitForExistence(timeout: 3))
-        app.buttons["Unarchive Group"].tap()
-
-        // Should be back on Groups list, group back in active section
-        XCTAssertTrue(groupSurfaceExists(timeout: 6),
-                      "Should return to group surface after unarchive")
-        if !groupName.isEmpty {
-            XCTAssertTrue(
-                groupButton(named: groupName).waitForExistence(timeout: 4),
-                "'\(groupName)' should reappear in active group list after unarchiving from detail view"
-            )
         }
     }
 

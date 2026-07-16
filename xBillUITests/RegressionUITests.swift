@@ -511,21 +511,33 @@ final class RegressionUITests: XCTestCase {
         tapGroupsTabIfPossible()
         if groupSurfaceExists(timeout: 4) { return }
 
-        launchSignedOut()
-
         guard let email = testCredential(named: "XBILL_TEST_EMAIL"),
               let password = testCredential(named: "XBILL_TEST_PASSWORD") else {
             XCTFail("Set XBILL_TEST_EMAIL and XBILL_TEST_PASSWORD to run authenticated regression tests.")
             throw RegressionFailure()
         }
 
+        for _ in 0..<2 {
+            launchSignedOut()
+            try submitEmailSignIn(email: email, password: password)
+            if waitForSignedInGroupsSurface() {
+                return
+            }
+        }
+
+        XCTFail("Signed-in Groups surface should load.")
+        throw RegressionFailure()
+    }
+
+    private func submitEmailSignIn(email: String, password: String) throws {
         let emailButton = app.buttons["Continue with Email"].firstMatch
         if emailButton.waitForExistence(timeout: 8) {
-            emailButton.tap()
+            XCTAssertTrue(tapElement(emailButton), "Continue with Email should be tappable.")
         }
 
         if app.staticTexts["xBill.pageHeader.title.Create Account"].waitForExistence(timeout: 1) {
-            app.buttons["xBill.emailAuth.toggleModeButton"].tap()
+            XCTAssertTrue(tapElement(app.buttons["xBill.emailAuth.toggleModeButton"]),
+                          "Email auth mode toggle should be tappable.")
         }
 
         let submitButton = app.buttons["xBill.emailAuth.submitButton"]
@@ -543,32 +555,39 @@ final class RegressionUITests: XCTestCase {
         XCTAssertTrue(passwordField.waitForExistence(timeout: 4), "Password field should be visible.")
         clearAndType(password, into: passwordField)
 
-        submitButton.tap()
-        completeOnboardingIfNeeded()
-        dismissNotificationPromptIfNeeded()
+        XCTAssertTrue(tapElement(submitButton), "Email auth submit button should be tappable.")
+    }
 
-        if !groupSurfaceExists(timeout: 8) {
-            launch(route: "groups")
+    private func waitForSignedInGroupsSurface() -> Bool {
+        for _ in 0..<3 {
             completeOnboardingIfNeeded()
             dismissNotificationPromptIfNeeded()
+            if groupSurfaceExists(timeout: 8) {
+                return true
+            }
             tapGroupsTabIfPossible()
+            dismissNotificationPromptIfNeeded()
+            if groupSurfaceExists(timeout: 4) {
+                return true
+            }
+            launch(route: "groups")
         }
-        XCTAssertTrue(groupSurfaceExists(timeout: 8), "Signed-in Groups surface should load.")
+        return false
     }
 
     private func completeOnboardingIfNeeded() {
         let skip = app.buttons["Skip"].firstMatch
         if skip.waitForExistence(timeout: 3) {
-            skip.tap()
+            _ = tapElement(skip)
             return
         }
         let next = app.buttons["Next"].firstMatch
         for _ in 0..<4 where next.waitForExistence(timeout: 1) {
-            next.tap()
+            _ = tapElement(next)
         }
         let getStarted = app.buttons["Get Started"].firstMatch
         if getStarted.waitForExistence(timeout: 2) {
-            getStarted.tap()
+            _ = tapElement(getStarted)
         }
     }
 
@@ -593,7 +612,7 @@ final class RegressionUITests: XCTestCase {
     private func dismissNotificationPromptIfNeeded() {
         let notNow = app.buttons["Not Now"].firstMatch
         if notNow.waitForExistence(timeout: 2) {
-            notNow.tap()
+            _ = tapElement(notNow)
         }
     }
 
