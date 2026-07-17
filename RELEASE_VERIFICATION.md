@@ -48,7 +48,7 @@ supabase migration list --linked
 Expected:
 
 - Local and remote migration numbers match.
-- Current expected latest migration: `038`.
+- Current expected latest migration: `039`.
 
 ### Realtime Publication
 
@@ -295,7 +295,30 @@ Notes:
 - Stable UI identifiers exist for auth fields/actions, Add Expense fields/actions, split controls, receipt scan/review, group settings/invites, expense-detail comments, profile edit/payment/QR/delete/sign-out rows, Add Friend search/import contacts, and `XBillSearchBar` identifier injection.
 - The suite does not cover push notification delivery, offline behavior, multi-user realtime sync, payment-provider handoff, App Store review metadata, or visual screenshot diffing. Keep those as separate manual or targeted checks.
 
-## 5. Realtime Verification
+## 5. UI Test Data Cleanup
+
+UI regression tests create disposable groups with approved prefixes such as `Regression-`, `ExpenseForm-`, `ArchiveCycle-`, `ExpenseDetail-`, `ReceiptManual-`, `SplitModes-`, `GroupSettings-`, `SettleSurface-`, `UITest-`, and `ArchiveTest-`.
+
+Preview cleanup for the UI test account:
+
+```bash
+scripts/purge-ui-test-groups.sh
+```
+
+Execute cleanup:
+
+```bash
+scripts/purge-ui-test-groups.sh --execute
+```
+
+Expected:
+
+- Dry-run lists only groups owned by the UI test account and matching approved test prefixes.
+- `--execute` permanently deletes those groups.
+- Existing foreign keys cascade cleanup to `group_members`, `group_invites`, `expenses`, `splits`, and `comments`.
+- Real user groups are not targeted because both owner and prefix checks are required.
+
+## 6. Realtime Verification
 
 The backend publication must include `groups`, `group_members`, and `comments`.
 
@@ -319,7 +342,7 @@ Expected:
 
 - Comment appears via realtime.
 
-## 6. Account Deletion Verification
+## 7. Account Deletion Verification
 
 Do not use the reviewer account for destructive deletion tests.
 
@@ -342,7 +365,7 @@ Backend expectations:
 - Avatar object removed if present.
 - Historical shared expense/member snapshots remain readable where product policy requires it.
 
-## 7. App Store Readiness
+## 8. App Store Readiness
 
 ### Privacy
 
@@ -376,7 +399,7 @@ rg -n "id0000000000|placeholder|example\\.com|localhost|127\\.0\\.0\\.1|TODO|FIX
 
 Review any findings before submission.
 
-## 8. Known Non-Blocking Notes
+## 9. Known Non-Blocking Notes
 
 - `SUPABASE_AUTH_EXTERNAL_APPLE_SECRET is unset` can appear from local Supabase CLI config. It is not a hosted-backend failure if Apple provider settings are configured in the Supabase dashboard.
 - Older `GroupFlowUITests` notes mention iOS 26 simulator/XCTest tab-bar issues. The current preferred path is `scripts/run-coverage.sh full` or `scripts/run-coverage.sh regression-ui`; the latest full baseline passed on 2026-07-15 with `168` executed tests and `0` skips.
