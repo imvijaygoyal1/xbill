@@ -1,5 +1,6 @@
 # Supabase credentials — never commit
 Secrets.xcconfig
+supabase/.temp/
 xBillUITests/UITestCredentials.plist
 xBillUITests/Generated/
 
@@ -16,3 +17,6 @@ TestResults/
 # CocoaPods / SPM caches
 Pods/
 .build/
+
+# Local tool state
+.wrangler/
