@@ -83,7 +83,13 @@ final class GroupFlowUITests: XCTestCase {
         } else {
             launch(route: "firstGroupDetail")
         }
-        guard app.buttons["Group actions"].waitForExistence(timeout: 6) else {
+
+        let groupActions = app.buttons["Group actions"]
+        if !groupActions.waitForExistence(timeout: 10), group.exists {
+            group.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+
+        guard groupActions.waitForExistence(timeout: 6) else {
             throw XCTSkip("No active group detail available — create or seed an active group first.")
         }
     }
@@ -256,6 +262,26 @@ final class GroupFlowUITests: XCTestCase {
         }
     }
 
+    private func focusTextInput(_ element: XCUIElement, timeout: TimeInterval = 3) -> Bool {
+        guard element.waitForExistence(timeout: timeout) else { return false }
+
+        for _ in 0..<3 {
+            if element.isHittable {
+                element.tap()
+            } else {
+                element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+
+            if app.keyboards.firstMatch.waitForExistence(timeout: 1) {
+                return true
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+
+        return app.keyboards.firstMatch.exists
+    }
+
     private func tapConfirmationCancel() {
         let cancel = app.descendants(matching: .any)["Cancel"].firstMatch
         if cancel.waitForExistence(timeout: 2), cancel.isHittable {
@@ -274,7 +300,7 @@ final class GroupFlowUITests: XCTestCase {
 
         let nameField = app.textFields["e.g. Weekend Trip"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 2))
-        nameField.tap()
+        XCTAssertTrue(focusTextInput(nameField), "New group name field should accept keyboard focus.")
         nameField.typeText(groupName)
         app.buttons["xBill.createGroup.submitButton"].tap()
     }
@@ -352,7 +378,7 @@ final class GroupFlowUITests: XCTestCase {
         XCTAssertTrue(newGroupTitle.waitForExistence(timeout: 4))
 
         let nameField = app.textFields["e.g. Weekend Trip"]
-        nameField.tap()
+        XCTAssertTrue(focusTextInput(nameField), "New group name field should accept keyboard focus.")
         nameField.typeText("QA Flow Test")
 
         XCTAssertTrue(app.buttons["xBill.createGroup.submitButton"].isEnabled,
@@ -508,12 +534,7 @@ final class GroupFlowUITests: XCTestCase {
 
     func testActiveGroupShowsArchiveNotUnarchive() throws {
         try requireGroupsTab()
-        let activeGroup = activeGroupButtons.firstMatch
-        guard activeGroup.waitForExistence(timeout: 4) else {
-            throw XCTSkip("No active groups in list.")
-        }
-        activeGroup.tap()
-        XCTAssertTrue(app.buttons["Group actions"].waitForExistence(timeout: 6))
+        try requireFirstActiveGroup()
 
         app.buttons["Group actions"].tap()
 

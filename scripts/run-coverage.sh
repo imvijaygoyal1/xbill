@@ -33,6 +33,10 @@ Outputs:
   TestResults/Coverage/<timestamp>-<mode>.xcresult
   TestResults/Coverage/<timestamp>-<mode>-report.txt
   TestResults/Coverage/<timestamp>-<mode>-report.json
+
+For UI modes (`full` and `regression-ui`), disposable UI-test groups are
+purged automatically at exit. Seed prerequisite groups are preserved because
+their prefixes are not in the purge allowlist.
 USAGE
 }
 
@@ -95,6 +99,52 @@ prepare_ui_test_credentials() {
   export XBILL_TEST_PASSWORD
 }
 
+run_ui_test_cleanup() {
+  local original_status="$1"
+
+  echo
+  echo "Cleaning up disposable UI test groups..."
+  if ! scripts/purge-ui-test-groups.sh --execute; then
+    echo "error: UI test group cleanup failed." >&2
+    if [[ "${original_status}" -eq 0 ]]; then
+      return 1
+    fi
+    return "${original_status}"
+  fi
+
+  echo
+  echo "Verifying disposable UI test group cleanup..."
+  local cleanup_preview
+  if ! cleanup_preview="$(scripts/purge-ui-test-groups.sh)"; then
+    echo "${cleanup_preview}"
+    echo "error: UI test group cleanup verification failed." >&2
+    if [[ "${original_status}" -eq 0 ]]; then
+      return 1
+    fi
+    return "${original_status}"
+  fi
+  echo "${cleanup_preview}"
+
+  if [[ "${cleanup_preview}" != *'"rows": []'* ]]; then
+    echo "error: disposable UI test groups remain after cleanup." >&2
+    if [[ "${original_status}" -eq 0 ]]; then
+      return 1
+    fi
+    return "${original_status}"
+  fi
+
+  return "${original_status}"
+}
+
+cleanup_on_exit() {
+  local status="$?"
+  if [[ "${SHOULD_CLEAN_UI_TEST_GROUPS:-false}" == "true" ]]; then
+    run_ui_test_cleanup "${status}"
+    status="$?"
+  fi
+  exit "${status}"
+}
+
 case "${MODE}" in
   unit)
     XCODEBUILD_ARGS+=(-only-testing:xBillTests)
@@ -104,14 +154,20 @@ case "${MODE}" in
     ;;
   regression-ui)
     prepare_ui_test_credentials
+    SHOULD_CLEAN_UI_TEST_GROUPS="true"
     XCODEBUILD_ARGS+=(-only-testing:xBillUITests/RegressionUITests)
     ;;
   full)
     prepare_ui_test_credentials
+    SHOULD_CLEAN_UI_TEST_GROUPS="true"
     ;;
 esac
 
 cd "${PROJECT_ROOT}"
+
+if [[ "${SHOULD_CLEAN_UI_TEST_GROUPS:-false}" == "true" ]]; then
+  trap cleanup_on_exit EXIT
+fi
 
 echo "Running ${MODE} coverage..."
 echo "Destination: ${DESTINATION}"

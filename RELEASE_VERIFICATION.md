@@ -250,6 +250,10 @@ The primary end-to-end UI regression target is `xBillUITests/RegressionUITests.s
 Run from `/Users/vijaygoyal/MyiOSApp/xBill`:
 
 ```bash
+scripts/seed-ui-test-data.sh --execute
+```
+
+```bash
 scripts/run-coverage.sh full
 ```
 
@@ -290,14 +294,39 @@ Most recent verified result:
 
 Notes:
 
+- Run `scripts/seed-ui-test-data.sh --execute` before full regression. It creates or repairs stable prerequisite groups for the UI test account so seed-dependent archive/menu tests do not skip after cleanup.
 - The suite creates uniquely named disposable groups and archives cleanup groups so the active list is not polluted.
 - The suite uses clean signed-out relaunches before credential entry when a test needs authentication and the app is not already signed in.
 - Stable UI identifiers exist for auth fields/actions, Add Expense fields/actions, split controls, receipt scan/review, group settings/invites, expense-detail comments, profile edit/payment/QR/delete/sign-out rows, Add Friend search/import contacts, and `XBillSearchBar` identifier injection.
 - The suite does not cover push notification delivery, offline behavior, multi-user realtime sync, payment-provider handoff, App Store review metadata, or visual screenshot diffing. Keep those as separate manual or targeted checks.
 
-## 5. UI Test Data Cleanup
+## 5. UI Test Data Seed
+
+Some GroupFlow UI tests intentionally verify behavior on an existing active or archived group. Seed those prerequisites before full regression:
+
+```bash
+scripts/seed-ui-test-data.sh --execute
+```
+
+Expected:
+
+- `SeedActive-Regression` exists, belongs to the UI test account, and is active.
+- `SeedArchived-Regression` exists, belongs to the UI test account, and is archived.
+- The UI test account has active membership in both seed groups.
+- Rerunning the script is idempotent: existing seed groups are repaired, not duplicated.
+- Seed groups are not targeted by the disposable cleanup script.
+
+Preview seed state without writing:
+
+```bash
+scripts/seed-ui-test-data.sh
+```
+
+## 6. UI Test Data Cleanup
 
 UI regression tests create disposable groups with approved prefixes such as `Regression-`, `ExpenseForm-`, `ArchiveCycle-`, `ExpenseDetail-`, `ReceiptManual-`, `SplitModes-`, `GroupSettings-`, `SettleSurface-`, `UITest-`, and `ArchiveTest-`.
+
+`scripts/run-coverage.sh full` and `scripts/run-coverage.sh regression-ui` automatically run cleanup at exit, then verify the cleanup dry-run returns no remaining disposable groups.
 
 Preview cleanup for the UI test account:
 
@@ -315,10 +344,12 @@ Expected:
 
 - Dry-run lists only groups owned by the UI test account and matching approved test prefixes.
 - `--execute` permanently deletes those groups.
+- UI coverage modes fail the command if post-run cleanup cannot verify an empty dry-run result.
 - Existing foreign keys cascade cleanup to `group_members`, `group_invites`, `expenses`, `splits`, and `comments`.
 - Real user groups are not targeted because both owner and prefix checks are required.
+- Seed groups are preserved because their exact names use the `SeedActive-` and `SeedArchived-` prefixes, which are not in the purge allowlist.
 
-## 6. Realtime Verification
+## 7. Realtime Verification
 
 The backend publication must include `groups`, `group_members`, and `comments`.
 
@@ -342,7 +373,7 @@ Expected:
 
 - Comment appears via realtime.
 
-## 7. Account Deletion Verification
+## 8. Account Deletion Verification
 
 Do not use the reviewer account for destructive deletion tests.
 
@@ -365,7 +396,7 @@ Backend expectations:
 - Avatar object removed if present.
 - Historical shared expense/member snapshots remain readable where product policy requires it.
 
-## 8. App Store Readiness
+## 9. App Store Readiness
 
 ### Privacy
 
@@ -399,7 +430,7 @@ rg -n "id0000000000|placeholder|example\\.com|localhost|127\\.0\\.0\\.1|TODO|FIX
 
 Review any findings before submission.
 
-## 9. Known Non-Blocking Notes
+## 10. Known Non-Blocking Notes
 
 - `SUPABASE_AUTH_EXTERNAL_APPLE_SECRET is unset` can appear from local Supabase CLI config. It is not a hosted-backend failure if Apple provider settings are configured in the Supabase dashboard.
 - Older `GroupFlowUITests` notes mention iOS 26 simulator/XCTest tab-bar issues. The current preferred path is `scripts/run-coverage.sh full` or `scripts/run-coverage.sh regression-ui`; the latest full baseline passed on 2026-07-15 with `168` executed tests and `0` skips.

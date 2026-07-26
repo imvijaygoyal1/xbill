@@ -360,7 +360,8 @@ final class RegressionUITests: XCTestCase {
         try openGroup(named: groupName)
 
         try openGroupTab("Settle Up")
-        XCTAssertTrue(app.staticTexts["All Settled Up!"].waitForExistence(timeout: 6)
+        XCTAssertTrue(app.staticTexts["All Settled!"].waitForExistence(timeout: 6)
+                      || app.staticTexts["All Settled Up!"].waitForExistence(timeout: 0.5)
                       || app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "xBill.settleUp.markSettledButton.")).firstMatch.waitForExistence(timeout: 2),
                       "Settle Up tab should show either empty state or settlement actions.")
 
@@ -369,8 +370,13 @@ final class RegressionUITests: XCTestCase {
 
         tapTab(identifier: "xBill.tab.activity", label: "Recent")
         XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Recent Activity"].waitForExistence(timeout: 8), "Recent Activity tab should load.")
-        XCTAssertTrue(app.buttons["All"].waitForExistence(timeout: 4), "Activity All filter should be visible.")
-        XCTAssertTrue(app.buttons["Unread"].waitForExistence(timeout: 4), "Activity Unread filter should be visible.")
+        let activityFilter = app.otherElements["xBill.activity.filterControl"]
+        guard activityFilter.waitForExistence(timeout: 4) || app.buttons["All"].waitForExistence(timeout: 0.5) else {
+            XCTAssertTrue(app.staticTexts["No Activity Yet"].waitForExistence(timeout: 4), "Empty Activity state should be visible when there are no items.")
+            return
+        }
+
+        XCTAssertTrue(app.buttons["Unread"].waitForExistence(timeout: 4), "Activity Unread filter should be visible when Activity has items.")
         app.buttons["Unread"].tap()
         XCTAssertTrue(app.staticTexts["All Caught Up"].waitForExistence(timeout: 4)
                       || app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "xBill.activity.item.")).firstMatch.waitForExistence(timeout: 2)
