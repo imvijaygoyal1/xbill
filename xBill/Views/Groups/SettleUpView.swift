@@ -11,13 +11,25 @@ struct SettleUpView: View {
     @Bindable var vm: GroupViewModel
     let currentUserID: UUID
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @State private var settlementToConfirm: SettlementSuggestion?
     @State private var isSettling = false
+    @State private var paymentHandoffAlert: ErrorAlert?
 
     var body: some View {
         NavigationStack {
             Group {
-                if vm.settlementSuggestions.isEmpty {
+                if shouldShowBalanceErrorState {
+                    EmptyStateView(
+                        icon: "exclamationmark.triangle.fill",
+                        title: "Couldn’t Refresh Balances",
+                        message: "The expenses are still here, but xBill couldn’t reload the split details. Check your connection and try again.",
+                        actionLabel: "Retry",
+                        action: { Task { await vm.refresh() } }
+                    )
+                } else if shouldShowBalanceRefreshState {
+                    LoadingOverlay(message: "Refreshing balances…")
+                } else if vm.settlementSuggestions.isEmpty {
                     EmptyStateView(
                         icon: "checkmark.seal.fill",
                         title: "All Settled!",
@@ -58,11 +70,32 @@ struct SettleUpView: View {
                     Text("\(s.fromName) → \(s.toName): \(s.amount.formatted(currencyCode: s.currency)). This action cannot be undone.")
                 }
             }
+            .alert(item: $paymentHandoffAlert) { alert in
+                Alert(
+                    title: Text(alert.title),
+                    message: Text(alert.message),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
         }
         .errorAlert(item: $vm.errorAlert)
     }
 
     // MARK: - Suggestions
+
+    private var shouldShowBalanceRefreshState: Bool {
+        (vm.hasKnownNonEmptyExpenses || !vm.expenses.isEmpty) &&
+        vm.settlementSuggestions.isEmpty &&
+        (vm.isLoading || vm.isLoadingBalances || (!vm.hasLoadedBalances && !vm.balanceLoadFailed))
+    }
+
+    private var shouldShowBalanceErrorState: Bool {
+        (vm.hasKnownNonEmptyExpenses || !vm.expenses.isEmpty) &&
+        vm.settlementSuggestions.isEmpty &&
+        vm.balanceLoadFailed &&
+        !vm.isLoading &&
+        !vm.isLoadingBalances
+    }
 
     private var suggestionList: some View {
         List(vm.settlementSuggestions) { suggestion in
@@ -90,23 +123,29 @@ struct SettleUpView: View {
                 HStack(spacing: 10) {
                     if let recipient = vm.members.first(where: { $0.id == suggestion.toUserID }),
                        let venmoURL = PaymentLinkService.shared.paymentLink(for: suggestion, recipient: recipient, method: .venmo) {
-                        Link(destination: venmoURL) {
+                        Button {
+                            openPaymentURL(venmoURL, providerName: "Venmo")
+                        } label: {
                             Label("Venmo", systemImage: "link")
                                 .font(.caption.bold())
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
                                 .liquidGlassButton(fallback: Color.blue.opacity(0.15), in: Capsule())
                         }
+                        .buttonStyle(.plain)
                     }
                     if let recipient = vm.members.first(where: { $0.id == suggestion.toUserID }),
                        let paypalURL = PaymentLinkService.shared.paymentLink(for: suggestion, recipient: recipient, method: .paypal) {
-                        Link(destination: paypalURL) {
+                        Button {
+                            openPaymentURL(paypalURL, providerName: "PayPal")
+                        } label: {
                             Label("PayPal", systemImage: "link")
                                 .font(.caption.bold())
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
                                 .liquidGlassButton(fallback: Color.blue.opacity(0.15), in: Capsule())
                         }
+                        .buttonStyle(.plain)
                     }
 
                     Button {
@@ -121,6 +160,16 @@ struct SettleUpView: View {
                 }
             }
             .padding(.vertical, 8)
+        }
+    }
+
+    private func openPaymentURL(_ url: URL, providerName: String) {
+        openURL(url) { accepted in
+            guard !accepted else { return }
+            paymentHandoffAlert = ErrorAlert(
+                title: "\(providerName) Not Available",
+                message: "Install \(providerName) or use another payment method, then mark the settlement when it is complete."
+            )
         }
     }
 }

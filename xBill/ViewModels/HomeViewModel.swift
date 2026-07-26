@@ -283,7 +283,15 @@ final class HomeViewModel {
         } catch {
             members = CacheService.shared.loadMembers(groupID: group.id)
         }
-        let splitsMap = await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService)
+        let splitsMap: [UUID: [Split]]
+        let splitLoadFailed: Bool
+        do {
+            splitsMap = try await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService)
+            splitLoadFailed = false
+        } catch {
+            splitsMap = [:]
+            splitLoadFailed = true
+        }
         let balances  = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
         let net       = balances[userID] ?? .zero
         let owed      = net > .zero ? net  : .zero
@@ -293,8 +301,8 @@ final class HomeViewModel {
         let data      = GroupBalanceData(groupID: group.id, owed: owed, owing: owing, netBalance: net,
                                          memberCount: members.filter(\.isActive).count, entries: entries,
                                          currency: group.currency, balances: balances, names: names,
-                                         loadFailed: loadFailed)
-        if !loadFailed {
+                                         loadFailed: loadFailed || splitLoadFailed)
+        if !loadFailed && !splitLoadFailed {
             groupBalancesCache[group.id] = data
         }
         return data

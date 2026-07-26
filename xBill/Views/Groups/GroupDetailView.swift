@@ -8,7 +8,11 @@
 import SwiftUI
 
 struct GroupDetailView: View {
-    @Bindable var vm: GroupViewModel
+    // Owned in @State so the ViewModel survives parent body re-evaluations (e.g. App Lock
+    // toggling on Venmo/return). Constructing it inline in the navigationDestination closure
+    // rebuilt a fresh VM on every re-render, wiping loaded balances and never reloading —
+    // the root cause of the perpetual "Refreshing balances…" after returning from Venmo.
+    @State private var vm: GroupViewModel
     let currentUserID: UUID
     var onGroupStatusChanged: (() async -> Void)?
     @State private var showAddExpense = false
@@ -24,7 +28,15 @@ struct GroupDetailView: View {
     @State private var selectedTab = 0
     @State private var searchText = ""
     @State private var filterCategory: Expense.Category? = nil
+    @State private var paymentHandoffAlert: ErrorAlert?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+
+    init(group: BillGroup, currentUserID: UUID, onGroupStatusChanged: (() async -> Void)? = nil) {
+        _vm = State(initialValue: GroupViewModel(group: group))
+        self.currentUserID = currentUserID
+        self.onGroupStatusChanged = onGroupStatusChanged
+    }
 
     private var filteredExpenses: [Expense] {
         var result = vm.sortedExpenses
@@ -176,6 +188,13 @@ struct GroupDetailView: View {
                     currency: vm.group.currency
                 )
             }
+            .alert(item: $paymentHandoffAlert) { alert in
+                Alert(
+                    title: Text(alert.title),
+                    message: Text(alert.message),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
             .errorAlert(item: $vm.errorAlert)
 
             // Keep the primary action visible offline, then explain why it cannot continue.
@@ -286,7 +305,9 @@ struct GroupDetailView: View {
 
     private var expensesTab: some View {
         Group {
-            if vm.sortedExpenses.isEmpty {
+            if shouldShowExpenseRefreshState {
+                LoadingOverlay(message: "Refreshing expenses…")
+            } else if vm.sortedExpenses.isEmpty {
                 EmptyStateView(
                     icon: "receipt.fill",
                     title: "No Expenses",
@@ -367,7 +388,21 @@ struct GroupDetailView: View {
 
     private var settleUpTabEmbedded: some View {
         List {
-            if vm.settlementSuggestions.isEmpty {
+            if shouldShowBalanceErrorState {
+                EmptyStateView(
+                    icon: "exclamationmark.triangle.fill",
+                    title: "Couldn’t Refresh Balances",
+                    message: "The expenses are still here, but xBill couldn’t reload the split details. Check your connection and try again.",
+                    actionLabel: "Retry",
+                    action: { Task { await vm.refresh() } }
+                )
+                .listRowBackground(Color.bgCard)
+                .listRowSeparator(.hidden)
+            } else if shouldShowBalanceRefreshState {
+                LoadingOverlay(message: "Refreshing balances…")
+                    .listRowBackground(Color.bgCard)
+                    .listRowSeparator(.hidden)
+            } else if vm.settlementSuggestions.isEmpty {
                 EmptyStateView(
                     icon: "checkmark.circle.fill",
                     title: "All Settled Up!",
@@ -385,6 +420,26 @@ struct GroupDetailView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .listRowSeparatorTint(Color.separator)
+    }
+
+    private var shouldShowBalanceRefreshState: Bool {
+        (vm.hasKnownNonEmptyExpenses || !vm.expenses.isEmpty) &&
+        vm.settlementSuggestions.isEmpty &&
+        (vm.isLoading || vm.isLoadingBalances || (!vm.hasLoadedBalances && !vm.balanceLoadFailed))
+    }
+
+    private var shouldShowBalanceErrorState: Bool {
+        (vm.hasKnownNonEmptyExpenses || !vm.expenses.isEmpty) &&
+        vm.settlementSuggestions.isEmpty &&
+        vm.balanceLoadFailed &&
+        !vm.isLoading &&
+        !vm.isLoadingBalances
+    }
+
+    private var shouldShowExpenseRefreshState: Bool {
+        vm.expenses.isEmpty &&
+        vm.hasKnownNonEmptyExpenses &&
+        (vm.isLoading || vm.balanceLoadFailed)
     }
 
     private func settlementRow(_ suggestion: SettlementSuggestion) -> some View {
@@ -406,16 +461,22 @@ struct GroupDetailView: View {
             if let recipient = vm.members.first(where: { $0.id == suggestion.toUserID }) {
                 HStack(spacing: AppSpacing.sm) {
                     if let venmoURL = PaymentLinkService.shared.paymentLink(for: suggestion, recipient: recipient, method: .venmo) {
-                        Link(destination: venmoURL) {
+                        Button {
+                            openPaymentURL(venmoURL, providerName: "Venmo")
+                        } label: {
                             Label("Venmo", systemImage: "link")
                                 .font(.appCaptionMedium)
                         }
+                        .buttonStyle(.borderless)
                     }
                     if let paypalURL = PaymentLinkService.shared.paymentLink(for: suggestion, recipient: recipient, method: .paypal) {
-                        Link(destination: paypalURL) {
+                        Button {
+                            openPaymentURL(paypalURL, providerName: "PayPal")
+                        } label: {
                             Label("PayPal", systemImage: "link")
                                 .font(.appCaptionMedium)
                         }
+                        .buttonStyle(.borderless)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -423,6 +484,16 @@ struct GroupDetailView: View {
         }
         .padding(.vertical, XBillSpacing.sm)
         .accessibilityIdentifier("xBill.settleUp.suggestionRow.\(suggestion.id.uuidString)")
+    }
+
+    private func openPaymentURL(_ url: URL, providerName: String) {
+        openURL(url) { accepted in
+            guard !accepted else { return }
+            paymentHandoffAlert = ErrorAlert(
+                title: "\(providerName) Not Available",
+                message: "Install \(providerName) or use another payment method, then mark the settlement when it is complete."
+            )
+        }
     }
 
     // MARK: - Toolbar
@@ -834,11 +905,11 @@ private extension String {
 #Preview {
     NavigationStack {
         GroupDetailView(
-            vm: GroupViewModel(group: BillGroup(
+            group: BillGroup(
                 id: UUID(), name: "Weekend Trip", emoji: "✈️",
                 createdBy: UUID(), isArchived: false,
                 currency: "USD", createdAt: Date()
-            )),
+            ),
             currentUserID: UUID()
         )
     }

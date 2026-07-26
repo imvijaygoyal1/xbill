@@ -216,18 +216,12 @@ enum SplitCalculator {
     static func fetchSplitsMap(
         for expenses: [Expense],
         using expenseService: ExpenseService
-    ) async -> [UUID: [Split]] {
-        var map: [UUID: [Split]] = [:]
-        await withTaskGroup(of: (UUID, [Split]?).self) { group in
-            for expense in expenses {
-                group.addTask {
-                    let splits = try? await expenseService.fetchSplits(expenseID: expense.id)
-                    return (expense.id, splits)
-                }
-            }
-            for await (id, splits) in group {
-                if let splits { map[id] = splits }
-            }
+    ) async throws -> [UUID: [Split]] {
+        let expenseIDs = expenses.map(\.id)
+        let splits = try await expenseService.fetchSplits(expenseIDs: expenseIDs)
+        var map = Dictionary(grouping: splits, by: \.expenseID)
+        for expenseID in expenseIDs where map[expenseID] == nil {
+            map[expenseID] = []
         }
         return map
     }

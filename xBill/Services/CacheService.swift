@@ -60,10 +60,17 @@ final class CacheService: Sendable {
 
     func saveExpenses(_ expenses: [Expense], groupID: UUID) {
         save(expenses, key: "xbill_expenses_\(groupID)")
+        if !expenses.isEmpty {
+            CacheService.defaults.set(true, forKey: "xbill_expenses_known_nonempty_\(groupID)")
+        }
     }
 
     func loadExpenses(groupID: UUID) -> [Expense] {
         load([Expense].self, key: "xbill_expenses_\(groupID)") ?? []
+    }
+
+    func hasKnownNonEmptyExpenses(groupID: UUID) -> Bool {
+        CacheService.defaults.bool(forKey: "xbill_expenses_known_nonempty_\(groupID)")
     }
 
     // MARK: - Members

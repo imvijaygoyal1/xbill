@@ -21,17 +21,27 @@ final class GroupViewModel {
     var balances: [UUID: Decimal] = [:]
     var settlementSuggestions: [SettlementSuggestion] = []
     var isLoading: Bool = false
+    var isLoadingBalances: Bool = false
+    var hasLoadedBalances: Bool = false
+    var balanceLoadFailed: Bool = false
+    var hasKnownNonEmptyExpenses: Bool = false
     var errorAlert: ErrorAlert?
 
     private var splitsMap: [UUID: [Split]] = [:]
     @ObservationIgnored private var locallyCreatedExpenses: [UUID: Expense] = [:]
     @ObservationIgnored private var isComputingBalances = false
     @ObservationIgnored private var shouldRecomputeBalances = false
+    private let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "GroupViewModel")
     private let groupService = GroupService.shared
     private let expenseService = ExpenseService.shared
 
     init(group: BillGroup) {
         self.group = group
+        let cachedMembers = CacheService.shared.loadMembers(groupID: group.id)
+        let cachedExpenses = CacheService.shared.loadExpenses(groupID: group.id)
+        self.members = cachedMembers
+        self.expenses = cachedExpenses
+        self.hasKnownNonEmptyExpenses = !cachedExpenses.isEmpty || CacheService.shared.hasKnownNonEmptyExpenses(groupID: group.id)
     }
 
     // MARK: - Computed
@@ -64,11 +74,17 @@ final class GroupViewModel {
 
         if NetworkMonitor.shared.isConnected {
             do {
-                async let membersTask  = groupService.fetchMembers(groupID: group.id, includeInactive: true)
-                async let expensesTask = expenseService.fetchExpenses(groupID: group.id)
-                let (fetchedMembers, fetchedExpenses) = try await (membersTask, expensesTask)
+                let groupID = group.id
+                let groupService = groupService
+                let expenseService = expenseService
+                let (fetchedMembers, fetchedExpenses) = try await withTimeout(seconds: 12) {
+                    async let membersTask = groupService.fetchMembers(groupID: groupID, includeInactive: true)
+                    async let expensesTask = expenseService.fetchExpenses(groupID: groupID)
+                    return try await (membersTask, expensesTask)
+                }
                 members  = fetchedMembers
                 applyFetchedExpenses(fetchedExpenses)
+                hasKnownNonEmptyExpenses = hasKnownNonEmptyExpenses || !expenses.isEmpty
                 CacheService.shared.saveMembers(fetchedMembers, groupID: group.id)
                 CacheService.shared.saveExpenses(expenses, groupID: group.id)
                 await computeBalances()
@@ -80,12 +96,14 @@ final class GroupViewModel {
                 let cachedExpenses = CacheService.shared.loadExpenses(groupID: group.id)
                 if !cachedMembers.isEmpty  { members  = cachedMembers }
                 if !cachedExpenses.isEmpty { expenses = cachedExpenses }
+                hasKnownNonEmptyExpenses = hasKnownNonEmptyExpenses || !cachedExpenses.isEmpty || CacheService.shared.hasKnownNonEmptyExpenses(groupID: group.id)
                 self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
                 await computeBalances()
             }
         } else {
             members  = CacheService.shared.loadMembers(groupID: group.id)
             expenses = CacheService.shared.loadExpenses(groupID: group.id)
+            hasKnownNonEmptyExpenses = hasKnownNonEmptyExpenses || !expenses.isEmpty || CacheService.shared.hasKnownNonEmptyExpenses(groupID: group.id)
             await computeBalances()
         }
     }
@@ -100,6 +118,29 @@ final class GroupViewModel {
     }
 
     private func applyFetchedExpenses(_ fetchedExpenses: [Expense]) {
+        if fetchedExpenses.isEmpty {
+            let cachedExpenses = CacheService.shared.loadExpenses(groupID: group.id)
+            if !expenses.isEmpty {
+                hasKnownNonEmptyExpenses = true
+                balanceLoadFailed = true
+                logger.warning("Keeping previous expenses because reload returned an empty expense list for a non-empty group")
+                return
+            }
+            if !cachedExpenses.isEmpty {
+                hasKnownNonEmptyExpenses = true
+                balanceLoadFailed = true
+                logger.warning("Restoring cached expenses because reload returned an empty expense list")
+                expenses = cachedExpenses
+                return
+            }
+            if hasKnownNonEmptyExpenses || CacheService.shared.hasKnownNonEmptyExpenses(groupID: group.id) {
+                hasKnownNonEmptyExpenses = true
+                balanceLoadFailed = true
+                logger.warning("Ignoring empty expense reload for a group previously known to have expenses")
+                return
+            }
+        }
+
         var mergedExpenses = fetchedExpenses
         for expense in locallyCreatedExpenses.values where !mergedExpenses.contains(where: { $0.id == expense.id }) {
             mergedExpenses.append(expense)
@@ -108,6 +149,7 @@ final class GroupViewModel {
             locallyCreatedExpenses.removeValue(forKey: expense.id)
         }
         expenses = mergedExpenses
+        hasKnownNonEmptyExpenses = hasKnownNonEmptyExpenses || !mergedExpenses.isEmpty
     }
 
     // MARK: - Balances
@@ -118,11 +160,30 @@ final class GroupViewModel {
             return
         }
         isComputingBalances = true
+        isLoadingBalances = true
+        balanceLoadFailed = false
         defer { isComputingBalances = false }
+        defer { isLoadingBalances = false }
 
         repeat {
             shouldRecomputeBalances = false
-            splitsMap = await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService)
+            do {
+                let currentExpenses = expenses
+                let expenseService = expenseService
+                let fetchedSplitsMap = try await withTimeout(seconds: 12) {
+                    try await SplitCalculator.fetchSplitsMap(for: currentExpenses, using: expenseService)
+                }
+                splitsMap = fetchedSplitsMap
+            } catch {
+                guard !expenses.isEmpty else { return }
+                guard !splitsMap.isEmpty else {
+                    balanceLoadFailed = true
+                    logger.error("Split loading failed with no previous split map: \(error.localizedDescription, privacy: .public)")
+                    return
+                }
+                balanceLoadFailed = true
+                logger.warning("Keeping previous split map because split loading failed: \(error.localizedDescription, privacy: .public)")
+            }
             let rawBalances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
             balances = rawBalances
             settlementSuggestions = SplitCalculator.minimizeTransactions(
@@ -130,6 +191,7 @@ final class GroupViewModel {
                 names: memberNames,
                 currency: group.currency
             )
+            hasLoadedBalances = true
         } while shouldRecomputeBalances
     }
 
@@ -301,18 +363,8 @@ final class GroupViewModel {
                 guard let payerID = expense.payerID, payerID == suggestion.toUserID else { return nil }
                 return expense.id
             }
-            var freshSplitsMap: [UUID: [Split]] = [:]
-            await withTaskGroup(of: (UUID, [Split]?).self) { taskGroup in
-                for expenseID in relevantExpenseIDs {
-                    taskGroup.addTask {
-                        let splits = try? await self.expenseService.fetchSplits(expenseID: expenseID)
-                        return (expenseID, splits)
-                    }
-                }
-                for await (expenseID, splits) in taskGroup {
-                    freshSplitsMap[expenseID] = splits ?? []
-                }
-            }
+            let freshSplits = try await expenseService.fetchSplits(expenseIDs: relevantExpenseIDs)
+            let freshSplitsMap = Dictionary(grouping: freshSplits, by: \.expenseID)
 
             // Collect whole matching splits up to the suggested amount. Splits do not support
             // partial settlement, so never mark more debt settled than the user confirmed.
@@ -374,5 +426,26 @@ final class GroupViewModel {
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
+    }
+}
+
+private func withTimeout<T: Sendable>(
+    seconds: Int,
+    operation: @escaping @Sendable () async throws -> T
+) async throws -> T {
+    try await withThrowingTaskGroup(of: T.self) { group in
+        group.addTask {
+            try await operation()
+        }
+        group.addTask {
+            try await Task.sleep(for: .seconds(seconds))
+            throw AppError.serverError("The request timed out. Check your connection and try again.")
+        }
+
+        guard let result = try await group.next() else {
+            throw AppError.serverError("The request timed out. Check your connection and try again.")
+        }
+        group.cancelAll()
+        return result
     }
 }

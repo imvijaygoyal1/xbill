@@ -156,7 +156,7 @@ struct GroupListView: View {
         .navigationDestination(for: BillGroup.self) { group in
             if let userID = vm.currentUser?.id {
                 GroupDetailView(
-                    vm: GroupViewModel(group: group),
+                    group: group,
                     currentUserID: userID,
                     onGroupStatusChanged: {
                         await vm.refresh()

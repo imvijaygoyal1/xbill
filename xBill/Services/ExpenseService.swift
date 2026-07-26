@@ -48,6 +48,15 @@ final class ExpenseService: Sendable {
             .value
     }
 
+    func fetchSplits(expenseIDs: [UUID]) async throws -> [Split] {
+        guard !expenseIDs.isEmpty else { return [] }
+        return try await supabase.table("splits")
+            .select()
+            .in("expense_id", values: expenseIDs)
+            .execute()
+            .value
+    }
+
     // MARK: - Create
 
     /// Atomically inserts expense + splits using the `add_expense_with_splits` RPC.

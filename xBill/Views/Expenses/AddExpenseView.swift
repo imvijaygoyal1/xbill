@@ -132,11 +132,8 @@ struct AddExpenseView: View {
                             XBillCard {
                                 Picker("Paid by", selection: $vm.payerID) {
                                     ForEach(members) { member in
-                                        HStack {
-                                            AvatarView(name: member.displayName, url: member.avatarURL, size: XBillIcon.avatarSm)
-                                            Text(member.displayName)
-                                        }
-                                        .tag(Optional(member.id))
+                                        Text(member.displayName)
+                                            .tag(Optional(member.id))
                                     }
                                 }
                                 .tint(Color.brandPrimary)
