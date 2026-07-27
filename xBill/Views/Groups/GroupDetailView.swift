@@ -29,6 +29,15 @@ struct GroupDetailView: View {
     @State private var searchText = ""
     @State private var filterCategory: Expense.Category? = nil
     @State private var paymentHandoffAlert: ErrorAlert?
+    /// A payment app was opened for this suggestion and we are waiting to ask whether it
+    /// completed. View state, not model state — a handoff has no meaning once this screen
+    /// is gone.
+    private struct PendingHandoff: Equatable {
+        let suggestion: SettlementSuggestion
+        let providerName: String
+    }
+    @State private var pendingHandoff: PendingHandoff?
+    @State private var handoffPrompt: PendingHandoff?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
@@ -57,21 +66,42 @@ struct GroupDetailView: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            Group {
-                if vm.isLoading && vm.expenses.isEmpty {
-                    LoadingOverlay(message: "Loading group…")
-                } else {
-                    content
-                }
+            decoratedContent
+
+            // Keep the primary action visible offline, then explain why it cannot continue.
+            if selectedTab == 0 {
+                FABButton { openAddExpense() }
+                    .accessibilityLabel(NetworkMonitor.shared.isConnected ? "Add Expense" : "Add Expense unavailable offline")
+                    .padding(.bottom, AppSpacing.floatingActionBottomPadding)
+                    .padding(.trailing, AppSpacing.md)
             }
-            .navigationBarBackButtonHidden()
-            .toolbar(.hidden, for: .navigationBar)
-            .toolbarBackground(AppColors.background, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .tint(Color.brandPrimary)
-            .safeAreaInset(edge: .top) {
-                if !NetworkMonitor.shared.isConnected { OfflineBanner() }
+        }
+        .searchable(text: $searchText, prompt: "Search expenses")
+    }
+
+    // Splitting the modifier chain into intermediate `some View` properties keeps each
+    // chain small enough for the type checker — a single mega-chain here previously hit
+    // "unable to type-check this expression in reasonable time".
+    private var baseContent: some View {
+        Group {
+            if vm.isLoading && vm.expenses.isEmpty {
+                LoadingOverlay(message: "Loading group…")
+            } else {
+                content
             }
+        }
+        .navigationBarBackButtonHidden()
+        .toolbar(.hidden, for: .navigationBar)
+        .toolbarBackground(AppColors.background, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .tint(Color.brandPrimary)
+        .safeAreaInset(edge: .top) {
+            if !NetworkMonitor.shared.isConnected { OfflineBanner() }
+        }
+    }
+
+    private var lifecycleContent: some View {
+        baseContent
             .task {
                 PaymentDiagnostics.log("GroupDetailView.task.begin", [("group", vm.group.name)])
                 // Payment-app handoffs can interrupt the first load. The group and balance
@@ -82,7 +112,7 @@ struct GroupDetailView: View {
                 PaymentDiagnostics.log("GroupDetailView.task.end", [("group", vm.group.name)])
             }
             .onChange(of: scenePhase) { oldPhase, phase in
-                PaymentDiagnostics.log("GroupDetailView.scenePhase", [
+                let fields: [(String, Any)] = [
                     ("group", vm.group.name),
                     ("from", String(describing: oldPhase)),
                     ("to", String(describing: phase)),
@@ -92,19 +122,33 @@ struct GroupDetailView: View {
                     ("isLoading", vm.isLoading),
                     ("isLoadingBalances", vm.isLoadingBalances),
                     ("hasLoadedBalances", vm.hasLoadedBalances),
-                    ("balanceLoadFailed", vm.balanceLoadFailed)
-                ])
+                    ("balanceLoadFailed", vm.balanceLoadFailed),
+                    ("pendingHandoff", pendingHandoff != nil),
+                    ("isLocked", AppLockService.shared.isLocked)
+                ]
+                PaymentDiagnostics.log("GroupDetailView.scenePhase", fields)
                 guard phase == .active else { return }
                 // Payment providers return through different mechanisms: Venmo uses a custom
                 // scheme while PayPal may return through Safari. Refresh on every active
                 // transition so neither handoff depends on SwiftUI recreating this view.
                 Task { await vm.refresh(showError: false) }
+                presentHandoffPromptIfReady()
+            }
+            .onChange(of: AppLockService.shared.isLocked) { _, locked in
+                // App Lock is engaged on backgrounding, so returning from a payment app
+                // lands here still locked. Presenting now would render the dialog behind
+                // the lock overlay; defer until unlock.
+                if !locked { presentHandoffPromptIfReady() }
             }
             .refreshable { await vm.refresh() }
             .onChange(of: selectedTab) { _, _ in
                 searchText = ""
                 filterCategory = nil
             }
+    }
+
+    private var decoratedContent: some View {
+        lifecycleContent
             .sheet(isPresented: $showAddExpense) {
                 AddExpenseView(group: vm.group, members: vm.activeMembers, currentUserID: currentUserID) { savedExpense in
                     vm.recordCreatedExpense(savedExpense)
@@ -203,6 +247,25 @@ struct GroupDetailView: View {
                     Text("\(s.fromName) → \(s.toName): \(s.amount.formatted(currencyCode: s.currency)). This cannot be undone.")
                 }
             }
+            .confirmationDialog(
+                "Did you complete this payment?",
+                isPresented: Binding(
+                    get: { handoffPrompt != nil },
+                    set: { if !$0 { handoffPrompt = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Mark as Settled") {
+                    guard let prompt = handoffPrompt else { return }
+                    handoffPrompt = nil
+                    Task { await vm.recordSettlement(prompt.suggestion) }
+                }
+                Button("Not yet", role: .cancel) { handoffPrompt = nil }
+            } message: {
+                if let prompt = handoffPrompt {
+                    Text("xBill can't confirm payments made in \(prompt.providerName). Only mark this settled if the payment went through.")
+                }
+            }
             .navigationDestination(isPresented: $showStats) {
                 GroupStatsView(
                     expenses: vm.expenses,
@@ -218,16 +281,6 @@ struct GroupDetailView: View {
                 )
             }
             .errorAlert(item: $vm.errorAlert)
-
-            // Keep the primary action visible offline, then explain why it cannot continue.
-            if selectedTab == 0 {
-                FABButton { openAddExpense() }
-                    .accessibilityLabel(NetworkMonitor.shared.isConnected ? "Add Expense" : "Add Expense unavailable offline")
-                    .padding(.bottom, AppSpacing.floatingActionBottomPadding)
-                    .padding(.trailing, AppSpacing.md)
-            }
-        }
-        .searchable(text: $searchText, prompt: "Search expenses")
     }
 
     // MARK: - Content
@@ -481,34 +534,51 @@ struct GroupDetailView: View {
             }
             .accessibilityIdentifier("xBill.settleUp.markSettledButton.\(suggestion.id.uuidString)")
             if let recipient = vm.members.first(where: { $0.id == suggestion.toUserID }) {
-                HStack(spacing: AppSpacing.sm) {
-                    if let venmoURL = PaymentLinkService.shared.paymentLink(for: suggestion, recipient: recipient, method: .venmo) {
-                        Button {
-                            openPaymentURL(venmoURL, providerName: "Venmo")
-                        } label: {
-                            Label("Venmo", systemImage: "link")
-                                .font(.appCaptionMedium)
+                let venmoHandle  = PaymentHandleValidator.normalized(recipient.venmoHandle, for: .venmo)
+                let paypalHandle = PaymentHandleValidator.normalized(recipient.paypalHandle, for: .paypal)
+
+                if venmoHandle == nil && paypalHandle == nil {
+                    // Previously this rendered nothing at all, so the absence of a payment
+                    // button looked like a bug rather than missing recipient data.
+                    Text("Ask \(suggestion.toName) to add a payment handle in their profile.")
+                        .font(.appCaption)
+                        .foregroundStyle(Color.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("xBill.settleUp.noPaymentHandle.\(suggestion.id.uuidString)")
+                } else {
+                    HStack(spacing: AppSpacing.sm) {
+                        if let handle = venmoHandle,
+                           let venmoURL = PaymentLinkService.shared.paymentLink(for: suggestion, recipient: recipient, method: .venmo) {
+                            Button {
+                                openPaymentURL(venmoURL, providerName: "Venmo", suggestion: suggestion)
+                            } label: {
+                                Label("Venmo · @\(handle)", systemImage: "link")
+                                    .font(.appCaptionMedium)
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityIdentifier("xBill.settleUp.venmoButton.\(suggestion.id.uuidString)")
                         }
-                        .buttonStyle(.borderless)
-                    }
-                    if let paypalURL = PaymentLinkService.shared.paymentLink(for: suggestion, recipient: recipient, method: .paypal) {
-                        Button {
-                            openPaymentURL(paypalURL, providerName: "PayPal")
-                        } label: {
-                            Label("PayPal", systemImage: "link")
-                                .font(.appCaptionMedium)
+                        if let handle = paypalHandle,
+                           let paypalURL = PaymentLinkService.shared.paymentLink(for: suggestion, recipient: recipient, method: .paypal) {
+                            Button {
+                                openPaymentURL(paypalURL, providerName: "PayPal", suggestion: suggestion)
+                            } label: {
+                                Label("PayPal · @\(handle)", systemImage: "link")
+                                    .font(.appCaptionMedium)
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityIdentifier("xBill.settleUp.paypalButton.\(suggestion.id.uuidString)")
                         }
-                        .buttonStyle(.borderless)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(.vertical, XBillSpacing.sm)
         .accessibilityIdentifier("xBill.settleUp.suggestionRow.\(suggestion.id.uuidString)")
     }
 
-    private func openPaymentURL(_ url: URL, providerName: String) {
+    private func openPaymentURL(_ url: URL, providerName: String, suggestion: SettlementSuggestion) {
         PaymentDiagnostics.log("GroupDetailView.openPaymentURL.request", [
             ("provider", providerName),
             ("scheme", url.scheme ?? "nil"),
@@ -521,12 +591,23 @@ struct GroupDetailView: View {
                 ("provider", providerName),
                 ("accepted", accepted)
             ])
-            guard !accepted else { return }
-            paymentHandoffAlert = ErrorAlert(
-                title: "\(providerName) Not Available",
-                message: "Install \(providerName) or use another payment method, then mark the settlement when it is complete."
-            )
+            guard accepted else {
+                paymentHandoffAlert = ErrorAlert(
+                    title: "\(providerName) Not Available",
+                    message: "Install \(providerName) or use another payment method, then mark the settlement when it is complete."
+                )
+                return
+            }
+            // Only arm the prompt when the payment app actually opened.
+            pendingHandoff = PendingHandoff(suggestion: suggestion, providerName: providerName)
         }
+    }
+
+    private func presentHandoffPromptIfReady() {
+        guard let pending = pendingHandoff else { return }
+        guard !AppLockService.shared.isLocked else { return }
+        pendingHandoff = nil          // cleared so it can never re-ask on a later foreground
+        handoffPrompt = pending
     }
 
     // MARK: - Toolbar
