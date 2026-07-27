@@ -68,16 +68,36 @@ final class GroupViewModel {
 
     // MARK: - Load
 
-    func load() async {
+    func load(showError: Bool = true) async {
+        guard !isLoading else {
+            PaymentDiagnostics.log("GroupViewModel.load.skipped", [
+                ("group", group.name),
+                ("reason", "already loading")
+            ])
+            return
+        }
         isLoading = true
         defer { isLoading = false }
+
+        PaymentDiagnostics.log("GroupViewModel.load.enter", [
+            ("group", group.name),
+            ("groupID", group.id.uuidString),
+            ("showError", showError),
+            ("connected", NetworkMonitor.shared.isConnected),
+            ("expenses", expenses.count),
+            ("cachedExpenses", CacheService.shared.loadExpenses(groupID: group.id).count),
+            ("suggestions", settlementSuggestions.count),
+            ("hasLoadedBalances", hasLoadedBalances),
+            ("balanceLoadFailed", balanceLoadFailed),
+            ("hasKnownNonEmpty", hasKnownNonEmptyExpenses)
+        ])
 
         if NetworkMonitor.shared.isConnected {
             do {
                 let groupID = group.id
                 let groupService = groupService
                 let expenseService = expenseService
-                let (fetchedMembers, fetchedExpenses) = try await withTimeout(seconds: 12) {
+                let (fetchedMembers, fetchedExpenses) = try await withTimeout(duration: .seconds(12)) {
                     async let membersTask = groupService.fetchMembers(groupID: groupID, includeInactive: true)
                     async let expensesTask = expenseService.fetchExpenses(groupID: groupID)
                     return try await (membersTask, expensesTask)
@@ -88,7 +108,21 @@ final class GroupViewModel {
                 CacheService.shared.saveMembers(fetchedMembers, groupID: group.id)
                 CacheService.shared.saveExpenses(expenses, groupID: group.id)
                 await computeBalances()
+                PaymentDiagnostics.log("GroupViewModel.load.success", [
+                    ("group", group.name),
+                    ("expenses", expenses.count),
+                    ("suggestions", settlementSuggestions.count),
+                    ("hasLoadedBalances", hasLoadedBalances),
+                    ("balanceLoadFailed", balanceLoadFailed)
+                ])
             } catch {
+                PaymentDiagnostics.log("GroupViewModel.load.catch", [
+                    ("group", group.name),
+                    ("showError", showError),
+                    ("silent", AppError.isSilent(error)),
+                    ("connected", NetworkMonitor.shared.isConnected),
+                    ("error", PaymentDiagnostics.describe(error))
+                ])
                 guard !AppError.isSilent(error) else { return }
                 // Unconditionally restore from cache on any network error — a partial
                 // in-flight fetch may have written one array but not the other.
@@ -97,7 +131,9 @@ final class GroupViewModel {
                 if !cachedMembers.isEmpty  { members  = cachedMembers }
                 if !cachedExpenses.isEmpty { expenses = cachedExpenses }
                 hasKnownNonEmptyExpenses = hasKnownNonEmptyExpenses || !cachedExpenses.isEmpty || CacheService.shared.hasKnownNonEmptyExpenses(groupID: group.id)
-                self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
+                if showError {
+                    self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
+                }
                 await computeBalances()
             }
         } else {
@@ -108,7 +144,7 @@ final class GroupViewModel {
         }
     }
 
-    func refresh() async { await load() }
+    func refresh(showError: Bool = true) async { await load(showError: showError) }
 
     func recordCreatedExpense(_ expense: Expense) {
         locallyCreatedExpenses[expense.id] = expense
@@ -170,11 +206,18 @@ final class GroupViewModel {
             do {
                 let currentExpenses = expenses
                 let expenseService = expenseService
-                let fetchedSplitsMap = try await withTimeout(seconds: 12) {
+                let fetchedSplitsMap = try await withTimeout(duration: .seconds(12)) {
                     try await SplitCalculator.fetchSplitsMap(for: currentExpenses, using: expenseService)
                 }
                 splitsMap = fetchedSplitsMap
             } catch {
+                PaymentDiagnostics.log("GroupViewModel.computeBalances.catch", [
+                    ("group", group.name),
+                    ("expenses", expenses.count),
+                    ("splitsMap", splitsMap.count),
+                    ("connected", NetworkMonitor.shared.isConnected),
+                    ("error", PaymentDiagnostics.describe(error))
+                ])
                 guard !expenses.isEmpty else { return }
                 guard !splitsMap.isEmpty else {
                     balanceLoadFailed = true
@@ -314,10 +357,16 @@ final class GroupViewModel {
                 }
             }
 
-            await load()
+            await load(showError: false)
         } catch {
             guard !AppError.isSilent(error) else { return }
-            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
+            // Recurring maintenance is opportunistic and should not block the group screen.
+            // A later refresh will retry it without presenting a misleading payment/load error.
+            PaymentDiagnostics.log("GroupViewModel.createDueRecurringInstances.catch", [
+                ("group", group.name),
+                ("error", PaymentDiagnostics.describe(error))
+            ])
+            logger.warning("Recurring expense maintenance skipped: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -429,8 +478,8 @@ final class GroupViewModel {
     }
 }
 
-private func withTimeout<T: Sendable>(
-    seconds: Int,
+internal func withTimeout<T: Sendable>(
+    duration: Duration,
     operation: @escaping @Sendable () async throws -> T
 ) async throws -> T {
     try await withThrowingTaskGroup(of: T.self) { group in
@@ -438,7 +487,7 @@ private func withTimeout<T: Sendable>(
             try await operation()
         }
         group.addTask {
-            try await Task.sleep(for: .seconds(seconds))
+            try await Task.sleep(for: duration)
             throw AppError.serverError("The request timed out. Check your connection and try again.")
         }
 

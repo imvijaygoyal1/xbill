@@ -353,6 +353,20 @@ Bugs identified and fixed outside the three formal audit passes.
 
 ---
 
+## Payment Handoff Defect — 2026-07-27
+
+| ID | File | Issue | Status | Fix |
+|---|---|---|---|---|
+| PAY-01 | `supabase/seed_app_store_review_account.sql:226` | Seeded fabricated payment handles (`venmo_handle` / `paypal_handle` = `'appreviewer'`) for demo profiles. `PaymentLinkService` renders these as live deep links, so the PayPal app resolved `paypal.me/appreviewer/95USD`, found no profile, and showed **its own** "Something went wrong". Read as an xBill defect; three prior fixes edited xBill lifecycle code and none worked. Also an App Store review risk — a reviewer following settle-up would hit PayPal's error screen. | ✅ Resolved | All seeded payment handles set to `NULL` (+ explanatory comment). `paymentLink` then returns `nil` and no payment button renders. Applied to live DB (`profiles_with_handles` = 0; only 3 seeded demo rows affected). |
+| PAY-02 | `project.yml` | `DEVELOPMENT_TEAM` existed only in `project.pbxproj`, so every `xcodegen generate` wiped physical-device signing — the recurring "signing/project churn". | ✅ Resolved | Added `DEVELOPMENT_TEAM: 7B5U5LACV3` to `settings.base`. |
+| PAY-03 | `xBillTests/PaymentHandoffTests.swift` | No regression coverage for the "no handle ⇒ no payment button" contract that makes the fix effective. | ✅ Resolved | New suite, 40 cases: nil/blank/unsafe handles ⇒ `nil` link; PayPal.Me URL format; `@`-stripping; decimal rendering without scientific notation; Venmo scheme. |
+| PAY-04 | `xBillUITests/RegressionUITests.swift` | Payment-return test asserted spinner resolution but not absence of an error alert. | ✅ Resolved | Now asserts no `"Something went wrong"` and no `"Some balances may be stale"` alert after reactivation. |
+| PAY-05 | `xBill/Core/Extensions.swift`, `xBill/Core/PaymentDiagnostics.swift` | No way to determine which code path presented a user-visible alert, which is why three investigations misattributed the failure. | ✅ Resolved | DEBUG-only `PaymentDiagnostics` (os_log + print + persisted device log) and an alert-presentation chokepoint in `View.errorAlert(...)` recording every alert shown with its call site. Compiles out of Release (verified). |
+
+**Observation (not a defect):** `GroupListView.swift:89` binds `.errorAlert(item: $vm.errorAlert)` outside the NavigationStack on the *shared* `HomeViewModel`, and `MainTabView` runs `homeVM.loadAll()` on every `didBecomeActive` with errors always shown. A `HomeViewModel` error can therefore present an alert over a pushed `GroupDetailView` even though that view loads with `showError: false`. Not the cause here; check it first for any future "unexpected alert over a group screen" report.
+
+---
+
 ## Open Items
 
 | Item | Priority | Notes |

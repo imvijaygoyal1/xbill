@@ -221,11 +221,23 @@ begin
       user_id = excluded.user_id,
       updated_at = now();
 
+  -- Payment handles are intentionally NULL for every seeded profile.
+  --
+  -- These handles are rendered as real outbound deep links by
+  -- PaymentLinkService (venmo://paycharge?recipients=<handle> and
+  -- https://paypal.me/<handle>/<amount><currency>). A fabricated handle is not
+  -- an inert placeholder: the Venmo/PayPal app resolves it, finds no such
+  -- profile, and shows its own "Something went wrong" error.
+  --
+  -- Seeding 'appreviewer' previously caused exactly that on the Tokyo Trip
+  -- settle-up flow and read as an xBill failure. Never seed a payment handle
+  -- that does not correspond to a real Venmo/PayPal.Me profile; with NULL,
+  -- GroupDetailView correctly renders no payment button at all.
   insert into public.profiles (id, display_name, avatar_url, venmo_handle, paypal_email, paypal_handle, email)
   values
-    (reviewer_id, 'App Reviewer', null, 'appreviewer', 'appreviewer@xbill.vijaygoyal.org', 'appreviewer', 'appreviewer@xbill.vijaygoyal.org'),
-    (alice_id, 'Alice Chen', null, 'alicechen', null, null, 'alice.seed@xbill.vijaygoyal.org'),
-    (bob_id, 'Bob Patel', null, 'bobpatel', null, null, 'bob.seed@xbill.vijaygoyal.org')
+    (reviewer_id, 'App Reviewer', null, null, null, null, 'appreviewer@xbill.vijaygoyal.org'),
+    (alice_id, 'Alice Chen', null, null, null, null, 'alice.seed@xbill.vijaygoyal.org'),
+    (bob_id, 'Bob Patel', null, null, null, null, 'bob.seed@xbill.vijaygoyal.org')
   on conflict (id) do update
   set display_name = excluded.display_name,
       avatar_url = excluded.avatar_url,

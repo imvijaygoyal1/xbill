@@ -218,6 +218,35 @@ struct AddExpenseViewModelCoverageTests {
 @MainActor
 struct GroupViewModelCoverageTests {
 
+    @Test("withTimeout cancels the losing operation and reports a timeout")
+    func timeoutCancelsLosingOperation() async throws {
+        actor CancellationProbe {
+            var wasCancelled = false
+
+            func markCancelled() { wasCancelled = true }
+            func value() -> Bool { wasCancelled }
+        }
+
+        let probe = CancellationProbe()
+
+        do {
+            _ = try await withTimeout(duration: .milliseconds(10)) {
+                do {
+                    try await Task.sleep(for: .seconds(1))
+                    return false
+                } catch is CancellationError {
+                    await probe.markCancelled()
+                    throw CancellationError()
+                }
+            }
+            Issue.record("Expected the operation to time out")
+        } catch AppError.serverError(let message) {
+            #expect(message.contains("timed out"))
+        }
+
+        #expect(await probe.value())
+    }
+
     @Test("Computed member and expense views are deterministic")
     func computedViewsAreDeterministic() {
         let group = makeCoverageGroup()

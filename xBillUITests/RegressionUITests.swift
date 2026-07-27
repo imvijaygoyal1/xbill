@@ -56,6 +56,49 @@ final class RegressionUITests: XCTestCase {
         )
     }
 
+    func testPaymentReturnSurvivesAppReactivationRegression() throws {
+        try signInIfNeeded()
+
+        let groupName = uniqueName(prefix: "PaymentReturn")
+        try createGroup(named: groupName)
+        try openGroup(named: groupName)
+        try addExpense(title: "Reactivation expense \(uniqueSuffix())", amount: "24.00")
+        try openGroupTab("Settle Up")
+
+        // Venmo uses a custom URL scheme and PayPal may return through Safari, but both
+        // produce the same foreground transition in xBill.
+        XCUIDevice.shared.press(.home)
+        app.activate()
+
+        XCTAssertTrue(
+            app.staticTexts["All Settled Up!"].waitForExistence(timeout: 10)
+                || app.staticTexts["Couldn’t Refresh Balances"].waitForExistence(timeout: 1)
+                || app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "xBill.settleUp.markSettledButton.")).firstMatch.waitForExistence(timeout: 1),
+            "Settle Up should resolve after app reactivation instead of remaining on Refreshing balances."
+        )
+        XCTAssertFalse(
+            app.staticTexts["Refreshing balances…"].waitForExistence(timeout: 1),
+            "The balance spinner should not remain visible after app reactivation."
+        )
+
+        // Returning from a payment handoff must never raise a generic error alert.
+        // GroupDetailView loads with showError: false on both .task and the
+        // scenePhase transition, but HomeViewModel.loadAll() also runs on
+        // didBecomeActive and its alert is bound outside the Groups NavigationStack
+        // (GroupListView), so it would present over this screen.
+        XCTAssertFalse(
+            app.alerts["Something went wrong"].exists,
+            "Returning from a payment handoff must not present a generic error alert."
+        )
+        XCTAssertFalse(
+            app.alerts.staticTexts["Some balances may be stale"].exists,
+            "Returning from a payment handoff must not present a stale-balance alert."
+        )
+
+        try openGroupTab("Expenses")
+        try archiveCurrentGroup()
+    }
+
     func testCreateGroupValidationRegression() throws {
         try signInIfNeeded()
         try requireGroupsSurface()

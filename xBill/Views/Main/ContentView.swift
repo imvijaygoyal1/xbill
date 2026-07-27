@@ -37,7 +37,13 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.4), value: authVM.currentUser != nil)
         .animation(.easeInOut(duration: 0.4), value: hasCompletedOnboarding)
         .animation(.easeInOut(duration: 0.3), value: lockService.isLocked)
-        .onChange(of: scenePhase) { _, phase in
+        .onChange(of: scenePhase) { oldPhase, phase in
+            PaymentDiagnostics.log("ContentView.scenePhase", [
+                ("from", String(describing: oldPhase)),
+                ("to", String(describing: phase)),
+                ("appLockEnabled", lockService.isEnabled),
+                ("isLocked", lockService.isLocked)
+            ])
             if phase == .background {
                 lockService.lock()
             }

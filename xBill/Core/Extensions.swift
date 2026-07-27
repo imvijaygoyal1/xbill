@@ -99,7 +99,7 @@ extension Color {
 // MARK: - View
 
 extension View {
-    func errorAlert(error: Binding<AppError?>) -> some View {
+    func errorAlert(error: Binding<AppError?>, fileID: String = #fileID, line: Int = #line) -> some View {
         alert(
             error.wrappedValue?.errorDescription ?? "Something went wrong",
             isPresented: Binding(
@@ -109,11 +109,21 @@ extension View {
         ) {
             Button("OK", role: .cancel) { error.wrappedValue = nil }
         }
+        // Instrumentation chokepoint: records every alert actually shown to the user,
+        // whatever its origin. See DEFECT_HANDOFF_VENMO_BALANCES.md.
+        .onChange(of: error.wrappedValue) { _, newValue in
+            guard let newValue else { return }
+            PaymentDiagnostics.log("alert.presented", [
+                ("binding", "error"),
+                ("callSite", "\(fileID):\(line)"),
+                ("title", newValue.errorDescription ?? "Something went wrong")
+            ])
+        }
     }
 
     /// Persistent error alert — stays on screen until user taps OK.
     /// Use this with `ErrorAlert?` from ViewModels to prevent auto-dismissal on state updates.
-    func errorAlert(item: Binding<ErrorAlert?>) -> some View {
+    func errorAlert(item: Binding<ErrorAlert?>, fileID: String = #fileID, line: Int = #line) -> some View {
         let title   = item.wrappedValue?.title   ?? ""
         let message = item.wrappedValue?.message ?? ""
         return alert(title, isPresented: Binding(
@@ -123,6 +133,17 @@ extension View {
             Button("OK", role: .cancel) { item.wrappedValue = nil }
         } message: {
             Text(message)
+        }
+        // Instrumentation chokepoint: records every alert actually shown to the user,
+        // whatever its origin. See DEFECT_HANDOFF_VENMO_BALANCES.md.
+        .onChange(of: item.wrappedValue?.id) { _, newValue in
+            guard newValue != nil else { return }
+            PaymentDiagnostics.log("alert.presented", [
+                ("binding", "item"),
+                ("callSite", "\(fileID):\(line)"),
+                ("title", item.wrappedValue?.title ?? ""),
+                ("message", item.wrappedValue?.message ?? "")
+            ])
         }
     }
 

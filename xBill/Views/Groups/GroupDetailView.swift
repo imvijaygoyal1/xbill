@@ -31,6 +31,7 @@ struct GroupDetailView: View {
     @State private var paymentHandoffAlert: ErrorAlert?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
 
     init(group: BillGroup, currentUserID: UUID, onGroupStatusChanged: (() async -> Void)? = nil) {
         _vm = State(initialValue: GroupViewModel(group: group))
@@ -72,11 +73,32 @@ struct GroupDetailView: View {
                 if !NetworkMonitor.shared.isConnected { OfflineBanner() }
             }
             .task {
-                await vm.load()
-                // createDueRecurringInstances is idempotent per cycle (advances the template
-                // date after creating the instance). Run only on first appear; navigation-away
-                // cancellation leaves already-created instances in place (correct state).
+                PaymentDiagnostics.log("GroupDetailView.task.begin", [("group", vm.group.name)])
+                // Payment-app handoffs can interrupt the first load. The group and balance
+                // surfaces expose retryable state; do not show a generic alert for a transient
+                // lifecycle/network failure while the user is returning to this screen.
+                await vm.load(showError: false)
                 await vm.createDueRecurringInstances(currentUserID: currentUserID)
+                PaymentDiagnostics.log("GroupDetailView.task.end", [("group", vm.group.name)])
+            }
+            .onChange(of: scenePhase) { oldPhase, phase in
+                PaymentDiagnostics.log("GroupDetailView.scenePhase", [
+                    ("group", vm.group.name),
+                    ("from", String(describing: oldPhase)),
+                    ("to", String(describing: phase)),
+                    ("connected", NetworkMonitor.shared.isConnected),
+                    ("expenses", vm.expenses.count),
+                    ("suggestions", vm.settlementSuggestions.count),
+                    ("isLoading", vm.isLoading),
+                    ("isLoadingBalances", vm.isLoadingBalances),
+                    ("hasLoadedBalances", vm.hasLoadedBalances),
+                    ("balanceLoadFailed", vm.balanceLoadFailed)
+                ])
+                guard phase == .active else { return }
+                // Payment providers return through different mechanisms: Venmo uses a custom
+                // scheme while PayPal may return through Safari. Refresh on every active
+                // transition so neither handoff depends on SwiftUI recreating this view.
+                Task { await vm.refresh(showError: false) }
             }
             .refreshable { await vm.refresh() }
             .onChange(of: selectedTab) { _, _ in
@@ -487,7 +509,18 @@ struct GroupDetailView: View {
     }
 
     private func openPaymentURL(_ url: URL, providerName: String) {
+        PaymentDiagnostics.log("GroupDetailView.openPaymentURL.request", [
+            ("provider", providerName),
+            ("scheme", url.scheme ?? "nil"),
+            ("host", url.host() ?? "nil"),
+            ("url", url.absoluteString),
+            ("group", vm.group.name)
+        ])
         openURL(url) { accepted in
+            PaymentDiagnostics.log("GroupDetailView.openPaymentURL.result", [
+                ("provider", providerName),
+                ("accepted", accepted)
+            ])
             guard !accepted else { return }
             paymentHandoffAlert = ErrorAlert(
                 title: "\(providerName) Not Available",

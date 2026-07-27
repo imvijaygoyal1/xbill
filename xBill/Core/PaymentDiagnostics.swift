@@ -1,0 +1,113 @@
+//
+//  PaymentDiagnostics.swift
+//  xBill
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+//  TEMPORARY INSTRUMENTATION for the Venmo/PayPal payment-return defect
+//  (see DEFECT_HANDOFF_VENMO_BALANCES.md). DEBUG-only: the whole
+//  implementation compiles out of Release builds.
+//
+//  Three sinks so evidence survives regardless of tooling:
+//    1. os_log        — visible in Console.app
+//    2. print         — captured by `devicectl device process launch --console`
+//    3. Documents log — pulled with `devicectl device copy from`
+//
+
+import Foundation
+import OSLog
+
+enum PaymentDiagnostics {
+
+    #if DEBUG
+
+    private static let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "PaymentReturn")
+    private static let lock = NSLock()
+
+    nonisolated(unsafe) private static var didStartSession = false
+
+    private static var fileURL: URL? {
+        FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)
+            .first?
+            .appendingPathComponent("payment-diagnostics.log")
+    }
+
+    nonisolated(unsafe) private static let timestampFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    /// Logs a single structured diagnostic event.
+    /// - Parameters:
+    ///   - event: Stable event name, e.g. `"HomeViewModel.loadAll.catch"`.
+    ///   - fields: Ordered key/value context. Order is preserved for readability.
+    static func log(_ event: String, _ fields: [(String, Any)] = []) {
+        let rendered = fields
+            .map { "\($0.0)=\($0.1)" }
+            .joined(separator: " ")
+        let line = "[\(timestampFormatter.string(from: Date()))] \(event)\(rendered.isEmpty ? "" : " " + rendered)"
+
+        logger.log("\(line, privacy: .public)")
+        print("XBILLDIAG \(line)")
+        append(line)
+    }
+
+    /// Fully describes an error, including NSError domain/code and any underlying error.
+    /// `localizedDescription` alone hides the distinction between, for example,
+    /// NSURLErrorCancelled (-999) and NSURLErrorNetworkConnectionLost (-1005).
+    static func describe(_ error: Error) -> String {
+        let nsError = error as NSError
+        var parts = [
+            "swiftType=\(type(of: error))",
+            "domain=\(nsError.domain)",
+            "code=\(nsError.code)",
+            "localized=\(nsError.localizedDescription)"
+        ]
+        if let appError = error as? AppError {
+            parts.append("appError=\(appError)")
+        }
+        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
+            parts.append("underlying=\(underlying.domain)#\(underlying.code):\(underlying.localizedDescription)")
+        }
+        return "{" + parts.joined(separator: " | ") + "}"
+    }
+
+    /// Absolute path of the on-device log, for retrieval instructions.
+    static var logPath: String { fileURL?.path ?? "unavailable" }
+
+    private static func append(_ line: String) {
+        guard let url = fileURL, let data = (line + "\n").data(using: .utf8) else { return }
+        lock.lock()
+        defer { lock.unlock() }
+
+        if !didStartSession {
+            didStartSession = true
+            let header = "\n===== SESSION START \(timestampFormatter.string(from: Date())) =====\n"
+            if let headerData = header.data(using: .utf8) {
+                write(headerData, to: url)
+            }
+        }
+        write(data, to: url)
+    }
+
+    private static func write(_ data: Data, to url: URL) {
+        if FileManager.default.fileExists(atPath: url.path) {
+            guard let handle = try? FileHandle(forWritingTo: url) else { return }
+            defer { try? handle.close() }
+            try? handle.seekToEnd()
+            try? handle.write(contentsOf: data)
+        } else {
+            try? data.write(to: url)
+        }
+    }
+
+    #else
+
+    static func log(_ event: String, _ fields: [(String, Any)] = []) {}
+    static func describe(_ error: Error) -> String { "" }
+    static var logPath: String { "unavailable" }
+
+    #endif
+}

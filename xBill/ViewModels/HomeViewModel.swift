@@ -65,13 +65,26 @@ final class HomeViewModel {
         do {
             currentUser = try await auth.currentUser()
         } catch {
+            PaymentDiagnostics.log("HomeViewModel.loadCurrentUser.catch", [
+                ("silent", AppError.isSilent(error)),
+                ("error", PaymentDiagnostics.describe(error))
+            ])
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
     }
 
     func loadAll() async {
-        guard let user = currentUser else { return }
+        guard let user = currentUser else {
+            PaymentDiagnostics.log("HomeViewModel.loadAll.skipped", [("reason", "no currentUser")])
+            return
+        }
+
+        PaymentDiagnostics.log("HomeViewModel.loadAll.enter", [
+            ("connected", NetworkMonitor.shared.isConnected),
+            ("groups", groups.count),
+            ("isLoading", isLoading)
+        ])
 
         if NetworkMonitor.shared.isConnected {
             isLoading = true
@@ -82,7 +95,13 @@ final class HomeViewModel {
                 SpotlightService.indexGroups(groups)
                 await loadArchivedGroups()
                 await computeBalances(for: user.id)
+                PaymentDiagnostics.log("HomeViewModel.loadAll.success", [("groups", groups.count)])
             } catch {
+                PaymentDiagnostics.log("HomeViewModel.loadAll.catch", [
+                    ("silent", AppError.isSilent(error)),
+                    ("connected", NetworkMonitor.shared.isConnected),
+                    ("error", PaymentDiagnostics.describe(error))
+                ])
                 guard !AppError.isSilent(error) else { return }
                 // Fall back to cache on network error
                 if groups.isEmpty { groups = CacheService.shared.loadGroups() }
@@ -116,6 +135,10 @@ final class HomeViewModel {
         do {
             archivedGroups = try await groupService.fetchArchivedGroups(for: user.id)
         } catch {
+            PaymentDiagnostics.log("HomeViewModel.loadArchivedGroups.catch", [
+                ("silent", AppError.isSilent(error)),
+                ("error", PaymentDiagnostics.describe(error))
+            ])
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
