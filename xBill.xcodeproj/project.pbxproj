@@ -71,6 +71,7 @@
 		50EF0B7D1ED40C45ACBFB2AD /* P3HelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EB95AF7F1C155D9C83D8E6B /* P3HelperTests.swift */; };
 		52BC19AF7D364ADA25F658F6 /* GroupChipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F0634D4C601FD9464A0F10 /* GroupChipView.swift */; };
 		55CDD284932B0C3F59CA662C /* XBillCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C357CB10AF58D0B03787860E /* XBillCard.swift */; };
+		5655272A8D6F97C5C99F6407 /* AppDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D351F774E8E36A8D312B99D /* AppDiagnostics.swift */; };
 		576C47087977896127F88C03 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27D9E1730D9145BAD6267A23 /* MainTabView.swift */; };
 		5885738CC37F02CF22546237 /* AddExpenseViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FE83D55042D883520E873BB /* AddExpenseViewModel.swift */; };
 		5901C41D98C3A7E729F57FC3 /* AppShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89A8F0337ECA1F0E80981563 /* AppShadow.swift */; };
@@ -94,7 +95,6 @@
 		812CFAA3B9BAAA85161FA26E /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4FA0DF138FAAA01522B668E /* ActivityView.swift */; };
 		81BE0CD757A401784F524D78 /* ShareSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 410250FF5165956E1D72F2AB /* ShareSheetView.swift */; };
 		85EF4FE35F770FC35BB9E29D /* xBillApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A92E6317BFEDCD8644649CC /* xBillApp.swift */; };
-		873242546769A74D8D0456B7 /* PaymentDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43C69134EBFEE30BACD8A010 /* PaymentDiagnostics.swift */; };
 		8E2A5EEEB7DFD066D5A6C1CC /* ProfileViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BC31D74A8BB9161A92940CE /* ProfileViewModel.swift */; };
 		8E5CF020384675D09AA382EF /* ExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 660094306688B8BD8869E033 /* ExportService.swift */; };
 		8ECCF70B441B03207AC143B1 /* EmailAuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B09DB08A10227EBBB8F379 /* EmailAuthView.swift */; };
@@ -250,6 +250,7 @@
 		089113BCA5CC5EBB34974DD9 /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
 		0901632BF0632E2ED30CC7CE /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		0AB8AF6F4AAD3693C507E55E /* AppError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppError.swift; sourceTree = "<group>"; };
+		0D351F774E8E36A8D312B99D /* AppDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDiagnostics.swift; sourceTree = "<group>"; };
 		1131C3DF2E6898248D0857CE /* GroupListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupListView.swift; sourceTree = "<group>"; };
 		120CE4CD8F77F9C169C04174 /* GroupStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupStatsView.swift; sourceTree = "<group>"; };
 		15E8600431061D4E18C948CE /* ActivityViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityViewModel.swift; sourceTree = "<group>"; };
@@ -277,7 +278,6 @@
 		409D770333EE099DAF34DC66 /* ExpenseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseService.swift; sourceTree = "<group>"; };
 		40A69C55FFF1DB3E06C04CB2 /* LoadingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingOverlay.swift; sourceTree = "<group>"; };
 		410250FF5165956E1D72F2AB /* ShareSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheetView.swift; sourceTree = "<group>"; };
-		43C69134EBFEE30BACD8A010 /* PaymentDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentDiagnostics.swift; sourceTree = "<group>"; };
 		46030FF3CE3722DB807BD7BA /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		47F58D4BA74441B823AEDCE2 /* XBillButtons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillButtons.swift; sourceTree = "<group>"; };
 		482A03C4A082448A734C4FDD /* XBillButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillButton.swift; sourceTree = "<group>"; };
@@ -411,7 +411,7 @@
 		F4FA0DF138FAAA01522B668E /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
 		F684542CE9913F0736FC5EC2 /* XBillFloatingAddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFloatingAddButton.swift; sourceTree = "<group>"; };
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
-		"TEMP_53C6F6DD-A184-48F7-B389-ECBBE132399C" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_422EEE14-5842-4A97-81FF-347039E370E9" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -474,13 +474,13 @@
 				6FDA6EC9349BD4713148A2B9 /* Constants */,
 				A9296165AEF770A296091AE3 /* DesignSystem */,
 				9A09D26B54271C3714906207 /* Extensions */,
+				0D351F774E8E36A8D312B99D /* AppDiagnostics.swift */,
 				0AB8AF6F4AAD3693C507E55E /* AppError.swift */,
 				2EE32F30DD7CE24CD3A20BDD /* AppState.swift */,
 				C4A69965891A28A3D153EBA0 /* Extensions.swift */,
 				C4CB23A3ABB54D0292C6898D /* KeychainManager.swift */,
 				77829F844845A65B93EA14CC /* KeychainSessionStorage.swift */,
 				2CCE2A2449DE087F7C0D3279 /* NetworkMonitor.swift */,
-				43C69134EBFEE30BACD8A010 /* PaymentDiagnostics.swift */,
 				70758C864B2CEFBF3AD65E12 /* SupabaseClient.swift */,
 			);
 			path = Core;
@@ -851,10 +851,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_E5584AEE-BCDC-4B22-B207-F1788BF85710" /* xBill */ = {
+		"TEMP_37DF8621-ED2C-40A4-9E4B-91CC834A252B" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_53C6F6DD-A184-48F7-B389-ECBBE132399C" /* Secrets.xcconfig */,
+				"TEMP_422EEE14-5842-4A97-81FF-347039E370E9" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1102,6 +1102,7 @@
 				6EDA928318E8E22341427A26 /* AddIOUView.swift in Sources */,
 				66A524939E2352E9B1580268 /* AmountBadge.swift in Sources */,
 				ABD6AA55DBA1AF50C9606699 /* AppColors.swift in Sources */,
+				5655272A8D6F97C5C99F6407 /* AppDiagnostics.swift in Sources */,
 				D0CC4E253D676DBD1E40A406 /* AppError.swift in Sources */,
 				1A5144D7D80994622DA12F90 /* AppGradient.swift in Sources */,
 				70CB70C2D5456FAA4C1E8B00 /* AppLockService.swift in Sources */,
@@ -1169,7 +1170,6 @@
 				381348AB57FBCAB61DC0B7BD /* NotificationStore.swift in Sources */,
 				118066442D50980FE03E3C82 /* OfflineBanner.swift in Sources */,
 				E22E2E9ADD3596691B8F0CC4 /* OnboardingView.swift in Sources */,
-				873242546769A74D8D0456B7 /* PaymentDiagnostics.swift in Sources */,
 				FEBB0DC57546D7D4961ED7E2 /* PaymentHandleValidator.swift in Sources */,
 				E242F2571DF59CECE27D0ED4 /* PaymentLinkService.swift in Sources */,
 				D1B4793846C9BB681C1A9218 /* PreviewData.swift in Sources */,
@@ -1289,7 +1289,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_53C6F6DD-A184-48F7-B389-ECBBE132399C" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_422EEE14-5842-4A97-81FF-347039E370E9" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1498,7 +1498,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_53C6F6DD-A184-48F7-B389-ECBBE132399C" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_422EEE14-5842-4A97-81FF-347039E370E9" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

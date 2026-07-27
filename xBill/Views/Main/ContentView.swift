@@ -38,7 +38,7 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.4), value: hasCompletedOnboarding)
         .animation(.easeInOut(duration: 0.3), value: lockService.isLocked)
         .onChange(of: scenePhase) { oldPhase, phase in
-            PaymentDiagnostics.log("ContentView.scenePhase", [
+            AppDiagnostics.log(.lifecycle, "ContentView.scenePhase", [
                 ("from", String(describing: oldPhase)),
                 ("to", String(describing: phase)),
                 ("appLockEnabled", lockService.isEnabled),

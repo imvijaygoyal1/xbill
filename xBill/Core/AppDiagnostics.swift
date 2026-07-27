@@ -1,11 +1,14 @@
 //
-//  PaymentDiagnostics.swift
+//  AppDiagnostics.swift
 //  xBill
 //
 //  Copyright © 2026 Vijay Goyal. All rights reserved.
 //
-//  TEMPORARY INSTRUMENTATION for the Venmo/PayPal payment-return defect
-//  (see DEFECT_HANDOFF_VENMO_BALANCES.md). DEBUG-only: the whole
+//  General-purpose DEBUG-only on-device diagnostic logger. Originally added
+//  under a payment-specific name while investigating the Venmo/PayPal
+//  payment-return defect (see diagnostics/2026-07-27-paypal-handoff/), then
+//  generalised into one categorised log per app so future investigations do
+//  not scatter across multiple ad-hoc loggers. DEBUG-only: the whole
 //  implementation compiles out of Release builds.
 //
 //  Three sinks so evidence survives regardless of tooling:
@@ -17,12 +20,17 @@
 import Foundation
 import OSLog
 
-enum PaymentDiagnostics {
+enum AppDiagnostics {
+
+    enum Category: String, Sendable {
+        case payment, auth, balance, lifecycle, sync
+    }
 
     #if DEBUG
 
-    private static let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "PaymentReturn")
+    private static let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "AppDiagnostics")
     private static let lock = NSLock()
+    private static let maxBytes = 2 * 1024 * 1024   // 2 MB
 
     nonisolated(unsafe) private static var didStartSession = false
 
@@ -30,7 +38,7 @@ enum PaymentDiagnostics {
         FileManager.default
             .urls(for: .documentDirectory, in: .userDomainMask)
             .first?
-            .appendingPathComponent("payment-diagnostics.log")
+            .appendingPathComponent("xbill-diagnostics.log")
     }
 
     nonisolated(unsafe) private static let timestampFormatter: ISO8601DateFormatter = {
@@ -41,13 +49,13 @@ enum PaymentDiagnostics {
 
     /// Logs a single structured diagnostic event.
     /// - Parameters:
+    ///   - category: Which subsystem this event belongs to, e.g. `.balance`.
     ///   - event: Stable event name, e.g. `"HomeViewModel.loadAll.catch"`.
     ///   - fields: Ordered key/value context. Order is preserved for readability.
-    static func log(_ event: String, _ fields: [(String, Any)] = []) {
-        let rendered = fields
-            .map { "\($0.0)=\($0.1)" }
-            .joined(separator: " ")
-        let line = "[\(timestampFormatter.string(from: Date()))] \(event)\(rendered.isEmpty ? "" : " " + rendered)"
+    static func log(_ category: Category, _ event: String, _ fields: [(String, Any)] = []) {
+        let rendered = fields.map { "\($0.0)=\($0.1)" }.joined(separator: " ")
+        let line = "[\(timestampFormatter.string(from: Date()))] [\(category.rawValue)] \(event)"
+            + (rendered.isEmpty ? "" : " " + rendered)
 
         logger.log("\(line, privacy: .public)")
         print("XBILLDIAG \(line)")
@@ -65,9 +73,7 @@ enum PaymentDiagnostics {
             "code=\(nsError.code)",
             "localized=\(nsError.localizedDescription)"
         ]
-        if let appError = error as? AppError {
-            parts.append("appError=\(appError)")
-        }
+        if let appError = error as? AppError { parts.append("appError=\(appError)") }
         if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
             parts.append("underlying=\(underlying.domain)#\(underlying.code):\(underlying.localizedDescription)")
         }
@@ -85,11 +91,10 @@ enum PaymentDiagnostics {
         if !didStartSession {
             didStartSession = true
             let header = "\n===== SESSION START \(timestampFormatter.string(from: Date())) =====\n"
-            if let headerData = header.data(using: .utf8) {
-                write(headerData, to: url)
-            }
+            if let headerData = header.data(using: .utf8) { write(headerData, to: url) }
         }
         write(data, to: url)
+        rotateIfNeeded(url)
     }
 
     private static func write(_ data: Data, to url: URL) {
@@ -103,9 +108,21 @@ enum PaymentDiagnostics {
         }
     }
 
+    /// Keeps the newest half once the log passes the cap, so an append-only file on a
+    /// device cannot grow without bound.
+    private static func rotateIfNeeded(_ url: URL) {
+        guard let size = try? FileManager.default
+            .attributesOfItem(atPath: url.path)[.size] as? Int, size > maxBytes else { return }
+        guard let contents = try? String(contentsOf: url, encoding: .utf8) else { return }
+        let lines = contents.split(separator: "\n", omittingEmptySubsequences: false)
+        let kept = lines.suffix(lines.count / 2).joined(separator: "\n")
+        let header = "===== ROTATED \(timestampFormatter.string(from: Date())) =====\n"
+        try? (header + kept + "\n").data(using: .utf8)?.write(to: url)
+    }
+
     #else
 
-    static func log(_ event: String, _ fields: [(String, Any)] = []) {}
+    static func log(_ category: Category, _ event: String, _ fields: [(String, Any)] = []) {}
     static func describe(_ error: Error) -> String { "" }
     static var logPath: String { "unavailable" }
 

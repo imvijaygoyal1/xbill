@@ -212,14 +212,14 @@ struct MainTabView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            PaymentDiagnostics.log("MainTabView.didBecomeActive", [
+            AppDiagnostics.log(.lifecycle, "MainTabView.didBecomeActive", [
                 ("connected", NetworkMonitor.shared.isConnected),
                 ("groups", homeVM.groups.count)
             ])
             Task {
                 await activityVM.load()
                 await homeVM.loadAll()
-                PaymentDiagnostics.log("MainTabView.didBecomeActive.refreshComplete")
+                AppDiagnostics.log(.lifecycle, "MainTabView.didBecomeActive.refreshComplete")
             }
         }
     }

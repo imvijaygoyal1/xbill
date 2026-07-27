@@ -113,7 +113,7 @@ extension View {
         // whatever its origin. See DEFECT_HANDOFF_VENMO_BALANCES.md.
         .onChange(of: error.wrappedValue) { _, newValue in
             guard let newValue else { return }
-            PaymentDiagnostics.log("alert.presented", [
+            AppDiagnostics.log(.lifecycle, "alert.presented", [
                 ("binding", "error"),
                 ("callSite", "\(fileID):\(line)"),
                 ("title", newValue.errorDescription ?? "Something went wrong")
@@ -138,7 +138,7 @@ extension View {
         // whatever its origin. See DEFECT_HANDOFF_VENMO_BALANCES.md.
         .onChange(of: item.wrappedValue?.id) { _, newValue in
             guard newValue != nil else { return }
-            PaymentDiagnostics.log("alert.presented", [
+            AppDiagnostics.log(.lifecycle, "alert.presented", [
                 ("binding", "item"),
                 ("callSite", "\(fileID):\(line)"),
                 ("title", item.wrappedValue?.title ?? ""),

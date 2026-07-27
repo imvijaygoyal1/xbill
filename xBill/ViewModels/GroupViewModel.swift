@@ -70,7 +70,7 @@ final class GroupViewModel {
 
     func load(showError: Bool = true) async {
         guard !isLoading else {
-            PaymentDiagnostics.log("GroupViewModel.load.skipped", [
+            AppDiagnostics.log(.balance, "GroupViewModel.load.skipped", [
                 ("group", group.name),
                 ("reason", "already loading")
             ])
@@ -79,7 +79,7 @@ final class GroupViewModel {
         isLoading = true
         defer { isLoading = false }
 
-        PaymentDiagnostics.log("GroupViewModel.load.enter", [
+        AppDiagnostics.log(.balance, "GroupViewModel.load.enter", [
             ("group", group.name),
             ("groupID", group.id.uuidString),
             ("showError", showError),
@@ -108,7 +108,7 @@ final class GroupViewModel {
                 CacheService.shared.saveMembers(fetchedMembers, groupID: group.id)
                 CacheService.shared.saveExpenses(expenses, groupID: group.id)
                 await computeBalances()
-                PaymentDiagnostics.log("GroupViewModel.load.success", [
+                AppDiagnostics.log(.balance, "GroupViewModel.load.success", [
                     ("group", group.name),
                     ("expenses", expenses.count),
                     ("suggestions", settlementSuggestions.count),
@@ -116,12 +116,12 @@ final class GroupViewModel {
                     ("balanceLoadFailed", balanceLoadFailed)
                 ])
             } catch {
-                PaymentDiagnostics.log("GroupViewModel.load.catch", [
+                AppDiagnostics.log(.balance, "GroupViewModel.load.catch", [
                     ("group", group.name),
                     ("showError", showError),
                     ("silent", AppError.isSilent(error)),
                     ("connected", NetworkMonitor.shared.isConnected),
-                    ("error", PaymentDiagnostics.describe(error))
+                    ("error", AppDiagnostics.describe(error))
                 ])
                 guard !AppError.isSilent(error) else { return }
                 // Unconditionally restore from cache on any network error — a partial
@@ -211,12 +211,12 @@ final class GroupViewModel {
                 }
                 splitsMap = fetchedSplitsMap
             } catch {
-                PaymentDiagnostics.log("GroupViewModel.computeBalances.catch", [
+                AppDiagnostics.log(.balance, "GroupViewModel.computeBalances.catch", [
                     ("group", group.name),
                     ("expenses", expenses.count),
                     ("splitsMap", splitsMap.count),
                     ("connected", NetworkMonitor.shared.isConnected),
-                    ("error", PaymentDiagnostics.describe(error))
+                    ("error", AppDiagnostics.describe(error))
                 ])
                 guard !expenses.isEmpty else { return }
                 guard !splitsMap.isEmpty else {
@@ -362,9 +362,9 @@ final class GroupViewModel {
             guard !AppError.isSilent(error) else { return }
             // Recurring maintenance is opportunistic and should not block the group screen.
             // A later refresh will retry it without presenting a misleading payment/load error.
-            PaymentDiagnostics.log("GroupViewModel.createDueRecurringInstances.catch", [
+            AppDiagnostics.log(.balance, "GroupViewModel.createDueRecurringInstances.catch", [
                 ("group", group.name),
-                ("error", PaymentDiagnostics.describe(error))
+                ("error", AppDiagnostics.describe(error))
             ])
             logger.warning("Recurring expense maintenance skipped: \(error.localizedDescription, privacy: .public)")
         }

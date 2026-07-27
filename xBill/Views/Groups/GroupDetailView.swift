@@ -103,13 +103,13 @@ struct GroupDetailView: View {
     private var lifecycleContent: some View {
         baseContent
             .task {
-                PaymentDiagnostics.log("GroupDetailView.task.begin", [("group", vm.group.name)])
+                AppDiagnostics.log(.lifecycle, "GroupDetailView.task.begin", [("group", vm.group.name)])
                 // Payment-app handoffs can interrupt the first load. The group and balance
                 // surfaces expose retryable state; do not show a generic alert for a transient
                 // lifecycle/network failure while the user is returning to this screen.
                 await vm.load(showError: false)
                 await vm.createDueRecurringInstances(currentUserID: currentUserID)
-                PaymentDiagnostics.log("GroupDetailView.task.end", [("group", vm.group.name)])
+                AppDiagnostics.log(.lifecycle, "GroupDetailView.task.end", [("group", vm.group.name)])
             }
             .onChange(of: scenePhase) { oldPhase, phase in
                 let fields: [(String, Any)] = [
@@ -126,7 +126,7 @@ struct GroupDetailView: View {
                     ("pendingHandoff", pendingHandoff != nil),
                     ("isLocked", AppLockService.shared.isLocked)
                 ]
-                PaymentDiagnostics.log("GroupDetailView.scenePhase", fields)
+                AppDiagnostics.log(.lifecycle, "GroupDetailView.scenePhase", fields)
                 guard phase == .active else { return }
                 // Payment providers return through different mechanisms: Venmo uses a custom
                 // scheme while PayPal may return through Safari. Refresh on every active
@@ -579,7 +579,7 @@ struct GroupDetailView: View {
     }
 
     private func openPaymentURL(_ url: URL, providerName: String, suggestion: SettlementSuggestion) {
-        PaymentDiagnostics.log("GroupDetailView.openPaymentURL.request", [
+        AppDiagnostics.log(.payment, "GroupDetailView.openPaymentURL.request", [
             ("provider", providerName),
             ("scheme", url.scheme ?? "nil"),
             ("host", url.host() ?? "nil"),
@@ -587,7 +587,7 @@ struct GroupDetailView: View {
             ("group", vm.group.name)
         ])
         openURL(url) { accepted in
-            PaymentDiagnostics.log("GroupDetailView.openPaymentURL.result", [
+            AppDiagnostics.log(.payment, "GroupDetailView.openPaymentURL.result", [
                 ("provider", providerName),
                 ("accepted", accepted)
             ])

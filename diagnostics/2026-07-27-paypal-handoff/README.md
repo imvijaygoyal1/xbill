@@ -3,11 +3,20 @@
 Raw evidence for the defect described in `../../DEFECT_HANDOFF_VENMO_BALANCES.md`
 (status: RESOLVED). Preserved so the investigation does not have to be repeated.
 
+## Index of investigations
+
+| Date | Investigation | Artifacts |
+|------|---------------|-----------|
+| 2026-07-26 | PayPal settle-up handoff — fabricated seed handles | `2026-07-27-paypal-handoff/` |
+
+Append a row here at the end of each investigation. Raw device logs live in the
+dated folder; this table is the entry point.
+
 ## Files
 
 | File | What it is |
 |------|------------|
-| `device-diagnostics.log` | Full on-device log from `PaymentDiagnostics`, pulled from the app container on physical iPhone 16 Pro (`00008140-000135EE3432801C`). Contains the pre-fix reproduction **and** the post-fix verification. |
+| `device-diagnostics.log` | Full on-device log from `AppDiagnostics`, pulled from the app container on physical iPhone 16 Pro (`00008140-000135EE3432801C`). Contains the pre-fix reproduction **and** the post-fix verification. |
 | `device-console-capture.log` | `devicectl … --console` stdout capture from the first launch, showing live `XBILLDIAG` output. |
 | `paypal-url-verification.txt` | Independent HTTP verification of the PayPal.Me URL. |
 
@@ -62,7 +71,7 @@ curl -sL "https://paypal.me/<handle>/1USD" | grep -c slugDoesNotExist   # >0 ⇒
 
 ## Regenerating this evidence
 
-The instrumentation is DEBUG-only (`xBill/Core/PaymentDiagnostics.swift`) and compiles
+The instrumentation is DEBUG-only (`xBill/Core/AppDiagnostics.swift`) and compiles
 out of Release.
 
 ```bash
@@ -78,7 +87,7 @@ xcrun devicectl device process launch --device <UDID> --console \
 # reliable: pull the persisted log (survives backgrounding)
 xcrun devicectl device copy from --device <UDID> \
   --domain-type appDataContainer --domain-identifier com.vijaygoyal.xbill \
-  --source Documents/payment-diagnostics.log --destination ./device-diagnostics.log
+  --source Documents/xbill-diagnostics.log --destination ./device-diagnostics.log
 ```
 
 `log stream --device-name` does **not** work on macOS 26 — the option was removed. Use
