@@ -26,7 +26,9 @@ diagnostics so the next investigation has one place to look.
 2. Stop third-party failures reading as xBill failures.
 3. Close the loop after a handoff so debts don't silently stay open.
 4. Explain the absent-payment-button state instead of rendering nothing.
-5. One diagnostic log file per app, usable by any future agent for any investigation.
+5. Make on-device testing of the real handoff safe, by scaling seeded amounts down so a
+   stray tap cannot send meaningful money.
+6. One diagnostic log file per app, usable by any future agent for any investigation.
 
 ## Non-goals
 
@@ -34,11 +36,24 @@ diagnostics so the next investigation has one place to look.
   the defect. The demo account's handle is entered by the user through the app.
 - Programmatic verification by scraping PayPal (see Approach A, rejected).
 - Changing the existing `Logger`/os_log call sites — they remain useful in Release.
-- Shady Spade's logging convention — separate work in a separate repo.
+- A "Don't ask again" escape on the return prompt. Deliberately omitted (YAGNI): it costs a
+  persisted preference, a settings toggle to undo it, and a support question, to save one
+  tap on an infrequent action. Add it if the prompt proves annoying in practice — that
+  would be evidence rather than speculation.
+- **Cross-app agent handoff logging — deferred to Spec 2.** Shady Spade's own
+  `AppDiagnostics` log plus a `Stop` hook in `settings.json` so the per-app agent handoff
+  log is updated whenever an agent session ends. Agreed approach: **option C** — the hook
+  appends a mechanical session record (timestamp, branch, commits, files changed) and emits
+  a non-blocking reminder for the agent to add narrative context. Blocking the stop until a
+  narrative exists was rejected: Stop hooks that refuse to stop are a known source of loops
+  and can strand an agent that is genuinely finished. A hook runs a shell command, not a
+  model, so it can guarantee the facts but cannot write the "why" — that stays the agent's
+  job, prompted by a `CLAUDE.md` convention. Separate repo, separate concern; it shares
+  nothing with this spec but the word "log".
 
 ---
 
-## 1. `PaymentHandleValidator` — one rule set, two providers
+## 1. `PaymentHandleValidator` — one validator, two distinct rule sets
 
 **Problem.** Handle rules exist in two places that disagree:
 
@@ -60,17 +75,25 @@ enum PaymentHandleValidator {
 }
 ```
 
-| Provider | Rule | `@` prefix |
-|---|---|---|
-| PayPal.Me | 3–20 chars, `[A-Za-z0-9]` only | stripped if present |
-| Venmo | 2–30 chars, `[A-Za-z0-9._-]` | stripped if present |
+Both rule sets are taken from the providers' own documentation, not inferred:
+
+| Provider | Rule | Source | `@` prefix |
+|---|---|---|---|
+| PayPal.Me | 3–20 chars, `[A-Za-z0-9]` only | PayPal.Me UI copy: "between 3 and 20 characters", "only using letters and numbers" | stripped if present |
+| Venmo | 5–30 chars, `[A-Za-z0-9_-]` | [Venmo help](https://help.venmo.com/cs/articles/check-or-edit-your-username-vhel208): "must be between 5 and 30 characters", "no special characters other than `-` and `_`" | stripped if present |
+
+**The two charsets must stay separate.** `-` and `_` are legal for Venmo and illegal for
+PayPal, so a shared charset would be wrong for one provider. Note also that `.` is illegal
+for **both** — today's code allows it for both, and allows 2-character handles that neither
+provider permits.
 
 `validate` trims whitespace and returns the normalised handle on success, so callers never
 re-normalise.
 
-**Compatibility.** Tightening PayPal's rule cannot invalidate a stored handle: after the
-seed fix, `select count(*) … where venmo_handle is not null or paypal_handle is not null`
-returns `0`. This is the free moment to tighten.
+**Compatibility.** Tightening either rule cannot invalidate a stored handle: after the seed
+fix, `select count(*) … where venmo_handle is not null or paypal_handle is not null`
+returns `0`. This is the free moment to tighten — the window closes as soon as a real
+handle is entered.
 
 ## 2. Test-your-link
 
@@ -126,7 +149,36 @@ State lives in `GroupDetailView` as `@State private var pendingHandoff: PendingH
 (`suggestion` + `providerName`). It is view state, not model state — a handoff has no
 meaning once the screen is gone.
 
-## 5. Unified diagnostics
+## 5. Seeded amounts scaled ÷50
+
+Once a real handle is entered on the demo account, tapping PayPal in Tokyo Trip opens a
+**genuine payment screen** for the settlement amount. At today's `$95.00` a stray tap
+during testing sends real money. All seeded amounts are divided by 50.
+
+Every value lands on an exact 2-decimal result, so splits still sum to their expense
+totals and no `is_settled` flag or rounding behaviour changes:
+
+| Row | Now | ÷50 |
+|---|---|---|
+| Flights / Hotel / Sushi / Nikko / Store | 180 / 90 / 120 / 60 / 45 | 3.60 / 1.80 / 2.40 / 1.20 / 0.90 |
+| Equal splits (60 / 30 / 20 / 15) | 60.00 etc. | 1.20 / 0.60 / 0.40 / 0.30 |
+| Sushi's uneven split | 50 / 40 / 30 | 1.00 / 0.80 / 0.60 |
+| IOU | 25.00 | 0.50 |
+| **Settlement suggestion** | **95.00** | **1.90** |
+
+Tokyo Trip stays structurally intact: 5 expenses, 15 splits, 3 members, 2 comments, 1 IOU,
+same settled/unsettled pattern. Only magnitudes change.
+
+**Why ÷50 rather than ÷100** (which would give `$0.95`): PayPal.Me may enforce a $1.00
+minimum. That is **unverified** — it cannot be tested without a real handle — so the scale
+deliberately stays above any dollar floor rather than risk "minimum" reintroducing a
+broken-link failure. `$1.90` is trivial to fumble and safely above it.
+
+`SETUP_REVIEW_ACCOUNT.md` documents expected balances (owed `$220` / owes `$50` /
+net `$170`). These become owed `$4.40` / owes `$1.00` / net `$3.40` and must be updated in
+the same change, or the doc silently contradicts the seed.
+
+## 6. Unified diagnostics
 
 `PaymentDiagnostics` → **`AppDiagnostics`** (`xBill/Core/AppDiagnostics.swift`).
 
@@ -148,9 +200,12 @@ ever-appended file generating permanent merge conflicts.
 
 **Unit — `PaymentHandleValidatorTests` (new)**
 
-- PayPal boundaries: 2 rejected, 3 accepted, 20 accepted, 21 rejected
+- PayPal length boundaries: 2 rejected, 3 accepted, 20 accepted, 21 rejected
+- Venmo length boundaries: 4 rejected, 5 accepted, 30 accepted, 31 rejected
 - PayPal rejects `.`, `-`, `_`, spaces, `@`-infix, unicode
-- Venmo accepts `.`, `-`, `_`; rejects spaces and `/`
+- Venmo accepts `-` and `_`; rejects `.`, spaces, `/`
+- Cross-check: a handle legal for one provider and illegal for the other resolves
+  correctly per provider (e.g. `my_handle` valid for Venmo, invalid for PayPal)
 - `@` prefix stripped for both; whitespace trimmed
 - Empty/nil → `.empty`, distinct from `.invalid`
 
@@ -185,3 +240,5 @@ ever-appended file generating permanent merge conflicts.
 | Tightened PayPal rule rejects a legitimate handle | No stored handles exist (verified `count = 0`). Rule matches PayPal's own published constraint. |
 | Prompt fires when the user never actually left | Gated on `accepted == true`. |
 | Diagnostics log grows unbounded on device | 2 MB cap with rotation; DEBUG-only. |
+| Scaled seed amounts drift from documented expected balances | `SETUP_REVIEW_ACCOUNT.md` updated in the same change; ÷50 is exact at 2dp so splits still reconcile. |
+| `$1.90` falls below an unverified PayPal.Me minimum | ÷50 chosen over ÷100 specifically to stay above a possible $1.00 floor; confirmed on-device with a real handle during manual verification. |
