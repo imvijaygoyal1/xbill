@@ -1,0 +1,4 @@
+appreviewer HTTP=200 final=https://www.paypal.com/paypalme/appreviewer/95USD
+random-slug HTTP=404
+appreviewer slugDoesNotExist_key_count= 1
+random-slug slugDoesNotExist_key_count= 0

@@ -1,0 +1,11 @@
+20:52:42  Acquired tunnel connection to device.
+20:52:42  Enabling developer disk image services.
+20:52:42  Acquired usage assertion.
+Launched application with com.vijaygoyal.xbill bundle identifier.
+Waiting for the application to terminate…
+XBILLDIAG [2026-07-27T00:52:42.855Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+XBILLDIAG [2026-07-27T00:52:43.224Z] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+XBILLDIAG [2026-07-27T00:52:43.505Z] HomeViewModel.loadAll.success groups=1
+XBILLDIAG [2026-07-27T00:52:51.746Z] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+XBILLDIAG [2026-07-27T00:52:52.438Z] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+App terminated due to signal 9.

@@ -1,0 +1,194 @@
+
+===== SESSION START 2026-07-27T00:31:16.037Z =====
+[2026-07-27T00:31:16.036Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-27T00:31:16.773Z] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-27T00:31:17.083Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:32:07.735Z] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-27T00:32:07.736Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:32:08.034Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:32:08.075Z] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-27T00:32:19.067Z] GroupDetailView.openPaymentURL.request provider=PayPal scheme=https host=paypal.me url=https://paypal.me/appreviewer/95USD group=Tokyo Trip
+[2026-07-27T00:32:19.133Z] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-27T00:32:19.153Z] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:32:19.158Z] GroupDetailView.openPaymentURL.result provider=PayPal accepted=true
+[2026-07-27T00:32:19.902Z] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-27T00:32:19.932Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:32:36.274Z] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-27T00:32:36.289Z] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:32:36.551Z] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-27T00:32:36.566Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-27T00:32:36.603Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:32:36.609Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:32:36.909Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:32:36.966Z] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-27T00:32:37.290Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:32:37.291Z] MainTabView.didBecomeActive.refreshComplete
+[2026-07-27T00:32:37.473Z] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:32:37.477Z] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-27T00:32:40.175Z] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-27T00:32:40.190Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-27T00:32:40.224Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:32:40.231Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:32:40.330Z] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-27T00:32:40.343Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:32:41.036Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:32:41.037Z] MainTabView.didBecomeActive.refreshComplete
+[2026-07-27T00:33:53.183Z] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-27T00:33:53.197Z] GroupDetailView.scenePhase group=Tokyo Trip from=active to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:34:03.463Z] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-07-27T00:34:03.479Z] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:34:04.259Z] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-27T00:34:04.274Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-27T00:34:04.308Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:34:04.314Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:34:04.623Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:34:04.667Z] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-27T00:34:04.981Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:34:04.982Z] MainTabView.didBecomeActive.refreshComplete
+[2026-07-27T00:35:21.357Z] GroupDetailView.openPaymentURL.request provider=PayPal scheme=https host=paypal.me url=https://paypal.me/appreviewer/95USD group=Tokyo Trip
+[2026-07-27T00:35:21.413Z] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-27T00:35:21.444Z] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:35:21.449Z] GroupDetailView.openPaymentURL.result provider=PayPal accepted=true
+[2026-07-27T00:35:22.175Z] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-27T00:35:22.196Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:36:18.965Z] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-27T00:36:18.985Z] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:36:19.249Z] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-27T00:36:19.264Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-27T00:36:19.301Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:36:19.309Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:36:19.991Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:36:20.041Z] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-27T00:36:20.335Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:36:20.336Z] MainTabView.didBecomeActive.refreshComplete
+[2026-07-27T00:36:20.366Z] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-27T00:36:20.391Z] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:36:23.086Z] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-27T00:36:23.100Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-27T00:36:23.134Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:36:23.141Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:36:23.203Z] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-27T00:36:23.223Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:36:23.438Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:36:23.439Z] MainTabView.didBecomeActive.refreshComplete
+[2026-07-27T00:37:01.919Z] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-27T00:37:34.987Z] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-27T00:37:35.710Z] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-27T00:37:35.747Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-27T00:37:36.016Z] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-27T00:37:36.194Z] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-27T00:37:36.515Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:37:36.516Z] MainTabView.didBecomeActive.refreshComplete
+[2026-07-27T00:37:38.880Z] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-27T00:37:38.915Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-27T00:37:39.023Z] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-27T00:37:39.282Z] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-27T00:37:39.284Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:37:39.339Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:37:39.340Z] MainTabView.didBecomeActive.refreshComplete
+[2026-07-27T00:37:39.387Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:37:39.433Z] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-27T00:37:40.667Z] GroupDetailView.openPaymentURL.request provider=Venmo scheme=venmo host=paycharge url=venmo://paycharge?txn=pay&recipients=appreviewer&amount=95&note=xBill%20settlement group=Tokyo Trip
+[2026-07-27T00:37:40.719Z] GroupDetailView.openPaymentURL.result provider=Venmo accepted=true
+[2026-07-27T00:37:40.743Z] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-27T00:37:40.764Z] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:37:41.549Z] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-27T00:37:41.570Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:37:47.988Z] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-27T00:37:48.017Z] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:37:48.251Z] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-27T00:37:48.293Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-27T00:37:48.330Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:37:48.335Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:37:48.490Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:37:48.522Z] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-27T00:37:48.709Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:37:48.710Z] MainTabView.didBecomeActive.refreshComplete
+[2026-07-27T00:38:10.047Z] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-27T00:38:10.067Z] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:38:11.389Z] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=true
+[2026-07-27T00:38:11.405Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+
+===== SESSION START 2026-07-27T00:52:42.856Z =====
+[2026-07-27T00:52:42.855Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-27T00:52:43.224Z] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-27T00:52:43.505Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:52:51.746Z] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-27T00:52:52.438Z] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-07-27T00:53:21.798Z =====
+[2026-07-27T00:53:21.798Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-27T00:53:21.946Z] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-27T00:53:22.316Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:53:24.507Z] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-27T00:53:24.508Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:53:24.645Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:53:24.689Z] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-27T00:53:29.325Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:53:29.348Z] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-27T00:53:31.316Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:53:31.342Z] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-27T00:54:00.879Z] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-27T00:54:00.900Z] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:54:01.581Z] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-27T00:54:01.614Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:54:05.869Z] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-27T00:54:05.888Z] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:54:06.065Z] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-27T00:54:06.081Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-27T00:54:06.114Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:54:06.120Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:54:06.810Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:54:06.882Z] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-27T00:54:07.272Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:54:07.273Z] MainTabView.didBecomeActive.refreshComplete
+[2026-07-27T00:54:07.787Z] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:54:07.791Z] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-27T00:54:10.477Z] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-27T00:54:10.492Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-27T00:54:10.527Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:54:10.533Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:54:10.673Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:54:10.704Z] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-27T00:54:11.084Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:54:11.085Z] MainTabView.didBecomeActive.refreshComplete
+[2026-07-27T00:56:55.282Z] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-27T00:56:55.299Z] GroupDetailView.scenePhase group=Tokyo Trip from=active to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:57:10.941Z] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-07-27T00:57:10.964Z] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:57:11.675Z] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-27T00:57:11.689Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-27T00:57:11.716Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:57:11.720Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:57:12.287Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:57:12.331Z] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-27T00:57:12.591Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:57:12.591Z] MainTabView.didBecomeActive.refreshComplete
+[2026-07-27T00:57:36.599Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:57:36.615Z] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-27T00:59:03.356Z] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-27T00:59:03.376Z] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:59:04.841Z] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-27T00:59:04.857Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-27T00:59:04.890Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:59:04.895Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:59:05.000Z] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-27T00:59:05.021Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:59:05.205Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:59:05.206Z] MainTabView.didBecomeActive.refreshComplete
+[2026-07-27T00:59:50.254Z] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-27T00:59:50.270Z] GroupDetailView.scenePhase group=Tokyo Trip from=active to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:59:55.183Z] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-07-27T00:59:55.199Z] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:59:55.981Z] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-27T00:59:55.996Z] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-27T00:59:56.018Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:59:56.023Z] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-27T00:59:56.210Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:59:56.246Z] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-27T00:59:56.558Z] HomeViewModel.loadAll.success groups=1
+[2026-07-27T00:59:56.559Z] MainTabView.didBecomeActive.refreshComplete
+[2026-07-27T00:59:58.093Z] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-27T00:59:58.109Z] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-27T00:59:58.919Z] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-27T00:59:58.944Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false

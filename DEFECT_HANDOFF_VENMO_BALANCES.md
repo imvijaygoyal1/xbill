@@ -40,6 +40,42 @@ background/foreground cycles during a live reproduction:
 
 User confirmed the message appeared **inside the PayPal app**, not as an xBill dialog.
 
+Raw logs are preserved in `diagnostics/2026-07-27-paypal-handoff/` (see the README there
+for how to read and regenerate them). Decisive excerpt from the **pre-fix reproduction** —
+note the handoff to a nonexistent PayPal profile, and that every subsequent load succeeds
+with no alert:
+
+```text
+[00:32:19.067Z] GroupDetailView.openPaymentURL.request provider=PayPal scheme=https host=paypal.me url=https://paypal.me/appreviewer/95USD group=Tokyo Trip
+[00:32:19.158Z] GroupDetailView.openPaymentURL.result provider=PayPal accepted=true
+[00:32:19.902Z] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[00:32:36.274Z] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[00:32:36.551Z] MainTabView.didBecomeActive connected=true groups=1
+[00:32:36.909Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[00:32:37.290Z] HomeViewModel.loadAll.success groups=1
+```
+
+No `alert.presented` event appears anywhere in that session, or in the whole log.
+
+**Post-fix verification** (handles `NULL`) — no `openPaymentURL` events at all, because no
+payment button renders:
+
+```text
+[00:53:24.645Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[00:54:06.114Z] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false
+[00:54:06.810Z] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[00:54:07.273Z] MainTabView.didBecomeActive.refreshComplete
+```
+
+Counters over the full log:
+
+| Check | Pre-fix | Post-fix |
+|---|---|---|
+| `alert.presented` | 0 | 0 |
+| `openPaymentURL` | 6 | 0 |
+| `balanceLoadFailed=true` | 0 | 0 |
+| non-silent `load.catch` | 0 | 0 |
+
 Independent verification of the URL:
 
 | URL | Result |
@@ -95,6 +131,46 @@ the demo account would have landed on PayPal's error screen.
   produces no alert and no stuck spinner. Post-fix device log: 0 alerts, 0 payment
   links, 0 `balanceLoadFailed`, `suggestions=2` throughout.
 - Settlements remain unmarked — no settlement was recorded at any point.
+
+## Open decisions for the next agent
+
+Neither is a defect. Both are product calls the user has been asked about and has not
+yet decided. **Do not silently resolve them.**
+
+1. **The demo account now shows no payment buttons at all.** Correct and safe, but the
+   settle-up payment feature is no longer demonstrable to an App Store reviewer. The only
+   sound way to make it visible is a **real** PayPal.Me / Venmo handle on the reviewer
+   profile. A fabricated one will always fail the way this defect did. If a real handle is
+   ever added, note that tapping PayPal opens a genuine payment screen for the settlement
+   amount (`$95` in the seed) — verification must stop before completing payment.
+2. **`PaymentDiagnostics` instrumentation is still in the tree.** DEBUG-only, verified to
+   compile out of Release. Retained deliberately because the alert-presentation chokepoint
+   is what broke a three-session deadlock. The user was offered removal or trimming to just
+   the chokepoint and has not chosen. Options:
+   - keep as-is;
+   - trim to the chokepoint in `Extensions.swift` + `openPaymentURL` logging, dropping the
+     verbose `load.enter`/`load.success`/`scenePhase` entries;
+   - remove entirely (also delete `xBill/Core/PaymentDiagnostics.swift` and its call sites
+     in `HomeViewModel`, `GroupViewModel`, `GroupDetailView`, `MainTabView`, `ContentView`).
+
+## Reverting the database change, if ever needed
+
+Original values before the fix (only these three seeded demo rows had handles; no real
+user data was affected):
+
+| Profile | venmo_handle | paypal_handle | paypal_email |
+|---|---|---|---|
+| App Reviewer | `appreviewer` | `appreviewer` | `appreviewer@xbill.vijaygoyal.org` |
+| Alice Chen | `alicechen` | `null` | `null` |
+| Bob Patel | `bobpatel` | `null` | `null` |
+
+Restoring them would reintroduce the defect. Current state:
+
+```bash
+supabase db query --linked "select count(*) from public.profiles \
+  where venmo_handle is not null or paypal_handle is not null or paypal_email is not null;"
+# => 0
+```
 
 ## Note for future payment work
 
