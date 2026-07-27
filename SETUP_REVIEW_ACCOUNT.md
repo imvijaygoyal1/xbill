@@ -179,7 +179,7 @@ VALUES (
 
 INSERT INTO public.splits (expense_id, user_id, amount, is_settled)
 VALUES
-  ('eeeeeeee-0003-0003-0003-000000000003', '<REVIEWER_UUID>', 50.00, true),
+  ('eeeeeeee-0003-0003-0003-000000000003', '<REVIEWER_UUID>', 1.00, true),
   ('eeeeeeee-0003-0003-0003-000000000003', 'aaaaaaaa-0001-0001-0001-000000000001', 40.00, false),
   ('eeeeeeee-0003-0003-0003-000000000003', 'aaaaaaaa-0002-0002-0002-000000000002', 30.00, false);
 
@@ -269,9 +269,9 @@ GROUP BY e.paid_by;
 ```
 
 Expected result for reviewer Home screen:
-  Owed to you:  ~$220.00  (Alice + Bob owe across 3 expenses reviewer paid)
-  You owe:      ~$50.00   (reviewer owes Alice $30 + Bob $20)
-  Net:          ~+$170.00
+  Owed to you:  ~$4.40   (Alice + Bob owe across 3 expenses reviewer paid)
+  You owe:      ~$1.00   (reviewer owes Alice $0.60 + Bob $0.40)
+  Net:          ~+$3.40
 
 ---
 
@@ -288,7 +288,7 @@ The account has been pre-seeded with:
   • 1 group: "Tokyo Trip 🗼" with 3 members
   • 5 expenses across Food, Travel, Accommodation, Transport, Shopping categories
   • Mixed split types (equal and custom amounts)
-  • Positive net balance (owed $220, owes $50) so the Home screen shows real data
+  • Positive net balance (owed $4.40, owes $1.00) so the Home screen shows real data
   • 1 Friend IOU in the Friends tab
 
 Key features to review:

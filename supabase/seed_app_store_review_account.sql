@@ -294,11 +294,11 @@ begin
 
   insert into public.expenses (id, group_id, paid_by, amount, title, category, currency, notes, receipt_url, recurrence, created_at)
   values
-    ('eeeeeeee-0001-0001-0001-000000000001', review_group_id, reviewer_id, 180.00, 'Flights to Tokyo', 'transport', 'USD', 'Reviewer paid; equal split.', null, 'none', now() - interval '5 days'),
-    ('eeeeeeee-0002-0002-0002-000000000002', review_group_id, alice_id, 90.00, 'Hotel - Night 1', 'accommodation', 'USD', 'Alice paid; reviewer owes a share.', null, 'none', now() - interval '4 days'),
-    ('eeeeeeee-0003-0003-0003-000000000003', review_group_id, reviewer_id, 120.00, 'Sushi dinner', 'food', 'USD', 'Reviewer paid; custom split.', null, 'none', now() - interval '3 days'),
-    ('eeeeeeee-0004-0004-0004-000000000004', review_group_id, bob_id, 60.00, 'Day trip to Nikko', 'transport', 'USD', 'Bob paid; reviewer owes a share.', null, 'none', now() - interval '2 days'),
-    ('eeeeeeee-0005-0005-0005-000000000005', review_group_id, reviewer_id, 45.00, 'Convenience store run', 'shopping', 'USD', 'Recent activity sample.', null, 'none', now() - interval '1 day')
+    ('eeeeeeee-0001-0001-0001-000000000001', review_group_id, reviewer_id, 3.60, 'Flights to Tokyo', 'transport', 'USD', 'Reviewer paid; equal split.', null, 'none', now() - interval '5 days'),
+    ('eeeeeeee-0002-0002-0002-000000000002', review_group_id, alice_id, 1.80, 'Hotel - Night 1', 'accommodation', 'USD', 'Alice paid; reviewer owes a share.', null, 'none', now() - interval '4 days'),
+    ('eeeeeeee-0003-0003-0003-000000000003', review_group_id, reviewer_id, 2.40, 'Sushi dinner', 'food', 'USD', 'Reviewer paid; custom split.', null, 'none', now() - interval '3 days'),
+    ('eeeeeeee-0004-0004-0004-000000000004', review_group_id, bob_id, 1.20, 'Day trip to Nikko', 'transport', 'USD', 'Bob paid; reviewer owes a share.', null, 'none', now() - interval '2 days'),
+    ('eeeeeeee-0005-0005-0005-000000000005', review_group_id, reviewer_id, 0.90, 'Convenience store run', 'shopping', 'USD', 'Recent activity sample.', null, 'none', now() - interval '1 day')
   on conflict (id) do update
   set group_id = excluded.group_id,
       paid_by = excluded.paid_by,
@@ -313,28 +313,28 @@ begin
 
   insert into public.splits (expense_id, user_id, amount, is_settled, settled_at)
   values
-    ('eeeeeeee-0001-0001-0001-000000000001', reviewer_id, 60.00, true, now() - interval '5 days'),
-    ('eeeeeeee-0001-0001-0001-000000000001', alice_id, 60.00, false, null),
-    ('eeeeeeee-0001-0001-0001-000000000001', bob_id, 60.00, false, null),
-    ('eeeeeeee-0002-0002-0002-000000000002', reviewer_id, 30.00, false, null),
-    ('eeeeeeee-0002-0002-0002-000000000002', alice_id, 30.00, true, now() - interval '4 days'),
-    ('eeeeeeee-0002-0002-0002-000000000002', bob_id, 30.00, false, null),
-    ('eeeeeeee-0003-0003-0003-000000000003', reviewer_id, 50.00, true, now() - interval '3 days'),
-    ('eeeeeeee-0003-0003-0003-000000000003', alice_id, 40.00, false, null),
-    ('eeeeeeee-0003-0003-0003-000000000003', bob_id, 30.00, false, null),
-    ('eeeeeeee-0004-0004-0004-000000000004', reviewer_id, 20.00, false, null),
-    ('eeeeeeee-0004-0004-0004-000000000004', alice_id, 20.00, false, null),
-    ('eeeeeeee-0004-0004-0004-000000000004', bob_id, 20.00, true, now() - interval '2 days'),
-    ('eeeeeeee-0005-0005-0005-000000000005', reviewer_id, 15.00, true, now() - interval '1 day'),
-    ('eeeeeeee-0005-0005-0005-000000000005', alice_id, 15.00, false, null),
-    ('eeeeeeee-0005-0005-0005-000000000005', bob_id, 15.00, false, null)
+    ('eeeeeeee-0001-0001-0001-000000000001', reviewer_id, 1.20, true, now() - interval '5 days'),
+    ('eeeeeeee-0001-0001-0001-000000000001', alice_id, 1.20, false, null),
+    ('eeeeeeee-0001-0001-0001-000000000001', bob_id, 1.20, false, null),
+    ('eeeeeeee-0002-0002-0002-000000000002', reviewer_id, 0.60, false, null),
+    ('eeeeeeee-0002-0002-0002-000000000002', alice_id, 0.60, true, now() - interval '4 days'),
+    ('eeeeeeee-0002-0002-0002-000000000002', bob_id, 0.60, false, null),
+    ('eeeeeeee-0003-0003-0003-000000000003', reviewer_id, 1.00, true, now() - interval '3 days'),
+    ('eeeeeeee-0003-0003-0003-000000000003', alice_id, 0.80, false, null),
+    ('eeeeeeee-0003-0003-0003-000000000003', bob_id, 0.60, false, null),
+    ('eeeeeeee-0004-0004-0004-000000000004', reviewer_id, 0.40, false, null),
+    ('eeeeeeee-0004-0004-0004-000000000004', alice_id, 0.40, false, null),
+    ('eeeeeeee-0004-0004-0004-000000000004', bob_id, 0.40, true, now() - interval '2 days'),
+    ('eeeeeeee-0005-0005-0005-000000000005', reviewer_id, 0.30, true, now() - interval '1 day'),
+    ('eeeeeeee-0005-0005-0005-000000000005', alice_id, 0.30, false, null),
+    ('eeeeeeee-0005-0005-0005-000000000005', bob_id, 0.30, false, null)
   on conflict (expense_id, user_id) do update
   set amount = excluded.amount,
       is_settled = excluded.is_settled,
       settled_at = excluded.settled_at;
 
   insert into public.ious (id, created_by, lender_id, borrower_id, amount, currency, description, is_settled)
-  values ('ffffffff-ffff-ffff-ffff-ffffffffffff', reviewer_id, reviewer_id, alice_id, 25.00, 'USD', 'Concert tickets', false)
+  values ('ffffffff-ffff-ffff-ffff-ffffffffffff', reviewer_id, reviewer_id, alice_id, 0.50, 'USD', 'Concert tickets', false)
   on conflict (id) do update
   set created_by = excluded.created_by,
       lender_id = excluded.lender_id,
