@@ -218,10 +218,14 @@ struct PayPalUsernameValidationTests {
         #expect(url?.absoluteString.contains("paypal.me/john123") == true)
     }
 
-    @Test("Username with allowed special chars (dot, hyphen, underscore) returns a URL")
-    func validWithAllowedSpecialChars() {
+    // Superseded by PaymentHandleValidator (see PaymentHandleValidatorTests.paypalRejectsNonAlphanumeric):
+    // PayPal.Me's own documented rule is "only using letters and numbers" — dot, hyphen, and
+    // underscore are not allowed for PayPal (unlike Venmo, which permits - and _). This test
+    // previously asserted the opposite and predates the shared validator.
+    @Test("Username with dot, hyphen, or underscore is rejected — PayPal.Me allows letters and numbers only")
+    func specialCharsRejected() {
         let url = service.paymentLink(for: makeSettlement(name: "Display Name"), recipient: recipient(paypalHandle: "john.doe-42_a"), method: .paypal)
-        #expect(url != nil)
+        #expect(url == nil)
     }
 
     @Test("Username with space returns nil")

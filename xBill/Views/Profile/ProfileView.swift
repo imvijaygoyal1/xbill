@@ -181,6 +181,7 @@ struct ProfileView: View {
                         )
                         .accessibilityIdentifier("xBill.profile.venmoField")
                         validationText(venmoValidationMessage)
+                        testLinkRow(for: .venmo)
                         }
 
                         Divider()
@@ -196,6 +197,7 @@ struct ProfileView: View {
                         )
                         .accessibilityIdentifier("xBill.profile.paypalField")
                         validationText(paypalValidationMessage)
+                        testLinkRow(for: .paypal)
                         }
                     }
                 }
@@ -258,22 +260,39 @@ struct ProfileView: View {
     }
 
     private var venmoValidationMessage: String? {
-        let value = vm.venmoHandle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty else { return nil }
-        guard value.hasPrefix("@") else { return "Venmo handles should start with @." }
-        let handle = value.dropFirst()
-        guard handle.count >= 2 else { return "Enter at least 2 characters after @." }
-        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
-        return handle.unicodeScalars.allSatisfy { allowed.contains($0) } ? nil : "Use letters, numbers, dot, dash, or underscore."
+        if case .invalid(let reason) = PaymentHandleValidator.validate(vm.venmoHandle, for: .venmo) {
+            return reason
+        }
+        return nil
     }
 
     private var paypalValidationMessage: String? {
-        let value = vm.paypalHandle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty else { return nil }
-        let handle = value.hasPrefix("@") ? value.dropFirst() : Substring(value)
-        guard handle.count >= 2 else { return "Enter at least 2 characters." }
-        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
-        return handle.unicodeScalars.allSatisfy { allowed.contains($0) } ? nil : "Use your PayPal.me handle: letters, numbers, dot, dash, or underscore."
+        if case .invalid(let reason) = PaymentHandleValidator.validate(vm.paypalHandle, for: .paypal) {
+            return reason
+        }
+        return nil
+    }
+
+    /// The saved handle's profile URL, shown only when the *stored* value is valid and
+    /// there are no unsaved edits — so the row always tests what is actually saved.
+    private func savedProfileLink(for method: Settlement.PaymentMethod) -> URL? {
+        guard !hasUnsavedHandles else { return nil }
+        let saved = method == .venmo ? vm.user?.venmoHandle : vm.user?.paypalHandle
+        return PaymentLinkService.shared.profileLink(handle: saved, method: method)
+    }
+
+    @ViewBuilder
+    private func testLinkRow(for method: Settlement.PaymentMethod) -> some View {
+        if let url = savedProfileLink(for: method) {
+            Link(destination: url) {
+                XBillActionRow(
+                    icon: "arrow.up.right.square",
+                    title: "Test your \(method == .venmo ? "Venmo" : "PayPal") link",
+                    subtitle: "Opens your public profile to confirm it works"
+                )
+            }
+            .accessibilityIdentifier("xBill.profile.\(method == .venmo ? "venmo" : "paypal")TestLink")
+        }
     }
 
     private var scrollBottomPadding: CGFloat {

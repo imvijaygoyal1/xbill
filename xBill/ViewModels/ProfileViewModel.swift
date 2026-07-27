@@ -139,8 +139,8 @@ final class ProfileViewModel {
         defer { isLoading = false }
 
         do {
-            let handle = Self.normalizedPaymentHandle(venmoHandle)
-            let paypal = Self.normalizedPaymentHandle(paypalHandle)
+            let handle = PaymentHandleValidator.normalized(venmoHandle, for: .venmo)
+            let paypal = PaymentHandleValidator.normalized(paypalHandle, for: .paypal)
 
             // H-16: resolve the final avatar URL first, then do ONE profile write.
             // This eliminates the stale-URL first write and the race where step 2 fails
@@ -164,14 +164,6 @@ final class ProfileViewModel {
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
         }
-    }
-
-    private static func normalizedPaymentHandle(_ value: String) -> String? {
-        var trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.hasPrefix("@") {
-            trimmed.removeFirst()
-        }
-        return trimmed.isEmpty ? nil : trimmed
     }
 
     // MARK: - Sign Out
