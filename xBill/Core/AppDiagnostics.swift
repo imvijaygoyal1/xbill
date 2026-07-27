@@ -115,9 +115,9 @@ enum AppDiagnostics {
             .attributesOfItem(atPath: url.path)[.size] as? Int, size > maxBytes else { return }
         guard let contents = try? String(contentsOf: url, encoding: .utf8) else { return }
         let lines = contents.split(separator: "\n", omittingEmptySubsequences: false)
-        let kept = lines.suffix(lines.count / 2).joined(separator: "\n")
+        let kept = lines.suffix(max(1, lines.count / 2)).joined(separator: "\n")
         let header = "===== ROTATED \(timestampFormatter.string(from: Date())) =====\n"
-        try? (header + kept + "\n").data(using: .utf8)?.write(to: url)
+        try? (header + kept + "\n").data(using: .utf8)?.write(to: url, options: .atomic)
     }
 
     #else
