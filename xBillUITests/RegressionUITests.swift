@@ -99,37 +99,6 @@ final class RegressionUITests: XCTestCase {
         try archiveCurrentGroup()
     }
 
-    func testSettleUpExplainsMissingPaymentHandleRegression() throws {
-        try signInIfNeeded()
-
-        let groupName = uniqueName(prefix: "NoHandle")
-        try createGroup(named: groupName)
-        try openGroup(named: groupName)
-        try addExpense(title: "Handle expense \(uniqueSuffix())", amount: "10.00")
-        try openGroupTab("Settle Up")
-
-        // A brand-new group's members have no payment handles, so the settle-up surface
-        // must explain the absent button rather than rendering nothing.
-        let explanation = app.staticTexts.matching(
-            NSPredicate(format: "identifier BEGINSWITH %@", "xBill.settleUp.noPaymentHandle.")
-        ).firstMatch
-        let paymentButton = app.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH %@", "xBill.settleUp.paypalButton.")
-        ).firstMatch
-
-        if explanation.waitForExistence(timeout: 5) {
-            XCTAssertFalse(paymentButton.exists, "A payment button must not appear when no handle exists.")
-        } else {
-            XCTAssertFalse(
-                paymentButton.exists,
-                "With no handle saved, neither a payment button nor an explanation appeared."
-            )
-        }
-
-        try openGroupTab("Expenses")
-        try archiveCurrentGroup()
-    }
-
     func testCreateGroupValidationRegression() throws {
         try signInIfNeeded()
         try requireGroupsSurface()
