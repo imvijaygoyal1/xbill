@@ -160,4 +160,44 @@ struct PaymentHandoffTests {
         #expect(service.paymentLink(for: sugg, recipient: recipient(paypal: handle), method: .paypal) == nil)
         #expect(service.paymentLink(for: sugg, recipient: recipient(venmo: handle), method: .venmo) == nil)
     }
+
+    // MARK: - Validator agreement
+
+    @Test("PaymentLinkService accepts exactly what the validator accepts", arguments: [
+        "ab",            // too short for both
+        "abcd",          // valid PayPal, too short for Venmo
+        "my_handle",     // valid Venmo, invalid PayPal
+        "my.handle",     // invalid for both
+        "realhandle"     // valid for both
+    ])
+    func serviceAgreesWithValidator(_ handle: String) {
+        let sugg = suggestion()
+        let paypalURL = PaymentLinkService.shared.paymentLink(
+            for: sugg, recipient: recipient(paypal: handle), method: .paypal
+        )
+        let venmoURL = PaymentLinkService.shared.paymentLink(
+            for: sugg, recipient: recipient(venmo: handle), method: .venmo
+        )
+        #expect((paypalURL != nil) == (PaymentHandleValidator.normalized(handle, for: .paypal) != nil))
+        #expect((venmoURL != nil) == (PaymentHandleValidator.normalized(handle, for: .venmo) != nil))
+    }
+
+    // MARK: - Profile (test-your-link) URLs
+
+    @Test("PayPal profile link omits the amount")
+    func paypalProfileLink() throws {
+        let url = try #require(PaymentLinkService.shared.profileLink(handle: "realhandle", method: .paypal))
+        #expect(url.absoluteString == "https://paypal.me/realhandle")
+    }
+
+    @Test("Venmo profile link uses the verified /u/ path")
+    func venmoProfileLink() throws {
+        let url = try #require(PaymentLinkService.shared.profileLink(handle: "realhandle", method: .venmo))
+        #expect(url.absoluteString == "https://venmo.com/u/realhandle")
+    }
+
+    @Test("Profile links reject handles the validator rejects", arguments: ["ab", "my handle", ""])
+    func profileLinkRejectsInvalid(_ handle: String) {
+        #expect(PaymentLinkService.shared.profileLink(handle: handle, method: .paypal) == nil)
+    }
 }

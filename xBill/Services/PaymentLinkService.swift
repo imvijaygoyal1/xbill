@@ -22,25 +22,32 @@ final class PaymentLinkService: Sendable {
     ) -> URL? {
         switch method {
         case .venmo:
-            guard let username = normalizedHandle(recipient.venmoHandle, allowsAtPrefix: true) else { return nil }
+            guard let username = PaymentHandleValidator.normalized(recipient.venmoHandle, for: .venmo) else { return nil }
             return venmoLink(to: username, amount: suggestion.amount, note: "xBill settlement")
         case .paypal:
-            guard let username = normalizedHandle(recipient.paypalHandle, allowsAtPrefix: true) else { return nil }
+            guard let username = PaymentHandleValidator.normalized(recipient.paypalHandle, for: .paypal) else { return nil }
             return paypalLink(to: username, amount: suggestion.amount, currency: suggestion.currency)
         case .upi:     return nil   // UPI links are user-specific; handled separately
         default:       return nil
         }
     }
 
-    private func normalizedHandle(_ raw: String?, allowsAtPrefix: Bool) -> String? {
-        var value = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if allowsAtPrefix, value.hasPrefix("@") {
-            value.removeFirst()
-        }
-        guard value.range(of: "^[a-zA-Z0-9._-]{2,}$", options: .regularExpression) != nil else {
+    /// The provider's public profile page, with no amount. Used by "test your link"
+    /// so the handle's owner can confirm it resolves without opening a payment screen.
+    ///
+    /// Verified 2026-07-26: `venmo.com/u/<handle>` returns 404 for a nonexistent handle,
+    /// while `paypal.me/<handle>` returns 200 and renders PayPal's own error page.
+    func profileLink(handle: String?, method: Settlement.PaymentMethod) -> URL? {
+        switch method {
+        case .venmo:
+            guard let username = PaymentHandleValidator.normalized(handle, for: .venmo) else { return nil }
+            return URL(string: "https://venmo.com/u/\(username)")
+        case .paypal:
+            guard let username = PaymentHandleValidator.normalized(handle, for: .paypal) else { return nil }
+            return URL(string: "https://paypal.me/\(username)")
+        default:
             return nil
         }
-        return value
     }
 
     // MARK: - Venmo
@@ -62,11 +69,7 @@ final class PaymentLinkService: Sendable {
 
     /// https://paypal.me/<username>/<amount><currency>
     private func paypalLink(to username: String, amount: Decimal, currency: String) -> URL? {
-        guard username.range(of: "^[a-zA-Z0-9._-]+$", options: .regularExpression) != nil else {
-            return nil
-        }
-        let path = "https://paypal.me/\(username)/\(amount)\(currency)"
-        return URL(string: path)
+        URL(string: "https://paypal.me/\(username)/\(amount)\(currency)")
     }
 
     // MARK: - UPI (India)
