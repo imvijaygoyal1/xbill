@@ -489,6 +489,11 @@ final class GroupViewModel {
                 )
             }
 
+            // `load()` intentionally skips while `isLoading` is true. Clear the
+            // settlement operation's loading state before reloading so the just-updated
+            // split is reflected immediately in Settle Up instead of leaving the old row
+            // visible until a later screen refresh.
+            isLoading = false
             await load()
         } catch {
             guard !AppError.isSilent(error) else { return }
