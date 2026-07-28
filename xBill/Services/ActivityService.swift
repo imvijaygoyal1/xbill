@@ -17,21 +17,40 @@ final class ActivityService {
 
     private init() {}
 
-    /// Fetches fresh expense activity from the DB, merges into the local store,
-    /// then returns the combined list sorted newest-first.
-    /// Items already in the store keep their existing read state.
+    /// Fetches server notifications and supplements them with historical expense
+    /// activity. Historical rows are read-only context; only server notification
+    /// rows participate in unread state and badge counts.
     func fetchRecentActivity(userID: UUID, limit: Int = 50) async throws -> [NotificationItem] {
+        var remoteItems: [NotificationItem] = []
         do {
-            let remoteItems = try await remote.fetch(userID: userID)
-            store.replaceWithRemote(remoteItems)
-            return Array(store.loadAll().prefix(limit))
+            remoteItems = try await remote.fetch(userID: userID)
         } catch {
-            // Keep the expense fallback available until migration 040 is deployed.
             AppDiagnostics.log(.balance, "ActivityService.remoteFetch.fallback", [
                 ("error", AppDiagnostics.describe(error))
             ])
+            // Preserve the previous error/partial-result behavior when the
+            // server-backed table is unavailable.
+            let legacyItems = try await fetchLegacyExpenseActivity(userID: userID)
+            store.merge(legacyItems)
+            return Array(store.loadAll().prefix(limit))
         }
 
+        // Existing accounts predate migration 040, so their historical
+        // expenses have no notification rows. Keep those visible without
+        // making them unread or inflating the APNs badge.
+        let legacyItems = (try? await fetchLegacyExpenseActivity(userID: userID)) ?? []
+        let remoteIDs = Set(remoteItems.map(\.id))
+        let historicalItems = legacyItems.compactMap { item -> NotificationItem? in
+            guard !remoteIDs.contains(item.id) else { return nil }
+            var item = item
+            item.isRead = true
+            return item
+        }
+        store.replaceWithRemote(remoteItems + historicalItems)
+        return Array(store.loadAll().prefix(limit))
+    }
+
+    private func fetchLegacyExpenseActivity(userID: UUID) async throws -> [NotificationItem] {
         let groups = try await groupService.fetchGroups(for: userID)
 
         var fetched: [NotificationItem] = []
@@ -47,16 +66,10 @@ final class ActivityService {
                 }
             }
         }
-        // Always merge partial results into the store so the caller can read them
-        // from the store even if we throw below.
-        store.merge(fetched)
-        let allItems = store.loadAll().prefix(limit).map { $0 }
-
         // Throw if any groups failed, so the caller can surface a warning.
-        // On partial failure, items already merged above remain readable from store.
         if let first = groupErrors.first { throw first }
 
-        return allItems
+        return fetched
     }
 
     func markRead(id: UUID) async {
