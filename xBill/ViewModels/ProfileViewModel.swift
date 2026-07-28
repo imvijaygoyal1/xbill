@@ -139,8 +139,22 @@ final class ProfileViewModel {
         defer { isLoading = false }
 
         do {
-            let handle = PaymentHandleValidator.normalized(venmoHandle, for: .venmo)
-            let paypal = PaymentHandleValidator.normalized(paypalHandle, for: .paypal)
+            // Distinguish "empty" (deliberate clear → nil) from "invalid" (never saved —
+            // preserve whatever is already stored). Edit Profile's Save calls this same
+            // method without the Payment Handles section's `canSaveHandles` gate, so an
+            // invalid-but-unsaved edit here must not silently NULL out a good stored handle.
+            let handle: String?
+            switch PaymentHandleValidator.validate(venmoHandle, for: .venmo) {
+            case .valid(let normalized): handle = normalized
+            case .empty:                 handle = nil
+            case .invalid:                handle = user.venmoHandle
+            }
+            let paypal: String?
+            switch PaymentHandleValidator.validate(paypalHandle, for: .paypal) {
+            case .valid(let normalized): paypal = normalized
+            case .empty:                 paypal = nil
+            case .invalid:                paypal = user.paypalHandle
+            }
 
             // H-16: resolve the final avatar URL first, then do ONE profile write.
             // This eliminates the stale-URL first write and the race where step 2 fails

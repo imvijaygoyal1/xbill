@@ -294,7 +294,10 @@ The account has been pre-seeded with:
 Key features to review:
   1. Home — balance hero card, group list
   2. Groups → Tokyo Trip — expense feed, per-member balances
-  3. Groups → Tokyo Trip → Settle Up — minimized transaction suggestions + Venmo links
+  3. Groups → Tokyo Trip → Settle Up — minimized transaction suggestions. Seeded profiles
+     have no Venmo/PayPal handle on purpose (a fabricated handle would deep-link into a
+     real, unrelated payment account), so each suggestion shows "Ask <name> to add a
+     payment handle" instead of a payment button — this is expected, not a bug.
   4. Add Expense (+ button) — amount, category, split type, receipt scan
   5. Receipt Scan — camera viewfinder (use any receipt photo)
   6. Friends tab — IOU from Alice Chen
@@ -310,7 +313,7 @@ Privacy Policy: https://xbill.vijaygoyal.org/privacy
 - [ ] Reviewer can sign in with appreviewer@xbill.vijaygoyal.org and the rotated password stored outside git
 - [ ] Home screen shows non-zero "You are owed" balance
 - [ ] Tokyo Trip group shows 5 expenses
-- [ ] Settle Up shows 2–3 suggested payments
+- [ ] Settle Up shows 2–3 suggested payments, each showing "Ask <name> to add a payment handle" (no Venmo/PayPal button — seeded profiles have no payment handle)
 - [ ] Friends tab shows 1 IOU from Alice Chen
 - [ ] Activity feed shows expenses grouped by date
 - [ ] Delete account flow completes without error (test separately before submission)

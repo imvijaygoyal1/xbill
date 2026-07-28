@@ -36,8 +36,23 @@ struct GroupDetailView: View {
         let suggestion: SettlementSuggestion
         let providerName: String
     }
-    @State private var pendingHandoff: PendingHandoff?
-    @State private var handoffPrompt: PendingHandoff?
+    /// The handoff is held by exactly one of `.pending`/`.asking`, or neither (`.none`) —
+    /// an invariant two independent optionals could not enforce and both shipped
+    /// device-only handoff bugs were violations of it.
+    private enum HandoffState: Equatable {
+        case none
+        /// Armed; waiting for a safe moment to present (e.g. App Lock still up, or the
+        /// AppLockView dismissal transition still animating).
+        case pending(PendingHandoff)
+        /// The alert is, or should be, on screen.
+        case asking(PendingHandoff)
+
+        var askingPayload: PendingHandoff? {
+            if case .asking(let payload) = self { return payload }
+            return nil
+        }
+    }
+    @State private var handoff: HandoffState = .none
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
@@ -123,7 +138,7 @@ struct GroupDetailView: View {
                     ("isLoadingBalances", vm.isLoadingBalances),
                     ("hasLoadedBalances", vm.hasLoadedBalances),
                     ("balanceLoadFailed", vm.balanceLoadFailed),
-                    ("pendingHandoff", pendingHandoff != nil),
+                    ("handoff", String(describing: handoff)),
                     ("isLocked", AppLockService.shared.isLocked)
                 ]
                 AppDiagnostics.log(.lifecycle, "GroupDetailView.scenePhase", fields)
@@ -251,23 +266,31 @@ struct GroupDetailView: View {
             // .cancel-role button inside a confirmationDialog does not reliably render with
             // its own title — "Not yet" was missing on device while "Mark as Settled" showed.
             // An alert guarantees both titled buttons appear.
+            //
+            // Uses the `presenting:` overload so the payload is handed to the action
+            // closures directly instead of being re-read from `@State` after the binding's
+            // setter has already fired. SwiftUI does not contractually guarantee the alert
+            // action runs before `isPresented`'s setter — re-reading `handoff` from inside
+            // the action risked reading it after the setter had already reset it to `.none`.
             .alert(
                 "Did you complete this payment?",
                 isPresented: Binding(
-                    get: { handoffPrompt != nil },
-                    set: { if !$0 { handoffPrompt = nil } }
-                )
-            ) {
-                Button("Not yet", role: .cancel) { handoffPrompt = nil }
+                    get: { handoff.askingPayload != nil },
+                    set: { if !$0 { handoff = .none } }
+                ),
+                presenting: handoff.askingPayload
+            ) { prompt in
+                // No body needed: the binding's setter above already clears `handoff` to
+                // `.none`, so "cleared after one answer" is structural for both buttons.
+                Button("Not yet", role: .cancel) { }
                 Button("Mark as Settled") {
-                    guard let prompt = handoffPrompt else { return }
-                    handoffPrompt = nil
-                    Task { await vm.recordSettlement(prompt.suggestion) }
+                    Task {
+                        await vm.recordSettlement(prompt.suggestion)
+                        HapticManager.success()
+                    }
                 }
-            } message: {
-                if let prompt = handoffPrompt {
-                    Text("xBill can't confirm payments made in \(prompt.providerName). Only mark this settled if the payment went through.")
-                }
+            } message: { prompt in
+                Text("xBill can't confirm payments made in \(prompt.providerName). Only mark this settled if the payment went through.")
             }
             .navigationDestination(isPresented: $showStats) {
                 GroupStatsView(
@@ -601,13 +624,18 @@ struct GroupDetailView: View {
                 )
                 return
             }
+            // Guard against a second handoff scheduling a competing presentation while one
+            // is already `.asking` — swapping the payload out from under an alert the user
+            // is actively looking at would silently change which suggestion "Mark as
+            // Settled" records.
+            if case .asking = handoff { return }
             // Only arm the prompt when the payment app actually opened.
-            pendingHandoff = PendingHandoff(suggestion: suggestion, providerName: providerName)
+            handoff = .pending(PendingHandoff(suggestion: suggestion, providerName: providerName))
         }
     }
 
     private func presentHandoffPromptIfReady() {
-        guard let pending = pendingHandoff else { return }
+        guard case .pending(let pending) = handoff else { return }
         guard !AppLockService.shared.isLocked else {
             AppDiagnostics.log(.payment, "handoffPrompt.deferred", [
                 ("reason", "appLocked"),
@@ -615,18 +643,29 @@ struct GroupDetailView: View {
             ])
             return
         }
-        pendingHandoff = nil          // cleared so it can never re-ask on a later foreground
         AppDiagnostics.log(.payment, "handoffPrompt.arming", [("provider", pending.providerName)])
 
         // Presenting synchronously here loses the dialog. When App Lock clears, ContentView
         // animates AppLockView away over 0.3s, and SwiftUI drops a confirmationDialog raised
-        // from a descendant while that transition is still in flight — the state machine runs
-        // correctly (pendingHandoff is consumed) but nothing appears on screen. Waiting for the
+        // from a descendant while that transition is still in flight. Waiting for the
         // transition to settle is what actually makes it present.
+        //
+        // Unlike the previous two-@State-field version, `handoff` is never cleared before
+        // this sleep — it stays `.pending(pending)`, still holding the payload, for the
+        // entire wait, then transitions straight to `.asking(pending)` in one non-destructive
+        // step. The 600ms wait is now an optimisation, not the only thing standing between a
+        // dropped presentation and a lost prompt: if this attempt is *still* dropped, the
+        // state is `.asking(pending)`, not lost, and the next `.onChange(of: scenePhase)` /
+        // `.onChange(of: isLocked)` re-drives the same `isPresented` binding — which is still
+        // computed from `handoff.askingPayload` — so SwiftUI gets another chance to present it.
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(600))
-            handoffPrompt = pending
-            AppDiagnostics.log(.payment, "handoffPrompt.presented", [("provider", pending.providerName)])
+            // Bail if something else already resolved this handoff while asleep (e.g. the
+            // group screen was dismissed and reconstructed, or a retry from a subsequent
+            // onChange already advanced it) rather than clobbering a newer state.
+            guard case .pending(let stillPending) = handoff, stillPending == pending else { return }
+            handoff = .asking(stillPending)
+            AppDiagnostics.log(.payment, "handoffPrompt.presented", [("provider", stillPending.providerName)])
         }
     }
 

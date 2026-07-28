@@ -205,5 +205,7 @@ struct PaymentHandoffTests {
     @Test("Profile links reject handles the validator rejects", arguments: ["ab", "my handle", ""])
     func profileLinkRejectsInvalid(_ handle: String) {
         #expect(PaymentLinkService.shared.profileLink(handle: handle, method: .paypal) == nil)
+        // All three arguments are also invalid for Venmo (too short / contains a space / empty).
+        #expect(PaymentLinkService.shared.profileLink(handle: handle, method: .venmo) == nil)
     }
 }

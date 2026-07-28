@@ -63,6 +63,18 @@ final class PaymentLinkService: Sendable {
     ///
     /// `en_US_POSIX` keeps the separator a dot regardless of device locale, and grouping
     /// is disabled so 1234.50 renders "1234.50" rather than a URL-breaking "1,234.50".
+    ///
+    /// `roundingMode` is set explicitly to `.halfEven` (bankers' rounding) — `NumberFormatter`
+    /// already defaults to this, but it's pinned here on purpose: `Decimal.formatted(currencyCode:)`
+    /// in `xBill/Core/Extensions.swift` and `Decimal.rounded` both round the *displayed* amount
+    /// with `.bankers` (the same algorithm). If either formatter's rounding mode ever drifts from
+    /// the other, the amount shown to the user and the amount encoded in the payment URL can
+    /// silently disagree by a cent. Keep them in step.
+    ///
+    /// `nonisolated(unsafe)` is safe here specifically because `NumberFormatter` is thread-safe
+    /// on iOS 7+ *when configured once and never mutated afterward* — this instance is built
+    /// entirely inside this immutable `static let` initializer closure and every property is set
+    /// before the closure returns; nothing outside this closure ever touches it again.
     nonisolated(unsafe) private static let amountFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -70,11 +82,21 @@ final class PaymentLinkService: Sendable {
         formatter.minimumFractionDigits = 2
         formatter.maximumFractionDigits = 2
         formatter.usesGroupingSeparator = false
+        formatter.roundingMode = .halfEven
         return formatter
     }()
 
     static func formattedAmount(_ amount: Decimal) -> String {
-        amountFormatter.string(from: amount as NSDecimalNumber) ?? "\(amount)"
+        // `NumberFormatter.string(from:)` on an `NSDecimalNumber` with a configured
+        // `numberStyle`/fraction-digit range effectively never returns nil, but the previous
+        // `?? "\(amount)"` fallback reinstated the exact trailing-zero-dropping bug this
+        // function exists to prevent (see the doc comment above) if it were ever hit —
+        // `Decimal.description` does not honour a rounded scale, so even `amount.rounded.description`
+        // would print "5" instead of "5.00". `String(format:)` without an explicit locale is not
+        // locale-sensitive (always renders "." regardless of device locale), so this fallback keeps
+        // the two-decimal guarantee independent of `NumberFormatter` entirely.
+        amountFormatter.string(from: amount as NSDecimalNumber)
+            ?? String(format: "%.2f", NSDecimalNumber(decimal: amount).doubleValue)
     }
 
     // MARK: - Venmo
@@ -108,7 +130,11 @@ final class PaymentLinkService: Sendable {
         components.host   = "pay"
         components.queryItems = [
             URLQueryItem(name: "pa", value: upiID),
-            URLQueryItem(name: "am", value: "\(amount)"),
+            // Routed through the same two-decimal formatter as Venmo/PayPal — unreachable
+            // today (UPI is not wired up to any UI yet), but string-interpolating a Decimal
+            // directly here would ship the exact trailing-zero bug fixed for the other two
+            // providers the moment this is wired up.
+            URLQueryItem(name: "am", value: Self.formattedAmount(amount)),
             URLQueryItem(name: "cu", value: "INR"),
             URLQueryItem(name: "tn", value: note)
         ]

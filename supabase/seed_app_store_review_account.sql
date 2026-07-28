@@ -238,6 +238,12 @@ begin
     (reviewer_id, 'App Reviewer', null, null, null, null, 'appreviewer@xbill.vijaygoyal.org'),
     (alice_id, 'Alice Chen', null, null, null, null, 'alice.seed@xbill.vijaygoyal.org'),
     (bob_id, 'Bob Patel', null, null, null, null, 'bob.seed@xbill.vijaygoyal.org')
+  -- Re-running this seed deliberately re-NULLs venmo_handle/paypal_handle on conflict
+  -- (excluded.* comes from the all-NULL `values` list above). That is intentional for a
+  -- fresh review account, but it also means re-running this script against an account a
+  -- tester has been using will silently erase any payment handle they entered through the
+  -- app's own Profile screen. Do not re-run this seed against an in-use reviewer account
+  -- without checking for tester-entered handles first.
   on conflict (id) do update
   set display_name = excluded.display_name,
       avatar_url = excluded.avatar_url,
