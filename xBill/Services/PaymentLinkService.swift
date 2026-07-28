@@ -50,6 +50,33 @@ final class PaymentLinkService: Sendable {
         }
     }
 
+    // MARK: - Amount formatting
+
+    /// Renders a money amount for a payment URL as exactly two decimal places.
+    ///
+    /// String-interpolating a `Decimal` drops trailing zeros, so 1.90 becomes "1.9" and
+    /// 95.00 becomes "95". Verified on-device 2026-07-27: PayPal.Me **ignores** a
+    /// single-decimal amount — `paypal.me/<handle>/1.9USD` silently renders the plain
+    /// profile page, while `paypal.me/<handle>/5.00USD` opens a real payment screen for
+    /// $5.00. Every round settlement amount was therefore producing a link that dropped
+    /// the amount entirely.
+    ///
+    /// `en_US_POSIX` keeps the separator a dot regardless of device locale, and grouping
+    /// is disabled so 1234.50 renders "1234.50" rather than a URL-breaking "1,234.50".
+    nonisolated(unsafe) private static let amountFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        formatter.usesGroupingSeparator = false
+        return formatter
+    }()
+
+    static func formattedAmount(_ amount: Decimal) -> String {
+        amountFormatter.string(from: amount as NSDecimalNumber) ?? "\(amount)"
+    }
+
     // MARK: - Venmo
 
     private func venmoLink(to username: String, amount: Decimal, note: String) -> URL? {
@@ -59,7 +86,7 @@ final class PaymentLinkService: Sendable {
         components.queryItems = [
             URLQueryItem(name: "txn",        value: "pay"),
             URLQueryItem(name: "recipients", value: username),
-            URLQueryItem(name: "amount",     value: "\(amount)"),
+            URLQueryItem(name: "amount",     value: Self.formattedAmount(amount)),
             URLQueryItem(name: "note",       value: note)
         ]
         return components.url
@@ -69,7 +96,7 @@ final class PaymentLinkService: Sendable {
 
     /// https://paypal.me/<username>/<amount><currency>
     private func paypalLink(to username: String, amount: Decimal, currency: String) -> URL? {
-        URL(string: "https://paypal.me/\(username)/\(amount)\(currency)")
+        URL(string: "https://paypal.me/\(username)/\(Self.formattedAmount(amount))\(currency)")
     }
 
     // MARK: - UPI (India)

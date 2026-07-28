@@ -101,20 +101,26 @@ struct PaymentHandoffTests {
             recipient: recipient(paypal: "realhandle"),
             method: .paypal
         ))
-        #expect(url.absoluteString == "https://paypal.me/realhandle/95USD")
+        #expect(url.absoluteString == "https://paypal.me/realhandle/95.00USD")
         #expect(url.scheme == "https")
         #expect(url.host() == "paypal.me")
     }
 
-    /// Decimal's string interpolation drops trailing zeros, so 12.50 becomes
-    /// "12.5". PayPal.Me accepts that form. The important guarantee is that the
-    /// amount never renders in scientific notation, which would produce a link
-    /// PayPal cannot parse.
-    @Test("PayPal link renders decimal amounts as a plain decimal", arguments: [
-        (Decimal(string: "12.50")!, "12.5"),
+    /// Money amounts must render with exactly two decimal places.
+    ///
+    /// String-interpolating a `Decimal` drops trailing zeros ("1.9", "95"), and PayPal.Me
+    /// ignores such an amount — verified on-device 2026-07-27: `paypal.me/<handle>/1.9USD`
+    /// renders the plain profile page while `/5.00USD` opens a real $5.00 payment screen.
+    /// Every round settlement amount was silently losing its amount.
+    ///
+    /// Also guards two URL-breaking forms: scientific notation, and a thousands separator
+    /// (1234.50 must not render "1,234.50").
+    @Test("PayPal link renders amounts with exactly two decimal places", arguments: [
+        (Decimal(string: "12.50")!, "12.50"),
+        (Decimal(string: "1.9")!, "1.90"),
         (Decimal(string: "0.05")!, "0.05"),
-        (Decimal(string: "1234.5")!, "1234.5"),
-        (Decimal(95), "95")
+        (Decimal(string: "1234.5")!, "1234.50"),
+        (Decimal(95), "95.00")
     ])
     func paypalLinkDecimalAmount(_ amount: Decimal, _ expected: String) throws {
         let url = try #require(PaymentLinkService.shared.paymentLink(
@@ -133,7 +139,7 @@ struct PaymentHandoffTests {
             recipient: recipient(paypal: "@realhandle"),
             method: .paypal
         ))
-        #expect(url.absoluteString == "https://paypal.me/realhandle/95USD")
+        #expect(url.absoluteString == "https://paypal.me/realhandle/95.00USD")
     }
 
     @Test("Venmo link uses the venmo:// charge scheme with the recipient handle")
@@ -147,7 +153,7 @@ struct PaymentHandoffTests {
         #expect(url.host == "paycharge")
         let query = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
         #expect(query.contains(URLQueryItem(name: "recipients", value: "realhandle")))
-        #expect(query.contains(URLQueryItem(name: "amount", value: "95")))
+        #expect(query.contains(URLQueryItem(name: "amount", value: "95.00")))
         #expect(query.contains(URLQueryItem(name: "txn", value: "pay")))
     }
 
