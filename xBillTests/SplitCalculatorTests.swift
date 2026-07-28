@@ -218,6 +218,46 @@ struct SplitCalculatorTests {
         #expect(suggestions.count <= 2)
     }
 
+    @Test("Direct settlement suggestions remain actionable as whole splits")
+    func directSettlementSuggestionsDoNotInventNetTransfers() {
+        let creditorID = UUID()
+        let debtorID = UUID()
+        let reversePayerID = UUID()
+
+        let firstExpense = Expense(
+            id: UUID(), groupID: UUID(), title: "Dinner",
+            amount: 2.00, currency: "USD", payerID: creditorID,
+            category: .food, notes: nil, receiptURL: nil,
+            recurrence: .none, createdAt: Date())
+        let reverseExpense = Expense(
+            id: UUID(), groupID: firstExpense.groupID, title: "Coffee",
+            amount: 0.10, currency: "USD", payerID: debtorID,
+            category: .food, notes: nil, receiptURL: nil,
+            recurrence: .none, createdAt: Date())
+
+        let splits: [UUID: [Split]] = [
+            firstExpense.id: [
+                Split(id: UUID(), expenseID: firstExpense.id, userID: creditorID, amount: 0.00, percentage: nil, isSettled: false, settledAt: nil),
+                Split(id: UUID(), expenseID: firstExpense.id, userID: debtorID, amount: 2.00, percentage: nil, isSettled: false, settledAt: nil)
+            ],
+            reverseExpense.id: [
+                Split(id: UUID(), expenseID: reverseExpense.id, userID: debtorID, amount: 0.00, percentage: nil, isSettled: false, settledAt: nil),
+                Split(id: UUID(), expenseID: reverseExpense.id, userID: reversePayerID, amount: 0.10, percentage: nil, isSettled: false, settledAt: nil)
+            ]
+        ]
+
+        let suggestions = SplitCalculator.directSettlementSuggestions(
+            expenses: [firstExpense, reverseExpense],
+            splits: splits,
+            names: [creditorID: "Creditor", debtorID: "Debtor", reversePayerID: "Other"],
+            currency: "USD"
+        )
+
+        #expect(suggestions.contains { $0.fromUserID == debtorID && $0.toUserID == creditorID && $0.amount == 2.00 })
+        #expect(suggestions.contains { $0.fromUserID == reversePayerID && $0.toUserID == debtorID && $0.amount == 0.10 })
+        #expect(!suggestions.contains { $0.amount == 1.90 })
+    }
+
     @Test("Minimize transactions returns empty when all settled")
     func minimizeTransactionsAllSettled() {
         let suggestions = SplitCalculator.minimizeTransactions(

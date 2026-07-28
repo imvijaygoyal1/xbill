@@ -229,8 +229,9 @@ final class GroupViewModel {
             }
             let rawBalances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
             balances = rawBalances
-            settlementSuggestions = SplitCalculator.minimizeTransactions(
-                balances: rawBalances,
+            settlementSuggestions = SplitCalculator.directSettlementSuggestions(
+                expenses: expenses,
+                splits: splitsMap,
                 names: memberNames,
                 currency: group.currency
             )
@@ -406,6 +407,13 @@ final class GroupViewModel {
         isLoading = true
         defer { isLoading = false }
 
+        AppDiagnostics.log(.balance, "GroupViewModel.recordSettlement.enter", [
+            ("group", group.name),
+            ("from", suggestion.fromUserID.uuidString),
+            ("to", suggestion.toUserID.uuidString),
+            ("amount", suggestion.amount)
+        ])
+
         do {
             // Fetch fresh splits for expenses paid by the creditor to avoid stale splitsMap data.
             let relevantExpenseIDs = expenses.compactMap { expense -> UUID? in
@@ -435,6 +443,11 @@ final class GroupViewModel {
                 if remaining <= epsilon { break }
             }
             guard !splitsToSettle.isEmpty, remaining <= epsilon else {
+                AppDiagnostics.log(.balance, "GroupViewModel.recordSettlement.unmatched", [
+                    ("group", group.name),
+                    ("candidateSplits", candidateSplits.count),
+                    ("remaining", remaining)
+                ])
                 throw AppError.validationFailed(
                     "This settlement cannot be matched to the current expense splits. Refresh the group and try again."
                 )
@@ -448,6 +461,12 @@ final class GroupViewModel {
                 }
                 try await taskGroup.waitForAll()
             }
+
+            AppDiagnostics.log(.balance, "GroupViewModel.recordSettlement.splitsUpdated", [
+                ("group", group.name),
+                ("count", splitsToSettle.count),
+                ("amount", suggestion.amount)
+            ])
 
             let note = NotificationItem.settlement(
                 suggestion: suggestion,

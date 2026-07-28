@@ -209,6 +209,59 @@ enum SplitCalculator {
         return suggestions
     }
 
+    /// Produces settlement suggestions that map directly to the stored splits.
+    ///
+    /// Net-balance minimization can create a transfer between two people whose
+    /// individual splits do not add up to that transfer. Such a suggestion is
+    /// attractive on paper but cannot be marked settled without settling more
+    /// than the user confirmed. Settle Up uses this direct form so every row is
+    /// actionable against the database's whole-split settlement model.
+    static func directSettlementSuggestions(
+        expenses: [Expense],
+        splits: [UUID: [Split]],
+        names: [UUID: String],
+        currency: String
+    ) -> [SettlementSuggestion] {
+        struct DebtKey: Hashable {
+            let debtorID: UUID
+            let creditorID: UUID
+        }
+
+        var debts: [DebtKey: Decimal] = [:]
+        for expense in expenses {
+            guard let creditorID = expense.payerID else { continue }
+            for split in splits[expense.id] ?? [] {
+                guard !split.isSettled, split.userID != creditorID else { continue }
+
+                var amount = split.amount
+                var rounded = Decimal()
+                NSDecimalRound(&rounded, &amount, 2, .bankers)
+                let key = DebtKey(debtorID: split.userID, creditorID: creditorID)
+                debts[key, default: .zero] += rounded
+            }
+        }
+
+        return debts
+            .filter { $0.value > .zero }
+            .sorted {
+                if $0.key.debtorID != $1.key.debtorID {
+                    return $0.key.debtorID.uuidString < $1.key.debtorID.uuidString
+                }
+                return $0.key.creditorID.uuidString < $1.key.creditorID.uuidString
+            }
+            .map { key, amount in
+                SettlementSuggestion(
+                    id: UUID(),
+                    fromUserID: key.debtorID,
+                    fromName: names[key.debtorID] ?? "Unknown",
+                    toUserID: key.creditorID,
+                    toName: names[key.creditorID] ?? "Unknown",
+                    amount: amount,
+                    currency: currency
+                )
+            }
+    }
+
     // MARK: - Async Split Fetching
 
     /// Fetches splits for all expenses in parallel, returning a map keyed by expense ID.

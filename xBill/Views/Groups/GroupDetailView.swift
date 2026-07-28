@@ -585,7 +585,8 @@ struct GroupDetailView: View {
                 settlementToConfirm = suggestion
             }
             .accessibilityIdentifier("xBill.settleUp.markSettledButton.\(suggestion.id.uuidString)")
-            if let recipient = vm.members.first(where: { $0.id == suggestion.toUserID }) {
+            if currentUserID == suggestion.fromUserID,
+               let recipient = vm.members.first(where: { $0.id == suggestion.toUserID }) {
                 let venmoHandle  = PaymentHandleValidator.normalized(recipient.venmoHandle, for: .venmo)
                 let paypalHandle = PaymentHandleValidator.normalized(recipient.paypalHandle, for: .paypal)
 
