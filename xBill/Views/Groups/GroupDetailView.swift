@@ -247,20 +247,23 @@ struct GroupDetailView: View {
                     Text("\(s.fromName) → \(s.toName): \(s.amount.formatted(currencyCode: s.currency)). This cannot be undone.")
                 }
             }
-            .confirmationDialog(
+            // An alert, not a confirmationDialog: this is a binary question, and a
+            // .cancel-role button inside a confirmationDialog does not reliably render with
+            // its own title — "Not yet" was missing on device while "Mark as Settled" showed.
+            // An alert guarantees both titled buttons appear.
+            .alert(
                 "Did you complete this payment?",
                 isPresented: Binding(
                     get: { handoffPrompt != nil },
                     set: { if !$0 { handoffPrompt = nil } }
-                ),
-                titleVisibility: .visible
+                )
             ) {
+                Button("Not yet", role: .cancel) { handoffPrompt = nil }
                 Button("Mark as Settled") {
                     guard let prompt = handoffPrompt else { return }
                     handoffPrompt = nil
                     Task { await vm.recordSettlement(prompt.suggestion) }
                 }
-                Button("Not yet", role: .cancel) { handoffPrompt = nil }
             } message: {
                 if let prompt = handoffPrompt {
                     Text("xBill can't confirm payments made in \(prompt.providerName). Only mark this settled if the payment went through.")
@@ -605,9 +608,26 @@ struct GroupDetailView: View {
 
     private func presentHandoffPromptIfReady() {
         guard let pending = pendingHandoff else { return }
-        guard !AppLockService.shared.isLocked else { return }
+        guard !AppLockService.shared.isLocked else {
+            AppDiagnostics.log(.payment, "handoffPrompt.deferred", [
+                ("reason", "appLocked"),
+                ("provider", pending.providerName)
+            ])
+            return
+        }
         pendingHandoff = nil          // cleared so it can never re-ask on a later foreground
-        handoffPrompt = pending
+        AppDiagnostics.log(.payment, "handoffPrompt.arming", [("provider", pending.providerName)])
+
+        // Presenting synchronously here loses the dialog. When App Lock clears, ContentView
+        // animates AppLockView away over 0.3s, and SwiftUI drops a confirmationDialog raised
+        // from a descendant while that transition is still in flight — the state machine runs
+        // correctly (pendingHandoff is consumed) but nothing appears on screen. Waiting for the
+        // transition to settle is what actually makes it present.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(600))
+            handoffPrompt = pending
+            AppDiagnostics.log(.payment, "handoffPrompt.presented", [("provider", pending.providerName)])
+        }
     }
 
     // MARK: - Toolbar

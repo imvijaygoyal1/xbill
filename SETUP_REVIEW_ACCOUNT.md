@@ -135,7 +135,7 @@ VALUES (
   'eeeeeeee-0001-0001-0001-000000000001',
   'cccccccc-cccc-cccc-cccc-cccccccccccc',
   '<REVIEWER_UUID>',
-  18.00,
+  3.60,
   'Flights to Tokyo',
   'travel',
   now() - interval '5 days'
@@ -143,9 +143,9 @@ VALUES (
 
 INSERT INTO public.splits (expense_id, user_id, amount, is_settled)
 VALUES
-  ('eeeeeeee-0001-0001-0001-000000000001', '<REVIEWER_UUID>', 6.00, true),
-  ('eeeeeeee-0001-0001-0001-000000000001', 'aaaaaaaa-0001-0001-0001-000000000001', 6.00, false),
-  ('eeeeeeee-0001-0001-0001-000000000001', 'aaaaaaaa-0002-0002-0002-000000000002', 6.00, false);
+  ('eeeeeeee-0001-0001-0001-000000000001', '<REVIEWER_UUID>', 1.20, true),
+  ('eeeeeeee-0001-0001-0001-000000000001', 'aaaaaaaa-0001-0001-0001-000000000001', 1.20, false),
+  ('eeeeeeee-0001-0001-0001-000000000001', 'aaaaaaaa-0002-0002-0002-000000000002', 1.20, false);
 
 -- Expense 2: Alice paid, split equally — reviewer owes
 INSERT INTO public.expenses (id, group_id, paid_by, amount, description, category, created_at)
@@ -153,7 +153,7 @@ VALUES (
   'eeeeeeee-0002-0002-0002-000000000002',
   'cccccccc-cccc-cccc-cccc-cccccccccccc',
   'aaaaaaaa-0001-0001-0001-000000000001',
-  9.00,
+  1.80,
   'Hotel — Night 1',
   'accommodation',
   now() - interval '4 days'
@@ -161,9 +161,9 @@ VALUES (
 
 INSERT INTO public.splits (expense_id, user_id, amount, is_settled)
 VALUES
-  ('eeeeeeee-0002-0002-0002-000000000002', '<REVIEWER_UUID>', 3.00, false),
-  ('eeeeeeee-0002-0002-0002-000000000002', 'aaaaaaaa-0001-0001-0001-000000000001', 3.00, true),
-  ('eeeeeeee-0002-0002-0002-000000000002', 'aaaaaaaa-0002-0002-0002-000000000002', 3.00, false);
+  ('eeeeeeee-0002-0002-0002-000000000002', '<REVIEWER_UUID>', 0.60, false),
+  ('eeeeeeee-0002-0002-0002-000000000002', 'aaaaaaaa-0001-0001-0001-000000000001', 0.60, true),
+  ('eeeeeeee-0002-0002-0002-000000000002', 'aaaaaaaa-0002-0002-0002-000000000002', 0.60, false);
 
 -- Expense 3: Reviewer paid, custom split
 INSERT INTO public.expenses (id, group_id, paid_by, amount, description, category, created_at)
@@ -171,7 +171,7 @@ VALUES (
   'eeeeeeee-0003-0003-0003-000000000003',
   'cccccccc-cccc-cccc-cccc-cccccccccccc',
   '<REVIEWER_UUID>',
-  12.00,
+  2.40,
   'Sushi dinner',
   'food',
   now() - interval '3 days'
@@ -179,9 +179,9 @@ VALUES (
 
 INSERT INTO public.splits (expense_id, user_id, amount, is_settled)
 VALUES
-  ('eeeeeeee-0003-0003-0003-000000000003', '<REVIEWER_UUID>', 5.00, true),
-  ('eeeeeeee-0003-0003-0003-000000000003', 'aaaaaaaa-0001-0001-0001-000000000001', 4.00, false),
-  ('eeeeeeee-0003-0003-0003-000000000003', 'aaaaaaaa-0002-0002-0002-000000000002', 3.00, false);
+  ('eeeeeeee-0003-0003-0003-000000000003', '<REVIEWER_UUID>', 1.00, true),
+  ('eeeeeeee-0003-0003-0003-000000000003', 'aaaaaaaa-0001-0001-0001-000000000001', 0.80, false),
+  ('eeeeeeee-0003-0003-0003-000000000003', 'aaaaaaaa-0002-0002-0002-000000000002', 0.60, false);
 
 -- Expense 4: Bob paid, split equally — reviewer owes
 INSERT INTO public.expenses (id, group_id, paid_by, amount, description, category, created_at)
@@ -189,7 +189,7 @@ VALUES (
   'eeeeeeee-0004-0004-0004-000000000004',
   'cccccccc-cccc-cccc-cccc-cccccccccccc',
   'aaaaaaaa-0002-0002-0002-000000000002',
-  6.00,
+  1.20,
   'Day trip to Nikko',
   'transport',
   now() - interval '2 days'
@@ -197,9 +197,9 @@ VALUES (
 
 INSERT INTO public.splits (expense_id, user_id, amount, is_settled)
 VALUES
-  ('eeeeeeee-0004-0004-0004-000000000004', '<REVIEWER_UUID>', 2.00, false),
-  ('eeeeeeee-0004-0004-0004-000000000004', 'aaaaaaaa-0001-0001-0001-000000000001', 2.00, false),
-  ('eeeeeeee-0004-0004-0004-000000000004', 'aaaaaaaa-0002-0002-0002-000000000002', 2.00, true);
+  ('eeeeeeee-0004-0004-0004-000000000004', '<REVIEWER_UUID>', 0.40, false),
+  ('eeeeeeee-0004-0004-0004-000000000004', 'aaaaaaaa-0001-0001-0001-000000000001', 0.40, false),
+  ('eeeeeeee-0004-0004-0004-000000000004', 'aaaaaaaa-0002-0002-0002-000000000002', 0.40, true);
 
 -- Expense 5: Reviewer paid, recent — shows in activity feed
 INSERT INTO public.expenses (id, group_id, paid_by, amount, description, category, created_at)
@@ -207,7 +207,7 @@ VALUES (
   'eeeeeeee-0005-0005-0005-000000000005',
   'cccccccc-cccc-cccc-cccc-cccccccccccc',
   '<REVIEWER_UUID>',
-  4.50,
+  0.90,
   'Convenience store run',
   'shopping',
   now() - interval '1 day'
@@ -215,9 +215,9 @@ VALUES (
 
 INSERT INTO public.splits (expense_id, user_id, amount, is_settled)
 VALUES
-  ('eeeeeeee-0005-0005-0005-000000000005', '<REVIEWER_UUID>', 1.50, true),
-  ('eeeeeeee-0005-0005-0005-000000000005', 'aaaaaaaa-0001-0001-0001-000000000001', 1.50, false),
-  ('eeeeeeee-0005-0005-0005-000000000005', 'aaaaaaaa-0002-0002-0002-000000000002', 1.50, false);
+  ('eeeeeeee-0005-0005-0005-000000000005', '<REVIEWER_UUID>', 0.30, true),
+  ('eeeeeeee-0005-0005-0005-000000000005', 'aaaaaaaa-0001-0001-0001-000000000001', 0.30, false),
+  ('eeeeeeee-0005-0005-0005-000000000005', 'aaaaaaaa-0002-0002-0002-000000000002', 0.30, false);
 ```
 
 ---
@@ -232,7 +232,7 @@ VALUES (
   'ffffffff-ffff-ffff-ffff-ffffffffffff',
   'aaaaaaaa-0001-0001-0001-000000000001',  -- Alice owes reviewer
   '<REVIEWER_UUID>',
-  2.50,
+  0.50,
   'Concert tickets',
   false
 ) ON CONFLICT DO NOTHING;
@@ -269,9 +269,9 @@ GROUP BY e.paid_by;
 ```
 
 Expected result for reviewer Home screen:
-  Owed to you:  ~$22.00   (Alice + Bob owe across 3 expenses reviewer paid)
-  You owe:      ~$5.00   (reviewer owes Alice $3.00 + Bob $2.00)
-  Net:          ~+$17.00
+  Owed to you:  ~$4.40   (Alice + Bob owe across 3 expenses reviewer paid)
+  You owe:      ~$1.00   (reviewer owes Alice $0.60 + Bob $0.40)
+  Net:          ~+$3.40
 
 ---
 
@@ -288,7 +288,7 @@ The account has been pre-seeded with:
   • 1 group: "Tokyo Trip 🗼" with 3 members
   • 5 expenses across Food, Travel, Accommodation, Transport, Shopping categories
   • Mixed split types (equal and custom amounts)
-  • Positive net balance (owed $22.00, owes $5.00) so the Home screen shows real data
+  • Positive net balance (owed $4.40, owes $1.00) so the Home screen shows real data
   • 1 Friend IOU in the Friends tab
 
 Key features to review:
