@@ -3,11 +3,19 @@
 Raw evidence for the defect described in `../../DEFECT_HANDOFF_VENMO_BALANCES.md`
 (status: RESOLVED). Preserved so the investigation does not have to be repeated.
 
+## Start here
+
+`../../HANDOFF_PAYMENT_HANDLES.md` is the agent handoff for this whole area — current
+state, the five non-obvious findings that cost the most time, open items, and the
+verification playbook. `sdd-ledger.md` here is the preserved per-task ledger (its
+original home under `.superpowers/` is gitignored).
+
 ## Index of investigations
 
 | Date | Investigation | Artifacts |
 |------|---------------|-----------|
 | 2026-07-26 | PayPal settle-up handoff — fabricated seed handles | `2026-07-27-paypal-handoff/` |
+| 2026-07-27 | Payment handle feature: validator, test-link, return prompt, diagnostics | `../../HANDOFF_PAYMENT_HANDLES.md`, `sdd-ledger.md` |
 
 Append a row here at the end of each investigation. Raw device logs live in the
 dated folder; this table is the entry point.

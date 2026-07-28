@@ -2,6 +2,11 @@
 
 ## Status: RESOLVED — 2026-07-27
 
+> **Follow-on work:** this defect exposed several gaps that were then built out as a
+> feature (shared handle validator, test-your-link, settle-up surface, return prompt,
+> unified diagnostics). See **`HANDOFF_PAYMENT_HANDLES.md`** for the current state and
+> open items — that is the live handoff; this document is the historical root-cause record.
+
 Root cause identified, fixed, and verified on a physical device.
 
 **The defect was not in xBill.** The "Something went wrong" message was produced by the
