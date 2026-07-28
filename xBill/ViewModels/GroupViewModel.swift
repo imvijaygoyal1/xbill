@@ -468,6 +468,26 @@ final class GroupViewModel {
                 ("amount", suggestion.amount)
             ])
 
+            // Reflect confirmed writes locally before the network reload. This keeps
+            // Settle Up truthful if the immediate read-after-write returns an older
+            // snapshot or a competing lifecycle refresh is cancelled.
+            for settledSplit in splitsToSettle {
+                guard var expenseSplits = splitsMap[settledSplit.expenseID],
+                      let index = expenseSplits.firstIndex(where: { $0.id == settledSplit.id }) else {
+                    continue
+                }
+                expenseSplits[index].isSettled = true
+                expenseSplits[index].settledAt = Date()
+                splitsMap[settledSplit.expenseID] = expenseSplits
+            }
+            balances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
+            settlementSuggestions = SplitCalculator.directSettlementSuggestions(
+                expenses: expenses,
+                splits: splitsMap,
+                names: memberNames,
+                currency: group.currency
+            )
+
             let note = NotificationItem.settlement(
                 suggestion: suggestion,
                 groupName: group.name,
