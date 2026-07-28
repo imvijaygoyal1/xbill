@@ -367,6 +367,28 @@ Bugs identified and fixed outside the three formal audit passes.
 
 ---
 
+## Payment Handle Experience + Unified Diagnostics — 2026-07-27
+
+Follow-up to the PayPal handoff defect above. These address what that investigation *exposed*, rather than the defect itself.
+
+| ID | File | Issue | Status | Fix |
+|---|---|---|---|---|
+| PAY-06 | `xBill/Services/PaymentHandleValidator.swift` (new) | Handle rules lived in three disagreeing places (`ProfileView` ×2, `PaymentLinkService.normalizedHandle`, a second regex in `paypalLink`). All wrongly accepted `.`/`-`/`_` and 2-character handles, so a handle could pass entry and never produce a working link. | ✅ Resolved | Single source of truth. Provider-sourced rules: PayPal.Me 3–20 ASCII alphanumerics; Venmo 5–30 plus `-`/`_`. Explicit ASCII set (not `CharacterSet.alphanumerics`, which accepts non-Latin letters). Charsets deliberately separate. `cded124` |
+| PAY-07 | `xBill/Services/PaymentLinkService.swift` | Duplicate validation; no way for a user to check their own handle works. | ✅ Resolved | Delegates all validation to the validator; dead `normalizedHandle` and the redundant regex removed. Added `profileLink(handle:method:)` → `paypal.me/<handle>` / `venmo.com/u/<handle>`, **no amount**. `ddb7f1c` |
+| PAY-08 | `xBill/Views/Profile/ProfileView.swift`, `ProfileViewModel.swift` | An unusable handle could be saved, failing later inside the payment app where it read as an xBill bug. | ✅ Resolved | Entry and persistence validate through the validator; a "Test your PayPal/Venmo link" row appears once a valid handle is saved. Live scraping of PayPal's error markup was rejected as fragile. `b90a6b9` |
+| PAY-09 | `xBill/Views/Groups/GroupDetailView.swift` | Payment button silently absent when a recipient had no handle; destination handle invisible before handoff. | ✅ Resolved | Button reads `PayPal · @handle`; no-handle case renders "Ask <Name> to add a payment handle". `7c4beac` |
+| PAY-10 | `xBill/Views/Groups/GroupDetailView.swift` | xBill never learned whether a handoff payment completed, so debts silently stayed open. | ✅ Resolved | "Did you complete this payment?" on return. Guards: armed only when `openURL` reports accepted; cleared after one answer; deferred past `AppLockService.isLocked` (App Lock engages on backgrounding, so the dialog would otherwise render behind the lock overlay). Defaults to unmarked. `7c4beac` |
+| PAY-11 | `xBillUITests/RegressionUITests.swift` | Added regression test was vacuous — both `if/else` branches asserted the same condition, and a single-member group never reaches `settlementRow`, so it passed unconditionally even with the feature broken. | ✅ Resolved | Deleted. Real coverage needs a two-member fixture the suite lacks; the contract is covered by `PaymentHandleValidatorTests` + `PaymentHandoffTests`, with the surface verified on-device. `95d00d3` |
+| PAY-12 | `supabase/seed_app_store_review_account.sql`, `SETUP_REVIEW_ACCOUNT.md` | With a real handle entered, the demo settle-up button opens a genuine $95.00 payment screen — a stray tap during testing sends real money. | ✅ Resolved | All amounts ÷50 (exact at 2dp, splits still sum, no `is_settled` changed). Settlement $95.00 → $1.90. ÷50 not ÷100 to stay above a possible unverified $1 PayPal minimum. Applied and verified against the live DB. `18b02a9` |
+| PAY-13 | `xBill/Core/AppDiagnostics.swift` | `PaymentDiagnostics` was named for one investigation, so the next would scatter into a second file. | ✅ Resolved | Renamed to `AppDiagnostics`; categorised (`.payment .auth .balance .lifecycle .sync`), one log per app at `Documents/xbill-diagnostics.log`, 2 MB cap keeping the newest half. `Category` outside `#if DEBUG` so Release compiles. `94b00fd` |
+| PAY-14 | `xBill/Core/AppDiagnostics.swift` | Log rotation rewrote the whole file **non-atomically**; a process kill mid-write could truncate or empty it — in the one file whose purpose is surviving backgrounding and crashes. Also `suffix(count/2)` could wipe a file with no newline. | ✅ Resolved | `write(to:options:.atomic)` plus `max(1, lines.count / 2)` floor. `dc787fc` |
+| PAY-15 | `xBillTests/SecurityFixTests.swift` | `PayPalUsernameValidationTests` asserted the **old, wrong** PayPal charset — that `john.doe-42_a` yields a valid link. Broken by PAY-07 and missed because that task's verification was scoped to one test file. | ✅ Resolved | Assertion corrected to `== nil` (strictly stricter, matching PayPal's documented rule). `b90a6b9` |
+| PAY-16 | `xBillUITests/RegressionUITests.swift` | `testProfileEditAndPaymentHandleValidationRegression` pinned the obsolete copy "Venmo handles should start with @." The validator now strips `@` rather than requiring it, since a Venmo username contains none. | ✅ Resolved | Asserts the new length message, and additionally verifies the message **clears** for a valid handle — the original only checked that some message appeared, which would pass even if the field were permanently erroring. |
+
+**Process notes worth keeping:** two defects in this batch (PAY-11, PAY-15) were introduced by the implementation plan itself and caught only by per-task review and a full-suite run. Both stemmed from the same habit — verifying a claim against one file and generalising. Scope test runs to the whole suite, not the file you touched.
+
+---
+
 ## Open Items
 
 | Item | Priority | Notes |

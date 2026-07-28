@@ -267,8 +267,20 @@ final class RegressionUITests: XCTestCase {
         scrollToElement(venmoField)
         XCTAssertTrue(venmoField.waitForExistence(timeout: 4), "Venmo field should be available.")
         venmoField.tap()
+        // "bad" is 3 characters; Venmo's documented minimum is 5, so this must be rejected.
+        // The old copy demanded a leading "@" — PaymentHandleValidator now strips "@" when
+        // present rather than requiring it, because a Venmo username does not contain one.
         venmoField.typeText("bad")
-        XCTAssertTrue(app.staticTexts["Venmo handles should start with @."].waitForExistence(timeout: 4), "Invalid Venmo handle should show validation.")
+        let lengthMessage = app.staticTexts["Venmo handles are 5–30 characters."]
+        XCTAssertTrue(lengthMessage.waitForExistence(timeout: 4), "Invalid Venmo handle should show validation.")
+
+        // Typing up to a legal length must clear the message — otherwise the field could be
+        // stuck showing an error for every input, and the assertion above would still pass.
+        venmoField.typeText("die")
+        XCTAssertFalse(
+            lengthMessage.waitForExistence(timeout: 2),
+            "A valid Venmo handle should clear the length validation message."
+        )
         dismissKeyboardIfNeeded()
 
         let signOut = app.buttons["Sign Out"].firstMatch
