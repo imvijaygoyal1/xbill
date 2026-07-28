@@ -79,4 +79,58 @@ struct ProfilePayloadTests {
         #expect(json["venmo_handle"] is NSNull)
         #expect(json["paypal_handle"] as? String == "imvijaygoyal")
     }
+
+    /// C-1 regression test: `User.init(from:)` decodes `paypalHandle` as
+    /// `(try? decode(.paypalHandle)) ?? (try? decode(.paypalEmail))`. `try?` flattening
+    /// (SE-0230) collapses an explicit JSON `null` for `paypal_handle` to a plain `nil`,
+    /// so an account whose legacy `paypal_email` column still holds a value (every
+    /// pre-036 account, since migration 036 copied the handle into the new column and
+    /// left the old one populated) would have a cleared handle resurrected straight from
+    /// `paypal_email` on the very next decode.
+    ///
+    /// This reproduces the real request shape: `AuthService.updateProfile` sends a PATCH
+    /// built from `UserUpdatePayload`, and Postgres/PostgREST applies it key-by-key over
+    /// the existing row before `.select().single()` reads it back — exactly what merging
+    /// the encoded payload over a stale base row simulates below. Without the fix (mirroring
+    /// `paypal_handle` onto `paypal_email` in lockstep), the payload would carry no
+    /// `paypal_email` key at all, the merge would leave the row's old `"legacyhandle"`
+    /// value untouched, and this test would fail with `paypalHandle == "legacyhandle"`.
+    @Test("Clearing a PayPal handle does not resurrect a stale paypal_email on a pre-036 row")
+    func clearedPaypalHandleSurvivesServerRoundTrip() throws {
+        // A pre-036 profile row: paypal_email still holds the value migration 036 copied
+        // into paypal_handle, and both columns currently agree.
+        var row: [String: Any] = [
+            "id": UUID().uuidString,
+            "email": "vijay@example.com",
+            "display_name": "Vijay",
+            "avatar_url": NSNull(),
+            "venmo_handle": NSNull(),
+            "paypal_handle": "vijaypay",
+            "paypal_email": "vijaypay",
+            "is_active": true,
+            "created_at": ISO8601DateFormatter().string(from: Date())
+        ]
+
+        // The user clears their PayPal handle and saves.
+        let payload = UserUpdatePayload(
+            displayName: "Vijay",
+            avatarURL: nil,
+            venmoHandle: nil,
+            paypalHandle: nil
+        )
+        let payloadJSON = try encoded(payload)
+
+        // Apply the PATCH onto the row exactly as PostgREST would: every key present in
+        // the payload overwrites the row's existing value, explicit null included.
+        for (key, value) in payloadJSON {
+            row[key] = value
+        }
+
+        // Re-decode as if this were the body of the `.update(payload).select().single()`
+        // response.
+        let data = try JSONSerialization.data(withJSONObject: row)
+        let user = try JSONDecoder().decode(User.self, from: data)
+
+        #expect(user.paypalHandle == nil)
+    }
 }

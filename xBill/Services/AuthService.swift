@@ -251,6 +251,7 @@ struct UserUpdatePayload: Encodable {
         case avatarURL    = "avatar_url"
         case venmoHandle  = "venmo_handle"
         case paypalHandle = "paypal_handle"
+        case paypalEmail  = "paypal_email"
     }
 
     /// Payment handles are encoded explicitly, including when nil, so that clearing one
@@ -263,9 +264,25 @@ struct UserUpdatePayload: Encodable {
     /// treats an empty field as a deliberate clear, and that intent only reaches the
     /// database because of this.
     ///
+    /// `paypal_handle` is mirrored onto the legacy `paypal_email` column on every write —
+    /// encoded when present, `encodeNil`'d when absent, in lockstep with `paypal_handle`
+    /// itself, never independently. `User.init(from:)` falls back to `paypal_email` when
+    /// `paypal_handle` is absent from a decode (`try?` flattening collapses an explicit
+    /// JSON `null` the same as a missing key, per SE-0230), and pre-036 accounts still have
+    /// both columns populated with the same value. Writing only `paypal_handle` here let a
+    /// user clear their handle, null the new column, and have the decoder's fallback
+    /// resurrect the stale value straight out of `paypal_email` — the Save button would
+    /// reappear and settle-up kept a live deep link to a handle the user had just deleted.
+    /// Keeping both columns identical on every save is what makes that fallback safe: it can
+    /// never read a value that disagrees with what was just written.
+    ///
     /// `avatarURL` deliberately keeps omit-on-nil semantics: callers pass the *current*
     /// avatar when no new image was picked, so encoding an explicit null there would erase
-    /// an existing avatar on every profile save.
+    /// an existing avatar on every profile save. If a "remove photo" affordance is ever
+    /// added, this omit-on-nil behavior will silently no-op it — a nil `avatarURL` sent to
+    /// "clear the avatar" will leave the existing column untouched, the same failure mode
+    /// this fix closed for payment handles. `encode(to:)` will need an explicit clear
+    /// signal (e.g. a separate `clearAvatar: Bool` flag) before that affordance can ship.
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(displayName, forKey: .displayName)
@@ -278,8 +295,10 @@ struct UserUpdatePayload: Encodable {
         }
         if let paypalHandle {
             try container.encode(paypalHandle, forKey: .paypalHandle)
+            try container.encode(paypalHandle, forKey: .paypalEmail)
         } else {
             try container.encodeNil(forKey: .paypalHandle)
+            try container.encodeNil(forKey: .paypalEmail)
         }
     }
 }

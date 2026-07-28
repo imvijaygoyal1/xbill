@@ -51,8 +51,24 @@ struct GroupDetailView: View {
             if case .asking(let payload) = self { return payload }
             return nil
         }
+
+        /// Case label only — no `fromName`/`toName`/`amount`/`currency`. Used for diagnostic
+        /// logging, which is DEBUG-only but should still never write a financial record to an
+        /// on-device log for what a Bool previously covered.
+        var caseLabel: String {
+            switch self {
+            case .none: return "none"
+            case .pending: return "pending"
+            case .asking: return "asking"
+            }
+        }
     }
     @State private var handoff: HandoffState = .none
+    /// When `handoff` last transitioned into `.asking`. Used by `presentHandoffPromptIfReady()`
+    /// to detect a wedged `.asking` — one whose alert presentation was dropped by SwiftUI —
+    /// without tearing down an alert that is genuinely still on screen. `nil` whenever
+    /// `handoff` is `.none` or `.pending`.
+    @State private var askingSince: Date?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
@@ -138,7 +154,7 @@ struct GroupDetailView: View {
                     ("isLoadingBalances", vm.isLoadingBalances),
                     ("hasLoadedBalances", vm.hasLoadedBalances),
                     ("balanceLoadFailed", vm.balanceLoadFailed),
-                    ("handoff", String(describing: handoff)),
+                    ("handoff", handoff.caseLabel),
                     ("isLocked", AppLockService.shared.isLocked)
                 ]
                 AppDiagnostics.log(.lifecycle, "GroupDetailView.scenePhase", fields)
@@ -252,7 +268,12 @@ struct GroupDetailView: View {
                     guard let suggestion = settlementToConfirm else { return }
                     Task {
                         await vm.recordSettlement(suggestion)
-                        HapticManager.success()
+                        // recordSettlement never throws — failures are swallowed into
+                        // vm.errorAlert — so a success buzz here unconditionally would fire
+                        // alongside an error alert on a failed settlement.
+                        if vm.errorAlert == nil {
+                            HapticManager.success()
+                        }
                     }
                     settlementToConfirm = nil
                 }
@@ -276,7 +297,7 @@ struct GroupDetailView: View {
                 "Did you complete this payment?",
                 isPresented: Binding(
                     get: { handoff.askingPayload != nil },
-                    set: { if !$0 { handoff = .none } }
+                    set: { if !$0 { handoff = .none; askingSince = nil } }
                 ),
                 presenting: handoff.askingPayload
             ) { prompt in
@@ -286,7 +307,12 @@ struct GroupDetailView: View {
                 Button("Mark as Settled") {
                     Task {
                         await vm.recordSettlement(prompt.suggestion)
-                        HapticManager.success()
+                        // Same gate as the confirmationDialog settle site above: recordSettlement
+                        // swallows failures into vm.errorAlert rather than throwing, so a success
+                        // buzz must not fire unconditionally.
+                        if vm.errorAlert == nil {
+                            HapticManager.success()
+                        }
                     }
                 }
             } message: { prompt in
@@ -624,17 +650,49 @@ struct GroupDetailView: View {
                 )
                 return
             }
-            // Guard against a second handoff scheduling a competing presentation while one
-            // is already `.asking` — swapping the payload out from under an alert the user
-            // is actively looking at would silently change which suggestion "Mark as
-            // Settled" records.
-            if case .asking = handoff { return }
+            // A fresh tap always supersedes whatever `handoff` currently holds — including a
+            // stale `.asking`. If an alert were genuinely on screen it is modal, so the user
+            // could not have reached this button to trigger a second handoff; the only
+            // `.asking` this can ever replace is one a dropped presentation left wedged with
+            // no alert visible. Previously this bailed out here, which meant a single dropped
+            // presentation permanently disarmed every later handoff on this screen — every
+            // subsequent Venmo/PayPal tap opened the payment app and armed nothing. A new
+            // handoff must never be silently dropped.
+            askingSince = nil
             // Only arm the prompt when the payment app actually opened.
             handoff = .pending(PendingHandoff(suggestion: suggestion, providerName: providerName))
         }
     }
 
     private func presentHandoffPromptIfReady() {
+        // `.asking` is not self-recovering: `.alert(isPresented:)` presents only on a
+        // false→true edge, and re-evaluating the body with `handoff.askingPayload` still
+        // non-nil is not such an edge — it does not retry a presentation SwiftUI already
+        // dropped. If a presentation was in fact dropped (e.g. another transition was still
+        // in flight when the 600ms wait below fired), `.asking` would otherwise be terminal:
+        // every later call here returns immediately via the `.pending` guard below, and
+        // `openPaymentURL` used to bail on a fresh tap too, so the feature stayed wedged
+        // until the group screen was popped and re-pushed. Force a false→true edge by
+        // dropping to `.none` and re-arming to `.pending` on the next runloop turn, but only
+        // once `.asking` has been held longer than a short grace window — otherwise a
+        // legitimately visible alert would be torn down on every foreground.
+        if case .asking(let stuck) = handoff {
+            guard let since = askingSince, Date().timeIntervalSince(since) > 2 else { return }
+            AppDiagnostics.log(.payment, "handoffPrompt.reDriving", [("provider", stuck.providerName)])
+            handoff = .none
+            askingSince = nil
+            Task { @MainActor in
+                // A same-pass `.none` → `.pending` write can coalesce into a single body
+                // evaluation and never produce the false→true transition `.alert` needs;
+                // yielding a runloop turn first is what makes the edge real.
+                try? await Task.sleep(for: .milliseconds(50))
+                guard case .none = handoff else { return }
+                handoff = .pending(stuck)
+                presentHandoffPromptIfReady()
+            }
+            return
+        }
+
         guard case .pending(let pending) = handoff else { return }
         guard !AppLockService.shared.isLocked else {
             AppDiagnostics.log(.payment, "handoffPrompt.deferred", [
@@ -650,14 +708,11 @@ struct GroupDetailView: View {
         // from a descendant while that transition is still in flight. Waiting for the
         // transition to settle is what actually makes it present.
         //
-        // Unlike the previous two-@State-field version, `handoff` is never cleared before
-        // this sleep — it stays `.pending(pending)`, still holding the payload, for the
-        // entire wait, then transitions straight to `.asking(pending)` in one non-destructive
-        // step. The 600ms wait is now an optimisation, not the only thing standing between a
-        // dropped presentation and a lost prompt: if this attempt is *still* dropped, the
-        // state is `.asking(pending)`, not lost, and the next `.onChange(of: scenePhase)` /
-        // `.onChange(of: isLocked)` re-drives the same `isPresented` binding — which is still
-        // computed from `handoff.askingPayload` — so SwiftUI gets another chance to present it.
+        // `handoff` is never cleared before this sleep — it stays `.pending(pending)`, still
+        // holding the payload, for the entire wait, then transitions straight to
+        // `.asking(pending)` in one non-destructive step. If this presentation is *also*
+        // dropped, the recovery path above is what gets it re-tried — not a re-drive that
+        // happens "for free" from a later `.onChange`, which does not exist.
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(600))
             // Bail if something else already resolved this handoff while asleep (e.g. the
@@ -665,6 +720,7 @@ struct GroupDetailView: View {
             // onChange already advanced it) rather than clobbering a newer state.
             guard case .pending(let stillPending) = handoff, stillPending == pending else { return }
             handoff = .asking(stillPending)
+            askingSince = Date()
             AppDiagnostics.log(.payment, "handoffPrompt.presented", [("provider", stillPending.providerName)])
         }
     }
