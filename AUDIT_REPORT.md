@@ -442,7 +442,7 @@ Reported on a physical iPhone: marking a Recent notification unread reverted to 
 
 | Item | Priority | Notes |
 |---|---|---|
-| Notification unread lifecycle — device verification | P1 | Fix is installed on iPhone 16 Pro `00008140-000135EE3432801C` but the Recent → Mark Unread → background → Face ID → return path is **not yet confirmed on device**. Pull `Documents/xbill-diagnostics.log` after the run. |
+| Notification unread lifecycle — history-row path | Low | Device-verified on iPhone 16 Pro: session `2026-07-28T23:05:58Z` covers background → lock → Face ID → return with zero read-state failures and zero alerts, and the user confirmed the unread mark survived. The log carries no `readState.localOnly` line, so it does not show *which* row kind was toggled — re-check by marking an **older expense row** unread and cycling the lock. |
 | App Store assets | P0 | Screenshots, preview video, keyword strategy — only remaining submission blocker. No code work required. |
 | App Group registration | Setup | Register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Identifiers → App Groups before widget data sharing will work on a device. |
 | Apple JWT secret renewal | Maintenance | JWT secret for Sign in with Apple expires 2026-10-28. Regenerate before that date using `generate_apple_secret.js`. |

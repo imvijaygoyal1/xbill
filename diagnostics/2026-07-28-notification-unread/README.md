@@ -37,3 +37,44 @@ The update response is not a single JSON object in this client/API configuration
 ## Important constraint
 
 Do not treat a green unit suite as device verification. The physical-device log above is the authoritative evidence for this failure.
+
+---
+
+## Resolution — 2026-07-28 (commit `1a197b0`)
+
+The framing above was wrong about the layer. The request shape was fine: `.update()` already
+defaults to `Prefer: return=representation`. The update was matching **zero rows**, and
+`.single()` reports that as PGRST116 *"Cannot coerce the result to a single JSON object"* —
+a message about JSON coercion for what is really "no row matched".
+
+**Root cause.** The Activity list mixes authoritative `public.notifications` rows with
+expense-derived history rows synthesised for accounts predating migration 040.
+`NotificationItem.expense(...)` uses the **expense id** as the item id, so a read/unread
+toggle on a history row issued `UPDATE public.notifications … WHERE id = <expense id>`.
+Confirmed read-only against the live database: **12 expenses, 3 notification rows, zero id
+overlap**. `ActivityService.fetchRecentActivity` then forced `isRead = true` on every history
+row on every refresh, so the post-unlock reload erased the user's unread mark. `2911833` did
+not cause this — it converted a silent no-op into a visible alert.
+
+See `AUDIT_REPORT.md` NOTIF-01…NOTIF-08 for the per-defect breakdown.
+
+## Post-fix device evidence
+
+Raw log: `after-fix.log` (same file, pulled after the fix; the pre-fix sessions are retained).
+
+Session `2026-07-28T23:05:58Z` covers a full cycle — active → background → `isLocked=true` →
+Face ID unlock → `MainTabView.unlocked.refreshBegin` / `refreshComplete` → active — with:
+
+- **zero** `ActivityService.markRead.failed` / `markUnread.failed`
+- **zero** `alert.presented … Activity Update Failed`
+
+The last failures in the file are at `22:31:23Z`, in the pre-fix session. The user confirmed
+the unread mark survived the unlock.
+
+**Evidence gap, stated deliberately.** No `ActivityViewModel.readState.localOnly` line
+appears in the post-fix session, and a *successful* toggle logs nothing. So the log proves
+the absence of failures across a real lock/unlock cycle, but does not by itself show which
+row kind was toggled. If the row was server-backed it took the remote path; the history-row
+path — the one that produced the original zero-row failures — is best re-checked explicitly
+by marking an **older expense row** unread and cycling the lock. `readState.localOnly` in the
+log confirms that path was taken.
