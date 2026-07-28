@@ -241,7 +241,7 @@ private struct DisplayNamePayload: Encodable {
     enum CodingKeys: String, CodingKey { case displayName = "display_name" }
 }
 
-private struct UserUpdatePayload: Encodable {
+struct UserUpdatePayload: Encodable {
     let displayName: String
     let avatarURL: URL?
     let venmoHandle: String?
@@ -251,5 +251,35 @@ private struct UserUpdatePayload: Encodable {
         case avatarURL    = "avatar_url"
         case venmoHandle  = "venmo_handle"
         case paypalHandle = "paypal_handle"
+    }
+
+    /// Payment handles are encoded explicitly, including when nil, so that clearing one
+    /// actually writes NULL.
+    ///
+    /// Swift's synthesized `Encodable` uses `encodeIfPresent` for optionals, which omits a
+    /// nil key entirely. A PATCH that omits `venmo_handle` leaves the existing column value
+    /// untouched, so "delete the handle and Save" silently did nothing — the handle stayed
+    /// on the profile and kept rendering a payment button. `ProfileViewModel.saveProfile`
+    /// treats an empty field as a deliberate clear, and that intent only reaches the
+    /// database because of this.
+    ///
+    /// `avatarURL` deliberately keeps omit-on-nil semantics: callers pass the *current*
+    /// avatar when no new image was picked, so encoding an explicit null there would erase
+    /// an existing avatar on every profile save.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(displayName, forKey: .displayName)
+        try container.encodeIfPresent(avatarURL, forKey: .avatarURL)
+
+        if let venmoHandle {
+            try container.encode(venmoHandle, forKey: .venmoHandle)
+        } else {
+            try container.encodeNil(forKey: .venmoHandle)
+        }
+        if let paypalHandle {
+            try container.encode(paypalHandle, forKey: .paypalHandle)
+        } else {
+            try container.encodeNil(forKey: .paypalHandle)
+        }
     }
 }
