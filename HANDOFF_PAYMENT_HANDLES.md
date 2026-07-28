@@ -65,7 +65,7 @@ Venmo profile:   https://venmo.com/u/<handle>                    returns 404 for
 ## 3. Open items
 
 ### Unverified on device — do this first
-**"Mark as Settled" has never been exercised on a real device.** It is also the exact path a review found a defect in (`PAY-23`: the action re-read `@State` the alert's own binding clears, so it could record nothing while appearing to succeed). It is fixed and unit-covered, but nobody has tapped it.
+**Device verification update (2026-07-28):** The direct Settle Up → **Mark as Settled** path has now been exercised repeatedly on a physical iPhone. Device logs confirmed successful writes of 1 and 3 splits, with suggestion counts decreasing 4 → 3 → 2; push notifications were observed. Three device-only follow-up defects were fixed during this verification: actionable direct-debt suggestions, refresh ordering, and stale read-after-write overlay. The **payment-return prompt’s** Mark as Settled action remains unverified because the available PayPal handle belonged to the same account and PayPal treats that as a self-payment; no second real recipient handle was available without writing one to live data.
 
 Steps: Settle Up → tap PayPal → return → unlock → **Mark as Settled** → confirm the settlement disappears from Settle Up and the balance updates.
 
