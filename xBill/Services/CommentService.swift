@@ -8,7 +8,8 @@
 import Foundation
 import Supabase
 
-final class CommentService: Sendable {
+@MainActor
+final class CommentService {
     static let shared = CommentService()
     private let supabase = SupabaseManager.shared
     private init() {}

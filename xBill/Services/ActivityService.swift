@@ -7,7 +7,8 @@
 
 import Foundation
 
-final class ActivityService: Sendable {
+@MainActor
+final class ActivityService {
     static let shared = ActivityService()
     private let groupService   = GroupService.shared
     private let expenseService = ExpenseService.shared

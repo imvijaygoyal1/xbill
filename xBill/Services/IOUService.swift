@@ -8,7 +8,8 @@
 import Foundation
 import Supabase
 
-final class IOUService: Sendable {
+@MainActor
+final class IOUService {
     static let shared = IOUService()
     private let supabase = SupabaseManager.shared
     private init() {}

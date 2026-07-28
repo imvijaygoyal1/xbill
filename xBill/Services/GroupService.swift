@@ -10,7 +10,8 @@ import Supabase
 
 // MARK: - GroupService
 
-final class GroupService: Sendable {
+@MainActor
+final class GroupService {
     static let shared = GroupService()
     private let supabase = SupabaseManager.shared
     private init() {}

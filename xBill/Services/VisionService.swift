@@ -48,7 +48,8 @@ private struct ParsedItem: Sendable {
 
 // MARK: - VisionService
 
-final class VisionService: Sendable {
+@MainActor
+final class VisionService {
     static let shared = VisionService()
     private init() {}
 

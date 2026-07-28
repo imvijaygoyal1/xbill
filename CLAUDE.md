@@ -666,11 +666,11 @@ All 20 critical defects from the senior developer audit (DEFECT_REPORT.md) fixed
 - **CRIT-06** — `CacheService.save<T>` and `load<T>` now create local `JSONEncoder`/`JSONDecoder` instances per call (not stored properties) to eliminate non-thread-safe shared encoder/decoder access.
 - **CRIT-07** — `GroupViewModel.computeBalances()` now uses `withTaskGroup` to fetch all splits in parallel instead of serial N round-trips.
 - **CRIT-08** — `GroupViewModel.recordSettlement()` fetches fresh splits for the relevant expenses (parallel `withTaskGroup`) instead of relying on stale `splitsMap`.
-- **CRIT-09** — (Architectural, inherent to structured concurrency — deferred.)
+- **CRIT-09** — `HomeViewModel` balance task-group workers no longer capture the view model; each child receives immutable service dependencies, so navigating away does not retain `HomeViewModel` until all group fetches finish.
 - **CRIT-10** — `HomeViewModel.loadAll()` now calls `await loadArchivedGroups()` on every successful network fetch so archived groups are always in sync.
 - **CRIT-11** — `AddExpenseViewModel.save()` and `GroupViewModel.recordSettlement()` now `await` push notification calls inline instead of spawning untracked `Task {}` closures.
 - **CRIT-12** — `AddExpenseViewModel.save()` captures `finalAmount` into `capturedAmount` after conversion but before any further `await`, preventing `amountText` edits from altering the saved amount mid-flight.
-- **CRIT-13/14** — (Complex architectural — deferred.)
+- **CRIT-13/14** — Supabase-backed services and `SupabaseManager` are `@MainActor` isolated. Cross-thread stores retain explicit synchronization; complete strict-concurrency compilation passes.
 - **CRIT-15** — `AuthViewModel.startListeningToAuthChanges()` now guards `isListening` to prevent duplicate concurrent subscribers if called more than once.
 - **CRIT-16** — `GroupViewModel.createDueRecurringInstances()` fixed: new instance created with `recurrence: .none, nextOccurrenceDate: nil` (not copying the template's recurrence); template advanced via new `ExpenseService.setNextOccurrenceDate(_:expenseID:)` instead of nulling the date out.
 - **CRIT-17** — 4 vacuous tests in `GroupFlowTests.swift` rewritten to call `SplitCalculator.minimizeTransactions` and test production logic rather than hardcoded literals.

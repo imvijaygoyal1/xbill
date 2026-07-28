@@ -30,7 +30,6 @@ final class HomeViewModel {
     var errorAlert: ErrorAlert?
     @ObservationIgnored private var isComputingBalances = false
     @ObservationIgnored private var realtimeTask: Task<Void, Never>?
-    @ObservationIgnored private var groupBalancesCache: [UUID: GroupBalanceData] = [:]
 
     struct RecentEntry: Identifiable, Sendable {
         var id: UUID { expense.id }
@@ -226,18 +225,23 @@ final class HomeViewModel {
         guard !isComputingBalances else { return }
         isComputingBalances = true
         defer { isComputingBalances = false }
-        // Invalidate balance cache at the start of each full recompute.
-        groupBalancesCache.removeAll()
         var owed             = Decimal.zero
         var owing            = Decimal.zero
         var allEntries:      [RecentEntry]             = []
         var mergedByCurrency:[String: [UUID: Decimal]] = [:]
         var allNames:        [UUID: String]            = [:]
 
+        let groupService = self.groupService
+        let expenseService = self.expenseService
         await withTaskGroup(of: GroupBalanceData.self) { taskGroup in
             for group in groups {
                 taskGroup.addTask {
-                    await self.fullBalancesInGroup(group, userID: userID)
+                    await Self.fullBalancesInGroup(
+                        group,
+                        userID: userID,
+                        groupService: groupService,
+                        expenseService: expenseService
+                    )
                 }
             }
             for await data in taskGroup {
@@ -284,10 +288,12 @@ final class HomeViewModel {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
-    private func fullBalancesInGroup(_ group: BillGroup, userID: UUID) async -> GroupBalanceData {
-        // Return cached result if already computed this cycle (avoids redundant network calls).
-        if let cached = groupBalancesCache[group.id] { return cached }
-
+    private static func fullBalancesInGroup(
+        _ group: BillGroup,
+        userID: UUID,
+        groupService: GroupService,
+        expenseService: ExpenseService
+    ) async -> GroupBalanceData {
         let loadFailed: Bool
         let expenses: [Expense]
         do {
@@ -325,9 +331,6 @@ final class HomeViewModel {
                                          memberCount: members.filter(\.isActive).count, entries: entries,
                                          currency: group.currency, balances: balances, names: names,
                                          loadFailed: loadFailed || splitLoadFailed)
-        if !loadFailed && !splitLoadFailed {
-            groupBalancesCache[group.id] = data
-        }
         return data
     }
 }

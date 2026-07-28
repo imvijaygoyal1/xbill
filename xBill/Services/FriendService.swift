@@ -8,7 +8,8 @@
 import Foundation
 import Supabase
 
-final class FriendService: Sendable {
+@MainActor
+final class FriendService {
     static let shared = FriendService()
     private let supabase = SupabaseManager.shared
     private init() {}

@@ -10,7 +10,8 @@ import Supabase
 
 // MARK: - SupabaseManager
 
-final class SupabaseManager: Sendable {
+@MainActor
+final class SupabaseManager {
     static let shared = SupabaseManager()
 
     let client: SupabaseClient

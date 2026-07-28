@@ -11,7 +11,8 @@ import Supabase
 
 // MARK: - AuthService
 
-final class AuthService: Sendable {
+@MainActor
+final class AuthService {
     static let shared = AuthService()
     private let supabase = SupabaseManager.shared
 

@@ -11,7 +11,8 @@ import Supabase
 
 // MARK: - ExpenseService
 
-final class ExpenseService: Sendable {
+@MainActor
+final class ExpenseService {
     static let shared = ExpenseService()
     private let supabase = SupabaseManager.shared
     private let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "ExpenseService")

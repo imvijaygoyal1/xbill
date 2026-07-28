@@ -10,7 +10,8 @@ import UserNotifications
 
 // MARK: - NotificationService
 
-final class NotificationService: Sendable {
+@MainActor
+final class NotificationService {
     static let shared = NotificationService()
     private init() {}
 
