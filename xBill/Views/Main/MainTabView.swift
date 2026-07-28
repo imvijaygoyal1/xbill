@@ -17,6 +17,7 @@ struct MainTabView: View {
     @State private var selectedTab: Tab
     @State private var showQuickAddExpense = false
     @State private var quickActionScan = false
+    @State private var lockService = AppLockService.shared
     @State private var showNotificationPrompt = false
     @State private var addFriendPreloadedUser: User? = nil
     @State private var showAddFriendFromQR = false
@@ -216,12 +217,25 @@ struct MainTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             AppDiagnostics.log(.lifecycle, "MainTabView.didBecomeActive", [
                 ("connected", NetworkMonitor.shared.isConnected),
-                ("groups", homeVM.groups.count)
+                ("groups", homeVM.groups.count),
+                ("isLocked", lockService.isLocked)
             ])
+            // Do not refresh activity behind the lock screen. Face ID unlock
+            // must finish first, otherwise a stale server response can replace
+            // a local read/unread change during the transition.
+            guard !lockService.isLocked else { return }
             Task {
                 await activityVM.load()
                 await homeVM.loadAll()
                 AppDiagnostics.log(.lifecycle, "MainTabView.didBecomeActive.refreshComplete")
+            }
+        }
+        .onChange(of: lockService.isLocked) { _, isLocked in
+            guard !isLocked else { return }
+            AppDiagnostics.log(.lifecycle, "MainTabView.unlocked.refreshBegin")
+            Task {
+                await activityVM.load()
+                AppDiagnostics.log(.lifecycle, "MainTabView.unlocked.refreshComplete")
             }
         }
     }
