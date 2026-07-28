@@ -13,6 +13,7 @@
 > fallback key), plus the open items and the device verification playbook.
 
 ## Recent Fix Log — 2026-07-27
+- **Settlement reloads no longer resurrect freshly settled rows** — A physical-device run showed local state at 3 suggestions, followed by a server reload returning 4 due to a stale read-after-write snapshot. Confirmed split IDs now overlay fetched splits for the lifetime of the group view model.
 - **Settle Up applies confirmed settlement writes locally before reload** — A device run updated three splits successfully, but an immediate read returned the old suggestion count. The view model now marks those split IDs settled in its local map and recomputes suggestions immediately, while the server reload reconciles afterward.
 - **Settlement success now refreshes Settle Up** — On-device logging showed `settleSplit` succeeded, but the follow-up `load()` was skipped because `recordSettlement` still held `isLoading = true`; the stale suggestion row remained visible. The operation now clears its loading state before reloading.
 - **Settle Up now emits actionable direct-debt suggestions** — Net-balance minimization could invent a transfer amount that did not match any whole unsettled payer→debtor splits, causing the physical “Mark as Settled” path to reject a valid-looking row. Suggestions now aggregate actual direct splits, and payment-app buttons are shown only to the person who owes; incoming rows remain manually markable.

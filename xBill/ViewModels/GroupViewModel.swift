@@ -28,6 +28,7 @@ final class GroupViewModel {
     var errorAlert: ErrorAlert?
 
     private var splitsMap: [UUID: [Split]] = [:]
+    @ObservationIgnored private var locallyConfirmedSettledSplitIDs: Set<UUID> = []
     @ObservationIgnored private var locallyCreatedExpenses: [UUID: Expense] = [:]
     @ObservationIgnored private var isComputingBalances = false
     @ObservationIgnored private var shouldRecomputeBalances = false
@@ -206,8 +207,21 @@ final class GroupViewModel {
             do {
                 let currentExpenses = expenses
                 let expenseService = expenseService
-                let fetchedSplitsMap = try await withTimeout(duration: .seconds(12)) {
+                var fetchedSplitsMap = try await withTimeout(duration: .seconds(12)) {
                     try await SplitCalculator.fetchSplitsMap(for: currentExpenses, using: expenseService)
+                }
+                // Supabase can briefly return a pre-update snapshot immediately after
+                // an update. Preserve confirmed local writes across that read so a
+                // lifecycle refresh cannot resurrect a row the user just settled.
+                for splitID in locallyConfirmedSettledSplitIDs {
+                    for expenseID in fetchedSplitsMap.keys {
+                        guard var expenseSplits = fetchedSplitsMap[expenseID],
+                              let index = expenseSplits.firstIndex(where: { $0.id == splitID }) else {
+                            continue
+                        }
+                        expenseSplits[index].isSettled = true
+                        fetchedSplitsMap[expenseID] = expenseSplits
+                    }
                 }
                 splitsMap = fetchedSplitsMap
             } catch {
@@ -467,6 +481,8 @@ final class GroupViewModel {
                 ("count", splitsToSettle.count),
                 ("amount", suggestion.amount)
             ])
+
+            locallyConfirmedSettledSplitIDs.formUnion(splitsToSettle.map(\.id))
 
             // Reflect confirmed writes locally before the network reload. This keeps
             // Settle Up truthful if the immediate read-after-write returns an older
