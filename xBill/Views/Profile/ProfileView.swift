@@ -98,6 +98,15 @@ struct ProfileView: View {
                     loadNotificationPreferences()
                 }
             }
+            .onChange(of: vm.displayName) { _, _ in
+                if !vm.isLoading { vm.isEditing = true }
+            }
+            .onChange(of: vm.venmoHandle) { _, _ in
+                if !vm.isLoading { vm.isEditing = true }
+            }
+            .onChange(of: vm.paypalHandle) { _, _ in
+                if !vm.isLoading { vm.isEditing = true }
+            }
             .sheet(isPresented: $isEditing) {
                 editSheet
             }
@@ -144,7 +153,10 @@ struct ProfileView: View {
             XBillProfileCard(
                 user: vm.user,
                 initials: vm.initials,
-                onEdit: { isEditing = true },
+                onEdit: {
+                    vm.isEditing = true
+                    isEditing = true
+                },
                 onQR: { showMyQR = true }
             )
 
@@ -499,6 +511,7 @@ struct ProfileView: View {
                     backAction: {
                         selectedAvatar = nil
                         isEditing = false
+                        vm.isEditing = false
                     }
                 )
                 .padding(.horizontal, -AppSpacing.lg)
@@ -546,6 +559,7 @@ struct ProfileView: View {
                         if vm.isSaved {
                             selectedAvatar = nil
                             isEditing = false
+                            vm.isEditing = false
                         }
                     }
                 }
