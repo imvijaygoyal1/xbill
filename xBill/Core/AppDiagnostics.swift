@@ -18,6 +18,7 @@
 //
 
 import Foundation
+import Supabase
 import OSLog
 
 enum AppDiagnostics {
@@ -74,6 +75,14 @@ enum AppDiagnostics {
             "localized=\(nsError.localizedDescription)"
         ]
         if let appError = error as? AppError { parts.append("appError=\(appError)") }
+        // PostgREST puts the actionable part in `code`/`detail`, not in the localized
+        // message. PGRST116 with "The result contains 0 rows" reads as a JSON coercion
+        // fault through `localizedDescription` alone, which cost a full debugging cycle.
+        if let pgError = error as? PostgrestError {
+            parts.append("pgCode=\(pgError.code ?? "-")")
+            parts.append("pgDetail=\(pgError.detail ?? "-")")
+            parts.append("pgHint=\(pgError.hint ?? "-")")
+        }
         if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
             parts.append("underlying=\(underlying.domain)#\(underlying.code):\(underlying.localizedDescription)")
         }

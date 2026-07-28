@@ -60,6 +60,11 @@ final class SupabaseManager {
 extension SupabaseManager {
     var auth: AuthClient { client.auth }
 
+    /// The encoder PostgREST requests are actually built with. Exposed so payload tests
+    /// pin the real wire format — a plain `JSONEncoder` would emit `Date` as a number,
+    /// which Postgres cannot cast to `timestamptz`.
+    nonisolated static var postgrestEncoder: JSONEncoder { PostgrestClient.Configuration.jsonEncoder }
+
     func table(_ name: String) -> PostgrestQueryBuilder {
         client.from(name)
     }

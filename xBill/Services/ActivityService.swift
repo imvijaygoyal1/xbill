@@ -7,8 +7,64 @@
 
 import Foundation
 
+// MARK: - Reconciliation
+
+/// Builds the Activity list from the authoritative `public.notifications` rows plus the
+/// historical expense-derived rows shown to accounts that predate migration 040.
+///
+/// Historical rows have no server row to hold their read state, so it lives only in the
+/// local store. The previous implementation forced `isRead = true` on every historical row
+/// on every refresh, which erased a deliberate "mark unread" as soon as anything triggered
+/// a reload — including the refresh that runs after a Face ID unlock.
+enum ActivityReconciler {
+    static func reconcile(
+        remoteItems: [NotificationItem],
+        legacyItems: [NotificationItem],
+        storedItems: [NotificationItem],
+        pendingReadStates: [UUID: Bool]
+    ) -> [NotificationItem] {
+        let remoteIDs = Set(remoteItems.map(\.id))
+        let storedReadStates = Dictionary(
+            storedItems.map { ($0.id, $0.isRead) },
+            uniquingKeysWith: { _, new in new }
+        )
+
+        let historicalItems = legacyItems.compactMap { item -> NotificationItem? in
+            // A server row is authoritative whenever one exists for the same id.
+            guard !remoteIDs.contains(item.id) else { return nil }
+            var item = item
+            // Default an unseen history row to read so years of pre-040 expenses do not
+            // land in the badge; anything already in the store keeps the state the user
+            // last chose.
+            item.isRead = storedReadStates[item.id] ?? true
+            return item
+        }
+
+        return (remoteItems + historicalItems).map { item in
+            guard let pending = pendingReadStates[item.id] else { return item }
+            var item = item
+            item.isRead = pending
+            return item
+        }
+    }
+}
+
+// MARK: - Read/write surface
+
+/// The Activity mutations the view model depends on. A protocol so read-state behaviour can
+/// be exercised without a live PostgREST endpoint.
 @MainActor
-final class ActivityService {
+protocol ActivityReadWriting: AnyObject {
+    func fetchRecentActivity(userID: UUID, limit: Int) async throws -> [NotificationItem]
+    func reconcilePendingReadStates(userID: UUID) async
+    func markRead(id: UUID) async -> Bool
+    func markUnread(id: UUID) async -> Bool
+    func markAllRead(userID: UUID) async -> Bool
+    func delete(id: UUID) async -> Bool
+}
+
+@MainActor
+final class ActivityService: ActivityReadWriting {
     static let shared = ActivityService()
     private let groupService   = GroupService.shared
     private let expenseService = ExpenseService.shared
@@ -37,16 +93,15 @@ final class ActivityService {
 
         // Existing accounts predate migration 040, so their historical
         // expenses have no notification rows. Keep those visible without
-        // making them unread or inflating the APNs badge.
+        // inflating the APNs badge, while preserving any read state the user
+        // has deliberately chosen for them.
         let legacyItems = (try? await fetchLegacyExpenseActivity(userID: userID)) ?? []
-        let remoteIDs = Set(remoteItems.map(\.id))
-        let historicalItems = legacyItems.compactMap { item -> NotificationItem? in
-            guard !remoteIDs.contains(item.id) else { return nil }
-            var item = item
-            item.isRead = true
-            return item
-        }
-        let reconciledItems = store.applyingPendingReadStates(to: remoteItems + historicalItems, userID: userID)
+        let reconciledItems = ActivityReconciler.reconcile(
+            remoteItems:       remoteItems,
+            legacyItems:       legacyItems,
+            storedItems:       store.loadAll(userID: userID),
+            pendingReadStates: store.pendingReadStates(userID: userID)
+        )
         store.replaceWithRemote(reconciledItems, userID: userID)
         return Array(store.loadAll(userID: userID).prefix(limit))
     }
@@ -59,6 +114,13 @@ final class ActivityService {
                 } else {
                     try await remote.markUnread(id: id)
                 }
+                store.clearPendingReadState(id: id, userID: userID)
+            } catch RemoteNotificationError.rowNotFound(let missingID) {
+                // No server row will ever accept this write — retrying it forever would
+                // keep the intent pinned and re-raise the same failure on every refresh.
+                AppDiagnostics.log(.balance, "ActivityService.pendingReadState.rowNotFound", [
+                    ("id", missingID.uuidString)
+                ])
                 store.clearPendingReadState(id: id, userID: userID)
             } catch {
                 AppDiagnostics.log(.balance, "ActivityService.pendingReadState.retryFailed", [
@@ -92,7 +154,13 @@ final class ActivityService {
 
     func markRead(id: UUID) async -> Bool {
         do { try await remote.markRead(id: id); return true }
-        catch { AppDiagnostics.log(.balance, "ActivityService.markRead.failed", [("error", AppDiagnostics.describe(error))]); return false }
+        catch {
+            AppDiagnostics.log(.balance, "ActivityService.markRead.failed", [
+                ("id", id.uuidString),
+                ("error", AppDiagnostics.describe(error))
+            ])
+            return false
+        }
     }
 
     func markAllRead(userID: UUID) async -> Bool {
@@ -102,7 +170,13 @@ final class ActivityService {
 
     func markUnread(id: UUID) async -> Bool {
         do { try await remote.markUnread(id: id); return true }
-        catch { AppDiagnostics.log(.balance, "ActivityService.markUnread.failed", [("error", AppDiagnostics.describe(error))]); return false }
+        catch {
+            AppDiagnostics.log(.balance, "ActivityService.markUnread.failed", [
+                ("id", id.uuidString),
+                ("error", AppDiagnostics.describe(error))
+            ])
+            return false
+        }
     }
 
     func delete(id: UUID) async -> Bool {

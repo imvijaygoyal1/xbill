@@ -69,6 +69,7 @@
 		464045D307F457B3959641F4 /* FoundationModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 611DE33380E550496F06686B /* FoundationModelService.swift */; };
 		4820D5D6D20767070537506A /* xBillWidgetCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = B2A12F54677D153F5CCF6D88 /* xBillWidgetCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		4BE39F6E00BB93CB97AFD04B /* XBillArchivedRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBF1DDE8687F48A6C3C10FAD /* XBillArchivedRow.swift */; };
+		4CF1455938D2F1C336DDD2A6 /* NotificationReadStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E82EDC580ACC0A6A8BFB4CAD /* NotificationReadStateTests.swift */; };
 		50EF0B7D1ED40C45ACBFB2AD /* P3HelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EB95AF7F1C155D9C83D8E6B /* P3HelperTests.swift */; };
 		52BC19AF7D364ADA25F658F6 /* GroupChipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F0634D4C601FD9464A0F10 /* GroupChipView.swift */; };
 		55CDD284932B0C3F59CA662C /* XBillCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C357CB10AF58D0B03787860E /* XBillCard.swift */; };
@@ -398,6 +399,7 @@
 		E5F57D9E8BA76933667996CC /* PaymentLinkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentLinkService.swift; sourceTree = "<group>"; };
 		E65272EFDCFD007E43ADAD46 /* CategoryIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryIconView.swift; sourceTree = "<group>"; };
 		E7019A0E1C1F524DA0A45BBD /* xBillWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = xBillWidgetBundle.swift; sourceTree = "<group>"; };
+		E82EDC580ACC0A6A8BFB4CAD /* NotificationReadStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationReadStateTests.swift; sourceTree = "<group>"; };
 		EB8ECB0D8B3E6EACF9A77C06 /* SpotlightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightService.swift; sourceTree = "<group>"; };
 		EBFE0C31221A637C053EB927 /* GroupInvite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupInvite.swift; sourceTree = "<group>"; };
 		ECF005101BCA70988BD71C7A /* ReceiptViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptViewModel.swift; sourceTree = "<group>"; };
@@ -413,7 +415,7 @@
 		F4FA0DF138FAAA01522B668E /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
 		F684542CE9913F0736FC5EC2 /* XBillFloatingAddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFloatingAddButton.swift; sourceTree = "<group>"; };
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
-		"TEMP_71475029-A5B5-45CA-91F4-C3C682020FE9" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_7CAC1F53-257C-427C-A945-2DCBF1939C11" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -780,6 +782,7 @@
 			isa = PBXGroup;
 			children = (
 				BA815E59A9392EC45FC52770 /* GroupFlowTests.swift */,
+				E82EDC580ACC0A6A8BFB4CAD /* NotificationReadStateTests.swift */,
 				97C0585EEB30C03384B5CDAE /* P1NotificationTests.swift */,
 				8FB75CACE895B59BCDF118AD /* P2FeatureTests.swift */,
 				1EB95AF7F1C155D9C83D8E6B /* P3HelperTests.swift */,
@@ -854,10 +857,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_269F11C2-3DF1-42FD-875B-A30984BE9C3A" /* xBill */ = {
+		"TEMP_FFB649D5-6145-4F40-BB2F-C45644884494" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_71475029-A5B5-45CA-91F4-C3C682020FE9" /* Secrets.xcconfig */,
+				"TEMP_7CAC1F53-257C-427C-A945-2DCBF1939C11" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1071,6 +1074,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				02DB9838B626008A375E8BD5 /* GroupFlowTests.swift in Sources */,
+				4CF1455938D2F1C336DDD2A6 /* NotificationReadStateTests.swift in Sources */,
 				B1451440BEDFB9AAAA50BE94 /* P1NotificationTests.swift in Sources */,
 				9A76A87FA21BFD4F3ADA3740 /* P2FeatureTests.swift in Sources */,
 				50EF0B7D1ED40C45ACBFB2AD /* P3HelperTests.swift in Sources */,
@@ -1293,7 +1297,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_71475029-A5B5-45CA-91F4-C3C682020FE9" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_7CAC1F53-257C-427C-A945-2DCBF1939C11" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1502,7 +1506,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_71475029-A5B5-45CA-91F4-C3C682020FE9" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_7CAC1F53-257C-427C-A945-2DCBF1939C11" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

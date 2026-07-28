@@ -12,6 +12,30 @@
 > `Encodable` omits nil; `try?` flattening makes an explicit JSON null fall through to a
 > fallback key), plus the open items and the device verification playbook.
 
+## Recent Fix Log — 2026-07-28
+
+### Notification unread state did not survive an app-lock cycle — ROOT CAUSE FIXED
+On a physical iPhone, marking a Recent notification unread appeared to work, then reverted to read after backgrounding, Face ID unlock and returning. Two faults compounded; the device log — not the test suite — was what made either visible.
+
+**Root cause.** The Activity list mixes two kinds of row: authoritative `public.notifications` rows, and historical expense-derived rows synthesised for accounts that predate migration 040. `NotificationItem.expense(...)` uses the **expense id** as the item id, and nothing distinguished the two origins, so a read/unread toggle on a history row issued `UPDATE public.notifications … WHERE id = <expense id>` — which matches **zero rows**. Verified read-only against the live database: 12 expenses, 3 notification rows, **zero id overlap**. `ActivityService.fetchRecentActivity` then forced `isRead = true` on every history row on every refresh, so the unread mark was erased by the refresh that runs after unlock.
+
+**Why the symptom changed after `2911833`.** That commit added `.select("id").single()` as an acknowledgement. `.single()` only sets `Accept: application/vnd.pgrst.object+json`; on a zero-row match PostgREST answers PGRST116 **"Cannot coerce the result to a single JSON object"**. That reads as a response-shape fault and hides "no row matched", so the same zero-row write changed from a silent no-op into a user-visible *Activity Update Failed* alert. Before it, the write reported success, the pending intent was cleared, and the next refresh reverted the row — the originally reported behaviour.
+
+**Fixes.**
+- `NotificationItem.isServerBacked` distinguishes a real `notifications` row from expense-derived history. Cache entries written before the flag existed decode as local (`decodeIfPresent ?? false`).
+- `ActivityViewModel.setReadState` (replaces the duplicated `markRead`/`markUnread` bodies) writes through **only** for server-backed rows. A history row's read state is local-only: no request, no pending intent to replay, no failure alert.
+- New `ActivityReconciler.reconcile(remoteItems:legacyItems:storedItems:pendingReadStates:)` — a pure function — preserves the stored read state for history rows and defaults only *unseen* rows to read, so pre-040 history still never inflates the badge.
+- `RemoteNotificationService.updateReadState` decodes the `return=representation` response as an **array** and checks the affected-row count via `acknowledgeUpdate(rows:id:)`, throwing `RemoteNotificationError.rowNotFound`. No dependence on `.single()`'s response shape.
+- `NotificationReadStatePayload` encodes `read_at` as an explicit **UTC** ISO-8601 instant. The SDK's own strategy emits a zone-less `2023-11-14T22:13:20.000` that Postgres resolves with the session `TimeZone`; that is UTC on this project (verified with `show timezone;`) but the read time should not depend on a server setting. Unread still sends an explicit JSON `null`.
+- Rollback on a failed write now reverts **only the affected row**. It previously restored a whole snapshot of `items`, which could revert unrelated rows changed while the write was in flight.
+- `reconcilePendingReadStates` clears a pending intent on `rowNotFound` instead of retrying a write that can never succeed.
+- `AppDiagnostics.describe` now logs PostgREST `code`/`detail`/`hint`. `localizedDescription` alone showed only the coercion message; `PGRST116` + "The result contains 0 rows" is the part that identifies the real fault.
+
+**Verification.** `scripts/run-coverage.sh unit` → **185 passed, 0 failed, 0 skipped** (`TestResults/Coverage/2026.07.28_19-00-36-unit.xcresult`). Release build succeeded (confirms the DEBUG-only diagnostics still compile out). Debug build installed on physical iPhone 16 Pro `00008140-000135EE3432801C`. **Lifecycle behaviour is not claimed from tests** — the Recent → Mark Unread → background → Face ID → return path must be exercised on device and the log pulled.
+
+### Key Pattern — an Activity row is not necessarily a server row
+`ActivityView` shows `public.notifications` rows *and* expense-derived history. Never route a read/unread/delete mutation to the notifications table without checking `NotificationItem.isServerBacked` — a history row carries an expense id and the write silently matches zero rows. Equally, never use `.single()` as an affected-row check: it is an Accept header, and a zero-row match surfaces as a JSON coercion error rather than "no rows". Decode `return=representation` as an array and count.
+
 ## Recent Fix Log — 2026-07-27
 - **Server-backed notification history** — Added migration `040_notifications.sql` and `RemoteNotificationService`. Expense, settlement, comment, and friend-request Edge Functions now persist recipient notifications with recipient-scoped dedupe keys; APNs badges count unread notification rows, and Activity read/delete actions update the server and icon badge. After a successful fetch, Activity uses the server snapshot for notification state while supplementing it with historical expense activity as read-only context for existing accounts; the local store remains an offline cache.
 - **Settlement reloads no longer resurrect freshly settled rows** — A physical-device run showed local state at 3 suggestions, followed by a server reload returning 4 due to a stale read-after-write snapshot. Confirmed split IDs now overlay fetched splits for the lifetime of the group view model.

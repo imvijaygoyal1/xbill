@@ -5,6 +5,55 @@
 
 import Foundation
 
+// MARK: - Read-state wire types
+
+/// The body of a read-state PATCH.
+///
+/// Two wire details are load-bearing:
+///
+/// - Swift's synthesized `Encodable` omits nil optionals, and a PATCH without the key is a
+///   no-op that can never clear `read_at`. The explicit `encode` below always writes the
+///   key, so an unread transition sends a JSON null.
+/// - The timestamp is written as an explicit UTC instant. The SDK's own date strategy emits
+///   a zone-less string (`2023-11-14T22:13:20.000`), which Postgres resolves using the
+///   session `TimeZone`. That is UTC on this project today, but the read time should not
+///   depend on a server setting.
+struct NotificationReadStatePayload: Encodable {
+    let readAt: Date?
+
+    enum CodingKeys: String, CodingKey { case readAt = "read_at" }
+
+    nonisolated(unsafe) private static let formatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        return f
+    }()
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(readAt.map(Self.formatter.string(from:)), forKey: .readAt)
+    }
+}
+
+/// One row of the `return=representation` response for a read-state update.
+struct NotificationRowID: Decodable, Equatable {
+    let id: UUID
+}
+
+enum RemoteNotificationError: LocalizedError, Equatable {
+    /// The update matched no row: the id does not exist in `public.notifications`, or RLS
+    /// hid it from this user.
+    case rowNotFound(UUID)
+
+    var errorDescription: String? {
+        switch self {
+        case .rowNotFound(let id):
+            return "No notification row matched id \(id.uuidString)."
+        }
+    }
+}
+
 @MainActor
 final class RemoteNotificationService {
     static let shared = RemoteNotificationService()
@@ -68,27 +117,25 @@ final class RemoteNotificationService {
         try await updateReadState(id: id, readAt: nil)
     }
 
+    /// Fails when no row was affected, so a zero-row match cannot be mistaken for success.
+    ///
+    /// `.single()` is deliberately *not* used. It only sets
+    /// `Accept: application/vnd.pgrst.object+json`; on a zero-row match PostgREST answers
+    /// PGRST116 "Cannot coerce the result to a single JSON object", which reads as a
+    /// response-shape fault and hides the real cause. `return=representation` sends the
+    /// updated rows as an array, so counting them is the reliable acknowledgement.
+    nonisolated static func acknowledgeUpdate(rows: [NotificationRowID], id: UUID) throws {
+        guard !rows.isEmpty else { throw RemoteNotificationError.rowNotFound(id) }
+    }
+
     private func updateReadState(id: UUID, readAt: Date?) async throws {
-        struct Payload: Encodable {
-            let readAt: Date?
-
-            enum CodingKeys: String, CodingKey { case readAt = "read_at" }
-
-            // Synthesized Encodable omits nil optionals. An unread transition
-            // must send an explicit JSON null so PostgREST clears read_at.
-            func encode(to encoder: Encoder) throws {
-                var container = encoder.container(keyedBy: CodingKeys.self)
-                try container.encode(readAt, forKey: .readAt)
-            }
-        }
-        // Request the updated row so a zero-row RLS/filter miss is an error,
-        // not a false success that clears the pending local intent.
-        _ = try await supabase.table("notifications")
-            .update(Payload(readAt: readAt))
+        let rows: [NotificationRowID] = try await supabase.table("notifications")
+            .update(NotificationReadStatePayload(readAt: readAt))
             .eq("id", value: id)
             .select("id")
-            .single()
             .execute()
+            .value
+        try Self.acknowledgeUpdate(rows: rows, id: id)
     }
 
     func markAllRead(userID: UUID) async throws {

@@ -417,10 +417,32 @@ Follow-up to the PayPal handoff defect above. These address what that investigat
 
 ---
 
+## Notification Unread Lifecycle — 2026-07-28
+
+Reported on a physical iPhone: marking a Recent notification unread reverted to read after backgrounding, Face ID unlock and returning. Evidence in `diagnostics/2026-07-28-notification-unread/`.
+
+| ID | File | Issue | Status | Fix |
+|---|---|---|---|---|
+| NOTIF-01 | `xBill/Models/NotificationItem.swift` | Nothing distinguished a `public.notifications` row from an expense-derived history row, whose `id` is an **expense** id. Verified against the live DB: 12 expenses, 3 notification rows, **zero id overlap**. | ✅ Fixed | Added `isServerBacked`; `decodeIfPresent ?? false` so pre-existing cache entries decode as local. |
+| NOTIF-02 | `xBill/ViewModels/ActivityViewModel.swift` | Read/unread toggles on a history row issued `UPDATE notifications … WHERE id = <expense id>` — always zero rows. | ✅ Fixed | `setReadState` writes through only when `item.isServerBacked`; history rows are local-only. |
+| NOTIF-03 | `xBill/Services/ActivityService.swift` | `fetchRecentActivity` forced `isRead = true` on every history row on every refresh, erasing a deliberate unread mark on the post-unlock reload. **This is the reported symptom.** | ✅ Fixed | New pure `ActivityReconciler.reconcile(...)` keeps the stored read state and defaults only *unseen* rows to read, so pre-040 history still never inflates the badge. |
+| NOTIF-04 | `xBill/Services/RemoteNotificationService.swift` | `.select("id").single()` (commit `2911833`) turned the zero-row write into PGRST116 *"Cannot coerce the result to a single JSON object"* — an opaque response-shape error masking "no row matched", surfaced as an *Activity Update Failed* alert. | ✅ Fixed | Decode the `return=representation` **array** and check the affected-row count in `acknowledgeUpdate(rows:id:)`, throwing `RemoteNotificationError.rowNotFound`. `.single()` is only an Accept header and is never a row-count check. |
+| NOTIF-05 | `xBill/Services/RemoteNotificationService.swift` | `read_at` was encoded by the SDK's date strategy as a zone-less `2023-11-14T22:13:20.000`, resolved using the Postgres session `TimeZone`. Correct only because that is UTC here (`show timezone;`). | ✅ Fixed | `NotificationReadStatePayload` writes an explicit UTC ISO-8601 instant. Unread still sends an explicit JSON `null`. |
+| NOTIF-06 | `xBill/ViewModels/ActivityViewModel.swift` | A failed write rolled back a whole snapshot of `items`, which could also revert unrelated rows changed while the write was in flight. | ✅ Fixed | Rollback is scoped to the single affected row. |
+| NOTIF-07 | `xBill/Services/ActivityService.swift` | A pending read intent for a non-existent row was retried on every refresh and could never succeed. | ✅ Fixed | `reconcilePendingReadStates` clears the intent on `rowNotFound`. |
+| NOTIF-08 | `xBill/Core/AppDiagnostics.swift` | `describe` logged only `localizedDescription`, so the device log showed the JSON-coercion message and dropped `PGRST116` / "The result contains 0 rows" — the part that identifies the fault. | ✅ Fixed | Logs PostgREST `code`/`detail`/`hint`; `markRead`/`markUnread` failures now log the item id. |
+
+**Regression cover:** `xBillTests/NotificationReadStateTests.swift` — 21 tests over payload encoding, array-shaped affected-row acknowledgement, reconciliation, item origin, and view-model read mutations (local-only routing, scoped rollback, last-toggle-wins). `historicalUnreadSurvivesRefresh` was confirmed to fail against the pre-fix `isRead = true` behaviour.
+
+**Residual (not fixed):** deleting a history row removes it locally, but the next fetch re-derives it from the expense list, so it reappears. Pre-existing and separate from read state.
+
+---
+
 ## Open Items
 
 | Item | Priority | Notes |
 |---|---|---|
+| Notification unread lifecycle — device verification | P1 | Fix is installed on iPhone 16 Pro `00008140-000135EE3432801C` but the Recent → Mark Unread → background → Face ID → return path is **not yet confirmed on device**. Pull `Documents/xbill-diagnostics.log` after the run. |
 | App Store assets | P0 | Screenshots, preview video, keyword strategy — only remaining submission blocker. No code work required. |
 | App Group registration | Setup | Register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Identifiers → App Groups before widget data sharing will work on a device. |
 | Apple JWT secret renewal | Maintenance | JWT secret for Sign in with Apple expires 2026-10-28. Regenerate before that date using `generate_apple_secret.js`. |

@@ -30,6 +30,12 @@ struct NotificationItem: Identifiable, Sendable, Codable {
     var isRead: Bool
     let groupID: UUID?
     let expenseID: UUID?
+    /// True only for rows that exist in `public.notifications`.
+    ///
+    /// The Activity list also shows historical expense-derived rows for accounts that
+    /// predate migration 040. Those carry an *expense* id, so a read/unread PATCH against
+    /// the notifications table matches zero rows. Read state for them is local-only.
+    let isServerBacked: Bool
 
     init(
         id: UUID,
@@ -42,19 +48,39 @@ struct NotificationItem: Identifiable, Sendable, Codable {
         createdAt: Date,
         isRead: Bool = false,
         groupID: UUID? = nil,
-        expenseID: UUID? = nil
+        expenseID: UUID? = nil,
+        isServerBacked: Bool = false
     ) {
-        self.id        = id
-        self.eventType = eventType
-        self.title     = title
-        self.subtitle  = subtitle
-        self.amount    = amount
-        self.currency  = currency
-        self.category  = category
-        self.createdAt = createdAt
-        self.isRead    = isRead
-        self.groupID   = groupID
-        self.expenseID = expenseID
+        self.id             = id
+        self.eventType      = eventType
+        self.title          = title
+        self.subtitle       = subtitle
+        self.amount         = amount
+        self.currency       = currency
+        self.category       = category
+        self.createdAt      = createdAt
+        self.isRead         = isRead
+        self.groupID        = groupID
+        self.expenseID      = expenseID
+        self.isServerBacked = isServerBacked
+    }
+
+    /// Cache entries written before this flag existed have no `isServerBacked` key.
+    /// They decode as local; the next authoritative fetch re-flags the server rows.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id             = try c.decode(UUID.self, forKey: .id)
+        eventType      = try c.decode(NotificationEventType.self, forKey: .eventType)
+        title          = try c.decode(String.self, forKey: .title)
+        subtitle       = try c.decode(String.self, forKey: .subtitle)
+        amount         = try c.decode(Decimal.self, forKey: .amount)
+        currency       = try c.decode(String.self, forKey: .currency)
+        category       = try c.decode(Expense.Category.self, forKey: .category)
+        createdAt      = try c.decode(Date.self, forKey: .createdAt)
+        isRead         = try c.decode(Bool.self, forKey: .isRead)
+        groupID        = try c.decodeIfPresent(UUID.self, forKey: .groupID)
+        expenseID      = try c.decodeIfPresent(UUID.self, forKey: .expenseID)
+        isServerBacked = try c.decodeIfPresent(Bool.self, forKey: .isServerBacked) ?? false
     }
 }
 
@@ -145,7 +171,8 @@ extension NotificationItem {
             createdAt: createdAt,
             isRead: isRead,
             groupID: groupID,
-            expenseID: expenseID
+            expenseID: expenseID,
+            isServerBacked: true
         )
     }
 }

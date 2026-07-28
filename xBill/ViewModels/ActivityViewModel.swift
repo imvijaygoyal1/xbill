@@ -16,22 +16,35 @@ final class ActivityViewModel {
     var errorAlert: ErrorAlert?
     var unreadCount: Int = 0
 
-    private let service = ActivityService.shared
-    private let auth    = AuthService.shared
-    private let store   = NotificationStore.shared
+    private let service: ActivityReadWriting
+    private let store: NotificationStore
+    private let currentUserIDProvider: @MainActor () -> UUID?
 
-    private var currentUserID: UUID? { auth.currentUserID }
+    init(
+        service: ActivityReadWriting = ActivityService.shared,
+        store: NotificationStore = .shared,
+        currentUserIDProvider: @escaping @MainActor () -> UUID? = { AuthService.shared.currentUserID }
+    ) {
+        self.service = service
+        self.store = store
+        self.currentUserIDProvider = currentUserIDProvider
+    }
+
+    private var currentUserID: UUID? { currentUserIDProvider() }
     private var readMutationGeneration: [UUID: Int] = [:]
     private var readMutationTasks: [UUID: Task<Void, Never>] = [:]
+
+    /// Whether any read-state write is still settling. Derived from the in-flight task map.
+    var hasInFlightReadMutations: Bool { !readMutationTasks.isEmpty }
 
     func load() async {
         isLoading = true
         defer { isLoading = false }
         do {
-            guard let userID = auth.currentUserID else { throw AppError.unauthenticated }
+            guard let userID = currentUserID else { throw AppError.unauthenticated }
             // Read unreadCount before the fetch/merge so the badge reflects the
             // pre-fetch state and isn't overwritten by a concurrent markRead call.
-            let fetchedItems = try await service.fetchRecentActivity(userID: userID)
+            let fetchedItems = try await service.fetchRecentActivity(userID: userID, limit: 50)
             await service.reconcilePendingReadStates(userID: userID)
             let storedItems = store.loadAll(userID: userID)
             items       = storedItems.isEmpty ? fetchedItems : storedItems
@@ -63,8 +76,12 @@ final class ActivityViewModel {
         // Read back from the store rather than hardcoding 0 so that a silent
         // store failure doesn't permanently suppress the badge.
         unreadCount = store.unreadCount(userID: currentUserID)
-        if let userID = auth.currentUserID {
-            for item in items { store.setPendingReadState(id: item.id, isRead: true, userID: userID) }
+        if let userID = currentUserID {
+            // Only server-backed rows have a write to replay; a history row's read state
+            // lives solely in the local store.
+            for item in items where item.isServerBacked {
+                store.setPendingReadState(id: item.id, isRead: true, userID: userID)
+            }
             Task { @MainActor in
                 guard await service.markAllRead(userID: userID) else {
                     store.clearPendingReadStates(userID: userID)
@@ -82,68 +99,73 @@ final class ActivityViewModel {
     }
 
     func markRead(_ item: NotificationItem) {
-        let previous = item
-        let previousItems = items
-        store.markRead(id: item.id, userID: currentUserID)
-        replace(item.id) { $0.isRead = true }
-        refreshUnreadCount()
-        guard let userID = currentUserID else {
-            NotificationService.shared.setBadge(unreadCount)
-            return
-        }
-        store.setPendingReadState(id: item.id, isRead: true, userID: userID)
-        let generation = nextReadMutationGeneration(for: item.id)
-        let previousTask = readMutationTasks[item.id]
-        let task = Task { @MainActor in
-            await previousTask?.value
-            guard readMutationGeneration[item.id] == generation else { return }
-            guard await service.markRead(id: item.id) else {
-                guard readMutationGeneration[item.id] == generation else { return }
-                store.clearPendingReadState(id: item.id, userID: userID)
-                store.replaceWithRemote(previousItems, userID: userID)
-                replace(item.id) { $0 = previous }
-                refreshUnreadCount()
-                NotificationService.shared.setBadge(unreadCount)
-                errorAlert = ErrorAlert(title: "Activity Update Failed", message: "This notification could not be marked read. Try again.")
-                return
-            }
-            guard readMutationGeneration[item.id] == generation else { return }
-            store.clearPendingReadState(id: item.id, userID: userID)
-            readMutationTasks.removeValue(forKey: item.id)
-        }
-        readMutationTasks[item.id] = task
-        NotificationService.shared.setBadge(unreadCount)
+        setReadState(item, isRead: true)
     }
 
     func markUnread(_ item: NotificationItem) {
-        let previous = item
-        let previousItems = items
-        store.markUnread(id: item.id, userID: currentUserID)
-        replace(item.id) { $0.isRead = false }
+        setReadState(item, isRead: false)
+    }
+
+    /// Applies the new read state locally, then writes it through **only** for rows that
+    /// exist in `public.notifications`.
+    ///
+    /// The Activity list also contains historical expense-derived rows whose id is an
+    /// expense id. A PATCH for one of those matches zero rows on the server, so it is kept
+    /// local-only: no request, no pending intent to replay, no failure alert. Its state
+    /// survives a refresh because `ActivityReconciler` preserves the stored value.
+    private func setReadState(_ item: NotificationItem, isRead: Bool) {
+        let previousIsRead = item.isRead
+        if isRead {
+            store.markRead(id: item.id, userID: currentUserID)
+        } else {
+            store.markUnread(id: item.id, userID: currentUserID)
+        }
+        replace(item.id) { $0.isRead = isRead }
         refreshUnreadCount()
-        guard let userID = currentUserID else {
+
+        guard let userID = currentUserID, item.isServerBacked else {
+            AppDiagnostics.log(.balance, "ActivityViewModel.readState.localOnly", [
+                ("id", item.id.uuidString),
+                ("isRead", "\(isRead)"),
+                ("serverBacked", "\(item.isServerBacked)")
+            ])
             NotificationService.shared.setBadge(unreadCount)
             return
         }
-        store.setPendingReadState(id: item.id, isRead: false, userID: userID)
+
+        store.setPendingReadState(id: item.id, isRead: isRead, userID: userID)
+        // The generation counter makes the newest toggle authoritative: a superseded
+        // mutation neither issues its request nor applies its rollback.
         let generation = nextReadMutationGeneration(for: item.id)
         let previousTask = readMutationTasks[item.id]
         let task = Task { @MainActor in
             await previousTask?.value
             guard readMutationGeneration[item.id] == generation else { return }
-            guard await service.markUnread(id: item.id) else {
-                guard readMutationGeneration[item.id] == generation else { return }
-                store.clearPendingReadState(id: item.id, userID: userID)
-                store.replaceWithRemote(previousItems, userID: userID)
-                replace(item.id) { $0 = previous }
+            let succeeded = isRead
+                ? await service.markRead(id: item.id)
+                : await service.markUnread(id: item.id)
+            guard readMutationGeneration[item.id] == generation else { return }
+            defer { readMutationTasks.removeValue(forKey: item.id) }
+            store.clearPendingReadState(id: item.id, userID: userID)
+            guard succeeded else {
+                // Roll back this row only. Restoring a whole snapshot of `items` here
+                // would also revert unrelated rows changed while the write was in flight.
+                if previousIsRead {
+                    store.markRead(id: item.id, userID: userID)
+                } else {
+                    store.markUnread(id: item.id, userID: userID)
+                }
+                replace(item.id) { $0.isRead = previousIsRead }
                 refreshUnreadCount()
                 NotificationService.shared.setBadge(unreadCount)
-                errorAlert = ErrorAlert(title: "Activity Update Failed", message: "This notification could not be marked unread. Try again.")
+                errorAlert = ErrorAlert(
+                    title: "Activity Update Failed",
+                    message: isRead
+                        ? "This notification could not be marked read. Try again."
+                        : "This notification could not be marked unread. Try again."
+                )
                 return
             }
-            guard readMutationGeneration[item.id] == generation else { return }
-            store.clearPendingReadState(id: item.id, userID: userID)
-            readMutationTasks.removeValue(forKey: item.id)
         }
         readMutationTasks[item.id] = task
         NotificationService.shared.setBadge(unreadCount)
