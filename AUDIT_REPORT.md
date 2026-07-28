@@ -432,9 +432,20 @@ Reported on a physical iPhone: marking a Recent notification unread reverted to 
 | NOTIF-07 | `xBill/Services/ActivityService.swift` | A pending read intent for a non-existent row was retried on every refresh and could never succeed. | ✅ Fixed | `reconcilePendingReadStates` clears the intent on `rowNotFound`. |
 | NOTIF-08 | `xBill/Core/AppDiagnostics.swift` | `describe` logged only `localizedDescription`, so the device log showed the JSON-coercion message and dropped `PGRST116` / "The result contains 0 rows" — the part that identifies the fault. | ✅ Fixed | Logs PostgREST `code`/`detail`/`hint`; `markRead`/`markUnread` failures now log the item id. |
 
-**Regression cover:** `xBillTests/NotificationReadStateTests.swift` — 21 tests over payload encoding, array-shaped affected-row acknowledgement, reconciliation, item origin, and view-model read mutations (local-only routing, scoped rollback, last-toggle-wins). `historicalUnreadSurvivesRefresh` was confirmed to fail against the pre-fix `isRead = true` behaviour.
+### Follow-up batch — same session
 
-**Residual (not fixed):** deleting a history row removes it locally, but the next fetch re-derives it from the expense list, so it reappears. Pre-existing and separate from read state.
+The delete path carried the same two faults as the read-state path, and the diagnostics could not distinguish which row kind a run had exercised.
+
+| ID | File | Issue | Status | Fix |
+|---|---|---|---|---|
+| NOTIF-09 | `xBill/Services/RemoteNotificationService.swift` | `delete` had **no** affected-row acknowledgement — the same latent fault as NOTIF-04. An RLS miss, or an id that is not a notification row, returned HTTP 200 with an empty body and read as success. | ✅ Fixed | `.delete().eq("id").select("id")` decoded as an array and checked through the shared `acknowledgeAffectedRows(_:id:)` (renamed from `acknowledgeUpdate`, now used by both paths). |
+| NOTIF-10 | `xBill/ViewModels/ActivityViewModel.swift`, `NotificationStore`, `ActivityReconciler` | Deleting a **history** row removed it locally, then the next fetch re-derived it from the expense list and it reappeared. | ✅ Fixed | History-row deletes are local-only and recorded via `NotificationStore.dismissHistoryItem`; `ActivityReconciler` filters dismissed ids out of the legacy set. Capped at 200, user-scoped, never applied to server rows — deletion there is authoritative server-side. |
+| NOTIF-11 | `xBill/ViewModels/ActivityViewModel.swift` | A failed delete restored a whole snapshot of `items`, reverting unrelated rows changed while the request was in flight, and reinstated the row at the end of the list. | ✅ Fixed | Restores only that row, at its original index. |
+| NOTIF-12 | `xBill/ViewModels/ActivityViewModel.swift` | A *successful* read-state write logged nothing, so the post-fix device log could only show the absence of errors — never which row kind was exercised. This is exactly the gap left open after the first device run. | ✅ Fixed | `ActivityViewModel.readState.remote` logs id/isRead/succeeded; `delete.localOnly` logs history-row dismissals. |
+
+**Regression cover:** `xBillTests/NotificationReadStateTests.swift` — 29 tests over payload encoding, array-shaped affected-row acknowledgement, reconciliation, item origin, dismissal persistence/scoping/capping, and view-model mutations (local-only routing for both read state and delete, scoped rollback, in-place delete restore, last-toggle-wins). `historicalUnreadSurvivesRefresh` and `dismissedHistoryItemStaysDeleted` were each confirmed to fail against the pre-fix behaviour.
+
+**Verification:** `scripts/run-coverage.sh unit` → **193 passed, 0 failed, 0 skipped** (`TestResults/Coverage/2026.07.28_19-41-38-unit.xcresult`). Release build succeeded. Installed on iPhone 16 Pro `00008140-000135EE3432801C`.
 
 ---
 
@@ -442,7 +453,7 @@ Reported on a physical iPhone: marking a Recent notification unread reverted to 
 
 | Item | Priority | Notes |
 |---|---|---|
-| Notification unread lifecycle — history-row path | Low | Device-verified on iPhone 16 Pro: session `2026-07-28T23:05:58Z` covers background → lock → Face ID → return with zero read-state failures and zero alerts, and the user confirmed the unread mark survived. The log carries no `readState.localOnly` line, so it does not show *which* row kind was toggled — re-check by marking an **older expense row** unread and cycling the lock. |
+| Notification unread lifecycle — follow-up batch device check | Low | Read-state fix is device-verified (session `2026-07-28T23:05:58Z`, user-confirmed). The follow-up batch (NOTIF-09…NOTIF-12) is installed but not yet exercised on device. Delete a **history** row and an older expense row, cycle the lock, then pull the log: `readState.localOnly` / `readState.remote` / `delete.localOnly` now identify which path ran. |
 | App Store assets | P0 | Screenshots, preview video, keyword strategy — only remaining submission blocker. No code work required. |
 | App Group registration | Setup | Register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Identifiers → App Groups before widget data sharing will work on a device. |
 | Apple JWT secret renewal | Maintenance | JWT secret for Sign in with Apple expires 2026-10-28. Regenerate before that date using `generate_apple_secret.js`. |

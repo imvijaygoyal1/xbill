@@ -123,8 +123,8 @@ final class RemoteNotificationService {
     /// `Accept: application/vnd.pgrst.object+json`; on a zero-row match PostgREST answers
     /// PGRST116 "Cannot coerce the result to a single JSON object", which reads as a
     /// response-shape fault and hides the real cause. `return=representation` sends the
-    /// updated rows as an array, so counting them is the reliable acknowledgement.
-    nonisolated static func acknowledgeUpdate(rows: [NotificationRowID], id: UUID) throws {
+    /// affected rows as an array, so counting them is the reliable acknowledgement.
+    nonisolated static func acknowledgeAffectedRows(_ rows: [NotificationRowID], id: UUID) throws {
         guard !rows.isEmpty else { throw RemoteNotificationError.rowNotFound(id) }
     }
 
@@ -135,7 +135,7 @@ final class RemoteNotificationService {
             .select("id")
             .execute()
             .value
-        try Self.acknowledgeUpdate(rows: rows, id: id)
+        try Self.acknowledgeAffectedRows(rows, id: id)
     }
 
     func markAllRead(userID: UUID) async throws {
@@ -147,11 +147,17 @@ final class RemoteNotificationService {
             .execute()
     }
 
+    /// Deletes take the same affected-row acknowledgement as the read-state update: without
+    /// it an RLS miss or an id that is not a notification row returns HTTP 200 with an empty
+    /// body, the row disappears locally, and the next fetch brings it straight back.
     func delete(id: UUID) async throws {
-        try await supabase.table("notifications")
+        let rows: [NotificationRowID] = try await supabase.table("notifications")
             .delete()
             .eq("id", value: id)
+            .select("id")
             .execute()
+            .value
+        try Self.acknowledgeAffectedRows(rows, id: id)
     }
 
     func unreadCount(userID: UUID) async throws -> Int {

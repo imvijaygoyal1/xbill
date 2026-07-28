@@ -18,16 +18,21 @@ final class NotificationStore: @unchecked Sendable {
     private let itemsKey: String
     private let lastViewedKey: String
     private let pendingReadKey: String
+    private let dismissedKey: String
     private let maxCount      = 100
+    /// The dismissal record is append-only, so it needs a bound of its own.
+    private let maxDismissed  = 200
 
     init(
         itemsKey: String = "xbill_notifications_v1",
         lastViewedKey: String = "xbill_notifications_last_viewed",
-        pendingReadKey: String = "xbill_notifications_pending_read_v1"
+        pendingReadKey: String = "xbill_notifications_pending_read_v1",
+        dismissedKey: String = "xbill_notifications_dismissed_history_v1"
     ) {
         self.itemsKey = itemsKey
         self.lastViewedKey = lastViewedKey
         self.pendingReadKey = pendingReadKey
+        self.dismissedKey = dismissedKey
     }
 
     // Serialises all read-modify-write cycles to prevent TOCTOU races when
@@ -156,6 +161,25 @@ final class NotificationStore: @unchecked Sendable {
         }
     }
 
+    // MARK: - Dismissed history rows
+
+    /// Records that the user deleted an expense-derived history row.
+    ///
+    /// Those rows have no server row to delete — they are re-derived from the expense list
+    /// on every fetch — so without this record a deleted row simply reappears.
+    func dismissHistoryItem(id: UUID, userID: UUID? = nil) {
+        lock.withLock {
+            var dismissed = _loadDismissed(userID: userID)
+            dismissed.removeAll { $0 == id.uuidString }
+            dismissed.append(id.uuidString)
+            _saveDismissed(Array(dismissed.suffix(maxDismissed)), userID: userID)
+        }
+    }
+
+    func dismissedHistoryIDs(userID: UUID? = nil) -> Set<UUID> {
+        lock.withLock { Set(_loadDismissed(userID: userID).compactMap(UUID.init(uuidString:))) }
+    }
+
     func unreadCount(userID: UUID? = nil) -> Int {
         lock.withLock { _loadAll(userID: userID).filter { !$0.isRead }.count }
     }
@@ -167,6 +191,7 @@ final class NotificationStore: @unchecked Sendable {
             CacheService.defaults.removeObject(forKey: itemsKey)
             CacheService.defaults.removeObject(forKey: lastViewedKey)
             CacheService.defaults.removeObject(forKey: pendingReadKey)
+            CacheService.defaults.removeObject(forKey: dismissedKey)
         }
     }
 
@@ -215,5 +240,18 @@ final class NotificationStore: @unchecked Sendable {
         guard let plain = try? JSONEncoder().encode(states) else { return }
         let data = CacheService.encrypt(plain) ?? plain
         CacheService.defaults.set(data, forKey: key(pendingReadKey, userID: userID))
+    }
+
+    /// Ordered oldest-first so the cap drops the least recent dismissals.
+    private func _loadDismissed(userID: UUID?) -> [String] {
+        guard let raw = CacheService.defaults.data(forKey: key(dismissedKey, userID: userID)) else { return [] }
+        let data = CacheService.decrypt(raw) ?? raw
+        return (try? JSONDecoder().decode([String].self, from: data)) ?? []
+    }
+
+    private func _saveDismissed(_ ids: [String], userID: UUID?) {
+        guard let plain = try? JSONEncoder().encode(ids) else { return }
+        let data = CacheService.encrypt(plain) ?? plain
+        CacheService.defaults.set(data, forKey: key(dismissedKey, userID: userID))
     }
 }

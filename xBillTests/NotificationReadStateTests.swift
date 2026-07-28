@@ -71,14 +71,14 @@ struct NotificationReadStateAcknowledgementTests {
     func zeroRowsThrowsRowNotFound() {
         let id = UUID()
         #expect(throws: RemoteNotificationError.rowNotFound(id)) {
-            try RemoteNotificationService.acknowledgeUpdate(rows: [], id: id)
+            try RemoteNotificationService.acknowledgeAffectedRows([], id: id)
         }
     }
 
-    @Test("A single updated row is accepted")
+    @Test("A single affected row is accepted")
     func oneRowSucceeds() throws {
         let id = UUID()
-        try RemoteNotificationService.acknowledgeUpdate(rows: [NotificationRowID(id: id)], id: id)
+        try RemoteNotificationService.acknowledgeAffectedRows([NotificationRowID(id: id)], id: id)
     }
 
     /// Pins the response shape. `update(...).select("id")` sends `Prefer: return=representation`,
@@ -93,7 +93,7 @@ struct NotificationReadStateAcknowledgementTests {
         let rows = try JSONDecoder().decode([NotificationRowID].self, from: body)
 
         #expect(rows.count == 1)
-        try RemoteNotificationService.acknowledgeUpdate(rows: rows, id: id)
+        try RemoteNotificationService.acknowledgeAffectedRows(rows, id: id)
     }
 
     @Test("An empty array response is the wire shape of a zero-row match")
@@ -103,7 +103,7 @@ struct NotificationReadStateAcknowledgementTests {
 
         #expect(rows.isEmpty)
         #expect(throws: RemoteNotificationError.rowNotFound(id)) {
-            try RemoteNotificationService.acknowledgeUpdate(rows: rows, id: id)
+            try RemoteNotificationService.acknowledgeAffectedRows(rows, id: id)
         }
     }
 }
@@ -237,6 +237,42 @@ struct ActivityReconcilerTests {
         #expect(result.first?.isRead == false)
     }
 
+    /// A history row has no server row to delete, so dismissing one is recorded locally.
+    /// Without that record the next fetch re-derives it straight from the expense list and
+    /// the row the user deleted comes back.
+    @Test("A dismissed history item is not re-derived on the next refresh")
+    func dismissedHistoryItemStaysDeleted() {
+        let legacy = expenseItem()
+
+        let result = ActivityReconciler.reconcile(
+            remoteItems:       [],
+            legacyItems:       [legacy],
+            storedItems:       [],
+            pendingReadStates: [:],
+            dismissedHistoryIDs: [legacy.id]
+        )
+
+        #expect(result.isEmpty)
+    }
+
+    /// Deletion of a server row is authoritative on the server — the fetch simply stops
+    /// returning it. A local dismissal record must never suppress a live server row.
+    @Test("A dismissal record does not suppress a server-backed row")
+    func dismissalDoesNotHideServerRow() {
+        let remote = remoteItem(isRead: false)
+
+        let result = ActivityReconciler.reconcile(
+            remoteItems:       [remote],
+            legacyItems:       [],
+            storedItems:       [],
+            pendingReadStates: [:],
+            dismissedHistoryIDs: [remote.id]
+        )
+
+        #expect(result.count == 1)
+        #expect(result.first?.id == remote.id)
+    }
+
     @Test("A legacy item duplicating a server row is dropped in favour of the server row")
     func serverRowSupersedesLegacyDuplicate() {
         let sharedID = UUID()
@@ -323,6 +359,61 @@ struct NotificationItemOriginTests {
     }
 }
 
+// MARK: - Dismissed history rows
+
+@Suite("NotificationStore — dismissed history rows")
+struct NotificationStoreDismissalTests {
+
+    private func makeStore() -> NotificationStore {
+        let suffix = UUID().uuidString
+        return NotificationStore(
+            itemsKey:       "test_items_\(suffix)",
+            lastViewedKey:  "test_viewed_\(suffix)",
+            pendingReadKey: "test_pending_\(suffix)",
+            dismissedKey:   "test_dismissed_\(suffix)"
+        )
+    }
+
+    @Test("A dismissal is persisted")
+    func dismissalPersists() {
+        let store = makeStore()
+        let user  = UUID()
+        let id    = UUID()
+
+        store.dismissHistoryItem(id: id, userID: user)
+
+        #expect(store.dismissedHistoryIDs(userID: user).contains(id))
+    }
+
+    @Test("Dismissals are scoped per account")
+    func dismissalsAreUserScoped() {
+        let store = makeStore()
+        let userA = UUID()
+        let userB = UUID()
+        let id    = UUID()
+
+        store.dismissHistoryItem(id: id, userID: userA)
+
+        #expect(store.dismissedHistoryIDs(userID: userB).isEmpty)
+    }
+
+    /// The record is append-only, so it needs a bound — otherwise it grows for the life of
+    /// the install.
+    @Test("Dismissals are capped, keeping the most recent")
+    func dismissalsAreCapped() {
+        let store = makeStore()
+        let user  = UUID()
+        let ids   = (0..<250).map { _ in UUID() }
+
+        for id in ids { store.dismissHistoryItem(id: id, userID: user) }
+
+        let stored = store.dismissedHistoryIDs(userID: user)
+        #expect(stored.count == 200)
+        #expect(stored.contains(ids.last!))
+        #expect(!stored.contains(ids.first!))
+    }
+}
+
 // MARK: - View model read mutations
 
 @Suite("ActivityViewModel read mutations", .serialized)
@@ -376,7 +467,7 @@ struct ActivityViewModelReadMutationTests {
     /// Polls on the main actor so queued `Task { @MainActor in … }` mutation work can run.
     private func settle(_ vm: ActivityViewModel) async {
         for _ in 0..<200 {
-            if !vm.hasInFlightReadMutations { return }
+            if !vm.hasInFlightMutations { return }
             try? await Task.sleep(nanoseconds: 1_000_000)
         }
     }
@@ -464,6 +555,71 @@ struct ActivityViewModelReadMutationTests {
         #expect(vm.items.first { $0.id == failing.id }?.isRead == true)
         #expect(vm.items.first { $0.id == untouched.id }?.isRead == false)
         #expect(store.loadAll(userID: user).count == 2)
+    }
+
+    @Test("Deleting a history row records a dismissal instead of calling the server")
+    func historyRowDeleteIsLocalOnly() async {
+        let fake  = FakeActivityService()
+        let store = makeStore()
+        let user  = UUID()
+        let item  = historyItem()
+        store.replaceWithRemote([item], userID: user)
+
+        let vm = ActivityViewModel(service: fake, store: store, currentUserIDProvider: { user })
+        vm.items = [item]
+
+        vm.delete(item)
+        await settle(vm)
+
+        // DELETE ... WHERE id = <expense id> matches zero rows; there is nothing to call.
+        #expect(fake.calls.isEmpty)
+        #expect(vm.items.isEmpty)
+        #expect(store.dismissedHistoryIDs(userID: user).contains(item.id))
+        #expect(vm.errorAlert == nil)
+    }
+
+    @Test("Deleting a server-backed row calls the server")
+    func serverRowDeleteIsWrittenThrough() async {
+        let fake  = FakeActivityService()
+        let store = makeStore()
+        let user  = UUID()
+        let item  = serverItem(isRead: false)
+        store.replaceWithRemote([item], userID: user)
+
+        let vm = ActivityViewModel(service: fake, store: store, currentUserIDProvider: { user })
+        vm.items = [item]
+
+        vm.delete(item)
+        await settle(vm)
+
+        #expect(fake.calls == [.delete(item.id)])
+        #expect(vm.items.isEmpty)
+        // A server row is gone server-side; no local dismissal record is needed.
+        #expect(store.dismissedHistoryIDs(userID: user).isEmpty)
+    }
+
+    /// The restore must put the row back where it was and leave its neighbours alone.
+    @Test("A failed delete restores the row at its original position")
+    func failedDeleteRestoresInPlace() async {
+        let fake  = FakeActivityService()
+        fake.result = false
+        let store = makeStore()
+        let user  = UUID()
+        let first  = serverItem(isRead: true)
+        let middle = serverItem(isRead: false)
+        let last   = serverItem(isRead: true)
+        store.replaceWithRemote([first, middle, last], userID: user)
+
+        let vm = ActivityViewModel(service: fake, store: store, currentUserIDProvider: { user })
+        vm.items = [first, middle, last]
+
+        vm.delete(middle)
+        await settle(vm)
+
+        #expect(vm.items.map(\.id) == [first.id, middle.id, last.id])
+        #expect(vm.items[1].isRead == false)
+        #expect(store.loadAll(userID: user).count == 3)
+        #expect(vm.errorAlert != nil)
     }
 
     @Test("The last of several rapid toggles wins")

@@ -33,9 +33,11 @@ final class ActivityViewModel {
     private var currentUserID: UUID? { currentUserIDProvider() }
     private var readMutationGeneration: [UUID: Int] = [:]
     private var readMutationTasks: [UUID: Task<Void, Never>] = [:]
+    private var deleteTasks: [UUID: Task<Void, Never>] = [:]
 
-    /// Whether any read-state write is still settling. Derived from the in-flight task map.
-    var hasInFlightReadMutations: Bool { !readMutationTasks.isEmpty }
+    /// Whether any read-state or delete write is still settling. Derived from the in-flight
+    /// task maps.
+    var hasInFlightMutations: Bool { !readMutationTasks.isEmpty || !deleteTasks.isEmpty }
 
     func load() async {
         isLoading = true
@@ -147,6 +149,13 @@ final class ActivityViewModel {
             guard readMutationGeneration[item.id] == generation else { return }
             defer { readMutationTasks.removeValue(forKey: item.id) }
             store.clearPendingReadState(id: item.id, userID: userID)
+            // Logged on success as well as failure: without this a device log can only show
+            // the absence of errors, never which row kind was actually exercised.
+            AppDiagnostics.log(.balance, "ActivityViewModel.readState.remote", [
+                ("id", item.id.uuidString),
+                ("isRead", "\(isRead)"),
+                ("succeeded", "\(succeeded)")
+            ])
             guard succeeded else {
                 // Roll back this row only. Restoring a whole snapshot of `items` here
                 // would also revert unrelated rows changed while the write was in flight.
@@ -172,24 +181,42 @@ final class ActivityViewModel {
     }
 
     func delete(_ item: NotificationItem) {
-        let previousItems = items
+        let originalIndex = items.firstIndex { $0.id == item.id }
         store.delete(id: item.id, userID: currentUserID)
         items.removeAll { $0.id == item.id }
         refreshUnreadCount()
+
         guard let userID = currentUserID else {
             NotificationService.shared.setBadge(unreadCount)
             return
         }
-        Task { @MainActor in
+
+        // A history row has no server row to delete. Record the dismissal so the next fetch
+        // does not re-derive it straight back out of the expense list.
+        guard item.isServerBacked else {
+            store.dismissHistoryItem(id: item.id, userID: userID)
+            AppDiagnostics.log(.balance, "ActivityViewModel.delete.localOnly", [
+                ("id", item.id.uuidString)
+            ])
+            NotificationService.shared.setBadge(unreadCount)
+            return
+        }
+
+        let task = Task { @MainActor in
+            defer { deleteTasks.removeValue(forKey: item.id) }
             guard await service.delete(id: item.id) else {
-                items = previousItems
-                store.replaceWithRemote(previousItems, userID: userID)
+                // Restore just this row, at the position it was removed from. Reinstating a
+                // whole snapshot of `items` would also revert rows changed meanwhile.
+                let index = min(originalIndex ?? items.count, items.count)
+                items.insert(item, at: index)
+                store.mergeRemote([item], userID: userID)
                 refreshUnreadCount()
                 NotificationService.shared.setBadge(unreadCount)
                 errorAlert = ErrorAlert(title: "Activity Update Failed", message: "This notification could not be deleted. Try again.")
                 return
             }
         }
+        deleteTasks[item.id] = task
         NotificationService.shared.setBadge(unreadCount)
     }
 

@@ -21,7 +21,8 @@ enum ActivityReconciler {
         remoteItems: [NotificationItem],
         legacyItems: [NotificationItem],
         storedItems: [NotificationItem],
-        pendingReadStates: [UUID: Bool]
+        pendingReadStates: [UUID: Bool],
+        dismissedHistoryIDs: Set<UUID> = []
     ) -> [NotificationItem] {
         let remoteIDs = Set(remoteItems.map(\.id))
         let storedReadStates = Dictionary(
@@ -32,6 +33,10 @@ enum ActivityReconciler {
         let historicalItems = legacyItems.compactMap { item -> NotificationItem? in
             // A server row is authoritative whenever one exists for the same id.
             guard !remoteIDs.contains(item.id) else { return nil }
+            // A history row the user deleted would otherwise be re-derived from the
+            // expense list on every fetch. Never applied to server rows: deletion there is
+            // authoritative and the fetch simply stops returning them.
+            guard !dismissedHistoryIDs.contains(item.id) else { return nil }
             var item = item
             // Default an unseen history row to read so years of pre-040 expenses do not
             // land in the badge; anything already in the store keeps the state the user
@@ -97,10 +102,11 @@ final class ActivityService: ActivityReadWriting {
         // has deliberately chosen for them.
         let legacyItems = (try? await fetchLegacyExpenseActivity(userID: userID)) ?? []
         let reconciledItems = ActivityReconciler.reconcile(
-            remoteItems:       remoteItems,
-            legacyItems:       legacyItems,
-            storedItems:       store.loadAll(userID: userID),
-            pendingReadStates: store.pendingReadStates(userID: userID)
+            remoteItems:         remoteItems,
+            legacyItems:         legacyItems,
+            storedItems:         store.loadAll(userID: userID),
+            pendingReadStates:   store.pendingReadStates(userID: userID),
+            dismissedHistoryIDs: store.dismissedHistoryIDs(userID: userID)
         )
         store.replaceWithRemote(reconciledItems, userID: userID)
         return Array(store.loadAll(userID: userID).prefix(limit))
