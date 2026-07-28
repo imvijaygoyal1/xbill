@@ -21,6 +21,8 @@ final class ActivityViewModel {
     private let store   = NotificationStore.shared
 
     private var currentUserID: UUID? { auth.currentUserID }
+    private var readMutationGeneration: [UUID: Int] = [:]
+    private var readMutationTasks: [UUID: Task<Void, Never>] = [:]
 
     func load() async {
         isLoading = true
@@ -90,8 +92,13 @@ final class ActivityViewModel {
             return
         }
         store.setPendingReadState(id: item.id, isRead: true, userID: userID)
-        Task { @MainActor in
+        let generation = nextReadMutationGeneration(for: item.id)
+        let previousTask = readMutationTasks[item.id]
+        let task = Task { @MainActor in
+            await previousTask?.value
+            guard readMutationGeneration[item.id] == generation else { return }
             guard await service.markRead(id: item.id) else {
+                guard readMutationGeneration[item.id] == generation else { return }
                 store.clearPendingReadState(id: item.id, userID: userID)
                 store.replaceWithRemote(previousItems, userID: userID)
                 replace(item.id) { $0 = previous }
@@ -100,8 +107,11 @@ final class ActivityViewModel {
                 errorAlert = ErrorAlert(title: "Activity Update Failed", message: "This notification could not be marked read. Try again.")
                 return
             }
+            guard readMutationGeneration[item.id] == generation else { return }
             store.clearPendingReadState(id: item.id, userID: userID)
+            readMutationTasks.removeValue(forKey: item.id)
         }
+        readMutationTasks[item.id] = task
         NotificationService.shared.setBadge(unreadCount)
     }
 
@@ -116,8 +126,13 @@ final class ActivityViewModel {
             return
         }
         store.setPendingReadState(id: item.id, isRead: false, userID: userID)
-        Task { @MainActor in
+        let generation = nextReadMutationGeneration(for: item.id)
+        let previousTask = readMutationTasks[item.id]
+        let task = Task { @MainActor in
+            await previousTask?.value
+            guard readMutationGeneration[item.id] == generation else { return }
             guard await service.markUnread(id: item.id) else {
+                guard readMutationGeneration[item.id] == generation else { return }
                 store.clearPendingReadState(id: item.id, userID: userID)
                 store.replaceWithRemote(previousItems, userID: userID)
                 replace(item.id) { $0 = previous }
@@ -126,8 +141,11 @@ final class ActivityViewModel {
                 errorAlert = ErrorAlert(title: "Activity Update Failed", message: "This notification could not be marked unread. Try again.")
                 return
             }
+            guard readMutationGeneration[item.id] == generation else { return }
             store.clearPendingReadState(id: item.id, userID: userID)
+            readMutationTasks.removeValue(forKey: item.id)
         }
+        readMutationTasks[item.id] = task
         NotificationService.shared.setBadge(unreadCount)
     }
 
@@ -162,5 +180,11 @@ final class ActivityViewModel {
     private func replace(_ id: UUID, mutate: (inout NotificationItem) -> Void) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         mutate(&items[index])
+    }
+
+    private func nextReadMutationGeneration(for id: UUID) -> Int {
+        let next = (readMutationGeneration[id] ?? 0) + 1
+        readMutationGeneration[id] = next
+        return next
     }
 }
