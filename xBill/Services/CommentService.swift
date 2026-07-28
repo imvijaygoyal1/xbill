@@ -6,12 +6,14 @@
 //
 
 import Foundation
+import OSLog
 import Supabase
 
 @MainActor
 final class CommentService {
     static let shared = CommentService()
     private let supabase = SupabaseManager.shared
+    private let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "CommentService")
     private init() {}
 
     // MARK: - Fetch
@@ -52,21 +54,19 @@ final class CommentService {
             .single()
             .execute()
             .value
-        // M-21: use App Group suite so the preference is shared with the widget extension,
-        // consistent with all other push-preference reads in the app.
+        // Await the server side effect so a successful comment save has a
+        // deterministic notification attempt before the flow is dismissed.
         if CacheService.defaults.bool(forKey: NotificationService.commentPreferenceKey) {
-            Task {
-                await notifyComment(
-                    commentID:      comment.id,
-                    expenseID:     expenseID,
-                    expenseTitle:  expenseTitle,
-                    groupID:       groupID,
-                    groupName:     groupName,
-                    commenterID:   userID,
-                    commenterName: commenterName,
-                    commentText:   text
-                )
-            }
+            await notifyComment(
+                commentID:      comment.id,
+                expenseID:     expenseID,
+                expenseTitle:  expenseTitle,
+                groupID:       groupID,
+                groupName:     groupName,
+                commenterID:   userID,
+                commenterName: commenterName,
+                commentText:   text
+            )
         }
         return comment
     }
@@ -102,8 +102,12 @@ final class CommentService {
             commentText:   commentText,
             isDevelopment: dev
         )
-        _ = try? await supabase.client.functions
-            .invoke("notify-comment", options: .init(body: payload))
+        do {
+            _ = try await supabase.client.functions
+                .invoke("notify-comment", options: .init(body: payload))
+        } catch {
+            logger.error("notify-comment failed for comment \(commentID.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     // MARK: - Delete

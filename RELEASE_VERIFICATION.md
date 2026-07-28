@@ -48,7 +48,7 @@ supabase migration list --linked
 Expected:
 
 - Local and remote migration numbers match.
-- Current expected latest migration: `039`.
+- Current expected latest migration: `040`.
 
 ### Realtime Publication
 

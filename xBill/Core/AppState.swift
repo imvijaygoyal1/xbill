@@ -38,6 +38,7 @@ final class AppState: @unchecked Sendable {
 
     enum NotificationTarget: Equatable, Sendable {
         case group(UUID)
+        case activity
     }
 
     var pendingNotificationTarget: NotificationTarget?

@@ -509,16 +509,13 @@ final class GroupViewModel {
                 groupName: group.name,
                 groupEmoji: group.emoji
             )
-            NotificationStore.shared.merge([note])
+            NotificationStore.shared.merge([note], userID: suggestion.fromUserID)
 
             // Await the notification inline; isSaved drives sheet dismissal, not isLoading.
             if CacheService.defaults.bool(forKey: NotificationService.settlementPreferenceKey) {
                 await expenseService.notifySettlementRecorded(
                     settlementID: suggestion.id,
                     groupID:      group.id,
-                    groupName:    group.name,
-                    fromUserID:   suggestion.fromUserID,
-                    fromName:     suggestion.fromName,
                     toUserID:     suggestion.toUserID,
                     amount:       suggestion.amount,
                     currency:     suggestion.currency

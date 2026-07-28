@@ -201,21 +201,9 @@ final class AddExpenseViewModel {
             isSaved = true
 
             // Await the notification inline — isSaved drives sheet dismissal, not isLoading.
-            // Prefer finding the payer's name from the loaded members list.
-            // Fall back to the current user's display name (if they are the payer) before
-            // using the generic "Someone" placeholder in the push notification.
-            let payerName = members.first(where: { $0.id == payerID })?.displayName
-                ?? (payerID == currentUserID ? members.first(where: { $0.id == currentUserID })?.displayName : nil)
-                ?? "Someone"
             if CacheService.defaults.bool(forKey: NotificationService.expensePreferenceKey) {
                 await expenseService.notifyExpenseAdded(
-                    expenseID:    expense.id,
-                    groupID:      group.id,
-                    payerID:      payerID,
-                    payerName:    payerName,
-                    expenseTitle: expense.title,
-                    amount:       expense.amount,
-                    currency:     expense.currency
+                    expenseID: expense.id
                 )
             }
         } catch {

@@ -58,13 +58,6 @@ serve(async (req) => {
   try {
     const {
       commentId,
-      expenseId,
-      expenseTitle,
-      groupId,
-      groupName,
-      commenterID,
-      commenterName,
-      commentText,
       isDevelopment,
     } = await req.json()
 
@@ -72,6 +65,61 @@ serve(async (req) => {
       SUPABASE_URL,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
+
+    if (!commentId) throw new Error('commentId is required')
+
+    const { data: comment, error: commentError } = await supabase
+      .from('comments')
+      .select('id, expense_id, user_id, text')
+      .eq('id', commentId)
+      .single()
+    if (commentError || !comment) throw new Error('Comment not found')
+    if (comment.user_id !== callerID) {
+      return new Response(JSON.stringify({ error: 'Caller did not author this comment' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const { data: expense, error: expenseError } = await supabase
+      .from('expenses')
+      .select('id, group_id, title')
+      .eq('id', comment.expense_id)
+      .single()
+    if (expenseError || !expense) throw new Error('Expense not found')
+
+    const { data: group, error: groupError } = await supabase
+      .from('groups')
+      .select('name')
+      .eq('id', expense.group_id)
+      .single()
+    if (groupError || !group) throw new Error('Group not found')
+
+    const { data: callerMembership } = await supabase
+      .from('group_members')
+      .select('user_id')
+      .eq('group_id', expense.group_id)
+      .eq('user_id', callerID)
+      .maybeSingle()
+    if (!callerMembership) {
+      return new Response(JSON.stringify({ error: 'Caller is not a group member' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const { data: commenter } = await supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('id', callerID)
+      .maybeSingle()
+    const commenterName = commenter?.display_name ?? 'Someone'
+    const expenseId = comment.expense_id
+    const expenseTitle = expense.title
+    const groupId = expense.group_id
+    const groupName = group.name
+    const commenterID = callerID
+    const commentText = comment.text
 
     // Fetch all participants (users with splits on this expense)
     const { data: splits } = await supabase
@@ -101,7 +149,7 @@ serve(async (req) => {
     const preview = commentText.length > 60
       ? `${commentText.substring(0, 60)}…`
       : commentText
-    await supabase.from('notifications').upsert(
+    const { error: notificationError } = await supabase.from('notifications').upsert(
       [...participantSet].map(recipient_id => ({
         recipient_id,
         dedupe_key: `comment:${commentId}:${recipient_id}`,
@@ -116,6 +164,7 @@ serve(async (req) => {
       })),
       { onConflict: 'dedupe_key', ignoreDuplicates: true },
     )
+    if (notificationError) throw notificationError
 
     // Fetch device tokens for all participants
     const { data: tokenRows } = await supabase

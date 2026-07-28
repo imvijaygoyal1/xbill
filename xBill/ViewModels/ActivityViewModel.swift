@@ -20,6 +20,8 @@ final class ActivityViewModel {
     private let auth    = AuthService.shared
     private let store   = NotificationStore.shared
 
+    private var currentUserID: UUID? { auth.currentUserID }
+
     func load() async {
         isLoading = true
         defer { isLoading = false }
@@ -29,15 +31,15 @@ final class ActivityViewModel {
             // pre-fetch state and isn't overwritten by a concurrent markRead call.
             let fetchedItems = try await service.fetchRecentActivity(userID: userID)
             items       = fetchedItems
-            unreadCount = store.unreadCount()
+            unreadCount = store.unreadCount(userID: userID)
             NotificationService.shared.setBadge(unreadCount)
         } catch {
             // On partial failure, ActivityService still merges results into the store.
             // Read from the store so previously fetched items remain visible.
-            let storedItems = store.loadAll()
+            let storedItems = store.loadAll(userID: currentUserID)
             if !storedItems.isEmpty {
                 items       = storedItems
-                unreadCount = store.unreadCount()
+                unreadCount = store.unreadCount(userID: currentUserID)
                 NotificationService.shared.setBadge(unreadCount)
             }
             // Unauthenticated errors are expected on session expiry — don't show alert.
@@ -48,45 +50,100 @@ final class ActivityViewModel {
     }
 
     func markAllRead() {
-        store.markAllRead()
+        let previousItems = items
+        let previousUnreadCount = unreadCount
+        store.markAllRead(userID: currentUserID)
         // Update the in-memory array so individual rows reflect read state
         // immediately without waiting for a reload from the store.
         items = items.map { var i = $0; i.isRead = true; return i }
         // Read back from the store rather than hardcoding 0 so that a silent
         // store failure doesn't permanently suppress the badge.
-        unreadCount = store.unreadCount()
+        unreadCount = store.unreadCount(userID: currentUserID)
         if let userID = auth.currentUserID {
-            Task { await service.markAllRead(userID: userID) }
+            Task { @MainActor in
+                guard await service.markAllRead(userID: userID) else {
+                    items = previousItems
+                    unreadCount = previousUnreadCount
+                    store.replaceWithRemote(previousItems, userID: userID)
+                    NotificationService.shared.setBadge(unreadCount)
+                    errorAlert = ErrorAlert(title: "Activity Update Failed", message: "Your notifications could not be marked read. Try again.")
+                    return
+                }
+            }
         }
         NotificationService.shared.setBadge(0)
     }
 
     func markRead(_ item: NotificationItem) {
-        store.markRead(id: item.id)
+        let previous = item
+        let previousItems = items
+        store.markRead(id: item.id, userID: currentUserID)
         replace(item.id) { $0.isRead = true }
         refreshUnreadCount()
-        Task { await service.markRead(id: item.id) }
+        guard let userID = currentUserID else {
+            NotificationService.shared.setBadge(unreadCount)
+            return
+        }
+        Task { @MainActor in
+            guard await service.markRead(id: item.id) else {
+                store.replaceWithRemote(previousItems, userID: userID)
+                replace(item.id) { $0 = previous }
+                refreshUnreadCount()
+                NotificationService.shared.setBadge(unreadCount)
+                errorAlert = ErrorAlert(title: "Activity Update Failed", message: "This notification could not be marked read. Try again.")
+                return
+            }
+        }
         NotificationService.shared.setBadge(unreadCount)
     }
 
     func markUnread(_ item: NotificationItem) {
-        store.markUnread(id: item.id)
+        let previous = item
+        let previousItems = items
+        store.markUnread(id: item.id, userID: currentUserID)
         replace(item.id) { $0.isRead = false }
         refreshUnreadCount()
-        Task { await service.markUnread(id: item.id) }
+        guard let userID = currentUserID else {
+            NotificationService.shared.setBadge(unreadCount)
+            return
+        }
+        Task { @MainActor in
+            guard await service.markUnread(id: item.id) else {
+                store.replaceWithRemote(previousItems, userID: userID)
+                replace(item.id) { $0 = previous }
+                refreshUnreadCount()
+                NotificationService.shared.setBadge(unreadCount)
+                errorAlert = ErrorAlert(title: "Activity Update Failed", message: "This notification could not be marked unread. Try again.")
+                return
+            }
+        }
         NotificationService.shared.setBadge(unreadCount)
     }
 
     func delete(_ item: NotificationItem) {
-        store.delete(id: item.id)
+        let previousItems = items
+        store.delete(id: item.id, userID: currentUserID)
         items.removeAll { $0.id == item.id }
         refreshUnreadCount()
-        Task { await service.delete(id: item.id) }
+        guard let userID = currentUserID else {
+            NotificationService.shared.setBadge(unreadCount)
+            return
+        }
+        Task { @MainActor in
+            guard await service.delete(id: item.id) else {
+                items = previousItems
+                store.replaceWithRemote(previousItems, userID: userID)
+                refreshUnreadCount()
+                NotificationService.shared.setBadge(unreadCount)
+                errorAlert = ErrorAlert(title: "Activity Update Failed", message: "This notification could not be deleted. Try again.")
+                return
+            }
+        }
         NotificationService.shared.setBadge(unreadCount)
     }
 
     func refreshUnreadCount() {
-        unreadCount = store.unreadCount()
+        unreadCount = store.unreadCount(userID: currentUserID)
     }
 
     var hasUnread: Bool { unreadCount > 0 }

@@ -58,8 +58,6 @@ serve(async (req) => {
   try {
     const {
       toUserID,
-      fromName,
-      fromUserID,
       isDevelopment,
     } = await req.json()
 
@@ -68,15 +66,28 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    const { data: requestRow } = await supabase
+    if (!toUserID) throw new Error('toUserID is required')
+
+    const { data: requestRow, error: requestError } = await supabase
       .from('friends')
-      .select('id')
+      .select('id, status')
       .eq('requester_id', callerID)
       .eq('addressee_id', toUserID)
       .maybeSingle()
 
-    if (requestRow) {
-      await supabase.from('notifications').upsert({
+    if (requestError) throw requestError
+    if (!requestRow || requestRow.status !== 'pending') {
+      return new Response(JSON.stringify({ sent: 0 }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
+    const { data: sender } = await supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('id', callerID)
+      .maybeSingle()
+    const fromName = sender?.display_name ?? 'Someone'
+
+    const { error: notificationError } = await supabase.from('notifications').upsert({
         recipient_id: toUserID,
         dedupe_key: `friendRequest:${requestRow.id}:${toUserID}`,
         event_type: 'friendRequest',
@@ -86,7 +97,7 @@ serve(async (req) => {
         currency: 'USD',
         category: 'other',
       }, { onConflict: 'dedupe_key', ignoreDuplicates: true })
-    }
+    if (notificationError) throw notificationError
 
     const { data: tokenRows } = await supabase
       .from('device_tokens')

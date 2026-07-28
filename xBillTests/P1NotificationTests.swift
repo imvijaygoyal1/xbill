@@ -194,6 +194,25 @@ struct NotificationStoreTests {
         #expect(store.loadAll().count == 100)
         store.clearAll() // M-46 teardown
     }
+
+    @Test("user-scoped caches never mix accounts")
+    func userScopedCachesAreIsolated() {
+        let store = makeStore()
+        store.clearAll()
+        let firstUser = UUID()
+        let secondUser = UUID()
+        let firstItem = makeExpenseItem(title: "First account")
+        let secondItem = makeExpenseItem(title: "Second account")
+
+        store.merge([firstItem], userID: firstUser)
+        store.merge([secondItem], userID: secondUser)
+
+        #expect(store.loadAll(userID: firstUser).map(\.title) == ["First account"])
+        #expect(store.loadAll(userID: secondUser).map(\.title) == ["Second account"])
+        #expect(store.unreadCount(userID: firstUser) == 1)
+        #expect(store.unreadCount(userID: secondUser) == 1)
+        store.clearAll()
+    }
 }
 
 // MARK: - NotificationItem factory
@@ -323,6 +342,7 @@ struct ActivityViewModelUnreadTests {
     @Test("markRead and delete update vm items and unread count")
     func markReadAndDeleteUpdateVM() {
         NotificationStore.shared.clearAll()
+        let userID = AuthService.shared.currentUserID
         let item = NotificationItem(
             id:        UUID(),
             eventType: .expenseAdded,
@@ -333,7 +353,7 @@ struct ActivityViewModelUnreadTests {
             category:  .food,
             createdAt: Date()
         )
-        NotificationStore.shared.merge([item])
+        NotificationStore.shared.merge([item], userID: userID)
 
         let vm = ActivityViewModel()
         vm.items = [item]
@@ -348,7 +368,7 @@ struct ActivityViewModelUnreadTests {
 
         vm.delete(item)
         #expect(vm.items.isEmpty)
-        #expect(NotificationStore.shared.loadAll().isEmpty)
+        #expect(NotificationStore.shared.loadAll(userID: userID).isEmpty)
     }
 }
 

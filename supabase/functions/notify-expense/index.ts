@@ -58,12 +58,6 @@ serve(async (req) => {
   try {
     const {
       expenseId,
-      groupId,
-      payerId,
-      payerName,
-      expenseTitle,
-      amount,
-      currency,
       isDevelopment,
     } = await req.json()
 
@@ -71,6 +65,48 @@ serve(async (req) => {
       SUPABASE_URL,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
+
+    if (!expenseId) throw new Error('expenseId is required')
+
+    // Resolve the event from trusted rows. The caller may only notify for an
+    // expense in a group they belong to; display and money fields must not be
+    // accepted from the client because this function uses the service role.
+    const { data: expense, error: expenseError } = await supabase
+      .from('expenses')
+      .select('id, group_id, paid_by, title, amount, currency')
+      .eq('id', expenseId)
+      .single()
+    if (expenseError || !expense) throw new Error('Expense not found')
+
+    const { data: callerMembership } = await supabase
+      .from('group_members')
+      .select('user_id')
+      .eq('group_id', expense.group_id)
+      .eq('user_id', callerID)
+      .maybeSingle()
+    if (!callerMembership) {
+      return new Response(JSON.stringify({ error: 'Caller is not a group member' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const { data: group, error: groupError } = await supabase
+      .from('groups')
+      .select('name')
+      .eq('id', expense.group_id)
+      .single()
+    if (groupError || !group) throw new Error('Group not found')
+
+    const { data: payer } = expense.paid_by
+      ? await supabase.from('profiles').select('display_name').eq('id', expense.paid_by).maybeSingle()
+      : { data: null }
+    const payerName = payer?.display_name ?? 'Someone'
+    const groupId = expense.group_id
+    const groupName = group.name
+    const expenseTitle = expense.title
+    const amount = expense.amount
+    const currency = expense.currency
 
     // Fetch all group members
     const { data: members, error: membersError } = await supabase
@@ -85,7 +121,7 @@ serve(async (req) => {
     const memberIDs = members.map((m: { user_id: string }) => m.user_id)
 
     const recipientIDsForNotification = memberIDs.filter(id => id !== callerID)
-    await supabase.from('notifications').upsert(
+    const { error: notificationError } = await supabase.from('notifications').upsert(
       recipientIDsForNotification.map(recipient_id => ({
         recipient_id,
         dedupe_key: `expense:${expenseId}:${recipient_id}`,
@@ -100,6 +136,7 @@ serve(async (req) => {
       })),
       { onConflict: 'dedupe_key', ignoreDuplicates: true },
     )
+    if (notificationError) throw notificationError
 
     // Fetch device tokens — user_id retained for sender exclusion and badge
     const { data: tokenRows } = await supabase

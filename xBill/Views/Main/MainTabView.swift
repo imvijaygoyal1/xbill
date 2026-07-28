@@ -171,6 +171,8 @@ struct MainTabView: View {
                     homeVM.groupsNavigationPath = NavigationPath()
                     homeVM.groupsNavigationPath.append(group)
                 }
+            case .activity:
+                selectedTab = .activity
             }
             appState.pendingNotificationTarget = nil
         }

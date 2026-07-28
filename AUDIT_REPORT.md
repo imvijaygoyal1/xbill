@@ -1,7 +1,18 @@
 # xBill — Comprehensive Defect Audit Report
-**Last updated:** 2026-05-10  
+**Last updated:** 2026-07-28
 **Scope:** All defect findings across three audit passes + security review  
-**Status:** All 214 findings resolved. Zero open defects.
+**Status:** Historical 214 findings resolved. Post-040 notification hardening is implemented locally; Edge Function deployment and physical-device verification remain release gates.
+
+## Post-040 Notification Audit — 2026-07-28
+
+The follow-up review found and fixed these issues in the working tree:
+
+- `notify-expense`, `notify-comment`, and `notify-friend-request` now derive event data from trusted rows and authorize the caller before using the service role. Settlement notifications now validate both group memberships and derive the group name server-side.
+- Notification cache keys are user-scoped, preventing account-switch leakage. Activity mutations now roll back local optimistic changes when the remote operation fails.
+- Comment and friend-request notification invokes are awaited and logged. Push taps without a group target route to Recent instead of doing nothing.
+- Added a regression test for per-user cache isolation. Unit coverage passed via `scripts/run-coverage.sh unit` on 2026-07-28.
+
+The updated Edge Functions have not been deployed in this pass because deployment writes live Supabase state and requires explicit approval.
 
 ---
 

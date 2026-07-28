@@ -59,7 +59,6 @@ serve(async (req) => {
     const {
       settlementId,
       groupId,
-      groupName,
       toUserID,
       amount,
       currency,
@@ -68,6 +67,10 @@ serve(async (req) => {
 
     // H-09: use callerID (verified JWT identity) as the sender — never trust body-supplied fromUserID.
     const fromUserID = callerID
+
+    if (!settlementId || !groupId || !toUserID || Number(amount) <= 0) {
+      throw new Error('Invalid settlement payload')
+    }
 
     const supabase = createClient(
       SUPABASE_URL,
@@ -104,17 +107,43 @@ serve(async (req) => {
       })
     }
 
-    await supabase.from('notifications').upsert({
+    const { data: callerMembership, error: callerMembershipError } = await supabase
+      .from('group_members')
+      .select('user_id')
+      .eq('group_id', groupId)
+      .eq('user_id', callerID)
+      .maybeSingle()
+    if (callerMembershipError || !callerMembership) {
+      return new Response(JSON.stringify({ error: 'Caller is not a member of the specified group' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const { data: group, error: groupError } = await supabase
+      .from('groups')
+      .select('name')
+      .eq('id', groupId)
+      .single()
+    if (groupError || !group) {
+      return new Response(JSON.stringify({ error: 'Group not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const { error: notificationError } = await supabase.from('notifications').upsert({
       recipient_id: toUserID,
       dedupe_key: `settlement:${settlementId}:${toUserID}`,
       event_type: 'settlementMade',
       title: `${fromName} settled up`,
-      subtitle: `${groupName} · Paid you ${formatCurrency(amount, currency)}`,
+      subtitle: `${group.name} · Paid you ${formatCurrency(amount, currency)}`,
       amount,
       currency,
       category: 'other',
       group_id: groupId,
     }, { onConflict: 'dedupe_key', ignoreDuplicates: true })
+    if (notificationError) throw notificationError
 
     // Push only the creditor (toUserID) — they are being paid
     const { data: tokenRows } = await supabase
@@ -150,7 +179,7 @@ serve(async (req) => {
       aps: {
         alert: {
           title: `${fromName} settled up`,
-          body:  `Paid you ${formatCurrency(amount, currency)} in ${groupName}`,
+          body:  `Paid you ${formatCurrency(amount, currency)} in ${group.name}`,
         },
         sound: 'default',
         badge,

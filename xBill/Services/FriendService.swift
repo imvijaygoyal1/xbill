@@ -6,12 +6,14 @@
 //
 
 import Foundation
+import OSLog
 import Supabase
 
 @MainActor
 final class FriendService {
     static let shared = FriendService()
     private let supabase = SupabaseManager.shared
+    private let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "FriendService")
     private init() {}
 
     // MARK: - Friend Graph
@@ -60,10 +62,11 @@ final class FriendService {
         try await supabase.client
             .rpc("send_friend_request", params: Params(p_addressee_id: addresseeID))
             .execute()
-        // M-18: fire-and-forget push notification. `final class: Sendable` cannot safely hold
-        // mutable debounce state, so duplicate-notification guard belongs in the caller (ViewModel).
-        // The ViewModel MUST disable its "Add Friend" button while this call is in flight.
-        Task { await notifyFriendRequest(toUserID: addresseeID) }
+        // Await the notification attempt before returning so the request flow
+        // has deterministic server-side delivery semantics. A notification
+        // failure is logged but does not turn a successful friend request into
+        // a failed request.
+        await notifyFriendRequest(toUserID: addresseeID)
     }
 
     private func notifyFriendRequest(toUserID: UUID) async {
@@ -83,8 +86,12 @@ final class FriendService {
             fromName:      sender.displayName,
             isDevelopment: dev
         )
-        _ = try? await supabase.client.functions
-            .invoke("notify-friend-request", options: .init(body: payload))
+        do {
+            _ = try await supabase.client.functions
+                .invoke("notify-friend-request", options: .init(body: payload))
+        } catch {
+            logger.error("notify-friend-request failed for recipient \(toUserID.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// Accepts an inbound friend request from requesterID.

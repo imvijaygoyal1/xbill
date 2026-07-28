@@ -188,17 +188,10 @@ final class ExpenseService {
     // MARK: - Notify
 
     func notifyExpenseAdded(
-        expenseID:    UUID,
-        groupID:      UUID,
-        payerID:      UUID,
-        payerName:    String,
-        expenseTitle: String,
-        amount:       Decimal,
-        currency:     String
+        expenseID: UUID
     ) async {
         struct Payload: Encodable {
-            let expenseId, groupId, payerId, payerName, expenseTitle, currency: String
-            let amount: Double
+            let expenseId: String
             let isDevelopment: Bool
         }
         #if DEBUG
@@ -208,12 +201,6 @@ final class ExpenseService {
         #endif
         let payload = Payload(
             expenseId:     expenseID.uuidString,
-            groupId:       groupID.uuidString,
-            payerId:       payerID.uuidString,
-            payerName:     payerName,
-            expenseTitle:  expenseTitle,
-            currency:      currency,
-            amount:        NSDecimalNumber(decimal: amount).doubleValue,
             isDevelopment: dev
         )
         do {
@@ -227,15 +214,12 @@ final class ExpenseService {
     func notifySettlementRecorded(
         settlementID: UUID,
         groupID:      UUID,
-        groupName:    String,
-        fromUserID:   UUID,
-        fromName:     String,
         toUserID:     UUID,
         amount:       Decimal,
         currency:     String
     ) async {
         struct Payload: Encodable {
-            let settlementId, groupId, groupName, fromUserID, fromName, toUserID, currency: String
+            let settlementId, groupId, toUserID, currency: String
             let amount: Double
             let isDevelopment: Bool
         }
@@ -247,9 +231,6 @@ final class ExpenseService {
         let payload = Payload(
             settlementId:  settlementID.uuidString,
             groupId:       groupID.uuidString,
-            groupName:     groupName,
-            fromUserID:    fromUserID.uuidString,
-            fromName:      fromName,
             toUserID:      toUserID.uuidString,
             currency:      currency,
             amount:        NSDecimalNumber(decimal: amount).doubleValue,

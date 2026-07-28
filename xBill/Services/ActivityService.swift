@@ -31,8 +31,8 @@ final class ActivityService {
             // Preserve the previous error/partial-result behavior when the
             // server-backed table is unavailable.
             let legacyItems = try await fetchLegacyExpenseActivity(userID: userID)
-            store.merge(legacyItems)
-            return Array(store.loadAll().prefix(limit))
+            store.merge(legacyItems, userID: userID)
+            return Array(store.loadAll(userID: userID).prefix(limit))
         }
 
         // Existing accounts predate migration 040, so their historical
@@ -46,8 +46,8 @@ final class ActivityService {
             item.isRead = true
             return item
         }
-        store.replaceWithRemote(remoteItems + historicalItems)
-        return Array(store.loadAll().prefix(limit))
+        store.replaceWithRemote(remoteItems + historicalItems, userID: userID)
+        return Array(store.loadAll(userID: userID).prefix(limit))
     }
 
     private func fetchLegacyExpenseActivity(userID: UUID) async throws -> [NotificationItem] {
@@ -72,24 +72,24 @@ final class ActivityService {
         return fetched
     }
 
-    func markRead(id: UUID) async {
-        do { try await remote.markRead(id: id) }
-        catch { AppDiagnostics.log(.balance, "ActivityService.markRead.failed", [("error", AppDiagnostics.describe(error))]) }
+    func markRead(id: UUID) async -> Bool {
+        do { try await remote.markRead(id: id); return true }
+        catch { AppDiagnostics.log(.balance, "ActivityService.markRead.failed", [("error", AppDiagnostics.describe(error))]); return false }
     }
 
-    func markAllRead(userID: UUID) async {
-        do { try await remote.markAllRead(userID: userID) }
-        catch { AppDiagnostics.log(.balance, "ActivityService.markAllRead.failed", [("error", AppDiagnostics.describe(error))]) }
+    func markAllRead(userID: UUID) async -> Bool {
+        do { try await remote.markAllRead(userID: userID); return true }
+        catch { AppDiagnostics.log(.balance, "ActivityService.markAllRead.failed", [("error", AppDiagnostics.describe(error))]); return false }
     }
 
-    func markUnread(id: UUID) async {
-        do { try await remote.markUnread(id: id) }
-        catch { AppDiagnostics.log(.balance, "ActivityService.markUnread.failed", [("error", AppDiagnostics.describe(error))]) }
+    func markUnread(id: UUID) async -> Bool {
+        do { try await remote.markUnread(id: id); return true }
+        catch { AppDiagnostics.log(.balance, "ActivityService.markUnread.failed", [("error", AppDiagnostics.describe(error))]); return false }
     }
 
-    func delete(id: UUID) async {
-        do { try await remote.delete(id: id) }
-        catch { AppDiagnostics.log(.balance, "ActivityService.delete.failed", [("error", AppDiagnostics.describe(error))]) }
+    func delete(id: UUID) async -> Bool {
+        do { try await remote.delete(id: id); return true }
+        catch { AppDiagnostics.log(.balance, "ActivityService.delete.failed", [("error", AppDiagnostics.describe(error))]); return false }
     }
 
     private func items(for group: BillGroup) async -> Result<[NotificationItem], Error> {

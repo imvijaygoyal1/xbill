@@ -97,10 +97,14 @@ class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotifi
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let userInfo = response.notification.request.content.userInfo
-        if let groupIDString = userInfo["groupId"] as? String,
-           let groupID = UUID(uuidString: groupIDString) {
-            Task { @MainActor in
+        Task { @MainActor in
+            if let groupIDString = userInfo["groupId"] as? String,
+               let groupID = UUID(uuidString: groupIDString) {
                 AppState.shared.pendingNotificationTarget = .group(groupID)
+            } else {
+                // Notifications without a group target still have a useful
+                // destination in the Activity tab.
+                AppState.shared.pendingNotificationTarget = .activity
             }
         }
         completionHandler()
