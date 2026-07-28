@@ -46,8 +46,26 @@ final class ActivityService {
             item.isRead = true
             return item
         }
-        store.replaceWithRemote(remoteItems + historicalItems, userID: userID)
+        let reconciledItems = store.applyingPendingReadStates(to: remoteItems + historicalItems, userID: userID)
+        store.replaceWithRemote(reconciledItems, userID: userID)
         return Array(store.loadAll(userID: userID).prefix(limit))
+    }
+
+    func reconcilePendingReadStates(userID: UUID) async {
+        for (id, isRead) in store.pendingReadStates(userID: userID) {
+            do {
+                if isRead {
+                    try await remote.markRead(id: id)
+                } else {
+                    try await remote.markUnread(id: id)
+                }
+                store.clearPendingReadState(id: id, userID: userID)
+            } catch {
+                AppDiagnostics.log(.balance, "ActivityService.pendingReadState.retryFailed", [
+                    ("error", AppDiagnostics.describe(error))
+                ])
+            }
+        }
     }
 
     private func fetchLegacyExpenseActivity(userID: UUID) async throws -> [NotificationItem] {

@@ -17,14 +17,17 @@ final class NotificationStore: @unchecked Sendable {
 
     private let itemsKey: String
     private let lastViewedKey: String
+    private let pendingReadKey: String
     private let maxCount      = 100
 
     init(
         itemsKey: String = "xbill_notifications_v1",
-        lastViewedKey: String = "xbill_notifications_last_viewed"
+        lastViewedKey: String = "xbill_notifications_last_viewed",
+        pendingReadKey: String = "xbill_notifications_pending_read_v1"
     ) {
         self.itemsKey = itemsKey
         self.lastViewedKey = lastViewedKey
+        self.pendingReadKey = pendingReadKey
     }
 
     // Serialises all read-modify-write cycles to prevent TOCTOU races when
@@ -108,6 +111,51 @@ final class NotificationStore: @unchecked Sendable {
         lock.withLock { _updateReadState(id: id, isRead: false, userID: userID) }
     }
 
+    /// Persists a desired read state before starting the network request. This
+    /// prevents a foreground refresh from overwriting a local change while the
+    /// app is being unlocked or the device is temporarily offline.
+    func setPendingReadState(id: UUID, isRead: Bool, userID: UUID? = nil) {
+        lock.withLock {
+            var pending = _loadPendingReadStates(userID: userID)
+            pending[id.uuidString] = isRead
+            _savePendingReadStates(pending, userID: userID)
+        }
+    }
+
+    func pendingReadStates(userID: UUID? = nil) -> [UUID: Bool] {
+        lock.withLock {
+            Dictionary(uniqueKeysWithValues: _loadPendingReadStates(userID: userID).compactMap { key, value in
+                guard let id = UUID(uuidString: key) else { return nil }
+                return (id, value)
+            })
+        }
+    }
+
+    func clearPendingReadState(id: UUID, userID: UUID? = nil) {
+        lock.withLock {
+            var pending = _loadPendingReadStates(userID: userID)
+            pending.removeValue(forKey: id.uuidString)
+            _savePendingReadStates(pending, userID: userID)
+        }
+    }
+
+    func clearPendingReadStates(userID: UUID? = nil) {
+        lock.withLock { _savePendingReadStates([:], userID: userID) }
+    }
+
+    /// Applies pending local intent over a stale server response.
+    func applyingPendingReadStates(to items: [NotificationItem], userID: UUID? = nil) -> [NotificationItem] {
+        lock.withLock {
+            let pending = _loadPendingReadStates(userID: userID)
+            return items.map { item in
+                guard let isRead = pending[item.id.uuidString] else { return item }
+                var copy = item
+                copy.isRead = isRead
+                return copy
+            }
+        }
+    }
+
     func unreadCount(userID: UUID? = nil) -> Int {
         lock.withLock { _loadAll(userID: userID).filter { !$0.isRead }.count }
     }
@@ -118,6 +166,7 @@ final class NotificationStore: @unchecked Sendable {
         lock.withLock {
             CacheService.defaults.removeObject(forKey: itemsKey)
             CacheService.defaults.removeObject(forKey: lastViewedKey)
+            CacheService.defaults.removeObject(forKey: pendingReadKey)
         }
     }
 
@@ -154,5 +203,17 @@ final class NotificationStore: @unchecked Sendable {
         guard let plain = try? encoder.encode(capped) else { return }
         let data = CacheService.encrypt(plain) ?? plain
         CacheService.defaults.set(data, forKey: key(itemsKey, userID: userID))
+    }
+
+    private func _loadPendingReadStates(userID: UUID?) -> [String: Bool] {
+        guard let raw = CacheService.defaults.data(forKey: key(pendingReadKey, userID: userID)) else { return [:] }
+        let data = CacheService.decrypt(raw) ?? raw
+        return (try? JSONDecoder().decode([String: Bool].self, from: data)) ?? [:]
+    }
+
+    private func _savePendingReadStates(_ states: [String: Bool], userID: UUID?) {
+        guard let plain = try? JSONEncoder().encode(states) else { return }
+        let data = CacheService.encrypt(plain) ?? plain
+        CacheService.defaults.set(data, forKey: key(pendingReadKey, userID: userID))
     }
 }

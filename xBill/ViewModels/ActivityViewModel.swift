@@ -30,7 +30,9 @@ final class ActivityViewModel {
             // Read unreadCount before the fetch/merge so the badge reflects the
             // pre-fetch state and isn't overwritten by a concurrent markRead call.
             let fetchedItems = try await service.fetchRecentActivity(userID: userID)
-            items       = fetchedItems
+            await service.reconcilePendingReadStates(userID: userID)
+            let storedItems = store.loadAll(userID: userID)
+            items       = storedItems.isEmpty ? fetchedItems : storedItems
             unreadCount = store.unreadCount(userID: userID)
             NotificationService.shared.setBadge(unreadCount)
         } catch {
@@ -60,8 +62,10 @@ final class ActivityViewModel {
         // store failure doesn't permanently suppress the badge.
         unreadCount = store.unreadCount(userID: currentUserID)
         if let userID = auth.currentUserID {
+            for item in items { store.setPendingReadState(id: item.id, isRead: true, userID: userID) }
             Task { @MainActor in
                 guard await service.markAllRead(userID: userID) else {
+                    store.clearPendingReadStates(userID: userID)
                     items = previousItems
                     unreadCount = previousUnreadCount
                     store.replaceWithRemote(previousItems, userID: userID)
@@ -69,6 +73,7 @@ final class ActivityViewModel {
                     errorAlert = ErrorAlert(title: "Activity Update Failed", message: "Your notifications could not be marked read. Try again.")
                     return
                 }
+                store.clearPendingReadStates(userID: userID)
             }
         }
         NotificationService.shared.setBadge(0)
@@ -84,8 +89,10 @@ final class ActivityViewModel {
             NotificationService.shared.setBadge(unreadCount)
             return
         }
+        store.setPendingReadState(id: item.id, isRead: true, userID: userID)
         Task { @MainActor in
             guard await service.markRead(id: item.id) else {
+                store.clearPendingReadState(id: item.id, userID: userID)
                 store.replaceWithRemote(previousItems, userID: userID)
                 replace(item.id) { $0 = previous }
                 refreshUnreadCount()
@@ -93,6 +100,7 @@ final class ActivityViewModel {
                 errorAlert = ErrorAlert(title: "Activity Update Failed", message: "This notification could not be marked read. Try again.")
                 return
             }
+            store.clearPendingReadState(id: item.id, userID: userID)
         }
         NotificationService.shared.setBadge(unreadCount)
     }
@@ -107,8 +115,10 @@ final class ActivityViewModel {
             NotificationService.shared.setBadge(unreadCount)
             return
         }
+        store.setPendingReadState(id: item.id, isRead: false, userID: userID)
         Task { @MainActor in
             guard await service.markUnread(id: item.id) else {
+                store.clearPendingReadState(id: item.id, userID: userID)
                 store.replaceWithRemote(previousItems, userID: userID)
                 replace(item.id) { $0 = previous }
                 refreshUnreadCount()
@@ -116,6 +126,7 @@ final class ActivityViewModel {
                 errorAlert = ErrorAlert(title: "Activity Update Failed", message: "This notification could not be marked unread. Try again.")
                 return
             }
+            store.clearPendingReadState(id: item.id, userID: userID)
         }
         NotificationService.shared.setBadge(unreadCount)
     }

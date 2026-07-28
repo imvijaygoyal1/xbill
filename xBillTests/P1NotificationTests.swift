@@ -213,6 +213,26 @@ struct NotificationStoreTests {
         #expect(store.unreadCount(userID: secondUser) == 1)
         store.clearAll()
     }
+
+    @Test("pending read state survives stale remote reconciliation")
+    func pendingReadStateWinsOverStaleRemoteValue() {
+        let store = makeStore()
+        store.clearAll()
+        let userID = UUID()
+        let item = makeExpenseItem(title: "Unread again")
+
+        store.merge([item], userID: userID)
+        store.markUnread(id: item.id, userID: userID)
+        store.setPendingReadState(id: item.id, isRead: false, userID: userID)
+
+        var staleRemote = item
+        staleRemote.isRead = true
+        let reconciled = store.applyingPendingReadStates(to: [staleRemote], userID: userID)
+
+        #expect(reconciled.first?.isRead == false)
+        #expect(store.pendingReadStates(userID: userID)[item.id] == false)
+        store.clearAll()
+    }
 }
 
 // MARK: - NotificationItem factory
