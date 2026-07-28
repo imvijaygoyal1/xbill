@@ -57,6 +57,7 @@ serve(async (req) => {
 
   try {
     const {
+      commentId,
       expenseId,
       expenseTitle,
       groupId,
@@ -97,6 +98,25 @@ serve(async (req) => {
       return new Response(JSON.stringify({ sent: 0 }), { headers: corsHeaders })
     }
 
+    const preview = commentText.length > 60
+      ? `${commentText.substring(0, 60)}…`
+      : commentText
+    await supabase.from('notifications').upsert(
+      [...participantSet].map(recipient_id => ({
+        recipient_id,
+        dedupe_key: `comment:${commentId}:${recipient_id}`,
+        event_type: 'commentAdded',
+        title: `${commenterName} commented on ${expenseTitle}`,
+        subtitle: `${groupName} · ${preview}`,
+        amount: 0,
+        currency: 'USD',
+        category: 'other',
+        group_id: groupId,
+        expense_id: expenseId,
+      })),
+      { onConflict: 'dedupe_key', ignoreDuplicates: true },
+    )
+
     // Fetch device tokens for all participants
     const { data: tokenRows } = await supabase
       .from('device_tokens')
@@ -119,12 +139,7 @@ serve(async (req) => {
 
     const jwt = await getAPNsJWT(teamId, keyId, pem)
 
-    // Truncate comment preview to 60 chars
-    const preview = commentText.length > 60
-      ? `${commentText.substring(0, 60)}…`
-      : commentText
-
-    // H-05: batch all badge counts in ONE query before the send loop.
+    // Batch unread in-app notification counts before the send loop.
     const recipientIDs = (tokenRows as { token: string; user_id: string }[]).map(r => r.user_id)
     const badgeMap = await batchUnreadCounts(supabase, recipientIDs)
 
@@ -191,12 +206,12 @@ async function batchUnreadCounts(
   const map = new Map<string, number>()
   if (!userIDs.length) return map
   const { data } = await supabase
-    .from('splits')
-    .select('user_id')
-    .in('user_id', userIDs)
-    .eq('is_settled', false)
-  for (const row of (data ?? []) as { user_id: string }[]) {
-    map.set(row.user_id, (map.get(row.user_id) ?? 0) + 1)
+    .from('notifications')
+    .select('recipient_id')
+    .in('recipient_id', userIDs)
+    .is('read_at', null)
+  for (const row of (data ?? []) as { recipient_id: string }[]) {
+    map.set(row.recipient_id, (map.get(row.recipient_id) ?? 0) + 1)
   }
   return map
 }

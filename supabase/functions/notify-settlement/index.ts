@@ -104,6 +104,18 @@ serve(async (req) => {
       })
     }
 
+    await supabase.from('notifications').upsert({
+      recipient_id: toUserID,
+      dedupe_key: `settlement:${settlementId}:${toUserID}`,
+      event_type: 'settlementMade',
+      title: `${fromName} settled up`,
+      subtitle: `${groupName} · Paid you ${formatCurrency(amount, currency)}`,
+      amount,
+      currency,
+      category: 'other',
+      group_id: groupId,
+    }, { onConflict: 'dedupe_key', ignoreDuplicates: true })
+
     // Push only the creditor (toUserID) — they are being paid
     const { data: tokenRows } = await supabase
       .from('device_tokens')
@@ -126,12 +138,12 @@ serve(async (req) => {
 
     const jwt = await getAPNsJWT(teamId, keyId, pem)
 
-    // Badge: count unsettled splits for the creditor
+    // Badge: count unread in-app notifications for the recipient.
     const { count: badgeCount } = await supabase
-      .from('splits')
+      .from('notifications')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', toUserID)
-      .eq('is_settled', false)
+      .eq('recipient_id', toUserID)
+      .is('read_at', null)
     const badge = badgeCount ?? 0
 
     const apnsPayload = {

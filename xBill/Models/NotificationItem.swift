@@ -12,6 +12,8 @@ import Foundation
 enum NotificationEventType: String, Codable, Sendable {
     case expenseAdded
     case settlementMade
+    case commentAdded
+    case friendRequest
 }
 
 // MARK: - Model
@@ -116,6 +118,34 @@ extension NotificationItem {
             // Settlements have no spending category; .other is the canonical placeholder.
             category:  .other,
             createdAt: Date()
+        )
+    }
+
+    static func remote(
+        id: UUID,
+        eventType: NotificationEventType,
+        title: String,
+        subtitle: String,
+        amount: Decimal,
+        currency: String,
+        category: Expense.Category,
+        createdAt: Date,
+        isRead: Bool,
+        groupID: UUID?,
+        expenseID: UUID?
+    ) -> NotificationItem {
+        NotificationItem(
+            id: id,
+            eventType: eventType,
+            title: title,
+            subtitle: subtitle,
+            amount: amount,
+            currency: currency,
+            category: category,
+            createdAt: createdAt,
+            isRead: isRead,
+            groupID: groupID,
+            expenseID: expenseID
         )
     }
 }

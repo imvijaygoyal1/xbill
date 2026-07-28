@@ -72,6 +72,18 @@ struct NotificationStoreTests {
         store.clearAll() // M-46 teardown
     }
 
+    @Test("remote reconciliation replaces stale local-only items")
+    func remoteReconciliationReplacesLocalItems() {
+        let store = makeStore()
+        store.clearAll()
+        store.merge([makeExpenseItem(title: "Legacy local item")])
+        let remote = makeExpenseItem(title: "Server item")
+        store.replaceWithRemote([remote])
+        #expect(store.loadAll().map(\.title) == ["Server item"])
+        #expect(store.unreadCount() == 1)
+        store.clearAll()
+    }
+
     @Test("loadAll returns newest items first")
     func loadAllSortedNewestFirst() {
         let store = makeStore()

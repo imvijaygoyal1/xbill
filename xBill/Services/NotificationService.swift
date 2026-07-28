@@ -80,6 +80,11 @@ final class NotificationService {
     func clearBadge() {
         UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
     }
+
+    @MainActor
+    func setBadge(_ count: Int) {
+        UNUserNotificationCenter.current().setBadgeCount(max(0, count)) { _ in }
+    }
 }
 
 extension UNAuthorizationStatus {

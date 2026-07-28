@@ -68,6 +68,26 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
+    const { data: requestRow } = await supabase
+      .from('friends')
+      .select('id')
+      .eq('requester_id', callerID)
+      .eq('addressee_id', toUserID)
+      .maybeSingle()
+
+    if (requestRow) {
+      await supabase.from('notifications').upsert({
+        recipient_id: toUserID,
+        dedupe_key: `friendRequest:${requestRow.id}:${toUserID}`,
+        event_type: 'friendRequest',
+        title: 'Friend Request',
+        subtitle: `${fromName} wants to split expenses with you`,
+        amount: 0,
+        currency: 'USD',
+        category: 'other',
+      }, { onConflict: 'dedupe_key', ignoreDuplicates: true })
+    }
+
     const { data: tokenRows } = await supabase
       .from('device_tokens')
       .select('token')
@@ -89,6 +109,12 @@ serve(async (req) => {
 
     const jwt = await getAPNsJWT(teamId, keyId, pem)
 
+    const { count: unreadCount } = await supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('recipient_id', toUserID)
+      .is('read_at', null)
+
     const apnsPayload = {
       aps: {
         alert: {
@@ -96,7 +122,7 @@ serve(async (req) => {
           body:  `${fromName} wants to split expenses with you`,
         },
         sound: 'default',
-        badge: 1,
+        badge: unreadCount ?? 0,
       },
     }
 

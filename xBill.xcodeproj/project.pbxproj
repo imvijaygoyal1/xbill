@@ -52,6 +52,7 @@
 		3480BEBFF1A5006FEC9457CC /* SplitCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F7E985AB9EB58FE61DF4C83 /* SplitCalculatorTests.swift */; };
 		34E6720F9FDC0DCC01780EA6 /* XBillTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 581AEF36C92A915BA6170964 /* XBillTheme.swift */; };
 		3663CFA55F573C2462A49AB1 /* XBillFloatingAddButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = F684542CE9913F0736FC5EC2 /* XBillFloatingAddButton.swift */; };
+		3683F448F526DEFFE48580B3 /* RemoteNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28D56647FF642DB35536819E /* RemoteNotificationService.swift */; };
 		381348AB57FBCAB61DC0B7BD /* NotificationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B38345EDA277CDE0B30C7222 /* NotificationStore.swift */; };
 		392C6605C18CD2536C0695F6 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 5CBEE0D0C5F28D48126C4D86 /* Supabase */; };
 		3AB6B0275B19D7A169BE5D8F /* Friend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89FF9E3377BF7A1D7C24E0CA /* Friend.swift */; };
@@ -266,6 +267,7 @@
 		274BD787140D4659DE42DC95 /* XBillFriendRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFriendRow.swift; sourceTree = "<group>"; };
 		27D9E1730D9145BAD6267A23 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		28324ABF2241B36B3608474F /* xBillUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = xBillUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		28D56647FF642DB35536819E /* RemoteNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteNotificationService.swift; sourceTree = "<group>"; };
 		29E67B0F2B4186BE801115F9 /* XBillAvatarStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillAvatarStack.swift; sourceTree = "<group>"; };
 		2CCE2A2449DE087F7C0D3279 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		2E4A953CB265858F40B70470 /* PaymentHandoffTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentHandoffTests.swift; sourceTree = "<group>"; };
@@ -461,6 +463,7 @@
 				B38345EDA277CDE0B30C7222 /* NotificationStore.swift */,
 				B33016E6C4C9822060E8D180 /* PaymentHandleValidator.swift */,
 				E5F57D9E8BA76933667996CC /* PaymentLinkService.swift */,
+				28D56647FF642DB35536819E /* RemoteNotificationService.swift */,
 				A2D0C24457A00F28DAEEA2D4 /* SplitCalculator.swift */,
 				EB8ECB0D8B3E6EACF9A77C06 /* SpotlightService.swift */,
 				92AB5FEAE2D546E1998CAE05 /* VisionService.swift */,
@@ -1182,6 +1185,7 @@
 				5E0C24A5B5B061BA9D2AD567 /* ReceiptReviewView.swift in Sources */,
 				93522898B078BAD54AEF6D79 /* ReceiptScanView.swift in Sources */,
 				65AD6368AEC53055BDD3969B /* ReceiptViewModel.swift in Sources */,
+				3683F448F526DEFFE48580B3 /* RemoteNotificationService.swift in Sources */,
 				169E0F2F71F2AC933FACE7DB /* ResetPasswordView.swift in Sources */,
 				98DC99B2D9719939557DC8B9 /* SafariView.swift in Sources */,
 				CB3C903B5EE8C407F8544C45 /* Settlement.swift in Sources */,

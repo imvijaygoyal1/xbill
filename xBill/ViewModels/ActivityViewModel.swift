@@ -30,6 +30,7 @@ final class ActivityViewModel {
             let fetchedItems = try await service.fetchRecentActivity(userID: userID)
             items       = fetchedItems
             unreadCount = store.unreadCount()
+            NotificationService.shared.setBadge(unreadCount)
         } catch {
             // On partial failure, ActivityService still merges results into the store.
             // Read from the store so previously fetched items remain visible.
@@ -37,6 +38,7 @@ final class ActivityViewModel {
             if !storedItems.isEmpty {
                 items       = storedItems
                 unreadCount = store.unreadCount()
+                NotificationService.shared.setBadge(unreadCount)
             }
             // Unauthenticated errors are expected on session expiry — don't show alert.
             guard !AppError.isSilent(error) else { return }
@@ -53,24 +55,34 @@ final class ActivityViewModel {
         // Read back from the store rather than hardcoding 0 so that a silent
         // store failure doesn't permanently suppress the badge.
         unreadCount = store.unreadCount()
+        if let userID = auth.currentUserID {
+            Task { await service.markAllRead(userID: userID) }
+        }
+        NotificationService.shared.setBadge(0)
     }
 
     func markRead(_ item: NotificationItem) {
         store.markRead(id: item.id)
         replace(item.id) { $0.isRead = true }
         refreshUnreadCount()
+        Task { await service.markRead(id: item.id) }
+        NotificationService.shared.setBadge(unreadCount)
     }
 
     func markUnread(_ item: NotificationItem) {
         store.markUnread(id: item.id)
         replace(item.id) { $0.isRead = false }
         refreshUnreadCount()
+        Task { await service.markUnread(id: item.id) }
+        NotificationService.shared.setBadge(unreadCount)
     }
 
     func delete(_ item: NotificationItem) {
         store.delete(id: item.id)
         items.removeAll { $0.id == item.id }
         refreshUnreadCount()
+        Task { await service.delete(id: item.id) }
+        NotificationService.shared.setBadge(unreadCount)
     }
 
     func refreshUnreadCount() {

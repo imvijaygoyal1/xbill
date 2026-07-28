@@ -72,6 +72,22 @@ struct XBillNotificationRow: View {
                 .background(AppColors.moneySettledBg)
                 .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
                 .accessibilityHidden(true)
+        case .commentAdded:
+            Image(systemName: "bubble.left.and.bubble.right.fill")
+                .font(.appIcon)
+                .foregroundStyle(AppColors.primary)
+                .frame(width: XBillIcon.categorySize, height: XBillIcon.categorySize)
+                .background(AppColors.primary.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
+                .accessibilityHidden(true)
+        case .friendRequest:
+            Image(systemName: "person.badge.plus.fill")
+                .font(.appIcon)
+                .foregroundStyle(AppColors.primary)
+                .frame(width: XBillIcon.categorySize, height: XBillIcon.categorySize)
+                .background(AppColors.primary.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
+                .accessibilityHidden(true)
         }
     }
 
@@ -79,6 +95,7 @@ struct XBillNotificationRow: View {
         switch item.eventType {
         case .expenseAdded: .total
         case .settlementMade: .settled
+        case .commentAdded, .friendRequest: .total
         }
     }
 

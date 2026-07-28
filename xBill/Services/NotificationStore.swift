@@ -53,6 +53,30 @@ final class NotificationStore: @unchecked Sendable {
         }
     }
 
+    /// Reconciles server state while preserving local-only items created before
+    /// the server-backed notification table was deployed.
+    func mergeRemote(_ remoteItems: [NotificationItem]) {
+        lock.withLock {
+            var existing = _loadAll()
+            var indexByID = Dictionary(uniqueKeysWithValues: existing.enumerated().map { ($0.element.id, $0.offset) })
+            for item in remoteItems {
+                if let index = indexByID[item.id] {
+                    existing[index] = item
+                } else {
+                    indexByID[item.id] = existing.count
+                    existing.append(item)
+                }
+            }
+            _save(existing)
+        }
+    }
+
+    /// Replaces the cache after a successful authoritative server fetch. This
+    /// removes pre-migration local-only entries that have no server event.
+    func replaceWithRemote(_ remoteItems: [NotificationItem]) {
+        lock.withLock { _save(remoteItems) }
+    }
+
     func delete(id: UUID) {
         lock.withLock { _save(_loadAll().filter { $0.id != id }) }
     }

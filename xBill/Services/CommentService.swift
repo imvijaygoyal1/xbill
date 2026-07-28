@@ -57,6 +57,7 @@ final class CommentService {
         if CacheService.defaults.bool(forKey: NotificationService.commentPreferenceKey) {
             Task {
                 await notifyComment(
+                    commentID:      comment.id,
                     expenseID:     expenseID,
                     expenseTitle:  expenseTitle,
                     groupID:       groupID,
@@ -71,6 +72,7 @@ final class CommentService {
     }
 
     private func notifyComment(
+        commentID:      UUID,
         expenseID:     UUID,
         expenseTitle:  String,
         groupID:       UUID,
@@ -80,7 +82,7 @@ final class CommentService {
         commentText:   String
     ) async {
         struct Payload: Encodable {
-            let expenseId, expenseTitle, groupId, groupName: String
+            let commentId, expenseId, expenseTitle, groupId, groupName: String
             let commenterID, commenterName, commentText: String
             let isDevelopment: Bool
         }
@@ -90,6 +92,7 @@ final class CommentService {
         let dev = false
         #endif
         let payload = Payload(
+            commentId:      commentID.uuidString,
             expenseId:     expenseID.uuidString,
             expenseTitle:  expenseTitle,
             groupId:       groupID.uuidString,

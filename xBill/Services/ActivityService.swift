@@ -13,6 +13,7 @@ final class ActivityService {
     private let groupService   = GroupService.shared
     private let expenseService = ExpenseService.shared
     private let store          = NotificationStore.shared
+    private let remote         = RemoteNotificationService.shared
 
     private init() {}
 
@@ -20,6 +21,17 @@ final class ActivityService {
     /// then returns the combined list sorted newest-first.
     /// Items already in the store keep their existing read state.
     func fetchRecentActivity(userID: UUID, limit: Int = 50) async throws -> [NotificationItem] {
+        do {
+            let remoteItems = try await remote.fetch(userID: userID)
+            store.replaceWithRemote(remoteItems)
+            return Array(store.loadAll().prefix(limit))
+        } catch {
+            // Keep the expense fallback available until migration 040 is deployed.
+            AppDiagnostics.log(.balance, "ActivityService.remoteFetch.fallback", [
+                ("error", AppDiagnostics.describe(error))
+            ])
+        }
+
         let groups = try await groupService.fetchGroups(for: userID)
 
         var fetched: [NotificationItem] = []
@@ -45,6 +57,26 @@ final class ActivityService {
         if let first = groupErrors.first { throw first }
 
         return allItems
+    }
+
+    func markRead(id: UUID) async {
+        do { try await remote.markRead(id: id) }
+        catch { AppDiagnostics.log(.balance, "ActivityService.markRead.failed", [("error", AppDiagnostics.describe(error))]) }
+    }
+
+    func markAllRead(userID: UUID) async {
+        do { try await remote.markAllRead(userID: userID) }
+        catch { AppDiagnostics.log(.balance, "ActivityService.markAllRead.failed", [("error", AppDiagnostics.describe(error))]) }
+    }
+
+    func markUnread(id: UUID) async {
+        do { try await remote.markUnread(id: id) }
+        catch { AppDiagnostics.log(.balance, "ActivityService.markUnread.failed", [("error", AppDiagnostics.describe(error))]) }
+    }
+
+    func delete(id: UUID) async {
+        do { try await remote.delete(id: id) }
+        catch { AppDiagnostics.log(.balance, "ActivityService.delete.failed", [("error", AppDiagnostics.describe(error))]) }
     }
 
     private func items(for group: BillGroup) async -> Result<[NotificationItem], Error> {

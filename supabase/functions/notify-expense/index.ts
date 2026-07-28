@@ -84,6 +84,23 @@ serve(async (req) => {
 
     const memberIDs = members.map((m: { user_id: string }) => m.user_id)
 
+    const recipientIDsForNotification = memberIDs.filter(id => id !== callerID)
+    await supabase.from('notifications').upsert(
+      recipientIDsForNotification.map(recipient_id => ({
+        recipient_id,
+        dedupe_key: `expense:${expenseId}:${recipient_id}`,
+        event_type: 'expenseAdded',
+        title: `${payerName} added an expense`,
+        subtitle: `${groupName} · ${expenseTitle}`,
+        amount,
+        currency,
+        category: 'other',
+        group_id: groupId,
+        expense_id: expenseId,
+      })),
+      { onConflict: 'dedupe_key', ignoreDuplicates: true },
+    )
+
     // Fetch device tokens — user_id retained for sender exclusion and badge
     const { data: tokenRows } = await supabase
       .from('device_tokens')
@@ -106,8 +123,7 @@ serve(async (req) => {
 
     const jwt = await getAPNsJWT(teamId, keyId, pem)
 
-    // H-05: batch all badge counts in ONE query before the send loop to avoid
-    // O(N) round-trips (one per device token).
+    // Badge is the unread in-app notification count, not the unsettled split count.
     // H-08: use callerID (verified JWT identity) for sender exclusion,
     // not the body-supplied payerId which is untrusted.
     const recipientIDs = (tokenRows as { token: string; user_id: string }[])
@@ -171,9 +187,7 @@ serve(async (req) => {
 })
 
 // ---------------------------------------------------------------------------
-// H-05: batch badge counts — one query for all recipients, aggregated in JS.
-// Avoids O(N) round-trips (old code issued one query per device token).
-// Badge = unsettled split count; fallback 0 (not 1) avoids phantom badges on error.
+// Batch badge counts — one query for all recipients, aggregated in JS.
 // ---------------------------------------------------------------------------
 
 async function batchUnreadCounts(
@@ -183,12 +197,12 @@ async function batchUnreadCounts(
   const map = new Map<string, number>()
   if (!userIDs.length) return map
   const { data } = await supabase
-    .from('splits')
-    .select('user_id')
-    .in('user_id', userIDs)
-    .eq('is_settled', false)
-  for (const row of (data ?? []) as { user_id: string }[]) {
-    map.set(row.user_id, (map.get(row.user_id) ?? 0) + 1)
+    .from('notifications')
+    .select('recipient_id')
+    .in('recipient_id', userIDs)
+    .is('read_at', null)
+  for (const row of (data ?? []) as { recipient_id: string }[]) {
+    map.set(row.recipient_id, (map.get(row.recipient_id) ?? 0) + 1)
   }
   return map
 }
