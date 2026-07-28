@@ -69,7 +69,18 @@ final class RemoteNotificationService {
     }
 
     private func updateReadState(id: UUID, readAt: Date?) async throws {
-        struct Payload: Encodable { let readAt: Date?; enum CodingKeys: String, CodingKey { case readAt = "read_at" } }
+        struct Payload: Encodable {
+            let readAt: Date?
+
+            enum CodingKeys: String, CodingKey { case readAt = "read_at" }
+
+            // Synthesized Encodable omits nil optionals. An unread transition
+            // must send an explicit JSON null so PostgREST clears read_at.
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(readAt, forKey: .readAt)
+            }
+        }
         try await supabase.table("notifications")
             .update(Payload(readAt: readAt))
             .eq("id", value: id)
