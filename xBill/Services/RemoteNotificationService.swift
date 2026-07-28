@@ -81,9 +81,13 @@ final class RemoteNotificationService {
                 try container.encode(readAt, forKey: .readAt)
             }
         }
-        try await supabase.table("notifications")
+        // Request the updated row so a zero-row RLS/filter miss is an error,
+        // not a false success that clears the pending local intent.
+        _ = try await supabase.table("notifications")
             .update(Payload(readAt: readAt))
             .eq("id", value: id)
+            .select("id")
+            .single()
             .execute()
     }
 
