@@ -1361,7 +1361,8 @@ proceed to the device.
 
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -scheme xBill -project xBill.xcodeproj -destination 'id=00008140-000135EE3432801C' -configuration Debug -allowProvisioningUpdates build
-xcrun devicectl device install app --device 00008140-000135EE3432801C ~/Library/Developer/Xcode/DerivedData/xBill-gigdzmkxlvnxfwffqeafujuupnja/Build/Products/Debug-iphoneos/xBill.app
+APP=$(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -scheme xBill -project xBill.xcodeproj -destination 'id=00008140-000135EE3432801C' -configuration Debug -showBuildSettings 2>/dev/null | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')
+xcrun devicectl device install app --device 00008140-000135EE3432801C "$APP/xBill.app"
 ```
 
 Ask the user to: record a payment **as the creditor** — the path that silently failed before —
