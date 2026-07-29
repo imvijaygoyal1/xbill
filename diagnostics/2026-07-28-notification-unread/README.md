@@ -71,10 +71,32 @@ Face ID unlock → `MainTabView.unlocked.refreshBegin` / `refreshComplete` → a
 The last failures in the file are at `22:31:23Z`, in the pre-fix session. The user confirmed
 the unread mark survived the unlock.
 
-**Evidence gap, stated deliberately.** No `ActivityViewModel.readState.localOnly` line
-appears in the post-fix session, and a *successful* toggle logs nothing. So the log proves
-the absence of failures across a real lock/unlock cycle, but does not by itself show which
-row kind was toggled. If the row was server-backed it took the remote path; the history-row
-path — the one that produced the original zero-row failures — is best re-checked explicitly
-by marking an **older expense row** unread and cycling the lock. `readState.localOnly` in the
-log confirms that path was taken.
+**Evidence gap in this run, since closed.** No `readState.localOnly` line appeared and a
+*successful* toggle logged nothing, so the session proved the absence of failures but not
+which row kind was toggled. Success-path logging was added for exactly this reason
+(NOTIF-12) and the gap was closed by the run below.
+
+## Both-path verification — `after-followup.log`, session `2026-07-28T23:47:42Z`
+
+Marking the **oldest** and the **newest** Activity row unread, then backgrounding, Face ID
+unlock and returning:
+
+```text
+23:48:04  readState.localOnly  id=EEEEEEEE-0001-…-000000000001  isRead=false  serverBacked=false
+23:48:17  readState.remote     id=2D660169-8B56-…              isRead=true   succeeded=true
+23:48:19  readState.remote     id=2D660169-8B56-…              isRead=false  succeeded=true
+23:48:43  isLocked=true  →  unlocked.refreshBegin / refreshComplete  →  active
+```
+
+- The oldest row took the **local-only** path with `serverBacked=false`, issuing no request.
+  Its `EEEEEEEE-0001-…` id is a seeded demo expense, so it is unambiguously an
+  expense-derived history row — the exact path that was broken.
+- The newest row took the **remote** path, both writes acknowledged.
+- Zero `markRead.failed` / `markUnread.failed` / `Activity Update Failed` in the session.
+
+The user confirmed both rows still showed the unread dot after the unlock. Read state is
+verified on both paths.
+
+**Still unexercised:** the delete fixes (NOTIF-09…NOTIF-11). The session contains no
+`delete.localOnly`. Swipe-delete an old history row, cycle the lock, refresh, and confirm it
+does not reappear.

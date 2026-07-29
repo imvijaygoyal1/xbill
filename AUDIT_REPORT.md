@@ -453,7 +453,7 @@ The delete path carried the same two faults as the read-state path, and the diag
 
 | Item | Priority | Notes |
 |---|---|---|
-| Notification unread lifecycle — follow-up batch device check | Low | Read-state fix is device-verified (session `2026-07-28T23:05:58Z`, user-confirmed). The follow-up batch (NOTIF-09…NOTIF-12) is installed but not yet exercised on device. Delete a **history** row and an older expense row, cycle the lock, then pull the log: `readState.localOnly` / `readState.remote` / `delete.localOnly` now identify which path ran. |
+| Notification delete path — device check | Low | Read state is **fully device-verified on both paths** (session `2026-07-28T23:47:42Z`: `readState.localOnly serverBacked=false` for a seeded history row, `readState.remote succeeded=true` for a server row, both surviving the Face ID unlock, zero failures). NOTIF-09…NOTIF-11 (delete) are installed but unexercised — the log shows no `delete.localOnly`. Swipe-delete an old history row, cycle the lock, refresh, confirm it stays gone. |
 | App Store assets | P0 | Screenshots, preview video, keyword strategy — only remaining submission blocker. No code work required. |
 | App Group registration | Setup | Register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Identifiers → App Groups before widget data sharing will work on a device. |
 | Apple JWT secret renewal | Maintenance | JWT secret for Sign in with Apple expires 2026-10-28. Regenerate before that date using `generate_apple_secret.js`. |
