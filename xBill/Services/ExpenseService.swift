@@ -247,10 +247,13 @@ final class ExpenseService {
     // MARK: - Delete
 
     func deleteExpense(id: UUID) async throws {
-        try await supabase.table("expenses")
+        let rows: [AffectedRowID] = try await supabase.table("expenses")
             .delete()
             .eq("id", value: id)
+            .select("id")
             .execute()
+            .value
+        try SupabaseWrite.requireAffected(rows, table: "expenses", id: id)
     }
 
 }

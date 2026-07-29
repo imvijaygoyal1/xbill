@@ -113,10 +113,13 @@ final class CommentService {
     // MARK: - Delete
 
     func deleteComment(id: UUID) async throws {
-        try await supabase.table("comments")
+        let rows: [AffectedRowID] = try await supabase.table("comments")
             .delete()
             .eq("id", value: id)
+            .select("id")
             .execute()
+            .value
+        try SupabaseWrite.requireAffected(rows, table: "comments", id: id)
     }
 
     // MARK: - Realtime

@@ -36,24 +36,6 @@ struct NotificationReadStatePayload: Encodable {
     }
 }
 
-/// One row of the `return=representation` response for a read-state update.
-struct NotificationRowID: Decodable, Equatable {
-    let id: UUID
-}
-
-enum RemoteNotificationError: LocalizedError, Equatable {
-    /// The update matched no row: the id does not exist in `public.notifications`, or RLS
-    /// hid it from this user.
-    case rowNotFound(UUID)
-
-    var errorDescription: String? {
-        switch self {
-        case .rowNotFound(let id):
-            return "No notification row matched id \(id.uuidString)."
-        }
-    }
-}
-
 @MainActor
 final class RemoteNotificationService {
     static let shared = RemoteNotificationService()
@@ -117,25 +99,14 @@ final class RemoteNotificationService {
         try await updateReadState(id: id, readAt: nil)
     }
 
-    /// Fails when no row was affected, so a zero-row match cannot be mistaken for success.
-    ///
-    /// `.single()` is deliberately *not* used. It only sets
-    /// `Accept: application/vnd.pgrst.object+json`; on a zero-row match PostgREST answers
-    /// PGRST116 "Cannot coerce the result to a single JSON object", which reads as a
-    /// response-shape fault and hides the real cause. `return=representation` sends the
-    /// affected rows as an array, so counting them is the reliable acknowledgement.
-    nonisolated static func acknowledgeAffectedRows(_ rows: [NotificationRowID], id: UUID) throws {
-        guard !rows.isEmpty else { throw RemoteNotificationError.rowNotFound(id) }
-    }
-
     private func updateReadState(id: UUID, readAt: Date?) async throws {
-        let rows: [NotificationRowID] = try await supabase.table("notifications")
+        let rows: [AffectedRowID] = try await supabase.table("notifications")
             .update(NotificationReadStatePayload(readAt: readAt))
             .eq("id", value: id)
             .select("id")
             .execute()
             .value
-        try Self.acknowledgeAffectedRows(rows, id: id)
+        try SupabaseWrite.requireAffected(rows, table: "notifications", id: id)
     }
 
     func markAllRead(userID: UUID) async throws {
@@ -151,13 +122,13 @@ final class RemoteNotificationService {
     /// it an RLS miss or an id that is not a notification row returns HTTP 200 with an empty
     /// body, the row disappears locally, and the next fetch brings it straight back.
     func delete(id: UUID) async throws {
-        let rows: [NotificationRowID] = try await supabase.table("notifications")
+        let rows: [AffectedRowID] = try await supabase.table("notifications")
             .delete()
             .eq("id", value: id)
             .select("id")
             .execute()
             .value
-        try Self.acknowledgeAffectedRows(rows, id: id)
+        try SupabaseWrite.requireAffected(rows, table: "notifications", id: id)
     }
 
     func unreadCount(userID: UUID) async throws -> Int {

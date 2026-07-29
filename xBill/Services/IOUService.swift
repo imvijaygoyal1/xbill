@@ -136,9 +136,12 @@ final class IOUService {
     // MARK: - Delete
 
     func deleteIOU(id: UUID) async throws {
-        try await supabase.table("ious")
+        let rows: [AffectedRowID] = try await supabase.table("ious")
             .delete()
             .eq("id", value: id)
+            .select("id")
             .execute()
+            .value
+        try SupabaseWrite.requireAffected(rows, table: "ious", id: id)
     }
 }

@@ -114,10 +114,13 @@ final class FriendService {
     func removeFriend(id friendUserID: UUID, currentUserID: UUID) async throws {
         let a = currentUserID.uuidString
         let b = friendUserID.uuidString
-        try await supabase.table("friends")
+        let rows: [AffectedRowID] = try await supabase.table("friends")
             .delete()
             .or("and(requester_id.eq.\(a),addressee_id.eq.\(b)),and(requester_id.eq.\(b),addressee_id.eq.\(a))")
+            .select("id")
             .execute()
+            .value
+        try SupabaseWrite.requireAffected(rows, table: "friends", id: friendUserID)
     }
 
     /// Blocks another user. The backend removes any existing friend row and

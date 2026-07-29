@@ -121,7 +121,7 @@ final class ActivityService: ActivityReadWriting {
                     try await remote.markUnread(id: id)
                 }
                 store.clearPendingReadState(id: id, userID: userID)
-            } catch RemoteNotificationError.rowNotFound(let missingID) {
+            } catch SupabaseWriteError.noRowsAffected(_, let missingID) {
                 // No server row will ever accept this write — retrying it forever would
                 // keep the intent pinned and re-raise the same failure on every refresh.
                 AppDiagnostics.log(.balance, "ActivityService.pendingReadState.rowNotFound", [

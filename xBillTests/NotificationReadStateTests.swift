@@ -70,15 +70,15 @@ struct NotificationReadStateAcknowledgementTests {
     @Test("A zero-row update is reported as a missing row, not a JSON coercion failure")
     func zeroRowsThrowsRowNotFound() {
         let id = UUID()
-        #expect(throws: RemoteNotificationError.rowNotFound(id)) {
-            try RemoteNotificationService.acknowledgeAffectedRows([], id: id)
+        #expect(throws: SupabaseWriteError.noRowsAffected(table: "notifications", id: id)) {
+            try SupabaseWrite.requireAffected([], table: "notifications", id: id)
         }
     }
 
     @Test("A single affected row is accepted")
     func oneRowSucceeds() throws {
         let id = UUID()
-        try RemoteNotificationService.acknowledgeAffectedRows([NotificationRowID(id: id)], id: id)
+        try SupabaseWrite.requireAffected([AffectedRowID(id: id)], table: "notifications", id: id)
     }
 
     /// Pins the response shape. `update(...).select("id")` sends `Prefer: return=representation`,
@@ -90,20 +90,20 @@ struct NotificationReadStateAcknowledgementTests {
         let id = UUID()
         let body = Data(#"[{"id":"\#(id.uuidString)"}]"#.utf8)
 
-        let rows = try JSONDecoder().decode([NotificationRowID].self, from: body)
+        let rows = try JSONDecoder().decode([AffectedRowID].self, from: body)
 
         #expect(rows.count == 1)
-        try RemoteNotificationService.acknowledgeAffectedRows(rows, id: id)
+        try SupabaseWrite.requireAffected(rows, table: "notifications", id: id)
     }
 
     @Test("An empty array response is the wire shape of a zero-row match")
     func emptyArrayIsZeroRows() throws {
         let id = UUID()
-        let rows = try JSONDecoder().decode([NotificationRowID].self, from: Data("[]".utf8))
+        let rows = try JSONDecoder().decode([AffectedRowID].self, from: Data("[]".utf8))
 
         #expect(rows.isEmpty)
-        #expect(throws: RemoteNotificationError.rowNotFound(id)) {
-            try RemoteNotificationService.acknowledgeAffectedRows(rows, id: id)
+        #expect(throws: SupabaseWriteError.noRowsAffected(table: "notifications", id: id)) {
+            try SupabaseWrite.requireAffected(rows, table: "notifications", id: id)
         }
     }
 }

@@ -187,10 +187,13 @@ final class GroupService {
     // MARK: - Delete
 
     func deleteGroup(groupId: UUID) async throws {
-        try await supabase.table("groups")
+        let rows: [AffectedRowID] = try await supabase.table("groups")
             .delete()
             .eq("id", value: groupId)
+            .select("id")
             .execute()
+            .value
+        try SupabaseWrite.requireAffected(rows, table: "groups", id: groupId)
     }
 
     // MARK: - Invites

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 import UIKit
 import Supabase
 
@@ -45,10 +46,25 @@ final class AuthService {
         // Apple only provides fullName on the very first authorization.
         // Upsert it immediately so the trigger's fallback ("User") is overwritten.
         if let name = displayName, !name.isEmpty {
-            _ = try? await supabase.table("profiles")
-                .update(DisplayNamePayload(displayName: name))
-                .eq("id", value: session.user.id)
-                .execute()
+            // Best-effort by design: a brand-new Apple account can race the `handle_new_user`
+            // trigger, so zero affected rows is expected and must not fail sign-in. But the
+            // previous `try?` also discarded genuine failures, leaving accounts stuck on the
+            // trigger's "User" fallback with no trace (REV-06). Log the outcome instead.
+            do {
+                let rows: [AffectedRowID] = try await supabase.table("profiles")
+                    .update(DisplayNamePayload(displayName: name))
+                    .eq("id", value: session.user.id)
+                    .select("id")
+                    .execute()
+                    .value
+                if rows.isEmpty {
+                    Logger(subsystem: "com.vijaygoyal.xbill", category: "Auth")
+                        .warning("Apple display name not applied: no profile row yet for \(session.user.id, privacy: .public)")
+                }
+            } catch {
+                Logger(subsystem: "com.vijaygoyal.xbill", category: "Auth")
+                    .error("Apple display name update failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
         return try await fetchProfile(userID: session.user.id)
     }
