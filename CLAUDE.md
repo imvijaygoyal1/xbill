@@ -26,7 +26,7 @@ elsewhere, and do not create a parallel doc.
 | `CLAUDE.md` (this file) | Index: File Map, Key Patterns, trap index, dated fix logs | Per-defect detail — that is `AUDIT_REPORT.md` |
 | `AUDIT_REPORT.md` | **Single source for findings.** Every defect: ID, file, issue, status, fix, verification | Log-reading instructions |
 | `diagnostics/README.md` | **The only README under `diagnostics/`.** Index of investigations, which log is which, how to read it | Findings — link to the audit ID instead |
-| `diagnostics/<date>-<slug>/` | Raw evidence only: logs, captures, verification output | Any `.md` at all |
+| `diagnostics/<date>-<slug>/` | Raw evidence only: logs, captures, verification output | A README — a `PreToolUse` hook blocks it |
 | `HANDOFF_PAYMENT_HANDLES.md` | Third-party provider behaviour (Venmo/PayPal rules, URL shapes) | xBill defect detail |
 | `NATIVE_PATTERNS.md` / `DESIGN.md` | SwiftUI conventions / the clay design system | Anything not about UI convention |
 | `RELEASE_VERIFICATION.md` | Pre-submission runbook | Day-to-day verification |
@@ -62,6 +62,22 @@ In this order, every time:
 
 **If a previous agent broke one of these conventions, consolidate rather than extend.** Two
 documents describing one defect will drift, and the next reader may act on the stale one.
+
+### Enforcement — this is not only advisory
+
+`.claude/settings.json` (committed) carries two hooks, so the conventions above do not depend
+on an agent choosing to read this file:
+
+| Hook | Effect |
+|---|---|
+| `SessionStart` | Injects the six core rules into context at the start of every session. |
+| `PreToolUse` on `Write` | **Blocks** creating a second README under `diagnostics/`, with the reason and where to put the content instead. |
+
+`AGENTS.md` points non-Claude tools (Codex and similar) at this section. It is a pointer, not
+a copy — a second copy would drift.
+
+Review or disable the hooks with `/hooks`. If you change `.claude/settings.json` mid-session,
+the watcher may not pick it up until `/hooks` is opened once or the session restarts.
 
 ### Standing build rules
 

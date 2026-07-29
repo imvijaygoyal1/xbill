@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -n \"{hookSpecificOutput:{hookEventName:\\\"SessionStart\\\",additionalContext:\\\"xBill conventions (CLAUDE.md > Start here is authoritative):\\n1. AUDIT_REPORT.md is the single source for findings - one row per defect: ID, file, issue, status, fix. Do not restate findings elsewhere.\\n2. diagnostics/README.md is the ONLY README under diagnostics/. Dated folders hold raw evidence only; append a row to the index.\\n3. Check the trap index in CLAUDE.md before touching Activity/notifications or payment-handle code. Each row cost a real debugging cycle.\\n4. Never claim device or lifecycle behaviour from a green test suite. App Lock, Face ID, real app switches and push are not reachable from tests - build, install on device, have the user reproduce, pull the log.\\n5. Finish with: run scripts/run-coverage.sh unit, update CLAUDE.md File Map + Key Patterns, update AUDIT_REPORT.md, commit and push.\\n6. If a previous agent broke one of these, consolidate rather than extend.\\\"}}\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r \".tool_input.file_path // \\\"\\\"\" | { read -r f; case \"$f\" in */diagnostics/*/README.md) printf \"%s\" \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PreToolUse\\\",\\\"permissionDecision\\\":\\\"deny\\\",\\\"permissionDecisionReason\\\":\\\"diagnostics/ has exactly one README: diagnostics/README.md. Dated folders hold raw evidence only. Append a row to the index instead, and put findings in AUDIT_REPORT.md. See CLAUDE.md > Start here.\\\"}}\" ;; esac; }"
+          }
+        ]
+      }
+    ]
+  }
+}
