@@ -57,6 +57,10 @@ Physical device throughout: iPhone 16 Pro `00008140-000135EE3432801C`.
 
 ## `2026-07-27-paypal-handoff/`
 
+A settle-up handoff ended in a PayPal error screen. **Root cause and findings:
+`../AUDIT_REPORT.md` → `PAY-01`…`PAY-29`.** Provider rules and URL shapes:
+`../HANDOFF_PAYMENT_HANDLES.md`.
+
 | File | What it is |
 |------|------------|
 | `device-diagnostics.log` | Full `AppDiagnostics` log. Contains the pre-fix reproduction **and** the post-fix verification. |
@@ -85,79 +89,40 @@ grep 'load.catch' device-diagnostics.log | grep -v 'silent=true'   # expect empt
 `load.catch … silent=true … CancellationError` around `00:53:29` is pull-to-refresh being
 cancelled by SwiftUI — suppressed by design (`AppError.isSilent`), not a defect.
 
-**`paypal-url-verification.txt`:**
-
-```
-appreviewer HTTP=200 final=https://www.paypal.com/paypalme/appreviewer/95USD
-random-slug HTTP=404
-appreviewer slugDoesNotExist_key_count= 1
-random-slug slugDoesNotExist_key_count= 0
-```
-
-A nonexistent PayPal.Me profile returns **HTTP 200** serving PayPal.Me's *error* SPA, whose
-string table contains `"pages/error":{"error":{"title":{"header":"Something went wrong", …
-"slugDoesNotExist":"We can't find this profile"`. It does **not** return 404. That is the
-string the user saw, rendered by PayPal. Reproduce with
-`curl -sL "https://paypal.me/<handle>/1USD" | grep -c slugDoesNotExist` — `>0` means the
-handle does not exist.
+**`paypal-url-verification.txt`** records that a nonexistent PayPal.Me profile returns
+**HTTP 200** serving PayPal's *error* SPA rather than a 404 — the source of the string the
+user saw. The rule and the `slugDoesNotExist` reproduction command live in
+`../HANDOFF_PAYMENT_HANDLES.md` §2.
 
 ---
 
 ## `2026-07-28-notification-unread/`
 
 Marking a Recent notification unread reverted to read after backgrounding, Face ID unlock and
-returning. Findings: `../AUDIT_REPORT.md` → `NOTIF-01`…`NOTIF-12`. Fixed in `1a197b0` +
-`9ffc781`.
+returning. **Root cause, all 12 defects and the device-verification matrix:
+`../AUDIT_REPORT.md` → `NOTIF-01`…`NOTIF-12`.** Fixed in `1a197b0` + `9ffc781`.
 
 | File | What it is |
 |------|------------|
 | `device-diagnostics.log` | Pre-fix. The original reproduction. |
-| `after-fix.log` | First post-fix pull. Read state verified, but see the gap below. |
-| `after-followup.log` | Final. Every path verified; supersedes the other two. |
-
-### The original theory was wrong — do not repeat it
-
-The handoff that opened this investigation concluded *"the update response is not a single
-JSON object in this client/API configuration"* and directed the next agent to inspect the
-response shape. That is the wrong layer. `.update()` already defaults to
-`Prefer: return=representation`; the request was fine. The update was matching **zero rows**,
-because the id being written was an *expense* id and no such row exists in
-`public.notifications` (verified read-only against the live DB: 12 expenses, 3 notification
-rows, zero id overlap). `.single()` reports a zero-row match as PGRST116 *"Cannot coerce the
-result to a single JSON object"* — a message about JSON for what is really a row count.
-
-Worth remembering: the error message named the wrong layer, and the handoff repeated it.
-
-### Reading the logs
+| `after-fix.log` | First post-fix pull. |
+| `after-followup.log` | Final. Supersedes the other two. |
 
 | Session | Shows |
 |---------|-------|
-| `22:31:15Z` (`device-diagnostics.log`) | Pre-fix. Repeated `markRead.failed` / `markUnread.failed` with the coercion message, each followed by `alert.presented … Activity Update Failed`. |
-| `23:05:58Z` (`after-fix.log`) | Post-fix. Full lock → Face ID → unlock cycle, zero failures. **But** a successful toggle logged nothing, so it could not show *which* row kind ran — the gap that motivated the success-path logging in `9ffc781`. |
-| `23:47:42Z` + `00:30:11Z` (`after-followup.log`) | Final verification, gap closed. |
-
-```text
-23:48:04  readState.localOnly  id=EEEEEEEE-0001-…  isRead=false  serverBacked=false
-23:48:17  readState.remote     id=2D660169-8B56-…  isRead=true   succeeded=true
-23:48:19  readState.remote     id=2D660169-8B56-…  isRead=false  succeeded=true
-00:30:11  delete.localOnly     id=EEEEEEEE-0001-…
-00:30:22  isLocked=true  →  unlocked.refreshBegin / refreshComplete  →  active
-```
-
-**0 failure lines** in that session. The `EEEEEEEE-0001-…` id is a seeded demo expense, so
-both the unread mark and the delete provably exercised the expense-derived history path — the
-one whose zero-row writes started this.
-
-| | History row | Server row |
-|---|---|---|
-| Mark unread | ✅ `readState.localOnly`, survived unlock | ✅ `readState.remote succeeded=true`, survived unlock |
-| Delete | ✅ `delete.localOnly`, stayed deleted | Unit-tested only |
-
-Deleting a **server-backed** row was deliberately not exercised on device: it permanently
-removes one of only three real notification rows, and its acknowledgement is the same
-`acknowledgeAffectedRows(_:id:)` path confirmed live by the read-state update.
+| `22:31:15Z` (`device-diagnostics.log`) | Pre-fix failures: `markRead.failed` / `markUnread.failed`, each followed by `alert.presented … Activity Update Failed`. |
+| `23:05:58Z` (`after-fix.log`) | Lock → Face ID → unlock cycle, zero failures — but a successful toggle logged nothing, so it cannot show *which* row kind ran (`NOTIF-12`). |
+| `23:47:42Z` + `00:30:11Z` (`after-followup.log`) | Final verification, both row kinds and both actions. |
 
 ```bash
 grep -E '\.failed|rowNotFound|Activity Update Failed' after-followup.log   # expect empty post-fix
 grep -E 'readState\.|delete\.'                        after-followup.log   # which path each action took
 ```
+
+`readState.localOnly` / `delete.localOnly` mean an expense-derived history row;
+`readState.remote … succeeded=true` means a `public.notifications` row. Ids beginning
+`EEEEEEEE-` are seeded demo data, hence history rows.
+
+> **Reading `device-diagnostics.log`:** the obvious reading of its `Cannot coerce the result
+> to a single JSON object` errors is wrong, and the handoff that opened this investigation
+> repeated it. The message names JSON; the fault is a row count. See `NOTIF-04`.
