@@ -9,40 +9,39 @@ import Foundation
 
 // MARK: - Settlement
 
+/// One recorded payment. The ledger row that balances are derived from.
+///
+/// Replaces the old `splits.is_settled` flag: a payment is an amount from one person to
+/// another, not a mutation of individual expense shares. See
+/// `docs/superpowers/specs/2026-07-28-settlements-ledger-design.md`.
 struct Settlement: Codable, Identifiable, Equatable, Sendable {
     let id: UUID
     let groupID: UUID
-    let fromUserID: UUID
-    let toUserID: UUID
-    var amount: Decimal
-    var currency: String
-    var paymentLink: URL?
-    var method: PaymentMethod
+    let fromUserID: UUID     // payer
+    let toUserID: UUID       // recipient
+    let amount: Decimal
+    let currency: String
+    let recordedBy: UUID
     let createdAt: Date
-    var settledAt: Date?
-    var isSettled: Bool
 
+    /// Retained here because `PaymentLinkService` and `ProfileView` refer to
+    /// `Settlement.PaymentMethod`. Not a property of a ledger row.
     enum PaymentMethod: String, Codable, Sendable {
-        case cash       = "cash"
-        case upi        = "upi"
-        case paypal     = "paypal"
-        case venmo      = "venmo"
+        case cash         = "cash"
+        case upi          = "upi"
+        case paypal       = "paypal"
+        case venmo        = "venmo"
         case bankTransfer = "bank_transfer"
-        case other      = "other"
+        case other        = "other"
     }
 
     enum CodingKeys: String, CodingKey {
-        case id
+        case id, amount, currency
         case groupID    = "group_id"
         case fromUserID = "from_user_id"
         case toUserID   = "to_user_id"
-        case amount
-        case currency
-        case paymentLink = "payment_link"
-        case method
+        case recordedBy = "recorded_by"
         case createdAt  = "created_at"
-        case settledAt  = "settled_at"
-        case isSettled  = "is_settled"
     }
 }
 
