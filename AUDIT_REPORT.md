@@ -26,7 +26,10 @@ The updated Edge Functions have not been deployed in this pass because deploymen
 7. [Defect Audit v2 — Second Pass (20)](#defect-audit-v2--second-pass)
 8. [Security Audit (16)](#security-audit)
 9. [Additional Bug Fixes](#additional-bug-fixes)
-10. [Open Items](#open-items)
+10. [Payment Handoff Defect — 2026-07-27](#payment-handoff-defect--2026-07-27)
+11. [Payment Handle Experience + Unified Diagnostics — 2026-07-27](#payment-handle-experience--unified-diagnostics--2026-07-27)
+12. [Notification Unread Lifecycle — 2026-07-28](#notification-unread-lifecycle--2026-07-28)
+13. [Open Items](#open-items)
 
 ---
 

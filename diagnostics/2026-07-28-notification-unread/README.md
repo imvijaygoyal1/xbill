@@ -1,5 +1,12 @@
 # Notification unread lifecycle handoff
 
+> **STATUS: RESOLVED 2026-07-28** — commits `1a197b0` + `9ffc781`, device-verified on every
+> path. **Sections 1–4 below are the original handoff and its diagnosis was wrong about the
+> layer.** Do not act on them: the request shape was fine, the update was matching **zero
+> rows**, and `.single()` reports that as a JSON-coercion error. Jump to
+> [Resolution](#resolution--2026-07-28-commit-1a197b0). Kept verbatim because the wrong
+> reading is instructive — the error message names JSON when the fault is row count.
+
 ## User reproduction
 
 1. In Recent, mark one notification unread.
@@ -26,6 +33,12 @@ update(...).eq("id", value: id).select("id").single().execute()
 ```
 
 The update response is not a single JSON object in this client/API configuration. Claude should inspect the response shape and use a reliable affected-row acknowledgement without assuming `.single()`.
+
+> ⚠️ **This paragraph is wrong** and is retained only as a record of the original theory. The
+> response shape was never the problem — `.update()` already defaults to
+> `Prefer: return=representation`. The update matched **zero rows**, because the id being
+> written was an *expense* id and no such row exists in `public.notifications`. See
+> [Resolution](#resolution--2026-07-28-commit-1a197b0).
 
 ## Relevant history
 
