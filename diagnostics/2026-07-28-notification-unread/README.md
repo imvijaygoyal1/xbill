@@ -97,6 +97,28 @@ unlock and returning:
 The user confirmed both rows still showed the unread dot after the unlock. Read state is
 verified on both paths.
 
-**Still unexercised:** the delete fixes (NOTIF-09…NOTIF-11). The session contains no
-`delete.localOnly`. Swipe-delete an old history row, cycle the lock, refresh, and confirm it
-does not reappear.
+## Delete verification — same session, `2026-07-29T00:30Z`
+
+```text
+00:30:11  delete.localOnly  id=EEEEEEEE-0001-…-000000000001
+00:30:22  isLocked=true  →  unlocked.refreshBegin / refreshComplete  →  active
+```
+
+The deleted row carries the **same id** as the row marked unread above — the seeded demo
+expense, unambiguously an expense-derived history row. It took the local-only delete path
+with no server call, survived a full lock / Face ID / unlock / refresh cycle, and the user
+confirmed it did not reappear.
+
+## Outcome
+
+**0 failure lines** across the whole 56-line session — no `.failed`, no `rowNotFound`, no
+`Activity Update Failed`. Every path verified on device:
+
+| | History row | Server row |
+|---|---|---|
+| Mark unread | ✅ `readState.localOnly`, survived unlock | ✅ `readState.remote succeeded=true`, survived unlock |
+| Delete | ✅ `delete.localOnly`, stayed deleted | Unit-tested only — see below |
+
+Deleting a **server-backed** row was deliberately not exercised: it permanently removes one
+of only three real notification rows. Its affected-row acknowledgement is the same
+`acknowledgeAffectedRows(_:id:)` path the read-state update uses, which is confirmed live.

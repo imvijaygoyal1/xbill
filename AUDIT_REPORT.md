@@ -445,7 +445,16 @@ The delete path carried the same two faults as the read-state path, and the diag
 
 **Regression cover:** `xBillTests/NotificationReadStateTests.swift` — 29 tests over payload encoding, array-shaped affected-row acknowledgement, reconciliation, item origin, dismissal persistence/scoping/capping, and view-model mutations (local-only routing for both read state and delete, scoped rollback, in-place delete restore, last-toggle-wins). `historicalUnreadSurvivesRefresh` and `dismissedHistoryItemStaysDeleted` were each confirmed to fail against the pre-fix behaviour.
 
-**Verification:** `scripts/run-coverage.sh unit` → **193 passed, 0 failed, 0 skipped** (`TestResults/Coverage/2026.07.28_19-41-38-unit.xcresult`). Release build succeeded. Installed on iPhone 16 Pro `00008140-000135EE3432801C`.
+**Verification:** `scripts/run-coverage.sh unit` → **193 passed, 0 failed, 0 skipped** (`TestResults/Coverage/2026.07.28_19-41-38-unit.xcresult`). Release build succeeded.
+
+**Device-verified** on iPhone 16 Pro `00008140-000135EE3432801C`, log `diagnostics/2026-07-28-notification-unread/after-followup.log`, **0 failure lines** in the session:
+
+| | History row | Server row |
+|---|---|---|
+| Mark unread | ✅ `readState.localOnly serverBacked=false`, survived Face ID unlock | ✅ `readState.remote succeeded=true`, survived Face ID unlock |
+| Delete | ✅ `delete.localOnly`, stayed deleted across lock + refresh | Unit-tested only |
+
+The deleted row carries the same seeded `EEEEEEEE-0001-…` id as the row marked unread, so both checks provably hit the expense-derived history path — the one that produced the original zero-row writes. Deleting a **server-backed** row was deliberately not exercised: it permanently removes one of only three real notification rows, and its acknowledgement is the same `acknowledgeAffectedRows(_:id:)` path confirmed live by the read-state update.
 
 ---
 
@@ -453,7 +462,6 @@ The delete path carried the same two faults as the read-state path, and the diag
 
 | Item | Priority | Notes |
 |---|---|---|
-| Notification delete path — device check | Low | Read state is **fully device-verified on both paths** (session `2026-07-28T23:47:42Z`: `readState.localOnly serverBacked=false` for a seeded history row, `readState.remote succeeded=true` for a server row, both surviving the Face ID unlock, zero failures). NOTIF-09…NOTIF-11 (delete) are installed but unexercised — the log shows no `delete.localOnly`. Swipe-delete an old history row, cycle the lock, refresh, confirm it stays gone. |
 | App Store assets | P0 | Screenshots, preview video, keyword strategy — only remaining submission blocker. No code work required. |
 | App Group registration | Setup | Register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Identifiers → App Groups before widget data sharing will work on a device. |
 | Apple JWT secret renewal | Maintenance | JWT secret for Sign in with Apple expires 2026-10-28. Regenerate before that date using `generate_apple_secret.js`. |

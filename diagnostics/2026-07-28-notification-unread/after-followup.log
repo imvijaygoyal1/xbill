@@ -951,3 +951,37 @@
 [2026-07-28T23:48:47.911Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
 [2026-07-28T23:49:30.473Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
 [2026-07-28T23:49:53.843Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-28T23:49:55.995Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T23:49:56.320Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-07-28T23:49:56.707Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-28T23:49:56.732Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T23:49:56.787Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T23:49:56.899Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T23:49:57.278Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T23:49:57.281Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T23:49:57.534Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-29T00:29:53.746Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-29T00:29:53.938Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=true
+[2026-07-29T00:29:53.956Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-29T00:29:56.214Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-29T00:29:56.633Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-29T00:29:57.644Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-07-29T00:29:58.929Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-29T00:29:58.955Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-29T00:29:59.189Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-29T00:29:59.509Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-29T00:29:59.511Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-29T00:30:11.204Z] [balance] ActivityViewModel.delete.localOnly id=EEEEEEEE-0001-0001-0001-000000000001
+[2026-07-29T00:30:14.556Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-29T00:30:15.272Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-29T00:30:22.280Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-29T00:30:22.480Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=true
+[2026-07-29T00:30:22.496Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-29T00:30:23.309Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-29T00:30:23.725Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-29T00:30:24.040Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-07-29T00:30:26.031Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-29T00:30:26.057Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-29T00:30:26.238Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-29T00:30:26.639Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-29T00:30:26.641Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
