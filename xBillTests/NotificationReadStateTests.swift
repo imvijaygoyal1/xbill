@@ -622,6 +622,55 @@ struct ActivityViewModelReadMutationTests {
         #expect(vm.errorAlert != nil)
     }
 
+    /// REV-07. The rollback restored a whole snapshot of `items`, so a history row marked
+    /// read locally — a write that never touched the server — was reverted by the failure
+    /// of an unrelated server call.
+    @Test("A failed markAllRead reverts server rows but keeps local history rows read")
+    func markAllReadRollbackSpareLocalRows() async {
+        let fake  = FakeActivityService()
+        fake.result = false
+        let store = makeStore()
+        let user  = UUID()
+        let server  = serverItem(isRead: false)
+        var history = historyItem()
+        history.isRead = false
+        store.replaceWithRemote([server, history], userID: user)
+
+        let vm = ActivityViewModel(service: fake, store: store, currentUserIDProvider: { user })
+        vm.items = [server, history]
+
+        vm.markAllRead()
+        await settle(vm)
+
+        // The server write failed, so that row goes back to unread.
+        #expect(vm.items.first { $0.id == server.id }?.isRead == false)
+        // The history row's read state is local-only and was applied successfully.
+        #expect(vm.items.first { $0.id == history.id }?.isRead == true)
+        #expect(vm.errorAlert != nil)
+    }
+
+    /// REV-08. The app icon badge is set by APNs from a server-side count of unread
+    /// notification rows. Counting locally-unread history rows into it made the icon
+    /// disagree with the next push.
+    @Test("The icon badge counts only server-backed unread rows")
+    func iconBadgeExcludesHistoryRows() {
+        let store = makeStore()
+        let user  = UUID()
+        let server  = serverItem(isRead: false)
+        var history = historyItem()
+        history.isRead = false
+        store.replaceWithRemote([server, history], userID: user)
+
+        let vm = ActivityViewModel(service: FakeActivityService(), store: store, currentUserIDProvider: { user })
+        vm.items = [server, history]
+        vm.refreshUnreadCount()
+
+        // The in-app tab badge reflects everything the user can see as unread.
+        #expect(vm.unreadCount == 2)
+        // The icon badge tracks what the server will set.
+        #expect(vm.iconBadgeCount == 1)
+    }
+
     @Test("The last of several rapid toggles wins")
     func lastRapidToggleWins() async {
         let fake  = FakeActivityService()

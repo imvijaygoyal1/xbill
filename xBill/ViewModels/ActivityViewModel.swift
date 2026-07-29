@@ -15,6 +15,10 @@ final class ActivityViewModel {
     var isLoading: Bool = false
     var errorAlert: ErrorAlert?
     var unreadCount: Int = 0
+    /// What the app icon badge should show. Only `public.notifications` rows count, because
+    /// APNs overwrites the icon badge with a server-side count of exactly those rows.
+    /// `unreadCount` drives the in-app tab badge and also includes local history rows.
+    var iconBadgeCount: Int = 0
 
     private let service: ActivityReadWriting
     private let store: NotificationStore
@@ -34,10 +38,13 @@ final class ActivityViewModel {
     private var readMutationGeneration: [UUID: Int] = [:]
     private var readMutationTasks: [UUID: Task<Void, Never>] = [:]
     private var deleteTasks: [UUID: Task<Void, Never>] = [:]
+    private var markAllReadTask: Task<Void, Never>?
 
-    /// Whether any read-state or delete write is still settling. Derived from the in-flight
-    /// task maps.
-    var hasInFlightMutations: Bool { !readMutationTasks.isEmpty || !deleteTasks.isEmpty }
+    /// Whether any read-state, mark-all or delete write is still settling. Derived from the
+    /// in-flight task state.
+    var hasInFlightMutations: Bool {
+        !readMutationTasks.isEmpty || !deleteTasks.isEmpty || markAllReadTask != nil
+    }
 
     func load() async {
         isLoading = true
@@ -51,7 +58,8 @@ final class ActivityViewModel {
             let storedItems = store.loadAll(userID: userID)
             items       = storedItems.isEmpty ? fetchedItems : storedItems
             unreadCount = store.unreadCount(userID: userID)
-            NotificationService.shared.setBadge(unreadCount)
+            iconBadgeCount = store.serverUnreadCount(userID: userID)
+            NotificationService.shared.setBadge(iconBadgeCount)
         } catch {
             // On partial failure, ActivityService still merges results into the store.
             // Read from the store so previously fetched items remain visible.
@@ -59,7 +67,8 @@ final class ActivityViewModel {
             if !storedItems.isEmpty {
                 items       = storedItems
                 unreadCount = store.unreadCount(userID: currentUserID)
-                NotificationService.shared.setBadge(unreadCount)
+                iconBadgeCount = store.serverUnreadCount(userID: currentUserID)
+                NotificationService.shared.setBadge(iconBadgeCount)
             }
             // Unauthenticated errors are expected on session expiry — don't show alert.
             guard !AppError.isSilent(error) else { return }
@@ -70,7 +79,6 @@ final class ActivityViewModel {
 
     func markAllRead() {
         let previousItems = items
-        let previousUnreadCount = unreadCount
         store.markAllRead(userID: currentUserID)
         // Update the in-memory array so individual rows reflect read state
         // immediately without waiting for a reload from the store.
@@ -84,13 +92,28 @@ final class ActivityViewModel {
             for item in items where item.isServerBacked {
                 store.setPendingReadState(id: item.id, isRead: true, userID: userID)
             }
-            Task { @MainActor in
+            markAllReadTask = Task { @MainActor in
+                defer { markAllReadTask = nil }
                 guard await service.markAllRead(userID: userID) else {
                     store.clearPendingReadStates(userID: userID)
-                    items = previousItems
-                    unreadCount = previousUnreadCount
-                    store.replaceWithRemote(previousItems, userID: userID)
-                    NotificationService.shared.setBadge(unreadCount)
+                    // Revert only the rows the failed call was responsible for. A history
+                    // row's read state is local-only — its write succeeded and must not be
+                    // undone by an unrelated server failure.
+                    let previousReadState = Dictionary(
+                        previousItems.map { ($0.id, $0.isRead) },
+                        uniquingKeysWith: { _, new in new }
+                    )
+                    for index in items.indices where items[index].isServerBacked {
+                        guard let wasRead = previousReadState[items[index].id] else { continue }
+                        items[index].isRead = wasRead
+                        if wasRead {
+                            store.markRead(id: items[index].id, userID: userID)
+                        } else {
+                            store.markUnread(id: items[index].id, userID: userID)
+                        }
+                    }
+                    refreshUnreadCount()
+                    NotificationService.shared.setBadge(iconBadgeCount)
                     errorAlert = ErrorAlert(title: "Activity Update Failed", message: "Your notifications could not be marked read. Try again.")
                     return
                 }
@@ -131,7 +154,7 @@ final class ActivityViewModel {
                 ("isRead", "\(isRead)"),
                 ("serverBacked", "\(item.isServerBacked)")
             ])
-            NotificationService.shared.setBadge(unreadCount)
+            NotificationService.shared.setBadge(iconBadgeCount)
             return
         }
 
@@ -166,7 +189,7 @@ final class ActivityViewModel {
                 }
                 replace(item.id) { $0.isRead = previousIsRead }
                 refreshUnreadCount()
-                NotificationService.shared.setBadge(unreadCount)
+                NotificationService.shared.setBadge(iconBadgeCount)
                 errorAlert = ErrorAlert(
                     title: "Activity Update Failed",
                     message: isRead
@@ -177,7 +200,7 @@ final class ActivityViewModel {
             }
         }
         readMutationTasks[item.id] = task
-        NotificationService.shared.setBadge(unreadCount)
+        NotificationService.shared.setBadge(iconBadgeCount)
     }
 
     func delete(_ item: NotificationItem) {
@@ -187,7 +210,7 @@ final class ActivityViewModel {
         refreshUnreadCount()
 
         guard let userID = currentUserID else {
-            NotificationService.shared.setBadge(unreadCount)
+            NotificationService.shared.setBadge(iconBadgeCount)
             return
         }
 
@@ -198,7 +221,7 @@ final class ActivityViewModel {
             AppDiagnostics.log(.balance, "ActivityViewModel.delete.localOnly", [
                 ("id", item.id.uuidString)
             ])
-            NotificationService.shared.setBadge(unreadCount)
+            NotificationService.shared.setBadge(iconBadgeCount)
             return
         }
 
@@ -211,17 +234,18 @@ final class ActivityViewModel {
                 items.insert(item, at: index)
                 store.mergeRemote([item], userID: userID)
                 refreshUnreadCount()
-                NotificationService.shared.setBadge(unreadCount)
+                NotificationService.shared.setBadge(iconBadgeCount)
                 errorAlert = ErrorAlert(title: "Activity Update Failed", message: "This notification could not be deleted. Try again.")
                 return
             }
         }
         deleteTasks[item.id] = task
-        NotificationService.shared.setBadge(unreadCount)
+        NotificationService.shared.setBadge(iconBadgeCount)
     }
 
     func refreshUnreadCount() {
         unreadCount = store.unreadCount(userID: currentUserID)
+        iconBadgeCount = store.serverUnreadCount(userID: currentUserID)
     }
 
     var hasUnread: Bool { unreadCount > 0 }

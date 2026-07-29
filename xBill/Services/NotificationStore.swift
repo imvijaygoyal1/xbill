@@ -184,6 +184,16 @@ final class NotificationStore: @unchecked Sendable {
         lock.withLock { _loadAll(userID: userID).filter { !$0.isRead }.count }
     }
 
+    /// Unread rows that exist in `public.notifications`.
+    ///
+    /// The app icon badge is set by APNs from a server-side count, so the local value
+    /// pushed into `setBadge` has to use the same population. `unreadCount` also includes
+    /// expense-derived history rows, whose read state is local-only — counting those would
+    /// make the icon disagree with the next push.
+    func serverUnreadCount(userID: UUID? = nil) -> Int {
+        lock.withLock { _loadAll(userID: userID).filter { !$0.isRead && $0.isServerBacked }.count }
+    }
+
     // MARK: - Test support
 
     func clearAll() {

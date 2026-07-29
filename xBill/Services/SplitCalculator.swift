@@ -20,6 +20,10 @@ enum SplitCalculator {
         clearExcludedAmounts(in: &inputs)
         let included = inputs.indices.filter { inputs[$0].isIncluded }
         guard !included.isEmpty else { return }
+        // Decimal division by zero yields NaN, which would be written straight into a
+        // split percentage below. The only production caller guards this, but the API
+        // is public and the tests call it directly.
+        guard total > .zero else { zeroOut(included, in: &inputs); return }
 
         let count = Decimal(included.count)
         var base = total / count
@@ -60,6 +64,7 @@ enum SplitCalculator {
         clearExcludedAmounts(in: &inputs)
         let included = inputs.indices.filter { inputs[$0].isIncluded }
         guard !included.isEmpty else { return }
+        guard total > .zero else { zeroOut(included, in: &inputs); return }
 
         var distributed = Decimal.zero
         for index in included {
@@ -87,6 +92,7 @@ enum SplitCalculator {
 
         let totalShares = included.reduce(0) { $0 + inputs[$1].shares }
         guard totalShares > 0 else { return }
+        guard total > .zero else { zeroOut(included, in: &inputs); return }
 
         let totalSharesDecimal = Decimal(totalShares)
         var distributed = Decimal.zero
@@ -119,6 +125,33 @@ enum SplitCalculator {
         if let last = included.last {
             inputs[last].amount += total - distributed
         }
+    }
+
+    private static func zeroOut(_ indices: [Int], in inputs: inout [SplitInput]) {
+        for index in indices {
+            inputs[index].amount = .zero
+            inputs[index].percentage = .zero
+        }
+    }
+
+    /// Returns an error string when the included percentages do not sum to 100.
+    ///
+    /// `splitByPercentage` assigns whatever is left over to one participant so the split
+    /// always adds up to the bill. That is right for a rounding cent, but with no
+    /// validation a 40/30/20 entry silently moved 10% of the bill onto one person — and
+    /// `canSave` only validated the `.exact` strategy, so it saved.
+    static func validatePercentages(inputs: [SplitInput]) -> String? {
+        let included = inputs.filter(\.isIncluded)
+        guard !included.isEmpty else { return nil }
+
+        let sum = included.reduce(Decimal.zero) { $0 + $1.percentage }
+        var rounded = Decimal()
+        var sumCopy = sum
+        NSDecimalRound(&rounded, &sumCopy, 2, .bankers)
+        guard rounded != 100 else { return nil }
+
+        let sumStr = String(format: "%.2f", NSDecimalNumber(decimal: rounded).doubleValue)
+        return "Percentages must add up to 100. Currently: \(sumStr)"
     }
 
     private static func clearExcludedAmounts(in inputs: inout [SplitInput]) {
@@ -180,10 +213,11 @@ enum SplitCalculator {
             let (debtorID, debt)     = debtors[di]
 
             let transferAmount = min(credit, -debt)
-            if transferAmount > epsilon {
-                var rounded = Decimal()
-                var ta = transferAmount
-                NSDecimalRound(&rounded, &ta, 2, .bankers)
+            var rounded = Decimal()
+            var ta = transferAmount
+            NSDecimalRound(&rounded, &ta, 2, .bankers)
+
+            if transferAmount > epsilon, rounded > .zero {
                 suggestions.append(SettlementSuggestion(
                     id: UUID(),
                     fromUserID: debtorID,
@@ -195,8 +229,14 @@ enum SplitCalculator {
                 ))
             }
 
-            let newCredit = credit - transferAmount
-            let newDebt   = debt + transferAmount
+            // Consume the amount that was actually *suggested*. Subtracting the unrounded
+            // figure left sub-cent residuals alive, and two 0.006 residuals each rounded up
+            // to a full 0.01 suggestion — asking a debtor who owed one cent to pay two.
+            // When nothing was suggested, fall back to the unrounded amount so the loop
+            // still makes progress and cannot spin.
+            let applied = rounded > .zero ? rounded : transferAmount
+            let newCredit = credit - applied
+            let newDebt   = debt + applied
             creditors[ci] = (creditorID, newCredit)
             debtors[di]   = (debtorID, newDebt)
 
@@ -216,6 +256,12 @@ enum SplitCalculator {
     /// attractive on paper but cannot be marked settled without settling more
     /// than the user confirmed. Settle Up uses this direct form so every row is
     /// actionable against the database's whole-split settlement model.
+    ///
+    /// **Mutual debts are deliberately not netted** (REV-13). If A owes B $10 and B owes
+    /// A $6, this returns both rows rather than a single A→B $4. Netting reads better but
+    /// reintroduces the exact defect this function exists to prevent: $4 matches none of
+    /// A's whole splits, so `recordSettlement` could not settle it without over-settling.
+    /// A netted view belongs in the UI layer, over rows that stay individually actionable.
     static func directSettlementSuggestions(
         expenses: [Expense],
         splits: [UUID: [Split]],

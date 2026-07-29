@@ -91,8 +91,16 @@ final class AddExpenseViewModel {
     }
 
     var splitValidationError: String? {
-        guard splitStrategy == .exact else { return nil }
-        return SplitCalculator.validateExact(total: finalAmount, inputs: splitInputs)
+        switch splitStrategy {
+        case .exact:
+            return SplitCalculator.validateExact(total: finalAmount, inputs: splitInputs)
+        case .percentage:
+            // REV-10: without this a 40/30/20 entry saved silently, with the missing 10%
+            // of the bill dumped on one participant by the remainder assignment.
+            return SplitCalculator.validatePercentages(inputs: splitInputs)
+        case .equal, .shares:
+            return nil
+        }
     }
 
     // MARK: - Split Recompute
