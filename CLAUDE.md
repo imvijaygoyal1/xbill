@@ -1,24 +1,78 @@
 # xBill — Claude Code Context
 
-> **IMPORTANT FOR CLAUDE:** After every code change to this project, update this file to reflect the change. New file → add to File Map. New pattern → update Key Patterns. This file must always stay current.
-> **After every code change, run `xcodegen generate` if new Swift files were added, build for simulator, install the built `.app` on simulator DA97985A-F7CC-44F6-8281-9DD24C22B978, launch it once, and report the install/launch result.**
-> **Native patterns:** Before writing any SwiftUI view, read `NATIVE_PATTERNS.md`. It defines the required conventions for navigation, lists, SF Symbols, typography, colors, controls, sheets, empty states, swipe actions, animations, accessibility, haptics, safe area, and performance. The xBill branded redesign in `DESIGN.md` overrides native defaults only where explicitly documented; keep Apple behavior for navigation, sheets, accessibility, inputs, and data-flow safety.
+## Start here
 
-> **Payment handles / settle-up handoff:** read `HANDOFF_PAYMENT_HANDLES.md` before touching
-> `PaymentHandleValidator`, `PaymentLinkService`, the Settle Up tab, the payment-return prompt,
-> `AppDiagnostics`, or the reviewer seed. It carries five non-obvious third-party/language
-> behaviours that each caused a real bug (fabricated handles are live deep links; PayPal.Me
-> ignores non-two-decimal amounts; PayPal will not render a self-payment; Swift's synthesized
-> `Encodable` omits nil; `try?` flattening makes an explicit JSON null fall through to a
-> fallback key), plus the open items and the device verification playbook.
+**This file is the index, not the whole story.** It is large; do not read it end to end. Use
+the document map to find the one file that owns your question, and the trap index to find out
+what will bite you before you touch code.
 
-> **Activity / notifications:** before touching `ActivityView`, `ActivityViewModel`,
-> `ActivityService`, `NotificationStore`, `RemoteNotificationService` or `NotificationItem`,
-> read the 2026-07-28 fix log below and `diagnostics/README.md`.
-> Two non-obvious behaviours each caused a real device defect: an Activity row is **not**
-> necessarily a `public.notifications` row (expense-derived history carries an *expense* id,
-> so a write matches zero rows), and `.single()` is an Accept header, **not** an affected-row
-> check — a zero-row match surfaces as *"Cannot coerce the result to a single JSON object"*.
+**Reading order for a cold start**
+
+1. **Trap index** below — check whether your area has a known trap. If it does, read the
+   linked doc *first*. Every entry there cost at least one wasted debugging cycle.
+2. **File Map** in this file — locate the code. It is the live index and is kept current;
+   the dated fix logs are period records and may describe superseded behaviour.
+3. **`AUDIT_REPORT.md`** — search it for the files you are about to change. If a defect ID
+   already covers your symptom, read the fix before re-deriving it.
+4. **`ARCHITECTURE.md`** — only if you need the wider design.
+
+### Document map — who owns what
+
+Each fact lives in exactly one place. Put new content where it belongs; do not restate it
+elsewhere, and do not create a parallel doc.
+
+| File | Owns | Do **not** put here |
+|---|---|---|
+| `CLAUDE.md` (this file) | Index: File Map, Key Patterns, trap index, dated fix logs | Per-defect detail — that is `AUDIT_REPORT.md` |
+| `AUDIT_REPORT.md` | **Single source for findings.** Every defect: ID, file, issue, status, fix, verification | Log-reading instructions |
+| `diagnostics/README.md` | **The only README under `diagnostics/`.** Index of investigations, which log is which, how to read it | Findings — link to the audit ID instead |
+| `diagnostics/<date>-<slug>/` | Raw evidence only: logs, captures, verification output | Any `.md` at all |
+| `HANDOFF_PAYMENT_HANDLES.md` | Third-party provider behaviour (Venmo/PayPal rules, URL shapes) | xBill defect detail |
+| `NATIVE_PATTERNS.md` / `DESIGN.md` | SwiftUI conventions / the clay design system | Anything not about UI convention |
+| `RELEASE_VERIFICATION.md` | Pre-submission runbook | Day-to-day verification |
+
+### Before you touch these — known traps
+
+Each row is a behaviour that already caused a real defect. Append a row when an investigation
+turns one up; do not add a new prose block.
+
+| Area | Trap | Read first |
+|---|---|---|
+| `PaymentHandleValidator`, `PaymentLinkService`, Settle Up, payment-return prompt, reviewer seed | Five non-obvious third-party/language behaviours: a fabricated handle is a **live deep link**; PayPal.Me ignores a non-two-decimal amount; PayPal will not render a self-payment; Swift's synthesized `Encodable` omits nil; `try?` flattening makes an explicit JSON null fall through to a fallback key | `HANDOFF_PAYMENT_HANDLES.md` |
+| `ActivityView`, `ActivityViewModel`, `ActivityService`, `NotificationStore`, `RemoteNotificationService`, `NotificationItem` | An Activity row is **not** necessarily a `public.notifications` row — expense-derived history carries an *expense* id, so a write matches zero rows. And `.single()` is an Accept header, **not** an affected-row check: a zero-row match surfaces as *"Cannot coerce the result to a single JSON object"* | `AUDIT_REPORT.md` → `NOTIF-01`…`NOTIF-12` |
+| Any `@Observable` ViewModel | Never construct one inline in a `navigationDestination` / `sheet` closure — SwiftUI rebuilds it on every parent re-render, wiping loaded state, and `.task` will not re-fire | *Key Pattern — Own ViewModels in @State, never inline in a view builder* |
+| Any Supabase `insert`/`update`/`delete` | Without `.select()` the SDK sends `Prefer: return=minimal` and decoding fails. Never use `.single()` to check affected rows | *Supabase Insert/Update — Always Chain .select()* |
+
+### When you finish a piece of work
+
+In this order, every time:
+
+1. **Verify before claiming.** `scripts/run-coverage.sh unit`, and a Release build if you
+   touched anything `#if DEBUG`. Report the actual numbers.
+2. **Never claim device/lifecycle behaviour from a green suite.** App Lock, Face ID, real app
+   switches and push are not reachable from tests. Build, install on the physical device, have
+   the user reproduce, then pull and read the log. Every serious defect in this project was
+   found that way, with both suites green throughout.
+3. **Update this file** — File Map for new/changed files, Key Patterns for new invariants, a
+   dated fix-log entry. Annotate superseded entries in place; do not rewrite history.
+4. **Update `AUDIT_REPORT.md`** — one row per defect: ID, file, issue, status, fix.
+5. **Investigation evidence** → a new `diagnostics/<date>-<slug>/` folder holding logs only,
+   plus one appended row in `diagnostics/README.md`. **Never add a second README.**
+6. **Commit and push**, then record anything non-obvious and cross-session in memory.
+
+**If a previous agent broke one of these conventions, consolidate rather than extend.** Two
+documents describing one defect will drift, and the next reader may act on the stale one.
+
+### Standing build rules
+
+- After every code change: run `xcodegen generate` if Swift files were added, build for the
+  simulator, install on `DA97985A-F7CC-44F6-8281-9DD24C22B978`, launch once, and report the
+  result.
+- Before writing any SwiftUI view, read `NATIVE_PATTERNS.md`. `DESIGN.md` overrides native
+  defaults only where explicitly documented; keep Apple behaviour for navigation, sheets,
+  accessibility, inputs and data-flow safety.
+- Never deploy migrations or modify live Supabase data without explicit approval. Read-only
+  queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
 ## Recent Fix Log — 2026-07-28
 

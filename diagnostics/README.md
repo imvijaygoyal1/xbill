@@ -5,19 +5,17 @@ Preserved so investigations do not have to be repeated.
 
 ## Conventions — read before adding anything here
 
+Document ownership and the end-of-work checklist live in `../CLAUDE.md` → **Start here**.
+Two rules specific to this directory:
+
 1. **This is the only README under `diagnostics/`.** Dated folders hold **raw evidence
    only** — logs, captures, verification output. Do not add a second README; append to the
    index below instead. (Broken once, on 2026-07-28, which produced two competing handoff
-   documents for one defect.)
-2. **Findings never live here.** `../AUDIT_REPORT.md` is the single source: every defect gets
-   an ID, file, issue, status and fix. This file says *what evidence exists and how to read
-   it*, and points at the audit entry for *what it means*.
-3. **Never claim a lifecycle behaviour from a passing test suite.** Every serious defect in
-   this project was found by a human on a physical device or by an independent reviewer, with
-   the unit and UI suites green throughout. Pull the log.
-4. **Log the success path, not just failures.** A log that only records errors can prove the
-   absence of a failure but never which code path ran. That gap cost an extra device
-   round-trip in the 2026-07-28 investigation.
+   documents for one defect.) Findings go in `../AUDIT_REPORT.md`; this file says what
+   evidence exists and how to read it, and links to the audit ID for what it means.
+2. **Instrument the success path, not just failures.** A log that only records errors can
+   prove the absence of a failure but never which code path ran. That gap cost an extra
+   device round-trip in the 2026-07-28 investigation.
 
 ## Index of investigations
 
