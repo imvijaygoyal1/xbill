@@ -33,10 +33,16 @@ final class GroupViewModel {
     @ObservationIgnored private var isComputingBalances = false
     @ObservationIgnored private var shouldRecomputeBalances = false
     private let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "GroupViewModel")
-    private let groupService = GroupService.shared
-    private let expenseService = ExpenseService.shared
+    private let groupService: any GroupDataProviding
+    private let expenseService: any ExpenseDataProviding
 
-    init(group: BillGroup) {
+    init(
+        group: BillGroup,
+        groupService: any GroupDataProviding = GroupService.shared,
+        expenseService: any ExpenseDataProviding = ExpenseService.shared
+    ) {
+        self.groupService = groupService
+        self.expenseService = expenseService
         self.group = group
         let cachedMembers = CacheService.shared.loadMembers(groupID: group.id)
         let cachedExpenses = CacheService.shared.loadExpenses(groupID: group.id)
@@ -95,12 +101,16 @@ final class GroupViewModel {
 
         if NetworkMonitor.shared.isConnected {
             do {
+                // REV-04: cleared here, before the fetch. It used to be cleared at the top of
+                // computeBalances, which runs *after* applyFetchedExpenses — so a stale-data
+                // warning raised by the fetch was wiped before any view could read it.
+                balanceLoadFailed = false
                 let groupID = group.id
                 let groupService = groupService
                 let expenseService = expenseService
                 let (fetchedMembers, fetchedExpenses) = try await withTimeout(duration: .seconds(12)) {
                     async let membersTask = groupService.fetchMembers(groupID: groupID, includeInactive: true)
-                    async let expensesTask = expenseService.fetchExpenses(groupID: groupID)
+                    async let expensesTask = expenseService.fetchExpenses(groupID: groupID, limit: nil)
                     return try await (membersTask, expensesTask)
                 }
                 members  = fetchedMembers
@@ -198,7 +208,6 @@ final class GroupViewModel {
         }
         isComputingBalances = true
         isLoadingBalances = true
-        balanceLoadFailed = false
         defer { isComputingBalances = false }
         defer { isLoadingBalances = false }
 
@@ -232,11 +241,15 @@ final class GroupViewModel {
                     ("connected", NetworkMonitor.shared.isConnected),
                     ("error", AppDiagnostics.describe(error))
                 ])
-                guard !expenses.isEmpty else { return }
+                // REV-05: `continue` rather than `return`. In a repeat/while this re-checks
+                // the loop condition, so a recompute requested while this one was in flight
+                // is still honoured. `return` dropped it, which is the exact failure the
+                // coalescing was added to prevent.
+                guard !expenses.isEmpty else { continue }
                 guard !splitsMap.isEmpty else {
                     balanceLoadFailed = true
                     logger.error("Split loading failed with no previous split map: \(error.localizedDescription, privacy: .public)")
-                    return
+                    continue
                 }
                 balanceLoadFailed = true
                 logger.warning("Keeping previous split map because split loading failed: \(error.localizedDescription, privacy: .public)")
@@ -345,10 +358,13 @@ final class GroupViewModel {
 
     // MARK: - Recurring Instances
 
-    /// Creates new expense instances for any recurring expenses that are due,
-    /// then advances (clears) the template's next_occurrence_date.
-    /// Only acts on expenses where the current user is the payer (RPC constraint).
-    func createDueRecurringInstances(currentUserID: UUID) async {
+    /// Creates new expense instances for any recurring expenses that are due, then advances
+    /// the template's `next_occurrence_date`.
+    ///
+    /// Acts on every member's due templates, not just the caller's — `M-08` removed the
+    /// payer filter so a group does not stall when one member does not open the app. The
+    /// backend RPC claims each occurrence atomically, so concurrent callers are safe.
+    func createDueRecurringInstances() async {
         guard NetworkMonitor.shared.isConnected else { return }
         do {
             let dueExpenses = try await expenseService.fetchDueRecurringExpenses(groupID: group.id)
@@ -395,6 +411,10 @@ final class GroupViewModel {
             try await expenseService.deleteExpense(id: expense.id)
             expenses.removeAll { $0.id == expense.id }
             splitsMap.removeValue(forKey: expense.id)
+            // REV-03: applyFetchedExpenses re-merges anything still in this map that a fetch
+            // does not return, and only clears an entry when the fetch *does* return it. A
+            // deleted expense would therefore come back on every later load.
+            locallyCreatedExpenses.removeValue(forKey: expense.id)
             await computeBalances()
         } catch {
             guard !AppError.isSilent(error) else { return }
@@ -467,27 +487,49 @@ final class GroupViewModel {
                 )
             }
 
-            try await withThrowingTaskGroup(of: Void.self) { taskGroup in
+            // REV-02: settle each split independently and collect the outcomes. A throwing
+            // task group aborts on the first failure, but the writes that already committed
+            // still stand — the previous code surfaced a generic error and recorded none of
+            // them locally, so the app disagreed with the server about what was settled.
+            let candidateSettleCount = splitsToSettle.count
+            var settledSplits: [Split] = []
+            var settleFailures: [Error] = []
+            let expenseService = expenseService
+            await withTaskGroup(of: (Split, Error?).self) { taskGroup in
                 for split in splitsToSettle {
                     taskGroup.addTask {
-                        try await self.expenseService.settleSplit(id: split.id)
+                        do {
+                            try await expenseService.settleSplit(id: split.id)
+                            return (split, nil)
+                        } catch {
+                            return (split, error)
+                        }
                     }
                 }
-                try await taskGroup.waitForAll()
+                for await (split, error) in taskGroup {
+                    if let error {
+                        settleFailures.append(error)
+                    } else {
+                        settledSplits.append(split)
+                    }
+                }
             }
 
             AppDiagnostics.log(.balance, "GroupViewModel.recordSettlement.splitsUpdated", [
                 ("group", group.name),
-                ("count", splitsToSettle.count),
+                ("requested", splitsToSettle.count),
+                ("settled", settledSplits.count),
+                ("failed", settleFailures.count),
                 ("amount", suggestion.amount)
             ])
 
-            locallyConfirmedSettledSplitIDs.formUnion(splitsToSettle.map(\.id))
+            // Only the writes that actually committed are confirmed locally.
+            locallyConfirmedSettledSplitIDs.formUnion(settledSplits.map(\.id))
 
             // Reflect confirmed writes locally before the network reload. This keeps
             // Settle Up truthful if the immediate read-after-write returns an older
             // snapshot or a competing lifecycle refresh is cancelled.
-            for settledSplit in splitsToSettle {
+            for settledSplit in settledSplits {
                 guard var expenseSplits = splitsMap[settledSplit.expenseID],
                       let index = expenseSplits.firstIndex(where: { $0.id == settledSplit.id }) else {
                     continue
@@ -503,6 +545,19 @@ final class GroupViewModel {
                 names: memberNames,
                 currency: group.currency
             )
+
+            // A partial settlement is not a success. Report exactly what committed so the
+            // user can retry the rest, and do not tell the creditor they were paid in full.
+            guard settleFailures.isEmpty else {
+                isLoading = false
+                await load(showError: false)
+                let detail = settleFailures.first?.localizedDescription ?? "Some writes were rejected."
+                self.errorAlert = ErrorAlert(
+                    title: "Settlement Incomplete",
+                    message: "Only \(settledSplits.count) of \(candidateSettleCount) parts of this settlement were recorded. The rest were not — refresh and try again. (\(detail))"
+                )
+                return
+            }
 
             let note = NotificationItem.settlement(
                 suggestion: suggestion,

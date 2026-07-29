@@ -139,7 +139,7 @@ struct GroupDetailView: View {
                 // surfaces expose retryable state; do not show a generic alert for a transient
                 // lifecycle/network failure while the user is returning to this screen.
                 await vm.load(showError: false)
-                await vm.createDueRecurringInstances(currentUserID: currentUserID)
+                await vm.createDueRecurringInstances()
                 AppDiagnostics.log(.lifecycle, "GroupDetailView.task.end", [("group", vm.group.name)])
             }
             .onChange(of: scenePhase) { oldPhase, phase in

@@ -314,7 +314,7 @@ enum SplitCalculator {
     /// Both GroupViewModel and HomeViewModel call this so the fetch pattern is identical.
     static func fetchSplitsMap(
         for expenses: [Expense],
-        using expenseService: ExpenseService
+        using expenseService: any ExpenseDataProviding
     ) async throws -> [UUID: [Split]] {
         let expenseIDs = expenses.map(\.id)
         let splits = try await expenseService.fetchSplits(expenseIDs: expenseIDs)

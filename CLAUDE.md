@@ -41,7 +41,8 @@ turns one up; do not add a new prose block.
 | `PaymentHandleValidator`, `PaymentLinkService`, Settle Up, payment-return prompt, reviewer seed | Five non-obvious third-party/language behaviours: a fabricated handle is a **live deep link**; PayPal.Me ignores a non-two-decimal amount; PayPal will not render a self-payment; Swift's synthesized `Encodable` omits nil; `try?` flattening makes an explicit JSON null fall through to a fallback key | `HANDOFF_PAYMENT_HANDLES.md` |
 | `ActivityView`, `ActivityViewModel`, `ActivityService`, `NotificationStore`, `RemoteNotificationService`, `NotificationItem` | An Activity row is **not** necessarily a `public.notifications` row — expense-derived history carries an *expense* id, so a write matches zero rows. And `.single()` is an Accept header, **not** an affected-row check: a zero-row match surfaces as *"Cannot coerce the result to a single JSON object"* | `AUDIT_REPORT.md` → `NOTIF-01`…`NOTIF-12` |
 | Any `@Observable` ViewModel | Never construct one inline in a `navigationDestination` / `sheet` closure — SwiftUI rebuilds it on every parent re-render, wiping loaded state, and `.task` will not re-fire | *Key Pattern — Own ViewModels in @State, never inline in a view builder* |
-| Any Supabase `insert`/`update`/`delete` | Without `.select()` the SDK sends `Prefer: return=minimal` and decoding fails. Never use `.single()` to check affected rows | *Supabase Insert/Update — Always Chain .select()* |
+| Any Supabase `insert`/`update`/`delete` | Without `.select()` the SDK sends `Prefer: return=minimal` and decoding fails. Never use `.single()` to check affected rows — go through `SupabaseWrite.requireAffected` | *Supabase Insert/Update — Always Chain .select()* |
+| Settle Up / `splits` | The live RLS policy is `auth.uid() = user_id` — **only the debtor may settle**. The button is currently ungated, so anyone else's tap affects zero rows and silently no-ops | `AUDIT_REPORT.md` → `REV-01` (open) |
 
 ### When you finish a piece of work
 
@@ -91,6 +92,25 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
 ## Recent Fix Log — 2026-07-28
+
+### Senior review remediation (REV-02 … REV-13)
+A read-only senior review found 13 issues (`AUDIT_REPORT.md` → `REV-01`…`REV-13`). Twelve are fixed; `REV-01` is open pending a product decision. Highlights:
+
+- **Partial settlement no longer lies (REV-02).** Splits were settled in a throwing task group, so one rejected write aborted the group while the writes that had already committed stood — the user saw a generic error and the app recorded none of them. Each split now settles independently, only what committed is confirmed locally, and a partial result reports "Only N of M parts were recorded" with no settlement push.
+- **A deleted expense could resurrect (REV-03).** `applyFetchedExpenses` re-merges `locallyCreatedExpenses` entries a fetch does not return, and only clears an entry when the fetch *does* return it. `deleteExpense` never removed it, so a just-deleted local expense came back on every later load.
+- **The stale-data warning could never fire (REV-04).** `applyFetchedExpenses` raised `balanceLoadFailed`; `computeBalances` then cleared it at the top, before any view read it. Cleared at the start of `load()`'s network branch instead.
+- **Queued balance recomputes were dropped (REV-05).** The catch block's early `return`s discarded `shouldRecomputeBalances` — the exact failure the coalescing existed to prevent. They now `continue`, which re-checks the `repeat`/`while` condition.
+- **Percentage splits were never validated (REV-10).** `canSave` only checked `.exact`, so a 40/30/20 entry saved with the missing 10% of the bill silently moved onto one participant by the remainder assignment. New `SplitCalculator.validatePercentages`.
+- **Sub-cent settlement drift (REV-11).** `minimizeTransactions` emitted a rounded transfer but decremented balances by the unrounded one, so two 0.006 residuals each rounded up to a full cent — asking a debtor who owed one cent to pay two.
+- **Affected-row checks generalised (REV-06).** New `xBill/Core/SupabaseWrite.swift` is the single place a zero-row write is detected; `RemoteNotificationService`'s local equivalents were folded into it and it now guards five delete paths.
+- **REV-13 deliberately not "fixed".** Netting mutual debts reintroduces the defect `directSettlementSuggestions` exists to prevent — a netted $4 matches none of the debtor's whole splits.
+
+`GroupViewModel` gained an injection seam (`GroupDataProviding` / `ExpenseDataProviding`, defaulted to the singletons) because every one of REV-02…REV-05 ran through a `.shared` service and could not otherwise be exercised. Mirrors the `ActivityViewModel` seam.
+
+Verification: `scripts/run-coverage.sh unit` → **216 passed, 0 failed, 0 skipped**. Release build succeeded. REV-11 and the three GroupViewModel regressions were each confirmed to fail against the pre-fix code.
+
+**Open:** `REV-01` — the live RLS policy on `splits` is `auth.uid() = user_id`, so only the debtor can settle, but the Settle Up list is unfiltered and the "Mark as Settled" button ungated. A creditor's tap silently affects zero rows, is force-hidden locally by `locallyConfirmedSettledSplitIDs`, and fires a settlement push. Fixing it needs a product decision: gate the button to the debtor, or add a `SECURITY DEFINER` RPC so a creditor can confirm receipt. **Do not widen the RLS policy** — `is_expense_group_member` would let any member settle anyone's debt.
+
 
 ### Notification unread state did not survive an app-lock cycle — ROOT CAUSE FIXED
 On a physical iPhone, marking a Recent notification unread appeared to work, then reverted to read after backgrounding, Face ID unlock and returning. Two faults compounded; the device log — not the test suite — was what made either visible.
