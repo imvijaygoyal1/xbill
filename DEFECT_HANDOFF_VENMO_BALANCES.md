@@ -45,7 +45,7 @@ background/foreground cycles during a live reproduction:
 
 User confirmed the message appeared **inside the PayPal app**, not as an xBill dialog.
 
-Raw logs are preserved in `diagnostics/2026-07-27-paypal-handoff/` (see the README there
+Raw logs are preserved in `diagnostics/2026-07-27-paypal-handoff/` (see `diagnostics/README.md`
 for how to read and regenerate them). Decisive excerpt from the **pre-fix reproduction** —
 note the handoff to a nonexistent PayPal profile, and that every subsequent load succeeds
 with no alert:

@@ -422,7 +422,7 @@ Follow-up to the PayPal handoff defect above. These address what that investigat
 
 ## Notification Unread Lifecycle — 2026-07-28
 
-Reported on a physical iPhone: marking a Recent notification unread reverted to read after backgrounding, Face ID unlock and returning. Evidence in `diagnostics/2026-07-28-notification-unread/`.
+Reported on a physical iPhone: marking a Recent notification unread reverted to read after backgrounding, Face ID unlock and returning. Raw evidence in `diagnostics/2026-07-28-notification-unread/`; how to read it is in `diagnostics/README.md`.
 
 | ID | File | Issue | Status | Fix |
 |---|---|---|---|---|

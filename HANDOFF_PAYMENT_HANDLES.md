@@ -5,7 +5,7 @@
 **Related:** `DEFECT_HANDOFF_VENMO_BALANCES.md` (the original defect that started this — RESOLVED),
 `docs/superpowers/specs/2026-07-26-payment-handles-and-diagnostics-design.md` (design),
 `docs/superpowers/plans/2026-07-26-payment-handles-and-diagnostics.md` (plan),
-`diagnostics/2026-07-27-paypal-handoff/` (raw device evidence),
+`diagnostics/2026-07-27-paypal-handoff/` (raw device evidence; guide in `diagnostics/README.md`),
 `AUDIT_REPORT.md` entries `PAY-01`…`PAY-29`.
 
 ---
