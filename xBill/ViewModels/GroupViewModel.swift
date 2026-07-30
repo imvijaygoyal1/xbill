@@ -32,6 +32,16 @@ final class GroupViewModel {
     @ObservationIgnored private var locallyCreatedExpenses: [UUID: Expense] = [:]
     @ObservationIgnored private var isComputingBalances = false
     @ObservationIgnored private var shouldRecomputeBalances = false
+    /// The last payment this VM successfully recorded, so a second call for the exact same
+    /// (from, to, amount) shortly afterward is recognised as a duplicate rather than a new
+    /// payment. See `recordPayment` — IMP-4.
+    @ObservationIgnored private var lastRecordedPayment: (from: UUID, to: UUID, amount: Decimal, at: Date)?
+    /// Window in which an identical `recordPayment` call is treated as a duplicate of the one
+    /// just recorded. Long enough to cover a user completing a Venmo/PayPal handoff and
+    /// returning to answer "Did you complete this payment?" after already marking the same
+    /// debt settled another way; short enough that a genuine repeat payment between the same
+    /// two people is not silently dropped.
+    private static let duplicatePaymentWindow: TimeInterval = 60
     private let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "GroupViewModel")
     private let groupService: any GroupDataProviding
     private let expenseService: any ExpenseDataProviding
@@ -432,9 +442,31 @@ final class GroupViewModel {
     }
 
     /// Records a payment. Either party may do this; the database enforces it.
+    ///
+    /// Two guards protect the ledger from a duplicate write, in addition to whatever RLS
+    /// enforces server-side:
+    /// - `guard !isLoading` (IMP-1) serialises this against a `load()` already in flight. Both
+    ///   methods hold `isLoading` for their whole duration, so without this a `load()` started
+    ///   just before this call could have its `settlements = fetchedSettlements` assignment
+    ///   (in `load()`) land either side of the insert below — either overwriting the freshly
+    ///   inserted row with a pre-write snapshot, or being overwritten itself and left holding
+    ///   a copy of `saved` that the dedupe-on-insert below then collides with.
+    /// - `lastRecordedPayment` (IMP-4) catches the *sequential* case the above cannot: two
+    ///   different UI affordances (the settle-up confirmation and the post-handoff "did you
+    ///   pay?" alert) can each independently call this for the same debt, one fully finishing
+    ///   before the other starts, so `isLoading` is back to `false` by the second call.
     func recordPayment(from fromUserID: UUID, to toUserID: UUID, amount: Decimal) async {
+        guard !isLoading else { return }
         guard let recordedBy = currentUserIDProvider() else {
             errorAlert = ErrorAlert(title: "Not Signed In", message: "Sign in to record a payment.")
+            return
+        }
+        if let last = lastRecordedPayment,
+           last.from == fromUserID, last.to == toUserID, last.amount == amount,
+           Date().timeIntervalSince(last.at) < Self.duplicatePaymentWindow {
+            // Same payment as the one this VM just recorded, seconds ago — almost certainly
+            // the same debt confirmed twice through two different UI paths, not a second real
+            // payment. Recording it again would double-credit the debtor.
             return
         }
         isLoading = true
@@ -443,7 +475,12 @@ final class GroupViewModel {
             let saved = try await settlementService.recordSettlement(
                 groupID: group.id, fromUserID: fromUserID, toUserID: toUserID,
                 amount: amount, currency: group.currency, recordedBy: recordedBy)
-            settlements.insert(saved, at: 0)
+            // Dedupe by id: a concurrent load() that resolved between the write above and
+            // this assignment can have already merged this exact row into `settlements`.
+            if !settlements.contains(where: { $0.id == saved.id }) {
+                settlements.insert(saved, at: 0)
+            }
+            lastRecordedPayment = (fromUserID, toUserID, amount, Date())
             await computeBalances()
 
             let note = NotificationItem.settlement(

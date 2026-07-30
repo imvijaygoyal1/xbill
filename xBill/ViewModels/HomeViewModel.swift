@@ -322,10 +322,16 @@ final class HomeViewModel {
             splitLoadFailed = true
         }
         let settlements: [Settlement]
+        let settlementLoadFailed: Bool
         do {
             settlements = try await SettlementService.shared.fetchSettlements(groupID: group.id)
+            settlementLoadFailed = false
         } catch {
+            // Unlike a failed splits fetch (which collapses balances toward zero), a failed
+            // settlements fetch makes every split count as unpaid — the largest possible wrong
+            // number, and silently so unless this feeds `loadFailed` below (IMP-2).
             settlements = []
+            settlementLoadFailed = true
         }
         let balances  = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap, settlements: settlements)
         let net       = balances[userID] ?? .zero
@@ -336,7 +342,7 @@ final class HomeViewModel {
         let data      = GroupBalanceData(groupID: group.id, owed: owed, owing: owing, netBalance: net,
                                          memberCount: members.filter(\.isActive).count, entries: entries,
                                          currency: group.currency, balances: balances, names: names,
-                                         loadFailed: loadFailed || splitLoadFailed)
+                                         loadFailed: loadFailed || splitLoadFailed || settlementLoadFailed)
         return data
     }
 }
