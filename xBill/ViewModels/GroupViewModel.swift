@@ -254,11 +254,12 @@ final class GroupViewModel {
                 balanceLoadFailed = true
                 logger.warning("Keeping previous split map because split loading failed: \(error.localizedDescription, privacy: .public)")
             }
-            let rawBalances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
+            let rawBalances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap, settlements: [])
             balances = rawBalances
-            settlementSuggestions = SplitCalculator.directSettlementSuggestions(
+            settlementSuggestions = SplitCalculator.settlementSuggestions(
                 expenses: expenses,
                 splits: splitsMap,
+                settlements: [],
                 names: memberNames,
                 currency: group.currency
             )
@@ -538,10 +539,11 @@ final class GroupViewModel {
                 expenseSplits[index].settledAt = Date()
                 splitsMap[settledSplit.expenseID] = expenseSplits
             }
-            balances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
-            settlementSuggestions = SplitCalculator.directSettlementSuggestions(
+            balances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap, settlements: [])
+            settlementSuggestions = SplitCalculator.settlementSuggestions(
                 expenses: expenses,
                 splits: splitsMap,
+                settlements: [],
                 names: memberNames,
                 currency: group.currency
             )

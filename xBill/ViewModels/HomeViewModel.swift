@@ -321,7 +321,7 @@ final class HomeViewModel {
             splitsMap = [:]
             splitLoadFailed = true
         }
-        let balances  = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap)
+        let balances  = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap, settlements: [])
         let net       = balances[userID] ?? .zero
         let owed      = net > .zero ? net  : .zero
         let owing     = net < .zero ? -net : .zero

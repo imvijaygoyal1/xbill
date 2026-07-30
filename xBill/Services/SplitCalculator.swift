@@ -249,63 +249,68 @@ enum SplitCalculator {
         return suggestions
     }
 
-    /// Produces settlement suggestions that map directly to the stored splits.
+    /// Per-pair outstanding amounts, netted in both directions.
     ///
-    /// Net-balance minimization can create a transfer between two people whose
-    /// individual splits do not add up to that transfer. Such a suggestion is
-    /// attractive on paper but cannot be marked settled without settling more
-    /// than the user confirmed. Settle Up uses this direct form so every row is
-    /// actionable against the database's whole-split settlement model.
-    ///
-    /// **Mutual debts are deliberately not netted** (REV-13). If A owes B $10 and B owes
-    /// A $6, this returns both rows rather than a single A→B $4. Netting reads better but
-    /// reintroduces the exact defect this function exists to prevent: $4 matches none of
-    /// A's whole splits, so `recordSettlement` could not settle it without over-settling.
-    /// A netted view belongs in the UI layer, over rows that stay individually actionable.
-    static func directSettlementSuggestions(
+    /// Netting is safe here in a way it was not before: a suggestion no longer has to map
+    /// onto whole split rows, so an amount that matches no individual split is still
+    /// recordable as a payment (REV-13).
+    static func settlementSuggestions(
         expenses: [Expense],
         splits: [UUID: [Split]],
+        settlements: [Settlement],
         names: [UUID: String],
         currency: String
     ) -> [SettlementSuggestion] {
-        struct DebtKey: Hashable {
-            let debtorID: UUID
-            let creditorID: UUID
+        struct Pair: Hashable { let a: UUID; let b: UUID }
+
+        /// Canonical key so A→B and B→A accumulate into one entry.
+        func key(_ x: UUID, _ y: UUID) -> Pair {
+            x.uuidString < y.uuidString ? Pair(a: x, b: y) : Pair(a: y, b: x)
         }
 
-        var debts: [DebtKey: Decimal] = [:]
+        // Positive value = `a` owes `b`.
+        var net: [Pair: Decimal] = [:]
+
+        func add(debtor: UUID, creditor: UUID, _ amount: Decimal) {
+            var value = amount
+            var rounded = Decimal()
+            NSDecimalRound(&rounded, &value, 2, .bankers)
+            let k = key(debtor, creditor)
+            net[k, default: .zero] += (k.a == debtor ? rounded : -rounded)
+        }
+
         for expense in expenses {
             guard let creditorID = expense.payerID else { continue }
-            for split in splits[expense.id] ?? [] {
-                guard !split.isSettled, split.userID != creditorID else { continue }
-
-                var amount = split.amount
-                var rounded = Decimal()
-                NSDecimalRound(&rounded, &amount, 2, .bankers)
-                let key = DebtKey(debtorID: split.userID, creditorID: creditorID)
-                debts[key, default: .zero] += rounded
+            for split in splits[expense.id] ?? [] where split.userID != creditorID {
+                add(debtor: split.userID, creditor: creditorID, split.amount)
             }
         }
+        for settlement in settlements {
+            // A payment reduces what the payer owes.
+            add(debtor: settlement.toUserID, creditor: settlement.fromUserID, settlement.amount)
+        }
 
-        return debts
-            .filter { $0.value > .zero }
-            .sorted {
-                if $0.key.debtorID != $1.key.debtorID {
-                    return $0.key.debtorID.uuidString < $1.key.debtorID.uuidString
-                }
-                return $0.key.creditorID.uuidString < $1.key.creditorID.uuidString
-            }
-            .map { key, amount in
-                SettlementSuggestion(
-                    id: UUID(),
-                    fromUserID: key.debtorID,
-                    fromName: names[key.debtorID] ?? "Unknown",
-                    toUserID: key.creditorID,
-                    toName: names[key.creditorID] ?? "Unknown",
-                    amount: amount,
-                    currency: currency
-                )
-            }
+        let epsilon = Decimal(string: "0.005") ?? Decimal(5) / Decimal(1000)
+
+        return net.compactMap { pair, value -> SettlementSuggestion? in
+            let magnitude = value < .zero ? -value : value
+            guard magnitude > epsilon else { return nil }
+            let debtor   = value > .zero ? pair.a : pair.b
+            let creditor = value > .zero ? pair.b : pair.a
+            var rounded = Decimal()
+            var m = magnitude
+            NSDecimalRound(&rounded, &m, 2, .bankers)
+            return SettlementSuggestion(
+                id: UUID(),
+                fromUserID: debtor,  fromName: names[debtor] ?? "Unknown",
+                toUserID: creditor,  toName: names[creditor] ?? "Unknown",
+                amount: rounded, currency: currency)
+        }
+        .sorted {
+            $0.fromUserID != $1.fromUserID
+                ? $0.fromUserID.uuidString < $1.fromUserID.uuidString
+                : $0.toUserID.uuidString < $1.toUserID.uuidString
+        }
     }
 
     // MARK: - Async Split Fetching
@@ -327,31 +332,35 @@ enum SplitCalculator {
 
     // MARK: - Net Balances
 
-    /// Computes each member's net balance across a list of expenses and their splits.
     /// Positive = is owed money. Negative = owes money.
     ///
-    /// Algorithm: for each unsettled, non-payer split, credit the payer and debit
-    /// the participant. Settled splits are skipped entirely (debt already repaid).
-    /// The payer's own split is also skipped — they already paid their own share.
+    /// Two passes. Every split is debt — `is_settled` is deliberately not consulted, because
+    /// repayment is recorded in `settlements`, not on the share.
     static func netBalances(
         expenses: [Expense],
-        splits: [UUID: [Split]]   // keyed by expense ID
+        splits: [UUID: [Split]],
+        settlements: [Settlement]
     ) -> [UUID: Decimal] {
         var balances: [UUID: Decimal] = [:]
 
         for expense in expenses {
             guard let payerID = expense.payerID else { continue }
             for split in splits[expense.id] ?? [] {
-                // Skip payer's own split and already-settled debts
-                guard !split.isSettled, split.userID != payerID else { continue }
-
+                guard split.userID != payerID else { continue }
                 var amount = split.amount
                 var rounded = Decimal()
                 NSDecimalRound(&rounded, &amount, 2, .bankers)
-
                 balances[payerID, default: .zero]      += rounded
                 balances[split.userID, default: .zero] -= rounded
             }
+        }
+
+        for settlement in settlements {
+            var amount = settlement.amount
+            var rounded = Decimal()
+            NSDecimalRound(&rounded, &amount, 2, .bankers)
+            balances[settlement.fromUserID, default: .zero] += rounded
+            balances[settlement.toUserID, default: .zero]   -= rounded
         }
 
         return balances

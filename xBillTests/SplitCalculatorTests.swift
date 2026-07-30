@@ -182,7 +182,7 @@ struct SplitCalculatorTests {
             ]
         ]
 
-        let balances = SplitCalculator.netBalances(expenses: [expense], splits: splits)
+        let balances = SplitCalculator.netBalances(expenses: [expense], splits: splits, settlements: [])
 
         // Payer credited +20 per unsettled non-payer split (2 × $20 = $40)
         #expect(balances[payerID]      == 40.00)
@@ -246,9 +246,10 @@ struct SplitCalculatorTests {
             ]
         ]
 
-        let suggestions = SplitCalculator.directSettlementSuggestions(
+        let suggestions = SplitCalculator.settlementSuggestions(
             expenses: [firstExpense, reverseExpense],
             splits: splits,
+            settlements: [],
             names: [creditorID: "Creditor", debtorID: "Debtor", reversePayerID: "Other"],
             currency: "USD"
         )
@@ -289,7 +290,7 @@ struct SplitCalculatorTests {
             ]
         ]
 
-        let balances = SplitCalculator.netBalances(expenses: [expense], splits: splits)
+        let balances = SplitCalculator.netBalances(expenses: [expense], splits: splits, settlements: [])
         // Payer credited 2 × $30 = $60
         #expect(balances[payerID] == 60.00)
         #expect(balances[p1]      == -30.00)
@@ -331,7 +332,7 @@ struct SplitCalculatorTests {
             eC.id: [Split(id: UUID(), expenseID: eC.id, userID: aID, amount: 10.00, percentage: nil, isSettled: false, settledAt: nil)],
         ]
 
-        let balances = SplitCalculator.netBalances(expenses: [eA, eB, eC], splits: splits)
+        let balances = SplitCalculator.netBalances(expenses: [eA, eB, eC], splits: splits, settlements: [])
         // Each person is owed $10 and owes $10 → net 0.
         // M-58: use XCTAssertNil when we expect NO balance entry, rather than `?? .zero` which
         // hides the difference between "entry absent" and "entry present but zero".
@@ -353,43 +354,6 @@ struct SplitCalculatorTests {
         #expect(suggestions.isEmpty)
     }
 
-    // MARK: - Partially Settled
-
-    @Test("Partially settled: settled splits are excluded from net balances")
-    func partiallySeltled() {
-        let payerID = UUID()
-        let p1 = UUID()   // already settled
-        let p2 = UUID()   // still owes
-
-        let expense = Expense(
-            id: UUID(), groupID: UUID(), title: "Hotel",
-            amount: 90.00, currency: "USD", payerID: payerID,
-            category: .accommodation, notes: nil, receiptURL: nil,
-            recurrence: .none, createdAt: Date())
-        let splits: [UUID: [Split]] = [
-            expense.id: [
-                Split(id: UUID(), expenseID: expense.id, userID: payerID, amount: 30.00, percentage: nil, isSettled: false, settledAt: nil),
-                Split(id: UUID(), expenseID: expense.id, userID: p1,      amount: 30.00, percentage: nil, isSettled: true,  settledAt: Date()),
-                Split(id: UUID(), expenseID: expense.id, userID: p2,      amount: 30.00, percentage: nil, isSettled: false, settledAt: nil),
-            ]
-        ]
-
-        let balances = SplitCalculator.netBalances(expenses: [expense], splits: splits)
-        // Only p2's unsettled $30 affects balances
-        #expect(balances[payerID] == 30.00)
-        #expect(balances[p1]      == nil)      // settled — no outstanding balance
-        #expect(balances[p2]      == -30.00)
-
-        let names = [payerID: "Payer", p1: "P1", p2: "P2"]
-        let suggestions = SplitCalculator.minimizeTransactions(
-            balances: balances, names: names, currency: "USD"
-        )
-        #expect(suggestions.count == 1)
-        #expect(suggestions[0].amount == 30.00)
-        #expect(suggestions[0].fromUserID == p2)
-        #expect(suggestions[0].toUserID   == payerID)
-    }
-
     // MARK: - Two People
 
     @Test("Two people: one transfer to settle")
@@ -409,7 +373,7 @@ struct SplitCalculatorTests {
             ]
         ]
 
-        let balances = SplitCalculator.netBalances(expenses: [expense], splits: splits)
+        let balances = SplitCalculator.netBalances(expenses: [expense], splits: splits, settlements: [])
         #expect(balances[aliceID] == 20.00)
         #expect(balances[bobID]   == -20.00)
 
