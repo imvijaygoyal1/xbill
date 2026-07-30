@@ -96,6 +96,7 @@
 		75F96B0591FD9B5C35FEFB5D /* xBillWidgetCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B2A12F54677D153F5CCF6D88 /* xBillWidgetCore.framework */; };
 		782AAEB900C00CEB054E3C7A /* XBillSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9B28961557414EFC0DB1A2 /* XBillSegmentedControl.swift */; };
 		783B8F68C2564E1A49F663E3 /* XBillDashboardPrimitives.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F8663FDC8008F445ABBA2A6 /* XBillDashboardPrimitives.swift */; };
+		7890BDA73B7D81435114DA32 /* GroupViewModelSettlementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB81F25178656E04A7806437 /* GroupViewModelSettlementTests.swift */; };
 		79DDFCF42EF26F010EBB7095 /* XBillDetailHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8B4D781A6BA5080BC7AF4D /* XBillDetailHeader.swift */; };
 		7F69EC25ABB4331BBB1050DE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C8DD986E4230E05B93E8DB84 /* Assets.xcassets */; };
 		812CFAA3B9BAAA85161FA26E /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4FA0DF138FAAA01522B668E /* ActivityView.swift */; };
@@ -389,6 +390,7 @@
 		C6DD9ABFBB9977E1A8181A0B /* xBill.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = xBill.entitlements; sourceTree = "<group>"; };
 		C79EEC6EC097063C28E154B5 /* AddIOUView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddIOUView.swift; sourceTree = "<group>"; };
 		C8DD986E4230E05B93E8DB84 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CB81F25178656E04A7806437 /* GroupViewModelSettlementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupViewModelSettlementTests.swift; sourceTree = "<group>"; };
 		CBF1DDE8687F48A6C3C10FAD /* XBillArchivedRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillArchivedRow.swift; sourceTree = "<group>"; };
 		CC2FF03B66B214E48386CD38 /* XBillExpenseRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillExpenseRow.swift; sourceTree = "<group>"; };
 		CD437CC08E8292DE2FC2F2B9 /* XBillHeroCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillHeroCard.swift; sourceTree = "<group>"; };
@@ -429,7 +431,7 @@
 		F4FA0DF138FAAA01522B668E /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
 		F684542CE9913F0736FC5EC2 /* XBillFloatingAddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFloatingAddButton.swift; sourceTree = "<group>"; };
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
-		"TEMP_7BCB2A62-BB14-4BE9-8111-D4A386043B43" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_8E780CEA-73B9-4EBF-A595-DBEAFDD9D5D2" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -800,6 +802,7 @@
 			children = (
 				5C237E9614C7F0B3BAE24964 /* AffectedRowsTests.swift */,
 				BA815E59A9392EC45FC52770 /* GroupFlowTests.swift */,
+				CB81F25178656E04A7806437 /* GroupViewModelSettlementTests.swift */,
 				D524ED62CCA0FC4141B077F7 /* GroupViewModelStateTests.swift */,
 				E82EDC580ACC0A6A8BFB4CAD /* NotificationReadStateTests.swift */,
 				97C0585EEB30C03384B5CDAE /* P1NotificationTests.swift */,
@@ -878,10 +881,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_C40D7555-E7F8-457D-9EC0-90E86246BE1B" /* xBill */ = {
+		"TEMP_4DF7466F-1699-436D-AE80-7C2228C0DAA1" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_7BCB2A62-BB14-4BE9-8111-D4A386043B43" /* Secrets.xcconfig */,
+				"TEMP_8E780CEA-73B9-4EBF-A595-DBEAFDD9D5D2" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1096,6 +1099,7 @@
 			files = (
 				E93F2E5DF0F8395C187DED1E /* AffectedRowsTests.swift in Sources */,
 				02DB9838B626008A375E8BD5 /* GroupFlowTests.swift in Sources */,
+				7890BDA73B7D81435114DA32 /* GroupViewModelSettlementTests.swift in Sources */,
 				D44C2AB28279A5C52919BDC5 /* GroupViewModelStateTests.swift in Sources */,
 				4CF1455938D2F1C336DDD2A6 /* NotificationReadStateTests.swift in Sources */,
 				B1451440BEDFB9AAAA50BE94 /* P1NotificationTests.swift in Sources */,
@@ -1325,7 +1329,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_7BCB2A62-BB14-4BE9-8111-D4A386043B43" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_8E780CEA-73B9-4EBF-A595-DBEAFDD9D5D2" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1534,7 +1538,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_7BCB2A62-BB14-4BE9-8111-D4A386043B43" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_8E780CEA-73B9-4EBF-A595-DBEAFDD9D5D2" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

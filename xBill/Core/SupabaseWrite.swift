@@ -45,6 +45,7 @@ enum SupabaseWriteError: LocalizedError, Equatable {
         case "friends":       return "friend"
         case "splits":        return "split"
         case "notifications": return "notification"
+        case "settlements":   return "settlement"
         default:              return "record"
         }
     }

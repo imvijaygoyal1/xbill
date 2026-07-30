@@ -20,6 +20,7 @@ final class GroupViewModel {
     var expenses: [Expense] = []
     var balances: [UUID: Decimal] = [:]
     var settlementSuggestions: [SettlementSuggestion] = []
+    var settlements: [Settlement] = []
     var isLoading: Bool = false
     var isLoadingBalances: Bool = false
     var hasLoadedBalances: Bool = false
@@ -28,21 +29,26 @@ final class GroupViewModel {
     var errorAlert: ErrorAlert?
 
     private var splitsMap: [UUID: [Split]] = [:]
-    @ObservationIgnored private var locallyConfirmedSettledSplitIDs: Set<UUID> = []
     @ObservationIgnored private var locallyCreatedExpenses: [UUID: Expense] = [:]
     @ObservationIgnored private var isComputingBalances = false
     @ObservationIgnored private var shouldRecomputeBalances = false
     private let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "GroupViewModel")
     private let groupService: any GroupDataProviding
     private let expenseService: any ExpenseDataProviding
+    private let settlementService: any SettlementDataProviding
+    private let currentUserIDProvider: @MainActor () -> UUID?
 
     init(
         group: BillGroup,
         groupService: any GroupDataProviding = GroupService.shared,
-        expenseService: any ExpenseDataProviding = ExpenseService.shared
+        expenseService: any ExpenseDataProviding = ExpenseService.shared,
+        settlementService: any SettlementDataProviding = SettlementService.shared,
+        currentUserIDProvider: @escaping @MainActor () -> UUID? = { AuthService.shared.currentUserID }
     ) {
         self.groupService = groupService
         self.expenseService = expenseService
+        self.settlementService = settlementService
+        self.currentUserIDProvider = currentUserIDProvider
         self.group = group
         let cachedMembers = CacheService.shared.loadMembers(groupID: group.id)
         let cachedExpenses = CacheService.shared.loadExpenses(groupID: group.id)
@@ -108,12 +114,16 @@ final class GroupViewModel {
                 let groupID = group.id
                 let groupService = groupService
                 let expenseService = expenseService
-                let (fetchedMembers, fetchedExpenses) = try await withTimeout(duration: .seconds(12)) {
-                    async let membersTask = groupService.fetchMembers(groupID: groupID, includeInactive: true)
-                    async let expensesTask = expenseService.fetchExpenses(groupID: groupID, limit: nil)
-                    return try await (membersTask, expensesTask)
-                }
+                let settlementService = settlementService
+                let (fetchedMembers, fetchedExpenses, fetchedSettlements) =
+                    try await withTimeout(duration: .seconds(12)) {
+                        async let membersTask     = groupService.fetchMembers(groupID: groupID, includeInactive: true)
+                        async let expensesTask    = expenseService.fetchExpenses(groupID: groupID, limit: nil)
+                        async let settlementsTask = settlementService.fetchSettlements(groupID: groupID)
+                        return try await (membersTask, expensesTask, settlementsTask)
+                    }
                 members  = fetchedMembers
+                settlements = fetchedSettlements
                 applyFetchedExpenses(fetchedExpenses)
                 hasKnownNonEmptyExpenses = hasKnownNonEmptyExpenses || !expenses.isEmpty
                 CacheService.shared.saveMembers(fetchedMembers, groupID: group.id)
@@ -216,21 +226,8 @@ final class GroupViewModel {
             do {
                 let currentExpenses = expenses
                 let expenseService = expenseService
-                var fetchedSplitsMap = try await withTimeout(duration: .seconds(12)) {
+                let fetchedSplitsMap = try await withTimeout(duration: .seconds(12)) {
                     try await SplitCalculator.fetchSplitsMap(for: currentExpenses, using: expenseService)
-                }
-                // Supabase can briefly return a pre-update snapshot immediately after
-                // an update. Preserve confirmed local writes across that read so a
-                // lifecycle refresh cannot resurrect a row the user just settled.
-                for splitID in locallyConfirmedSettledSplitIDs {
-                    for expenseID in fetchedSplitsMap.keys {
-                        guard var expenseSplits = fetchedSplitsMap[expenseID],
-                              let index = expenseSplits.firstIndex(where: { $0.id == splitID }) else {
-                            continue
-                        }
-                        expenseSplits[index].isSettled = true
-                        fetchedSplitsMap[expenseID] = expenseSplits
-                    }
                 }
                 splitsMap = fetchedSplitsMap
             } catch {
@@ -254,15 +251,11 @@ final class GroupViewModel {
                 balanceLoadFailed = true
                 logger.warning("Keeping previous split map because split loading failed: \(error.localizedDescription, privacy: .public)")
             }
-            let rawBalances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap, settlements: [])
-            balances = rawBalances
+            balances = SplitCalculator.netBalances(
+                expenses: expenses, splits: splitsMap, settlements: settlements)
             settlementSuggestions = SplitCalculator.settlementSuggestions(
-                expenses: expenses,
-                splits: splitsMap,
-                settlements: [],
-                names: memberNames,
-                currency: group.currency
-            )
+                expenses: expenses, splits: splitsMap, settlements: settlements,
+                names: memberNames, currency: group.currency)
             hasLoadedBalances = true
         } while shouldRecomputeBalances
     }
@@ -438,156 +431,54 @@ final class GroupViewModel {
         }
     }
 
-    func recordSettlement(_ suggestion: SettlementSuggestion) async {
+    /// Records a payment. Either party may do this; the database enforces it.
+    func recordPayment(from fromUserID: UUID, to toUserID: UUID, amount: Decimal) async {
+        guard let recordedBy = currentUserIDProvider() else {
+            errorAlert = ErrorAlert(title: "Not Signed In", message: "Sign in to record a payment.")
+            return
+        }
         isLoading = true
         defer { isLoading = false }
-
-        AppDiagnostics.log(.balance, "GroupViewModel.recordSettlement.enter", [
-            ("group", group.name),
-            ("from", suggestion.fromUserID.uuidString),
-            ("to", suggestion.toUserID.uuidString),
-            ("amount", suggestion.amount)
-        ])
-
         do {
-            // Fetch fresh splits for expenses paid by the creditor to avoid stale splitsMap data.
-            let relevantExpenseIDs = expenses.compactMap { expense -> UUID? in
-                guard let payerID = expense.payerID, payerID == suggestion.toUserID else { return nil }
-                return expense.id
-            }
-            let freshSplits = try await expenseService.fetchSplits(expenseIDs: relevantExpenseIDs)
-            let freshSplitsMap = Dictionary(grouping: freshSplits, by: \.expenseID)
-
-            // Collect whole matching splits up to the suggested amount. Splits do not support
-            // partial settlement, so never mark more debt settled than the user confirmed.
-            let candidateSplits: [Split] = freshSplitsMap
-                .sorted { $0.key.uuidString < $1.key.uuidString }
-                .flatMap { (_, splits) in
-                    splits
-                        .filter { $0.userID == suggestion.fromUserID && !$0.isSettled }
-                        .sorted { $0.id.uuidString < $1.id.uuidString }
-                }
-
-            var remaining = suggestion.amount
-            let epsilon = Decimal(string: "0.005") ?? Decimal(5) / Decimal(1000)
-            var splitsToSettle: [Split] = []
-            for split in candidateSplits {
-                guard split.amount <= remaining + epsilon else { continue }
-                splitsToSettle.append(split)
-                remaining -= split.amount
-                if remaining <= epsilon { break }
-            }
-            guard !splitsToSettle.isEmpty, remaining <= epsilon else {
-                AppDiagnostics.log(.balance, "GroupViewModel.recordSettlement.unmatched", [
-                    ("group", group.name),
-                    ("candidateSplits", candidateSplits.count),
-                    ("remaining", remaining)
-                ])
-                throw AppError.validationFailed(
-                    "This settlement cannot be matched to the current expense splits. Refresh the group and try again."
-                )
-            }
-
-            // REV-02: settle each split independently and collect the outcomes. A throwing
-            // task group aborts on the first failure, but the writes that already committed
-            // still stand — the previous code surfaced a generic error and recorded none of
-            // them locally, so the app disagreed with the server about what was settled.
-            let candidateSettleCount = splitsToSettle.count
-            var settledSplits: [Split] = []
-            var settleFailures: [Error] = []
-            let expenseService = expenseService
-            await withTaskGroup(of: (Split, Error?).self) { taskGroup in
-                for split in splitsToSettle {
-                    taskGroup.addTask {
-                        do {
-                            try await expenseService.settleSplit(id: split.id)
-                            return (split, nil)
-                        } catch {
-                            return (split, error)
-                        }
-                    }
-                }
-                for await (split, error) in taskGroup {
-                    if let error {
-                        settleFailures.append(error)
-                    } else {
-                        settledSplits.append(split)
-                    }
-                }
-            }
-
-            AppDiagnostics.log(.balance, "GroupViewModel.recordSettlement.splitsUpdated", [
-                ("group", group.name),
-                ("requested", splitsToSettle.count),
-                ("settled", settledSplits.count),
-                ("failed", settleFailures.count),
-                ("amount", suggestion.amount)
-            ])
-
-            // Only the writes that actually committed are confirmed locally.
-            locallyConfirmedSettledSplitIDs.formUnion(settledSplits.map(\.id))
-
-            // Reflect confirmed writes locally before the network reload. This keeps
-            // Settle Up truthful if the immediate read-after-write returns an older
-            // snapshot or a competing lifecycle refresh is cancelled.
-            for settledSplit in settledSplits {
-                guard var expenseSplits = splitsMap[settledSplit.expenseID],
-                      let index = expenseSplits.firstIndex(where: { $0.id == settledSplit.id }) else {
-                    continue
-                }
-                expenseSplits[index].isSettled = true
-                expenseSplits[index].settledAt = Date()
-                splitsMap[settledSplit.expenseID] = expenseSplits
-            }
-            balances = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap, settlements: [])
-            settlementSuggestions = SplitCalculator.settlementSuggestions(
-                expenses: expenses,
-                splits: splitsMap,
-                settlements: [],
-                names: memberNames,
-                currency: group.currency
-            )
-
-            // A partial settlement is not a success. Report exactly what committed so the
-            // user can retry the rest, and do not tell the creditor they were paid in full.
-            guard settleFailures.isEmpty else {
-                isLoading = false
-                await load(showError: false)
-                let detail = settleFailures.first?.localizedDescription ?? "Some writes were rejected."
-                self.errorAlert = ErrorAlert(
-                    title: "Settlement Incomplete",
-                    message: "Only \(settledSplits.count) of \(candidateSettleCount) parts of this settlement were recorded. The rest were not — refresh and try again. (\(detail))"
-                )
-                return
-            }
+            let saved = try await settlementService.recordSettlement(
+                groupID: group.id, fromUserID: fromUserID, toUserID: toUserID,
+                amount: amount, currency: group.currency, recordedBy: recordedBy)
+            settlements.insert(saved, at: 0)
+            await computeBalances()
 
             let note = NotificationItem.settlement(
-                suggestion: suggestion,
-                groupName: group.name,
-                groupEmoji: group.emoji
-            )
-            NotificationStore.shared.merge([note], userID: suggestion.fromUserID)
+                suggestion: SettlementSuggestion(
+                    id: saved.id, fromUserID: fromUserID, fromName: memberNames[fromUserID] ?? "Someone",
+                    toUserID: toUserID, toName: memberNames[toUserID] ?? "Someone",
+                    amount: amount, currency: group.currency),
+                groupName: group.name, groupEmoji: group.emoji)
+            NotificationStore.shared.merge([note], userID: fromUserID)
 
-            // Await the notification inline; isSaved drives sheet dismissal, not isLoading.
             if CacheService.defaults.bool(forKey: NotificationService.settlementPreferenceKey) {
                 await expenseService.notifySettlementRecorded(
-                    settlementID: suggestion.id,
-                    groupID:      group.id,
-                    toUserID:     suggestion.toUserID,
-                    amount:       suggestion.amount,
-                    currency:     suggestion.currency
-                )
+                    settlementID: saved.id, groupID: group.id,
+                    toUserID: toUserID, amount: amount, currency: group.currency)
             }
-
-            // `load()` intentionally skips while `isLoading` is true. Clear the
-            // settlement operation's loading state before reloading so the just-updated
-            // split is reflected immediately in Settle Up instead of leaving the old row
-            // visible until a later screen refresh.
-            isLoading = false
-            await load()
         } catch {
             guard !AppError.isSilent(error) else { return }
-            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
+            errorAlert = ErrorAlert(title: "Payment Not Recorded", message: error.localizedDescription)
+        }
+    }
+
+    /// Removes a payment. RLS permits this only for the account that recorded it.
+    func deletePayment(_ settlement: Settlement) async {
+        isLoading = true
+        defer { isLoading = false }
+        let previous = settlements
+        settlements.removeAll { $0.id == settlement.id }
+        await computeBalances()
+        do {
+            try await settlementService.deleteSettlement(id: settlement.id)
+        } catch {
+            settlements = previous
+            await computeBalances()
+            guard !AppError.isSilent(error) else { return }
+            errorAlert = ErrorAlert(title: "Payment Not Removed", message: error.localizedDescription)
         }
     }
 }

@@ -87,69 +87,6 @@ private func makeSplit(expenseID: UUID, userID: UUID, amount: Decimal) -> Split 
     Split(id: UUID(), expenseID: expenseID, userID: userID, amount: amount, isSettled: false, settledAt: nil)
 }
 
-// MARK: - REV-02
-
-@Suite("Settlement partial failure", .serialized)
-@MainActor
-struct SettlementPartialFailureTests {
-
-    /// REV-02. Splits are settled in a parallel task group; if one write fails the group
-    /// throws, but the writes that already committed stand. The view model showed a generic
-    /// error and recorded nothing locally, so its state disagreed with the server.
-    @Test("A partial failure keeps the committed splits and reports what happened")
-    func partialFailureIsReported() async {
-        let group = makeGroup()
-        let payer = UUID(), debtor = UUID()
-        let expense = makeExpense(payerID: payer, groupID: group.id)
-
-        let expenseService = FakeExpenseService()
-        let groupService = FakeGroupService()
-        expenseService.expenses = [expense]
-        let good = makeSplit(expenseID: expense.id, userID: debtor, amount: 10)
-        let bad  = makeSplit(expenseID: expense.id, userID: debtor, amount: 10)
-        expenseService.splits = [good, bad]
-        expenseService.failingSplitIDs = [bad.id]
-
-        let vm = GroupViewModel(group: group, groupService: groupService, expenseService: expenseService)
-        vm.expenses = [expense]
-
-        await vm.recordSettlement(SettlementSuggestion(
-            id: UUID(), fromUserID: debtor, fromName: "D",
-            toUserID: payer, toName: "P", amount: 20, currency: "USD"
-        ))
-
-        // The write that succeeded must not be rolled back locally — it is committed.
-        #expect(expenseService.settledSplitIDs == [good.id])
-        // The user has to be told the settlement was incomplete, not just "something went wrong".
-        let message = vm.errorAlert?.message ?? ""
-        #expect(vm.errorAlert != nil)
-        #expect(message.contains("1 of 2") || message.contains("partially"))
-    }
-
-    @Test("A settlement where every write succeeds reports no error")
-    func fullSuccessIsClean() async {
-        let group = makeGroup()
-        let payer = UUID(), debtor = UUID()
-        let expense = makeExpense(payerID: payer, groupID: group.id)
-
-        let expenseService = FakeExpenseService()
-        expenseService.expenses = [expense]
-        let split = makeSplit(expenseID: expense.id, userID: debtor, amount: 10)
-        expenseService.splits = [split]
-
-        let vm = GroupViewModel(group: group, groupService: FakeGroupService(), expenseService: expenseService)
-        vm.expenses = [expense]
-
-        await vm.recordSettlement(SettlementSuggestion(
-            id: UUID(), fromUserID: debtor, fromName: "D",
-            toUserID: payer, toName: "P", amount: 10, currency: "USD"
-        ))
-
-        #expect(expenseService.settledSplitIDs == [split.id])
-        #expect(vm.errorAlert == nil)
-    }
-}
-
 // MARK: - REV-03
 
 @Suite("Deleted expense does not resurrect", .serialized)
@@ -165,7 +102,8 @@ struct DeletedExpenseTests {
         let group = makeGroup()
         let expenseService = FakeExpenseService()
         let groupService = FakeGroupService()
-        let vm = GroupViewModel(group: group, groupService: groupService, expenseService: expenseService)
+        let vm = GroupViewModel(group: group, groupService: groupService, expenseService: expenseService,
+                                settlementService: FakeSettlementService())
 
         let expense = makeExpense(payerID: UUID(), groupID: group.id)
         vm.recordCreatedExpense(expense)
@@ -196,7 +134,8 @@ struct BalanceLoadFailedFlagTests {
         let group = makeGroup()
         let expenseService = FakeExpenseService()
         let groupService = FakeGroupService()
-        let vm = GroupViewModel(group: group, groupService: groupService, expenseService: expenseService)
+        let vm = GroupViewModel(group: group, groupService: groupService, expenseService: expenseService,
+                                settlementService: FakeSettlementService())
 
         vm.expenses = [makeExpense(payerID: UUID(), groupID: group.id)]
         vm.hasKnownNonEmptyExpenses = true
@@ -212,7 +151,8 @@ struct BalanceLoadFailedFlagTests {
     func healthyReloadClearsFlag() async {
         let group = makeGroup()
         let expenseService = FakeExpenseService()
-        let vm = GroupViewModel(group: group, groupService: FakeGroupService(), expenseService: expenseService)
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(), expenseService: expenseService,
+                                settlementService: FakeSettlementService())
 
         expenseService.expenses = [makeExpense(payerID: UUID(), groupID: group.id)]
         vm.balanceLoadFailed = true

@@ -267,8 +267,8 @@ struct GroupDetailView: View {
                 Button("Mark as Settled") {
                     guard let suggestion = settlementToConfirm else { return }
                     Task {
-                        await vm.recordSettlement(suggestion)
-                        // recordSettlement never throws — failures are swallowed into
+                        await vm.recordPayment(from: suggestion.fromUserID, to: suggestion.toUserID, amount: suggestion.amount)
+                        // recordPayment never throws — failures are swallowed into
                         // vm.errorAlert — so a success buzz here unconditionally would fire
                         // alongside an error alert on a failed settlement.
                         if vm.errorAlert == nil {
@@ -306,8 +306,8 @@ struct GroupDetailView: View {
                 Button("Not yet", role: .cancel) { }
                 Button("Mark as Settled") {
                     Task {
-                        await vm.recordSettlement(prompt.suggestion)
-                        // Same gate as the confirmationDialog settle site above: recordSettlement
+                        await vm.recordPayment(from: prompt.suggestion.fromUserID, to: prompt.suggestion.toUserID, amount: prompt.suggestion.amount)
+                        // Same gate as the confirmationDialog settle site above: recordPayment
                         // swallows failures into vm.errorAlert rather than throwing, so a success
                         // buzz must not fire unconditionally.
                         if vm.errorAlert == nil {
