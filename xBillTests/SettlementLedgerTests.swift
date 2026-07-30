@@ -162,3 +162,26 @@ struct LedgerSuggestionTests {
         #expect(suggestions.isEmpty)
     }
 }
+
+@Suite("Settlement insert payload")
+struct SettlementPayloadTests {
+
+    @Test("Insert payload uses snake_case column names")
+    func payloadKeys() throws {
+        let payload = SettlementInsert(
+            groupID: UUID(), fromUserID: UUID(), toUserID: UUID(),
+            amount: Decimal(string: "12.50")!, currency: "USD", recordedBy: UUID())
+
+        let data = try SupabaseManager.postgrestEncoder.encode(payload)
+        let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(json["group_id"] != nil)
+        #expect(json["from_user_id"] != nil)
+        #expect(json["to_user_id"] != nil)
+        #expect(json["recorded_by"] != nil)
+        #expect(json["currency"] as? String == "USD")
+        // created_at is a server default — never sent.
+        #expect(json["created_at"] == nil)
+        #expect(json["id"] == nil)
+    }
+}
