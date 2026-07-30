@@ -8,8 +8,19 @@ final class FakeSettlementService: SettlementDataProviding {
     var insertError: Error?
     var deleteError: Error?
     var deletedIDs: [UUID] = []
+    /// When set, `fetchSettlements` captures its return value *before* sleeping — modelling a
+    /// server read that started before a concurrent write committed, the IMP-1 race.
+    var fetchDelay: Duration?
+    /// When set, `deleteSettlement` sleeps before failing — gives a concurrent `recordPayment`
+    /// room to land while the delete is still in flight, for the IMP-1/deletePayment rollback
+    /// scoping tests.
+    var deleteDelay: Duration?
 
-    func fetchSettlements(groupID: UUID) async throws -> [Settlement] { stored }
+    func fetchSettlements(groupID: UUID) async throws -> [Settlement] {
+        let snapshot = stored
+        if let fetchDelay { try? await Task.sleep(for: fetchDelay) }
+        return snapshot
+    }
 
     func recordSettlement(groupID: UUID, fromUserID: UUID, toUserID: UUID,
                           amount: Decimal, currency: String, recordedBy: UUID) async throws -> Settlement {
@@ -22,6 +33,7 @@ final class FakeSettlementService: SettlementDataProviding {
     }
 
     func deleteSettlement(id: UUID) async throws {
+        if let deleteDelay { try? await Task.sleep(for: deleteDelay) }
         if let deleteError { throw deleteError }
         deletedIDs.append(id)
         stored.removeAll { $0.id == id }
@@ -178,5 +190,113 @@ struct GroupViewModelPaymentTests {
         #expect(vm.settlements.contains { $0.id == payment.id })
         #expect(vm.balance(for: bob) == 0)
         #expect(vm.errorAlert != nil)
+    }
+
+    @Test("A payment recorded while a load is in flight is not lost")
+    func paymentSurvivesConcurrentLoad() async {
+        // IMP-1 (round 2, Critical): recordPayment no longer blocks on isLoading, and load()'s
+        // settlements fetch can therefore return a snapshot captured *before* this insert
+        // committed. That must not overwrite the just-recorded payment when load() applies it.
+        let group = makeGroup(); let alice = UUID(); let bob = UUID()
+        let expenses = FakeExpenseService(); let settlements = FakeSettlementService()
+        let e = Expense(id: UUID(), groupID: group.id, title: "Dinner", amount: 30,
+                        currency: "USD", payerID: alice, category: .food, notes: nil,
+                        receiptURL: nil, originalAmount: nil, originalCurrency: nil,
+                        recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
+        expenses.expenses = [e]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
+                                 isSettled: false, settledAt: nil)]
+
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: expenses, settlementService: settlements,
+                                currentUserIDProvider: { bob })
+        await vm.load(showError: false)
+        #expect(vm.balance(for: bob) == -10)
+
+        // Arm a settlements fetch that snapshots `stored` now (empty) and only returns after
+        // the payment below has been recorded — simulating a read that started first but
+        // resolved second.
+        settlements.fetchDelay = .milliseconds(60)
+        let loadTask = Task { await vm.load(showError: false) }
+        try? await Task.sleep(for: .milliseconds(15))
+
+        await vm.recordPayment(from: bob, to: alice, amount: 10)
+        #expect(vm.balance(for: bob) == 0)
+
+        await loadTask.value
+
+        // The stale-snapshot load must not have wiped the payment back out.
+        #expect(vm.settlements.count == 1)
+        #expect(vm.balance(for: bob) == 0)
+    }
+
+    @Test("deletePayment's rollback does not drop a concurrently-recorded payment")
+    func deleteRollbackDoesNotDropConcurrentPayment() async {
+        // IMP-1/deletePayment (round 2, Important): a failed delete used to restore a whole
+        // `settlements` snapshot captured before its optimistic removal — reverting any
+        // payment recorded while the delete was in flight, even though that write committed
+        // and has nothing to do with this delete.
+        let group = makeGroup(); let alice = UUID(); let bob = UUID()
+        let expenses = FakeExpenseService(); let settlements = FakeSettlementService()
+        let e = Expense(id: UUID(), groupID: group.id, title: "Dinner", amount: 30,
+                        currency: "USD", payerID: alice, category: .food, notes: nil,
+                        receiptURL: nil, originalAmount: nil, originalCurrency: nil,
+                        recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
+        expenses.expenses = [e]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
+                                 isSettled: false, settledAt: nil)]
+
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: expenses, settlementService: settlements,
+                                currentUserIDProvider: { bob })
+        await vm.load(showError: false)
+        await vm.recordPayment(from: bob, to: alice, amount: 5)
+        let p1 = try! #require(vm.settlements.first)
+
+        settlements.deleteError = AppError.permissionDenied
+        settlements.deleteDelay = .milliseconds(80)
+        let deleteTask = Task { await vm.deletePayment(p1) }
+        try? await Task.sleep(for: .milliseconds(20))
+
+        // A different amount so this does not collide with the IMP-4 duplicate window.
+        await vm.recordPayment(from: bob, to: alice, amount: 2)
+
+        await deleteTask.value
+
+        // p1's failed delete must be rolled back, and p2 (recorded while the delete was still
+        // in flight) must still be there — a snapshot rollback would have dropped it.
+        #expect(vm.settlements.contains { $0.id == p1.id })
+        #expect(vm.settlements.contains { $0.amount == 2 })
+        #expect(vm.settlements.count == 2)
+    }
+
+    @Test("Deleting a payment then immediately re-recording it is allowed")
+    func deleteThenReRecordIsAllowed() async {
+        // IMP-4 follow-up: the duplicate window must not block a deliberate correction —
+        // delete a payment, then re-record the exact same amount right away.
+        let group = makeGroup(); let alice = UUID(); let bob = UUID()
+        let expenses = FakeExpenseService(); let settlements = FakeSettlementService()
+        let e = Expense(id: UUID(), groupID: group.id, title: "Dinner", amount: 30,
+                        currency: "USD", payerID: alice, category: .food, notes: nil,
+                        receiptURL: nil, originalAmount: nil, originalCurrency: nil,
+                        recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
+        expenses.expenses = [e]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
+                                 isSettled: false, settledAt: nil)]
+
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: expenses, settlementService: settlements,
+                                currentUserIDProvider: { bob })
+        await vm.load(showError: false)
+
+        await vm.recordPayment(from: bob, to: alice, amount: 5)
+        let p1 = try! #require(vm.settlements.first)
+        await vm.deletePayment(p1)
+
+        await vm.recordPayment(from: bob, to: alice, amount: 5)
+
+        #expect(vm.settlements.count == 1)
+        #expect(settlements.stored.count == 1)
+        #expect(vm.errorAlert == nil)
     }
 }

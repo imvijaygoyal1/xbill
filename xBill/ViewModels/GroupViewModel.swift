@@ -133,7 +133,7 @@ final class GroupViewModel {
                         return try await (membersTask, expensesTask, settlementsTask)
                     }
                 members  = fetchedMembers
-                settlements = fetchedSettlements
+                applyFetchedSettlements(fetchedSettlements)
                 applyFetchedExpenses(fetchedExpenses)
                 hasKnownNonEmptyExpenses = hasKnownNonEmptyExpenses || !expenses.isEmpty
                 CacheService.shared.saveMembers(fetchedMembers, groupID: group.id)
@@ -217,6 +217,23 @@ final class GroupViewModel {
         }
         expenses = mergedExpenses
         hasKnownNonEmptyExpenses = hasKnownNonEmptyExpenses || !mergedExpenses.isEmpty
+    }
+
+    /// Merges a fetch with whatever `recordPayment` may have inserted while the fetch was in
+    /// flight, instead of replacing outright (IMP-1, round 2).
+    ///
+    /// A plain `settlements = fetchedSettlements` is safe only if nothing else can write
+    /// `settlements` between the request going out and the response coming back — untrue here,
+    /// since `recordPayment` no longer waits on `isLoading`. If the server captured its read
+    /// before that insert committed, a replace would silently drop the just-recorded payment
+    /// off the balance; if it captured its read after, a replace is harmless but a same-id
+    /// `recordPayment` insert racing the assignment could still double up without the dedupe
+    /// this merge makes load-bearing. Same shape as `applyFetchedExpenses` /
+    /// `locallyCreatedExpenses`: trust the fetch, keep only what it does not yet know about.
+    private func applyFetchedSettlements(_ fetchedSettlements: [Settlement]) {
+        let fetchedIDs = Set(fetchedSettlements.map(\.id))
+        let notYetVisibleToServer = settlements.filter { !fetchedIDs.contains($0.id) }
+        settlements = notYetVisibleToServer + fetchedSettlements
     }
 
     // MARK: - Balances
@@ -443,20 +460,32 @@ final class GroupViewModel {
 
     /// Records a payment. Either party may do this; the database enforces it.
     ///
-    /// Two guards protect the ledger from a duplicate write, in addition to whatever RLS
+    /// Round 2 correction: this used to `guard !isLoading` before doing any work, on the theory
+    /// that it would serialise against a `load()` already in flight. That was wrong in a way
+    /// that made things worse, not safer — `load()` can hold `isLoading` for up to ~24s (three
+    /// parallel fetches plus `computeBalances`, each under a 12s timeout), and a return from a
+    /// payment app is exactly when `GroupDetailView.onChange(of: scenePhase)` kicks off a
+    /// `refresh()`. A user tapping "Mark as Settled" into that window had the guard silently
+    /// return — no write, no error, and (since the caller only shows an error alert, and gates
+    /// its success haptic on `errorAlert == nil`) a **success haptic for a payment that was
+    /// never recorded**. Worse, the handoff alert that is often the caller here is one-shot —
+    /// its `isPresented` setter clears the prompt state — so there was no second chance. A
+    /// user-initiated write must never be silently dropped to protect a read; see
+    /// `applyFetchedSettlements` for how `load()` now makes room for this to interleave safely
+    /// instead.
+    ///
+    /// Two things still protect the ledger from a duplicate write, in addition to whatever RLS
     /// enforces server-side:
-    /// - `guard !isLoading` (IMP-1) serialises this against a `load()` already in flight. Both
-    ///   methods hold `isLoading` for their whole duration, so without this a `load()` started
-    ///   just before this call could have its `settlements = fetchedSettlements` assignment
-    ///   (in `load()`) land either side of the insert below — either overwriting the freshly
-    ///   inserted row with a pre-write snapshot, or being overwritten itself and left holding
-    ///   a copy of `saved` that the dedupe-on-insert below then collides with.
-    /// - `lastRecordedPayment` (IMP-4) catches the *sequential* case the above cannot: two
+    /// - Dedupe-on-insert by id, now load-bearing: `applyFetchedSettlements` keeps this VM's
+    ///   local settlements across a `load()`'s replace, so a `load()` whose fetch happened to
+    ///   observe this exact row (started after the insert committed, resolved after this method
+    ///   returns) merges it back in under the *same* id — this `contains` check is what stops
+    ///   that merge from producing two entries for one payment.
+    /// - `lastRecordedPayment` (IMP-4) catches the *sequential* double-record case: two
     ///   different UI affordances (the settle-up confirmation and the post-handoff "did you
     ///   pay?" alert) can each independently call this for the same debt, one fully finishing
-    ///   before the other starts, so `isLoading` is back to `false` by the second call.
+    ///   before the other starts.
     func recordPayment(from fromUserID: UUID, to toUserID: UUID, amount: Decimal) async {
-        guard !isLoading else { return }
         guard let recordedBy = currentUserIDProvider() else {
             errorAlert = ErrorAlert(title: "Not Signed In", message: "Sign in to record a payment.")
             return
@@ -475,8 +504,6 @@ final class GroupViewModel {
             let saved = try await settlementService.recordSettlement(
                 groupID: group.id, fromUserID: fromUserID, toUserID: toUserID,
                 amount: amount, currency: group.currency, recordedBy: recordedBy)
-            // Dedupe by id: a concurrent load() that resolved between the write above and
-            // this assignment can have already merged this exact row into `settlements`.
             if !settlements.contains(where: { $0.id == saved.id }) {
                 settlements.insert(saved, at: 0)
             }
@@ -503,16 +530,35 @@ final class GroupViewModel {
     }
 
     /// Removes a payment. RLS permits this only for the account that recorded it.
+    ///
+    /// Round 2 correction: the rollback on a failed delete used to restore a whole `settlements`
+    /// snapshot captured before the optimistic removal. That reverts more than the failed
+    /// delete — any `recordPayment` insert that lands while the delete is in flight is wiped
+    /// out along with it, even though it has nothing to do with this delete and its write
+    /// already committed. This project has hit that exact class of bug twice before
+    /// (`NOTIF-06`, `REV-06`), both times fixed the same way: scope the rollback to only the
+    /// row this operation touched.
     func deletePayment(_ settlement: Settlement) async {
         isLoading = true
         defer { isLoading = false }
-        let previous = settlements
         settlements.removeAll { $0.id == settlement.id }
         await computeBalances()
         do {
             try await settlementService.deleteSettlement(id: settlement.id)
+            // Correcting a mistake — delete, then immediately re-record the same amount — must
+            // not be swallowed by the IMP-4 duplicate window above. Only clear it when the
+            // deleted row is the one that armed it; an unrelated older payment being deleted
+            // should not reopen the window for a payment recorded seconds ago.
+            if let last = lastRecordedPayment,
+               last.from == settlement.fromUserID, last.to == settlement.toUserID, last.amount == settlement.amount {
+                lastRecordedPayment = nil
+            }
         } catch {
-            settlements = previous
+            // Scoped rollback: re-insert only this settlement, and only if nothing else (a
+            // concurrent load(), a retry) has already put it back.
+            if !settlements.contains(where: { $0.id == settlement.id }) {
+                settlements.append(settlement)
+            }
             await computeBalances()
             guard !AppError.isSilent(error) else { return }
             errorAlert = ErrorAlert(title: "Payment Not Removed", message: error.localizedDescription)
