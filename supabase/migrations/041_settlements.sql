@@ -23,6 +23,12 @@ CREATE TABLE IF NOT EXISTS public.settlements (
 -- No FK on the three user columns: migration 035 set this precedent for splits.user_id.
 -- If an account is deleted the payment history must survive, or every other member's
 -- balance silently changes.
+--
+-- Scope of that guarantee: existing settlement rows survive. Recording a NEW settlement
+-- involving a deleted account is NOT possible, because the INSERT policy's group_members
+-- EXISTS checks depend on rows that DO cascade on account deletion (migration 001).
+-- Historical balances stay correct; new payments to or from a deleted account cannot be
+-- recorded. Accepted.
 
 CREATE INDEX IF NOT EXISTS settlements_group_created_idx
     ON public.settlements (group_id, created_at DESC);
@@ -69,4 +75,9 @@ FROM public.splits s
 JOIN public.expenses e ON e.id = s.expense_id
 WHERE s.is_settled
   AND e.paid_by IS NOT NULL
-  AND e.paid_by <> s.user_id;
+  AND e.paid_by <> s.user_id
+  -- One-time backfill. The INSERT has no natural key to conflict on, so a second run would
+  -- insert a duplicate set and silently double the offset, corrupting every balance. This
+  -- project has already had one migration-history desync (031_remote_history_placeholder.sql),
+  -- so guard explicitly rather than rely on `db push` running each file once.
+  AND NOT EXISTS (SELECT 1 FROM public.settlements);
