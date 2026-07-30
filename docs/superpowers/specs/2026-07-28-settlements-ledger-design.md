@@ -25,7 +25,8 @@ Mature bill-splitting products (Splitwise, Tricount) do not flip flags on shares
 payments as their own transactions and derive balances by arithmetic. This design adopts that
 model.
 
-**Timing.** The live database holds 22 splits (7 settled), 5 profiles and 1 account active in
+**Timing.** The live database holds 22 splits (7 settled, of which only 2 are debts between
+two different people — the other 5 are payers' own shares), 5 profiles and 1 account active in
 30 days. Every settled split has a real `settled_at`; no expense has a null payer. This is the
 cheapest this change will ever be.
 
@@ -199,7 +200,14 @@ WHERE s.is_settled
 `recorded_by` is the debtor because, under the RLS in force until now, only the debtor could
 have settled it. That is a fact about the old policy, not an assumption.
 
-Expected: 7 rows, all with real `settled_at`, no null payers.
+Expected: **2 rows.**
+
+Not 7. There are 7 settled splits, but 5 of them are the *payer's own share* of an expense
+(`paid_by = user_id`). Those are balance-neutral in both the old and new models —
+`netBalances` skips a payer's own split — and backfilling them would violate the table's
+`settlements_distinct_parties` CHECK. Only 2 settled splits represent a real debt between two
+different people. An earlier draft of this spec said 7, from a `count(*)` that did not join to
+`expenses`.
 
 The column is retained for one release so that if the backfill proves wrong, the original
 state is still on disk to re-derive from. A later migration drops it.

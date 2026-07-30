@@ -567,7 +567,11 @@ HAVING COALESCE(SUM(o.delta), 0) <> COALESCE(SUM(n.delta), 0);
 ```bash
 supabase db query --linked "SELECT count(*) AS will_backfill FROM public.splits s JOIN public.expenses e ON e.id = s.expense_id WHERE s.is_settled AND e.paid_by IS NOT NULL AND e.paid_by <> s.user_id;"
 ```
-Expected: **7**. If it is not 7, stop and report — the data has changed since the design.
+Expected: **2**.
+
+There are 7 settled splits, but 5 are the payer's own share (`paid_by = user_id`), which the
+predicate correctly excludes: they are balance-neutral in both models and would violate the
+`settlements_distinct_parties` CHECK. If the answer is not 2, stop and report.
 
 - [ ] **Step 4: Commit. Do NOT deploy.**
 
@@ -1336,7 +1340,7 @@ Expected: `** BUILD SUCCEEDED **`.
 Report to the user, and do not continue without an explicit yes:
 
 1. `supabase db query --linked` output showing current per-user balances
-2. The backfill row count (expected 7)
+2. The backfill row count (expected 2)
 3. The exact commands that would run:
 
 ```bash
