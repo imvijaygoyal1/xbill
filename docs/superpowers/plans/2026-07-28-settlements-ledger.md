@@ -1365,6 +1365,13 @@ supabase functions deploy notify-settlement
 
 **Nothing is applied to the live database or Edge Functions without that approval.**
 
+**Ordering requirement.** Migration 041 must run **before** any app build that can write to
+`settlements` reaches a user. The backfill is gated on `NOT EXISTS (SELECT 1 FROM
+public.settlements)`, so if a real user's payment lands first the backfill silently no-ops
+forever and the 2 pre-migration settled debts are never represented in the ledger — with no
+error surfaced. Deploy the migration first, confirm the backfill inserted 2 rows, and only
+then install the app build.
+
 - [ ] **Step 4: After approval — deploy and verify**
 
 ```bash
