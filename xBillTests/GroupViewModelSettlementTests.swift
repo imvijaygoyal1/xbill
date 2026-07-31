@@ -7,6 +7,11 @@ final class FakeSettlementService: SettlementDataProviding {
     var stored: [Settlement] = []
     var insertError: Error?
     var deleteError: Error?
+    /// When set, `deleteSettlement` removes the row from `stored` and *then* throws — the
+    /// commit-but-error case: a request that landed on the server while the client saw a
+    /// timeout, a dropped response, or a 500 raised after the write. Distinct from
+    /// `deleteError`, which throws before touching `stored`.
+    var deleteErrorAfterCommit: Error?
     var deletedIDs: [UUID] = []
     /// When set, `fetchSettlements` captures its return value *before* sleeping — modelling a
     /// server read that started before a concurrent write committed, the IMP-1 race.
@@ -48,6 +53,10 @@ final class FakeSettlementService: SettlementDataProviding {
         }
         deletedIDs.append(id)
         stored.removeAll { $0.id == id }
+        if let deleteErrorAfterCommit {
+            events.append("delete.committedThenFailed")
+            throw deleteErrorAfterCommit
+        }
         events.append("delete.end")
     }
 }
@@ -349,6 +358,147 @@ struct GroupViewModelPaymentTests {
         settlements.stored.removeAll { $0.id == otherMembersPayment.id }
         await vm.load(showError: false)
 
+        // Round 4: it was the group's only settlement, so that fetch came back empty, and an
+        // empty settlements response is now refused once before it is believed — see
+        // emptyFetchIsRefusedOnceThenTrusted. The row is held one more refresh, under the
+        // stale-balance warning, rather than being dropped on a possibly-stale read.
+        #expect(vm.settlements.count == 1)
+        #expect(vm.balanceLoadFailed)
+
+        await vm.load(showError: false)
+
         #expect(vm.settlements.isEmpty)
+    }
+
+    @Test("A delete that commits and then reports failure is cleared by the next fetch")
+    func committedDeleteReportedAsFailureIsNotPinnedForever() async {
+        // The round-4 Important. `deletePayment`'s catch runs whenever the *client* sees an
+        // error, which includes a request that reached the server and committed — a timeout, a
+        // dropped response, a 500 raised after the write. The row is genuinely gone, so every
+        // later fetch omits it. Before generation expiry, the catch re-pinned it with nothing
+        // able to ever remove the pin, permanently crediting a payment the ledger did not
+        // contain; and a user retry could not clear it either, because deleting an
+        // already-deleted row affects zero rows and `SupabaseWrite.requireAffected` (correctly)
+        // reports that as a failure, landing straight back on the same re-pin.
+        let group = makeGroup(); let alice = UUID(); let bob = UUID(); let carol = UUID()
+        let expenses = FakeExpenseService(); let settlements = FakeSettlementService()
+        let e = Expense(id: UUID(), groupID: group.id, title: "Dinner", amount: 30,
+                        currency: "USD", payerID: alice, category: .food, notes: nil,
+                        receiptURL: nil, originalAmount: nil, originalCurrency: nil,
+                        recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
+        expenses.expenses = [e]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
+                                 isSettled: false, settledAt: nil)]
+        // An unrelated payment between two other members, so the reconciling fetch below is not
+        // empty. The empty-fetch case is covered separately by emptyFetchIsRefusedOnceThenTrusted.
+        settlements.stored = [Settlement(id: UUID(), groupID: group.id, fromUserID: carol,
+                                         toUserID: alice, amount: 1, currency: "USD",
+                                         recordedBy: carol,
+                                         createdAt: Date().addingTimeInterval(-3600))]
+
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: expenses, settlementService: settlements,
+                                currentUserIDProvider: { bob })
+        await vm.load(showError: false)
+        await vm.recordPayment(from: bob, to: alice, amount: 10)
+        #expect(vm.balance(for: bob) == 0)
+        let payment = try! #require(vm.settlements.first { $0.fromUserID == bob })
+
+        settlements.deleteErrorAfterCommit = AppError.serverError("The request timed out.")
+        await vm.deletePayment(payment)
+
+        // The client could not tell the delete had landed, so it rolls back and reports — that
+        // part is correct and unchanged. The server, meanwhile, no longer has the row.
+        #expect(vm.settlements.contains { $0.id == payment.id })
+        #expect(vm.errorAlert != nil)
+        #expect(!settlements.stored.contains { $0.id == payment.id })
+
+        vm.errorAlert = nil
+        await vm.load(showError: false)
+
+        // One ordinary refresh reconciles it: the phantom credit is gone and the full debt is
+        // visible again. Nothing else can do this — a retry of the delete would fail the same
+        // way, so the fetch has to be what clears it.
+        #expect(!vm.settlements.contains { $0.id == payment.id })
+        #expect(vm.settlements.count == 1)
+        #expect(vm.balance(for: bob) == -10)
+    }
+
+    @Test("An empty settlements reload is refused once, then believed")
+    func emptyFetchIsRefusedOnceThenTrusted() async {
+        // `applyFetchedExpenses` guards against an empty reload for a non-empty group because
+        // one was actually observed on this PostgREST surface; settlements had no such guard,
+        // so a stale empty read silently showed gross, pre-payment debt. The guard here is
+        // bounded on purpose: refusing every empty response forever would pin a ledger that
+        // really was emptied elsewhere — the same permanent-credit defect from the other end.
+        let group = makeGroup(); let alice = UUID(); let bob = UUID()
+        let expenses = FakeExpenseService(); let settlements = FakeSettlementService()
+        let e = Expense(id: UUID(), groupID: group.id, title: "Dinner", amount: 30,
+                        currency: "USD", payerID: alice, category: .food, notes: nil,
+                        receiptURL: nil, originalAmount: nil, originalCurrency: nil,
+                        recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
+        expenses.expenses = [e]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
+                                 isSettled: false, settledAt: nil)]
+        let recorded = Settlement(id: UUID(), groupID: group.id, fromUserID: bob,
+                                  toUserID: alice, amount: 10, currency: "USD",
+                                  recordedBy: alice, createdAt: Date())
+        settlements.stored = [recorded]
+
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: expenses, settlementService: settlements,
+                                currentUserIDProvider: { bob })
+        await vm.load(showError: false)
+        #expect(vm.balance(for: bob) == 0)
+
+        settlements.stored = []
+        await vm.load(showError: false)
+
+        // First empty response: treated as a stale read. The payment stays and the user gets
+        // the existing stale-balance warning rather than a silently inflated debt.
+        #expect(vm.settlements.count == 1)
+        #expect(vm.balance(for: bob) == 0)
+        #expect(vm.balanceLoadFailed)
+
+        await vm.load(showError: false)
+
+        // Second, independent empty response: believed.
+        #expect(vm.settlements.isEmpty)
+        #expect(vm.balance(for: bob) == -10)
+        #expect(!vm.balanceLoadFailed)
+    }
+
+    @Test("A pending payment sorts ahead of the fetched, newest-first ledger")
+    func pendingPaymentSortsBeforeFetchedSettlements() async {
+        // The fetch is `order(created_at, ascending: false)` and `recordPayment` inserts at
+        // index 0, but the merge used to append pending rows — by definition the newest — at
+        // the end, so a just-recorded payment jumped from the top of the list to the bottom on
+        // the next load. Balances do not care; the payment history list in Tasks 6-8 does.
+        let group = makeGroup(); let alice = UUID(); let bob = UUID()
+        let expenses = FakeExpenseService(); let settlements = FakeSettlementService()
+        let older = Settlement(id: UUID(), groupID: group.id, fromUserID: bob, toUserID: alice,
+                               amount: 3, currency: "USD", recordedBy: bob,
+                               createdAt: Date().addingTimeInterval(-3600))
+        settlements.stored = [older]
+
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: expenses, settlementService: settlements,
+                                currentUserIDProvider: { bob })
+        await vm.load(showError: false)
+        settlements.events = []
+
+        // A fetch that snapshots `stored` before the payment below is recorded, so the payment
+        // is still pending when the merge runs — the only state in which ordering is decided
+        // by the merge rather than by `recordPayment`'s insert-at-zero.
+        settlements.fetchDelay = .milliseconds(60)
+        let loadTask = Task { await vm.load(showError: false) }
+        try? await Task.sleep(for: .milliseconds(15))
+        await vm.recordPayment(from: bob, to: alice, amount: 7)
+        await loadTask.value
+
+        #expect(settlements.events == ["fetch.start", "record", "fetch.end"])
+        #expect(vm.settlements.count == 2)
+        #expect(vm.settlements.first?.amount == 7)
+        #expect(vm.settlements.last?.id == older.id)
     }
 }
