@@ -114,16 +114,11 @@ struct ExpenseDetailView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(memberName(split.userID))
                                     .font(.subheadline)
-                                if split.isSettled {
-                                    Text("Settled \(split.settledAt?.relativeFormatted ?? "")")
-                                        .font(.caption)
-                                        .foregroundStyle(Color.moneySettled)
-                                }
                             }
                             Spacer()
                             Text(split.amount.formatted(currencyCode: currency))
                                 .font(.subheadline.monospacedDigit())
-                                .foregroundStyle(split.isSettled ? .secondary : .primary)
+                                .foregroundStyle(.primary)
                         }
                         .padding(.vertical, 2)
                     }
