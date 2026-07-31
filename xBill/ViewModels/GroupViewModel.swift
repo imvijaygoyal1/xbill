@@ -297,9 +297,15 @@ final class GroupViewModel {
     ///   same re-pin. Generation expiry ends that: the first fetch issued after the failed
     ///   delete discards the entry and the row goes with it.
     ///
-    /// The same expiry closes the two-device case (delete on device A, this VM never sees the
-    /// call) and the reverse race (a fetch whose snapshot predates a *successful* delete no
-    /// longer resurrects the row, because the `.deleted` entry outranks that fetch).
+    /// The same expiry closes the two-device case: a delete on another device is absent from
+    /// every later fetch, and this VM has no entry to override it with.
+    ///
+    /// It does **not**, on its own, stop a fetch whose snapshot predates a successful delete
+    /// from resurrecting the row — the `.deleted` entry outranks such a fetch only while the
+    /// entry is younger than it, and the entry is first tagged *before* the delete request goes
+    /// out. `deletePayment` closes that by tagging again once the write commits and re-removing
+    /// the row if a fetch put it back in the meantime; see its success branch. Expiry alone
+    /// cannot, because the resurrecting merge has already run by then.
     private func applyFetchedSettlements(_ fetchedSettlements: [Settlement], fetchGeneration: UInt64) {
         // Rows recorded after this fetch started are not rows it failed to return, so they must
         // not make an empty response look suspicious.
@@ -667,7 +673,16 @@ final class GroupViewModel {
     /// still contains this row, and without the entry that fetch would put it straight back —
     /// harmless for balances today, but the delete affordance Tasks 6-8 add makes a resurrected
     /// row deletable, and deleting a row the server no longer has fails, which lands on the
-    /// error path below. Like every entry, this one expires at the first fetch issued after it.
+    /// error path below.
+    ///
+    /// The entry is tagged **twice**, and the second tag is the load-bearing one. Every other
+    /// entry in the map is written after its change has committed, which is what makes
+    /// "a fetch issued later is authoritative over it" true. This one has to be written *before*
+    /// the request as well, to cover the in-flight fetch above — and that early tag does not
+    /// satisfy the invariant, because the row is still on the server when it is written. A
+    /// `load()` issued between the two points claims a higher generation and expires it. The
+    /// success branch therefore tags again after the commit, and re-removes the row if that
+    /// `load()` already merged it back.
     func deletePayment(_ settlement: Settlement) async {
         isLoading = true
         defer { isLoading = false }
@@ -676,6 +691,21 @@ final class GroupViewModel {
         await computeBalances()
         do {
             try await settlementService.deleteSettlement(id: settlement.id)
+            // Re-assert the removal now that the delete has actually committed. Both halves are
+            // needed and neither substitutes for the other:
+            //   - The re-tag restores the generation invariant. The tag set before the request
+            //     claims "a fetch issued after this observes it", which is not true until the
+            //     write lands. A `load()` starting in between claims a higher generation and
+            //     expires that first tag.
+            //   - The re-removal handles the case where such a `load()` already finished: its
+            //     merge put the row back in `settlements`, and expiry cannot undo a merge that
+            //     has already run.
+            let wasResurrected = settlements.contains { $0.id == settlement.id }
+            settlements.removeAll { $0.id == settlement.id }
+            pendingSettlementChanges[settlement.id] = .deleted(generation: settlementFetchGeneration)
+            // Only when something actually changed — `computeBalances` refetches the split map,
+            // and the common path here removes nothing because the optimistic removal still holds.
+            if wasResurrected { await computeBalances() }
             // Correcting a mistake — delete, then immediately re-record the same amount — must
             // not be swallowed by the IMP-4 duplicate window above. Keyed on the settlement's
             // own id, not its (from, to, amount) value: an *older* payment between the same two

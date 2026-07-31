@@ -2,6 +2,89 @@ import Foundation
 import Testing
 @testable import xBill
 
+/// Suspends a fake's async call at a chosen point until the test lets it go.
+///
+/// Replaces the sleep-based interleaving the settlement tests used through round 4
+/// (`fetchDelay` / `deleteDelay`). Sleeps only made an interleaving *probable*: the window was
+/// a fixed 60-220ms and the trigger a shorter sleep, so a scheduling hiccup under full-suite
+/// load could reorder the two operations —
+/// `pendingPaymentSortsBeforeFetchedSettlements` was observed failing that way once in a
+/// full-suite run while passing in isolation. A gate makes the interleaving certain and removes
+/// wall-clock time from these tests entirely.
+///
+/// Two rules keep the gate from trading a flaky test for a hung one, which is exactly what the
+/// first draft of this helper did to the whole run:
+///
+/// 1. **Arming is one-shot.** `arm()` licenses exactly one park; `waitIfArmed` consumes it.
+///    A gate left armed after the interleaving it was for cannot silently swallow an unrelated
+///    later call. That is the defect this replaces: `deleteSurvivesConcurrentLoadCarryingTheRow`
+///    armed the fetch gate, released it, and then made a further verification `load()` — which
+///    parked on the still-armed gate with no `release()` left to come, stalling that test and
+///    every test queued behind it in this `.serialized` suite.
+/// 2. **Every wait is bounded.** A park or a wait that outlives `timeout` records an issue and
+///    resumes. A mis-sequenced test then fails with a message naming the gate, instead of
+///    taking the suite down with it.
+@MainActor
+final class InterleavingGate {
+    /// Orders of magnitude longer than the microseconds a correct interleaving needs, so this
+    /// can only expire on a genuine mis-sequencing, never on a slow machine.
+    static let timeout: Duration = .seconds(5)
+
+    private var isArmed = false
+    private var parked: CheckedContinuation<Void, Never>?
+    private var waiters: [(token: Int, continuation: CheckedContinuation<Void, Never>)] = []
+    private var parkToken = 0
+    private var waiterToken = 0
+
+    /// Licenses exactly one park. Call it again for each further call to be parked.
+    func arm() { isArmed = true }
+
+    /// Called from inside the fake. Suspends there until `release()`.
+    func waitIfArmed() async {
+        guard isArmed else { return }
+        isArmed = false
+        parkToken += 1
+        let token = parkToken
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            parked = continuation
+            let pending = waiters
+            waiters = []
+            for waiter in pending { waiter.continuation.resume() }
+            Task { @MainActor in
+                try? await Task.sleep(for: Self.timeout)
+                // Still the same park, still unreleased: the test is never going to release it.
+                guard parkToken == token, parked != nil else { return }
+                Issue.record("InterleavingGate: a parked call was not released within \(Self.timeout).")
+                release()
+            }
+        }
+    }
+
+    /// Called from the test. Returns once the fake has actually reached the gate — so the test
+    /// never races the operation it is trying to interleave with.
+    func waitUntilParked() async {
+        if parked != nil { return }
+        waiterToken += 1
+        let token = waiterToken
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            waiters.append((token, continuation))
+            Task { @MainActor in
+                try? await Task.sleep(for: Self.timeout)
+                guard let index = waiters.firstIndex(where: { $0.token == token }) else { return }
+                Issue.record("InterleavingGate: no call reached the gate within \(Self.timeout). Was it armed?")
+                waiters.remove(at: index).continuation.resume()
+            }
+        }
+    }
+
+    /// Called from the test. Lets the parked call run on.
+    func release() {
+        let continuation = parked
+        parked = nil
+        continuation?.resume()
+    }
+}
+
 @MainActor
 final class FakeSettlementService: SettlementDataProviding {
     var stored: [Settlement] = []
@@ -13,22 +96,22 @@ final class FakeSettlementService: SettlementDataProviding {
     /// `deleteError`, which throws before touching `stored`.
     var deleteErrorAfterCommit: Error?
     var deletedIDs: [UUID] = []
-    /// When set, `fetchSettlements` captures its return value *before* sleeping — modelling a
-    /// server read that started before a concurrent write committed, the IMP-1 race.
-    var fetchDelay: Duration?
-    /// When set, `deleteSettlement` sleeps before failing — gives a concurrent `recordPayment`
-    /// room to land while the delete is still in flight, for the IMP-1/deletePayment rollback
-    /// scoping tests.
-    var deleteDelay: Duration?
-    /// Ordered log of call boundaries. A timing test that only asserts final state cannot tell
-    /// a genuine interleaving from a scheduling accident where the two operations happened to
-    /// run back-to-back — this is what lets a test assert the interleaving actually occurred.
+    /// Parks `fetchSettlements` *after* it has captured its snapshot — modelling a server read
+    /// that started before a concurrent write committed, the IMP-1 race. `arm()` once per fetch
+    /// to be parked; an unarmed fetch runs straight through.
+    let fetchGate = InterleavingGate()
+    /// Parks `deleteSettlement` before it touches `stored`, so a test can act while the delete
+    /// is genuinely in flight. `arm()` once per delete to be parked.
+    let deleteGate = InterleavingGate()
+    /// Ordered log of call boundaries. A test that only asserts final state cannot tell a
+    /// genuine interleaving from two operations that happened to run back-to-back — this is
+    /// what lets a test assert the interleaving actually occurred.
     var events: [String] = []
 
     func fetchSettlements(groupID: UUID) async throws -> [Settlement] {
         events.append("fetch.start")
         let snapshot = stored
-        if let fetchDelay { try? await Task.sleep(for: fetchDelay) }
+        await fetchGate.waitIfArmed()
         events.append("fetch.end")
         return snapshot
     }
@@ -46,7 +129,7 @@ final class FakeSettlementService: SettlementDataProviding {
 
     func deleteSettlement(id: UUID) async throws {
         events.append("delete.start")
-        if let deleteDelay { try? await Task.sleep(for: deleteDelay) }
+        await deleteGate.waitIfArmed()
         if let deleteError {
             events.append("delete.failed")
             throw deleteError
@@ -235,16 +318,17 @@ struct GroupViewModelPaymentTests {
         #expect(vm.balance(for: bob) == -10)
         settlements.events = []
 
-        // Arm a settlements fetch that snapshots `stored` now (empty) and only returns after
-        // the payment below has been recorded — simulating a read that started first but
-        // resolved second.
-        settlements.fetchDelay = .milliseconds(60)
+        // Park a settlements fetch that has snapshotted `stored` (still empty) and can only
+        // return after the payment below is recorded — a read that started first and resolved
+        // second.
+        settlements.fetchGate.arm()
         let loadTask = Task { await vm.load(showError: false) }
-        try? await Task.sleep(for: .milliseconds(15))
+        await settlements.fetchGate.waitUntilParked()
 
         await vm.recordPayment(from: bob, to: alice, amount: 10)
         #expect(vm.balance(for: bob) == 0)
 
+        settlements.fetchGate.release()
         await loadTask.value
 
         // The stale-snapshot load must not have wiped the payment back out.
@@ -281,13 +365,14 @@ struct GroupViewModelPaymentTests {
         settlements.events = []
 
         settlements.deleteError = AppError.permissionDenied
-        settlements.deleteDelay = .milliseconds(80)
+        settlements.deleteGate.arm()
         let deleteTask = Task { await vm.deletePayment(p1) }
-        try? await Task.sleep(for: .milliseconds(20))
+        await settlements.deleteGate.waitUntilParked()
 
         // A different amount so this does not collide with the IMP-4 duplicate window.
         await vm.recordPayment(from: bob, to: alice, amount: 2)
 
+        settlements.deleteGate.release()
         await deleteTask.value
 
         // p1's failed delete must be rolled back, and p2 (recorded while the delete was still
@@ -468,6 +553,129 @@ struct GroupViewModelPaymentTests {
         #expect(!vm.balanceLoadFailed)
     }
 
+    @Test("A successful delete is not undone by a load whose response still has the row")
+    func deleteSurvivesConcurrentLoadCarryingTheRow() async {
+        // The `.deleted` overlay branch of applyFetchedSettlements. A fetch that started before
+        // the delete returns a snapshot that still contains the row; without the tombstone the
+        // merge would put a deleted payment straight back and keep crediting the balance.
+        let group = makeGroup(); let alice = UUID(); let bob = UUID()
+        let expenses = FakeExpenseService(); let settlements = FakeSettlementService()
+        let e = Expense(id: UUID(), groupID: group.id, title: "Dinner", amount: 30,
+                        currency: "USD", payerID: alice, category: .food, notes: nil,
+                        receiptURL: nil, originalAmount: nil, originalCurrency: nil,
+                        recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
+        expenses.expenses = [e]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
+                                 isSettled: false, settledAt: nil)]
+
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: expenses, settlementService: settlements,
+                                currentUserIDProvider: { bob })
+        await vm.load(showError: false)
+        await vm.recordPayment(from: bob, to: alice, amount: 10)
+        let payment = try! #require(vm.settlements.first)
+        #expect(vm.balance(for: bob) == 0)
+        settlements.events = []
+
+        // Snapshot taken now — it contains the payment — and released after the delete lands.
+        settlements.fetchGate.arm()
+        let loadTask = Task { await vm.load(showError: false) }
+        await settlements.fetchGate.waitUntilParked()
+        await vm.deletePayment(payment)
+        settlements.fetchGate.release()
+        await loadTask.value
+
+        // Prove the delete really did land inside the fetch's window.
+        #expect(settlements.events == ["fetch.start", "delete.start", "delete.end", "fetch.end"])
+        #expect(vm.settlements.isEmpty)
+        #expect(vm.balance(for: bob) == -10)
+
+        // And it stays deleted once a fetch that started after the delete comes back. The gate
+        // is one-shot, so this one is not parked.
+        await vm.load(showError: false)
+        #expect(vm.settlements.isEmpty)
+        #expect(vm.balance(for: bob) == -10)
+    }
+
+    @Test("A load issued while the delete request is in flight cannot resurrect the row")
+    func deleteSurvivesLoadIssuedDuringTheDeleteRequest() async {
+        // Round-5 M1. The tombstone is tagged before the request, so it does not yet satisfy the
+        // generation invariant — the row is still on the server when it is written. A `load()`
+        // starting between the tag and the commit claims a higher generation, expires the
+        // tombstone, and its response still contains the row. Reachable through the `isLoading`
+        // hole: load A is in flight, deletePayment starts, A finishes and its `defer` clears the
+        // flag for everyone, and load B is free to start while the delete is still awaiting.
+        let group = makeGroup(); let alice = UUID(); let bob = UUID(); let carol = UUID()
+        let expenses = FakeExpenseService(); let settlements = FakeSettlementService()
+        let e = Expense(id: UUID(), groupID: group.id, title: "Dinner", amount: 30,
+                        currency: "USD", payerID: alice, category: .food, notes: nil,
+                        receiptURL: nil, originalAmount: nil, originalCurrency: nil,
+                        recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
+        expenses.expenses = [e]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
+                                 isSettled: false, settledAt: nil)]
+        // Unrelated payment between two other members, so no fetch here is ever empty and the
+        // empty-response guard plays no part in what this test measures.
+        settlements.stored = [Settlement(id: UUID(), groupID: group.id, fromUserID: carol,
+                                         toUserID: alice, amount: 1, currency: "USD",
+                                         recordedBy: carol,
+                                         createdAt: Date().addingTimeInterval(-3600))]
+
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: expenses, settlementService: settlements,
+                                currentUserIDProvider: { bob })
+        await vm.load(showError: false)
+        await vm.recordPayment(from: bob, to: alice, amount: 10)
+        let payment = try! #require(vm.settlements.first { $0.fromUserID == bob })
+        #expect(vm.balance(for: bob) == 0)
+        settlements.events = []
+
+        settlements.fetchGate.arm()
+        settlements.deleteGate.arm()
+
+        // Load A starts and parks holding a snapshot that still contains the payment.
+        let loadA = Task { await vm.load(showError: false) }
+        await settlements.fetchGate.waitUntilParked()
+
+        // The delete starts — tagging its tombstone, removing the row locally — and parks
+        // before the write reaches the server.
+        let deleteTask = Task { await vm.deletePayment(payment) }
+        await settlements.deleteGate.waitUntilParked()
+
+        // Load A finishes. Its `defer { isLoading = false }` clears the flag the still-running
+        // delete also set: the hole that lets load B start at all.
+        settlements.fetchGate.release()
+        await loadA.value
+        #expect(!vm.isLoading)
+
+        // Load B is issued while the delete is still in flight, so it claims a generation
+        // higher than the tombstone and its response still contains the row.
+        settlements.fetchGate.arm()
+        let loadB = Task { await vm.load(showError: false) }
+        await settlements.fetchGate.waitUntilParked()
+        settlements.fetchGate.release()
+        await loadB.value
+
+        // Only now does the delete commit.
+        settlements.deleteGate.release()
+        await deleteTask.value
+
+        // Both loads ran entirely inside the delete's request window — the interleaving this
+        // test depends on, not a scheduling accident that serialised them.
+        #expect(settlements.events == ["fetch.start", "delete.start", "fetch.end",
+                                       "fetch.start", "fetch.end", "delete.end"])
+        // The deleted payment must be gone and the full debt visible; the unrelated payment
+        // must be untouched.
+        #expect(!vm.settlements.contains { $0.id == payment.id })
+        #expect(vm.settlements.count == 1)
+        #expect(vm.balance(for: bob) == -10)
+
+        // The gate is one-shot, so this final confirming fetch runs straight through.
+        await vm.load(showError: false)
+        #expect(!vm.settlements.contains { $0.id == payment.id })
+        #expect(vm.balance(for: bob) == -10)
+    }
+
     @Test("A pending payment sorts ahead of the fetched, newest-first ledger")
     func pendingPaymentSortsBeforeFetchedSettlements() async {
         // The fetch is `order(created_at, ascending: false)` and `recordPayment` inserts at
@@ -490,10 +698,11 @@ struct GroupViewModelPaymentTests {
         // A fetch that snapshots `stored` before the payment below is recorded, so the payment
         // is still pending when the merge runs — the only state in which ordering is decided
         // by the merge rather than by `recordPayment`'s insert-at-zero.
-        settlements.fetchDelay = .milliseconds(60)
+        settlements.fetchGate.arm()
         let loadTask = Task { await vm.load(showError: false) }
-        try? await Task.sleep(for: .milliseconds(15))
+        await settlements.fetchGate.waitUntilParked()
         await vm.recordPayment(from: bob, to: alice, amount: 7)
+        settlements.fetchGate.release()
         await loadTask.value
 
         #expect(settlements.events == ["fetch.start", "record", "fetch.end"])
