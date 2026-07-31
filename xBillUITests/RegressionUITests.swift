@@ -73,7 +73,7 @@ final class RegressionUITests: XCTestCase {
         XCTAssertTrue(
             app.staticTexts["All Settled Up!"].waitForExistence(timeout: 10)
                 || app.staticTexts["Couldn’t Refresh Balances"].waitForExistence(timeout: 1)
-                || app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "xBill.settleUp.markSettledButton.")).firstMatch.waitForExistence(timeout: 1),
+                || app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "xBill.settleUp.recordPaymentButton.")).firstMatch.waitForExistence(timeout: 1),
             "Settle Up should resolve after app reactivation instead of remaining on Refreshing balances."
         )
         XCTAssertFalse(
@@ -417,7 +417,7 @@ final class RegressionUITests: XCTestCase {
         try openGroupTab("Settle Up")
         XCTAssertTrue(app.staticTexts["All Settled!"].waitForExistence(timeout: 6)
                       || app.staticTexts["All Settled Up!"].waitForExistence(timeout: 0.5)
-                      || app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "xBill.settleUp.markSettledButton.")).firstMatch.waitForExistence(timeout: 2),
+                      || app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "xBill.settleUp.recordPaymentButton.")).firstMatch.waitForExistence(timeout: 2),
                       "Settle Up tab should show either empty state or settlement actions.")
 
         launchMainApp(initialTab: "groups")

@@ -23,7 +23,7 @@ struct GroupDetailView: View {
     @State private var showArchiveConfirm = false
     @State private var showUnarchiveConfirm = false
     @State private var expenseToDelete: Expense?
-    @State private var settlementToConfirm: SettlementSuggestion?
+    @State private var paymentToRecord: SettlementSuggestion?
     @State private var shareItem: ExportShareItem?
     @State private var selectedTab = 0
     @State private var searchText = ""
@@ -256,31 +256,12 @@ struct GroupDetailView: View {
             } message: {
                 Text("This will remove the expense and all its splits. This cannot be undone.")
             }
-            .confirmationDialog(
-                "Mark as Settled?",
-                isPresented: Binding(
-                    get: { settlementToConfirm != nil },
-                    set: { if !$0 { settlementToConfirm = nil } }
-                ),
-                titleVisibility: .visible
-            ) {
-                Button("Mark as Settled") {
-                    guard let suggestion = settlementToConfirm else { return }
+            .sheet(item: $paymentToRecord) { suggestion in
+                RecordPaymentSheet(suggestion: suggestion, currency: vm.group.currency) { amount in
                     Task {
-                        await vm.recordPayment(from: suggestion.fromUserID, to: suggestion.toUserID, amount: suggestion.amount)
-                        // recordPayment never throws — failures are swallowed into
-                        // vm.errorAlert — so a success buzz here unconditionally would fire
-                        // alongside an error alert on a failed settlement.
-                        if vm.errorAlert == nil {
-                            HapticManager.success()
-                        }
+                        await vm.recordPayment(
+                            from: suggestion.fromUserID, to: suggestion.toUserID, amount: amount)
                     }
-                    settlementToConfirm = nil
-                }
-                Button("Cancel", role: .cancel) { settlementToConfirm = nil }
-            } message: {
-                if let s = settlementToConfirm {
-                    Text("\(s.fromName) → \(s.toName): \(s.amount.formatted(currencyCode: s.currency)). This cannot be undone.")
                 }
             }
             // An alert, not a confirmationDialog: this is a binary question, and a
@@ -305,15 +286,10 @@ struct GroupDetailView: View {
                 // `.none`, so "cleared after one answer" is structural for both buttons.
                 Button("Not yet", role: .cancel) { }
                 Button("Mark as Settled") {
-                    Task {
-                        await vm.recordPayment(from: prompt.suggestion.fromUserID, to: prompt.suggestion.toUserID, amount: prompt.suggestion.amount)
-                        // Same gate as the confirmationDialog settle site above: recordPayment
-                        // swallows failures into vm.errorAlert rather than throwing, so a success
-                        // buzz must not fire unconditionally.
-                        if vm.errorAlert == nil {
-                            HapticManager.success()
-                        }
-                    }
+                    // Opens the amount sheet rather than recording the full suggested amount
+                    // directly — xBill cannot confirm what actually went through in the
+                    // payment app, so the user states the amount themselves.
+                    paymentToRecord = prompt.suggestion
                 }
             } message: { prompt in
                 Text("xBill can't confirm payments made in \(prompt.providerName). Only mark this settled if the payment went through.")
@@ -543,6 +519,13 @@ struct GroupDetailView: View {
                         .listRowBackground(Color.bgCard)
                 }
             }
+
+            PaymentHistorySection(
+                settlements: vm.settlements,
+                memberNames: vm.memberNames,
+                currency: vm.group.currency,
+                currentUserID: currentUserID,
+                onDelete: { settlement in Task { await vm.deletePayment(settlement) } })
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -570,7 +553,8 @@ struct GroupDetailView: View {
     }
 
     private func settlementRow(_ suggestion: SettlementSuggestion) -> some View {
-        VStack(spacing: XBillSpacing.md) {
+        let isParty = currentUserID == suggestion.fromUserID || currentUserID == suggestion.toUserID
+        return VStack(spacing: XBillSpacing.md) {
             HStack(spacing: XBillSpacing.md) {
                 AvatarView(name: suggestion.fromName, size: XBillIcon.avatarSm)
                 Image(systemName: "arrow.right")
@@ -581,10 +565,12 @@ struct GroupDetailView: View {
                     .font(.xbillLargeAmount)
                     .foregroundStyle(Color.textPrimary)
             }
-            XBillButton(title: "Mark as Settled", style: .primary) {
-                settlementToConfirm = suggestion
+            if isParty {
+                XBillButton(title: "Record Payment", style: .primary) {
+                    paymentToRecord = suggestion
+                }
+                .accessibilityIdentifier("xBill.settleUp.recordPaymentButton.\(suggestion.id.uuidString)")
             }
-            .accessibilityIdentifier("xBill.settleUp.markSettledButton.\(suggestion.id.uuidString)")
             if currentUserID == suggestion.fromUserID,
                let recipient = vm.members.first(where: { $0.id == suggestion.toUserID }) {
                 let venmoHandle  = PaymentHandleValidator.normalized(recipient.venmoHandle, for: .venmo)
@@ -628,6 +614,7 @@ struct GroupDetailView: View {
             }
         }
         .padding(.vertical, XBillSpacing.sm)
+        .opacity(isParty ? 1 : 0.55)
         .accessibilityIdentifier("xBill.settleUp.suggestionRow.\(suggestion.id.uuidString)")
     }
 
