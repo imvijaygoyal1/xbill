@@ -32,16 +32,25 @@ final class GroupViewModel {
     @ObservationIgnored private var locallyCreatedExpenses: [UUID: Expense] = [:]
     @ObservationIgnored private var isComputingBalances = false
     @ObservationIgnored private var shouldRecomputeBalances = false
-    /// The last payment this VM successfully recorded, so a second call for the exact same
-    /// (from, to, amount) shortly afterward is recognised as a duplicate rather than a new
-    /// payment. See `recordPayment` — IMP-4.
-    @ObservationIgnored private var lastRecordedPayment: (from: UUID, to: UUID, amount: Decimal, at: Date)?
+    /// The payment this VM most recently recorded — carries the row's own `id` (not just its
+    /// value) so `deletePayment` can tell whether the row it is deleting is the one that armed
+    /// the duplicate-window below, as opposed to some other, older payment with the same
+    /// from/to/amount. See `recordPayment` / `deletePayment` — IMP-4.
+    @ObservationIgnored private var lastRecordedPayment: (id: UUID, from: UUID, to: UUID, amount: Decimal, at: Date)?
     /// Window in which an identical `recordPayment` call is treated as a duplicate of the one
     /// just recorded. Long enough to cover a user completing a Venmo/PayPal handoff and
     /// returning to answer "Did you complete this payment?" after already marking the same
     /// debt settled another way; short enough that a genuine repeat payment between the same
     /// two people is not silently dropped.
     private static let duplicatePaymentWindow: TimeInterval = 60
+    /// Settlements this VM has itself written via `recordPayment` and cannot yet confirm a
+    /// fetch has seen. `applyFetchedSettlements` merges a fetch with only *this* map, not with
+    /// the whole `settlements` array — see that method for why the wider merge was a Critical
+    /// (REV-03 applied to money: a row deleted by another member, or by this VM racing a
+    /// concurrent `load()`, would never leave `settlements` because nothing bounded what stayed
+    /// behind). Cleared both when a fetch confirms an id and when `deletePayment` removes one —
+    /// same shape as `locallyCreatedExpenses` / `applyFetchedExpenses`.
+    @ObservationIgnored private var locallyRecordedSettlements: [UUID: Settlement] = [:]
     private let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "GroupViewModel")
     private let groupService: any GroupDataProviding
     private let expenseService: any ExpenseDataProviding
@@ -219,21 +228,32 @@ final class GroupViewModel {
         hasKnownNonEmptyExpenses = hasKnownNonEmptyExpenses || !mergedExpenses.isEmpty
     }
 
-    /// Merges a fetch with whatever `recordPayment` may have inserted while the fetch was in
-    /// flight, instead of replacing outright (IMP-1, round 2).
+    /// Merges a fetch with `locallyRecordedSettlements` — settlements this VM wrote that a
+    /// fetch has not yet confirmed — instead of replacing outright (IMP-1, round 2) and
+    /// instead of keeping every local row a fetch omits (round 3 Critical correction below).
     ///
     /// A plain `settlements = fetchedSettlements` is safe only if nothing else can write
     /// `settlements` between the request going out and the response coming back — untrue here,
     /// since `recordPayment` no longer waits on `isLoading`. If the server captured its read
     /// before that insert committed, a replace would silently drop the just-recorded payment
-    /// off the balance; if it captured its read after, a replace is harmless but a same-id
-    /// `recordPayment` insert racing the assignment could still double up without the dedupe
-    /// this merge makes load-bearing. Same shape as `applyFetchedExpenses` /
-    /// `locallyCreatedExpenses`: trust the fetch, keep only what it does not yet know about.
+    /// off the balance.
+    ///
+    /// **Round 3 correction.** The round-2 fix for that closed the drop by keeping *every*
+    /// local row a fetch did not return — `settlements.filter { !fetchedIDs.contains($0.id) }`
+    /// — with no way for a row to ever leave that keep-set except a fetch returning it. That
+    /// is `REV-03` reproduced on money: a payment deleted by another member is absent from
+    /// every subsequent fetch, so it was re-added and pinned forever; a `deletePayment` in this
+    /// VM racing a `load()` whose snapshot predated the delete had the same outcome. Bounding
+    /// the kept set to `locallyRecordedSettlements` — populated only by this VM's own
+    /// `recordPayment`, cleared both here and by `deletePayment` — is `REV-03`'s
+    /// `locallyCreatedExpenses` fix applied verbatim: trust the fetch for everything except
+    /// what this VM itself just wrote and cannot yet confirm the fetch has seen.
     private func applyFetchedSettlements(_ fetchedSettlements: [Settlement]) {
-        let fetchedIDs = Set(fetchedSettlements.map(\.id))
-        let notYetVisibleToServer = settlements.filter { !fetchedIDs.contains($0.id) }
-        settlements = notYetVisibleToServer + fetchedSettlements
+        for fetched in fetchedSettlements {
+            locallyRecordedSettlements.removeValue(forKey: fetched.id)
+        }
+        let stillPending = locallyRecordedSettlements.values.sorted { $0.createdAt > $1.createdAt }
+        settlements = fetchedSettlements + stillPending
     }
 
     // MARK: - Balances
@@ -476,11 +496,16 @@ final class GroupViewModel {
     ///
     /// Two things still protect the ledger from a duplicate write, in addition to whatever RLS
     /// enforces server-side:
-    /// - Dedupe-on-insert by id, now load-bearing: `applyFetchedSettlements` keeps this VM's
-    ///   local settlements across a `load()`'s replace, so a `load()` whose fetch happened to
-    ///   observe this exact row (started after the insert committed, resolved after this method
-    ///   returns) merges it back in under the *same* id — this `contains` check is what stops
-    ///   that merge from producing two entries for one payment.
+    /// - The `contains` check before the insert below. It is not there because the merge in
+    ///   `applyFetchedSettlements` could otherwise produce two entries for one id — it cannot,
+    ///   the merge already removes an id from the pending map before concatenating, so a
+    ///   fetched row and a pending row can never collide. It is there for the window *inside*
+    ///   this method's own `await`: `settlementService.recordSettlement` can commit on the
+    ///   server before this call resumes, and a concurrent `load()` can fetch, observe the
+    ///   committed row (this VM has not put it in `locallyRecordedSettlements` yet, so nothing
+    ///   stops the fetch from including it), and finish its merge — all before this method's
+    ///   `await` returns. When it does return, `settlements` already holds the row; inserting
+    ///   again unconditionally would duplicate it.
     /// - `lastRecordedPayment` (IMP-4) catches the *sequential* double-record case: two
     ///   different UI affordances (the settle-up confirmation and the post-handoff "did you
     ///   pay?" alert) can each independently call this for the same debt, one fully finishing
@@ -504,10 +529,11 @@ final class GroupViewModel {
             let saved = try await settlementService.recordSettlement(
                 groupID: group.id, fromUserID: fromUserID, toUserID: toUserID,
                 amount: amount, currency: group.currency, recordedBy: recordedBy)
+            locallyRecordedSettlements[saved.id] = saved
             if !settlements.contains(where: { $0.id == saved.id }) {
                 settlements.insert(saved, at: 0)
             }
-            lastRecordedPayment = (fromUserID, toUserID, amount, Date())
+            lastRecordedPayment = (id: saved.id, from: fromUserID, to: toUserID, amount: amount, at: Date())
             await computeBalances()
 
             let note = NotificationItem.settlement(
@@ -538,27 +564,37 @@ final class GroupViewModel {
     /// already committed. This project has hit that exact class of bug twice before
     /// (`NOTIF-06`, `REV-06`), both times fixed the same way: scope the rollback to only the
     /// row this operation touched.
+    ///
+    /// Round 3 correction: also clears `locallyRecordedSettlements` for this id up front,
+    /// unconditionally — not only on success. If this delete fails, the `catch` branch re-pins
+    /// the row there, same as a fresh `recordPayment` would, so it survives a `load()` whose
+    /// fetch has not yet caught up to the failed delete (i.e. still omits it because the local
+    /// state, correctly, still has it). See `applyFetchedSettlements`.
     func deletePayment(_ settlement: Settlement) async {
         isLoading = true
         defer { isLoading = false }
         settlements.removeAll { $0.id == settlement.id }
+        locallyRecordedSettlements.removeValue(forKey: settlement.id)
         await computeBalances()
         do {
             try await settlementService.deleteSettlement(id: settlement.id)
             // Correcting a mistake — delete, then immediately re-record the same amount — must
-            // not be swallowed by the IMP-4 duplicate window above. Only clear it when the
-            // deleted row is the one that armed it; an unrelated older payment being deleted
-            // should not reopen the window for a payment recorded seconds ago.
-            if let last = lastRecordedPayment,
-               last.from == settlement.fromUserID, last.to == settlement.toUserID, last.amount == settlement.amount {
+            // not be swallowed by the IMP-4 duplicate window above. Keyed on the settlement's
+            // own id, not its (from, to, amount) value: an *older* payment between the same two
+            // people for the same amount must not clear a window armed seconds ago by a
+            // different, newer payment.
+            if lastRecordedPayment?.id == settlement.id {
                 lastRecordedPayment = nil
             }
         } catch {
             // Scoped rollback: re-insert only this settlement, and only if nothing else (a
-            // concurrent load(), a retry) has already put it back.
+            // concurrent load(), a retry) has already put it back. Re-pin it in the pending map
+            // too — the delete did not commit, so it must survive a fetch the same way a
+            // just-recorded payment does.
             if !settlements.contains(where: { $0.id == settlement.id }) {
                 settlements.append(settlement)
             }
+            locallyRecordedSettlements[settlement.id] = settlement
             await computeBalances()
             guard !AppError.isSilent(error) else { return }
             errorAlert = ErrorAlert(title: "Payment Not Removed", message: error.localizedDescription)

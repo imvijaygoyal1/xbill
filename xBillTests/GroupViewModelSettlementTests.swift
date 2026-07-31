@@ -15,10 +15,16 @@ final class FakeSettlementService: SettlementDataProviding {
     /// room to land while the delete is still in flight, for the IMP-1/deletePayment rollback
     /// scoping tests.
     var deleteDelay: Duration?
+    /// Ordered log of call boundaries. A timing test that only asserts final state cannot tell
+    /// a genuine interleaving from a scheduling accident where the two operations happened to
+    /// run back-to-back — this is what lets a test assert the interleaving actually occurred.
+    var events: [String] = []
 
     func fetchSettlements(groupID: UUID) async throws -> [Settlement] {
+        events.append("fetch.start")
         let snapshot = stored
         if let fetchDelay { try? await Task.sleep(for: fetchDelay) }
+        events.append("fetch.end")
         return snapshot
     }
 
@@ -29,14 +35,20 @@ final class FakeSettlementService: SettlementDataProviding {
                            toUserID: toUserID, amount: amount, currency: currency,
                            recordedBy: recordedBy, createdAt: Date())
         stored.append(s)
+        events.append("record")
         return s
     }
 
     func deleteSettlement(id: UUID) async throws {
+        events.append("delete.start")
         if let deleteDelay { try? await Task.sleep(for: deleteDelay) }
-        if let deleteError { throw deleteError }
+        if let deleteError {
+            events.append("delete.failed")
+            throw deleteError
+        }
         deletedIDs.append(id)
         stored.removeAll { $0.id == id }
+        events.append("delete.end")
     }
 }
 
@@ -212,6 +224,7 @@ struct GroupViewModelPaymentTests {
                                 currentUserIDProvider: { bob })
         await vm.load(showError: false)
         #expect(vm.balance(for: bob) == -10)
+        settlements.events = []
 
         // Arm a settlements fetch that snapshots `stored` now (empty) and only returns after
         // the payment below has been recorded — simulating a read that started first but
@@ -228,6 +241,10 @@ struct GroupViewModelPaymentTests {
         // The stale-snapshot load must not have wiped the payment back out.
         #expect(vm.settlements.count == 1)
         #expect(vm.balance(for: bob) == 0)
+        // Prove the fetch's snapshot really was taken before the record and returned after —
+        // i.e. genuine interleaving, not the two operations happening to run back-to-back
+        // (which the final-state assertions above could not distinguish from this).
+        #expect(settlements.events == ["fetch.start", "record", "fetch.end"])
     }
 
     @Test("deletePayment's rollback does not drop a concurrently-recorded payment")
@@ -252,6 +269,7 @@ struct GroupViewModelPaymentTests {
         await vm.load(showError: false)
         await vm.recordPayment(from: bob, to: alice, amount: 5)
         let p1 = try! #require(vm.settlements.first)
+        settlements.events = []
 
         settlements.deleteError = AppError.permissionDenied
         settlements.deleteDelay = .milliseconds(80)
@@ -268,6 +286,9 @@ struct GroupViewModelPaymentTests {
         #expect(vm.settlements.contains { $0.id == p1.id })
         #expect(vm.settlements.contains { $0.amount == 2 })
         #expect(vm.settlements.count == 2)
+        // Prove the record genuinely landed while the delete was still in flight, not before
+        // it started or after it had already failed.
+        #expect(settlements.events == ["delete.start", "record", "delete.failed"])
     }
 
     @Test("Deleting a payment then immediately re-recording it is allowed")
@@ -298,5 +319,36 @@ struct GroupViewModelPaymentTests {
         #expect(vm.settlements.count == 1)
         #expect(settlements.stored.count == 1)
         #expect(vm.errorAlert == nil)
+    }
+
+    @Test("A fetch that omits a previously-returned settlement removes it locally")
+    func fetchOmissionRemovesSettlement() async {
+        // The round-3 Critical (REV-03 reproduced on money): a settlement that was never
+        // recorded through *this* VM's recordPayment — e.g. another member's payment, seen on
+        // an earlier load — must be able to leave `vm.settlements` once a later fetch stops
+        // returning it (they deleted it, or this device's earlier read was stale). The old
+        // merge kept every local row a fetch omitted, with no way for one to ever be dropped;
+        // this settlement is deliberately never touched by recordPayment/deletePayment so this
+        // test exercises only the fetch-merge path, not the pending-map path the other tests
+        // already cover.
+        let group = makeGroup(); let alice = UUID(); let bob = UUID()
+        let expenses = FakeExpenseService(); let settlements = FakeSettlementService()
+        let otherMembersPayment = Settlement(id: UUID(), groupID: group.id, fromUserID: bob,
+                                             toUserID: alice, amount: 5, currency: "USD",
+                                             recordedBy: alice, createdAt: Date())
+        settlements.stored = [otherMembersPayment]
+
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: expenses, settlementService: settlements,
+                                currentUserIDProvider: { bob })
+        await vm.load(showError: false)
+        #expect(vm.settlements.contains { $0.id == otherMembersPayment.id })
+
+        // Simulate the row being deleted elsewhere — by another member, on another device —
+        // which this VM never observes directly. The next fetch simply stops returning it.
+        settlements.stored.removeAll { $0.id == otherMembersPayment.id }
+        await vm.load(showError: false)
+
+        #expect(vm.settlements.isEmpty)
     }
 }
