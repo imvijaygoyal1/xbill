@@ -92,6 +92,65 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-01
+
+### Settlements ledger — device verification, and a crash only the device could find
+All 8 device tests pass against production (migration 041 + `notify-settlement` deployed). Four
+defects were found on this branch **by device testing, with 255 unit tests green throughout and
+eight code reviews passed**. That ratio is the point: every one of them was invisible to the suite.
+
+- **The settle-up row named nobody (DEV-00, fixed in `dd40b74`).** Two avatars and an amount, so a
+  row read "A → A $7.00" whenever two members shared an initial — precisely when knowing who owes
+  whom matters most. Rows now name the parties in text.
+- **`8` instead of `8.00` in Record Payment (`03d8079`).** `NSDecimalNumber.stringValue` drops
+  trailing zeros — the API `H-39` banned, and the same behaviour that made PayPal.Me ignore a
+  settlement amount (`95USD`). `PaymentLinkService.formattedAmount` already existed for exactly
+  this; the sheet just wasn't using it. The final review flagged the line as a Minor and it was
+  triaged as low-risk. It was visible on the first screen opened.
+- **Settle-up rows had random identity (DEV-01, `eb78006`).** `SettlementSuggestion` stored an
+  `id: UUID` that all four construction sites filled with `UUID()`, so every recompute gave
+  structurally identical rows new identities. The stored id is **removed**, not assigned more
+  carefully — `id` is now computed from `fromUserID|toUserID|currency` (currency included because
+  `crossGroupSuggestions` minimizes per currency and concatenates). Also fixed six accessibility
+  identifiers that changed on every refresh, which no UI test could have targeted.
+- **SIGABRT deleting a payment (DEV-03, `022457c`) — the real crash.** `deletePayment` removed the
+  row from `settlements`, then `await computeBalances()`, which **fetched splits over the network**
+  before reassigning `settlementSuggestions`. That `await` split one user action into two
+  separately published mutations of the same `List`, landing either side of a round-trip while the
+  swipe-delete animation was in flight; `UICollectionView` aborted with *"the number of items ...
+  after the update (3) must be equal to the number ... before the update (2), plus or minus the
+  number inserted (0)"*. Recording or deleting a payment changes the ledger and **cannot change a
+  split**, so `splitsMap` was already correct and the fetch was never needed. New synchronous
+  `applyDerivedBalances()` keeps both mutations in one turn. `load()` still refetches.
+
+**Two wrong diagnoses preceded the right one.** DEV-01 was shipped as the crash fix on mechanism
+plausibility and disproved by the next device run; a second hypothesis (the `List` swapping to its
+loading state) was killed before shipping by reading the predicate — both branches require
+`settlementSuggestions.isEmpty`, and there were 2.
+
+**What broke the loop was instrumentation, not insight (DEV-04).** The sentence identifying a UIKit
+assertion exists **only** in the `NSException` `reason`; the `.ips` crash report does not carry it,
+so it was reachable only by holding a `--console` session open at the instant of the crash. That
+failed twice — once the console had detached, once the device went `tunnelState: unavailable`.
+`AppDiagnostics.installUncaughtExceptionLogger()` now writes name, reason and stack into the
+Documents log, making retrieval independent of when the crash happens. The next reproduction
+produced the sentence, and the sentence produced the diagnosis.
+
+Verification: **256 unit tests**, 0 failed (the DEV-03 regression test asserts both payment paths
+fetch **zero** splits — a fetch is the suspension point — and was verified to fail against the
+pre-fix code). Release build clean. Device: `deletePayment.enter` → `.committed` in ~50 ms,
+`wasResurrected=false`, no `uncaughtException`. Database confirmed after each write: the creditor
+path (`Bob Patel → App Reviewer $8.00`, `recorded_by` = App Reviewer) and the partial payment
+(`App Reviewer → Alice Chen $3.00`, leaving $4.00 derived, not stored).
+Evidence: `diagnostics/2026-08-01-settlements/`.
+
+### Key Pattern — a user action must publish one state change, not several
+Never `await` between two mutations that feed the same `List`. A suspension point splits one user
+action into two updates; if an animation (a swipe action, a row removal) is in flight, SwiftUI
+coalesces them against the collection view's already-applied state and `UICollectionView` aborts.
+Before adding an `await` inside a mutation path, ask what it is fetching and whether that data can
+have changed — here it could not, and the round-trip was pure cost plus a crash.
+
 ## Recent Fix Log — 2026-07-28
 
 ### Senior review remediation (REV-02 … REV-13)
