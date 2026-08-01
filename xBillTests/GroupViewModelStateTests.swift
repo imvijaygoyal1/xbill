@@ -22,10 +22,15 @@ final class FakeExpenseService: ExpenseDataProviding {
     var deletedExpenseIDs: [UUID] = []
     var fetchSplitsError: Error?
     var notifyCount = 0
+    /// Counts split fetches so a test can assert that recording or deleting a payment performs
+    /// none. A fetch is a suspension point, and a suspension between the two mutations a
+    /// payment makes is what crashed `UICollectionView` on device — see `applyDerivedBalances`.
+    var fetchSplitsCount = 0
 
     func fetchExpenses(groupID: UUID, limit: Int?) async throws -> [Expense] { expenses }
 
     func fetchSplits(expenseIDs: [UUID]) async throws -> [Split] {
+        fetchSplitsCount += 1
         if let fetchSplitsError { throw fetchSplitsError }
         return splits.filter { expenseIDs.contains($0.expenseID) }
     }

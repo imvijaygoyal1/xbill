@@ -129,7 +129,46 @@ enum AppDiagnostics {
         try? (header + kept + "\n").data(using: .utf8)?.write(to: url, options: .atomic)
     }
 
-    #else
+    #endif
+
+    /// Records an uncaught `NSException`'s name, reason and stack into the Documents log
+    /// before the process aborts.
+    ///
+    /// A UIKit assertion (the settle-up delete crash of 2026-08-01) aborts via
+    /// `objc_exception_throw`, and the sentence that identifies the fault — "the number of
+    /// items contained in an existing section after the update (N) must be equal to..." —
+    /// exists **only** in the exception's `reason`. The `.ips` crash report does not carry
+    /// it, so the fault was diagnosable only by holding a `--console` session open at the
+    /// exact moment of the crash. That failed twice: once because the console had detached,
+    /// once because the device had gone unavailable.
+    ///
+    /// Writing it to the same file every other diagnostic goes to turns a live-capture race
+    /// into a durable artifact that `devicectl device copy from` can fetch at any later time.
+    static func installUncaughtExceptionLogger() {
+        #if DEBUG
+        NSSetUncaughtExceptionHandler { exception in
+            // Deliberately not `log(...)`: this runs on a dying process, so it does the least
+            // work possible and goes straight to the sinks.
+            let text = """
+            ===== UNCAUGHT EXCEPTION =====
+            name:   \(exception.name.rawValue)
+            reason: \(exception.reason ?? "<none>")
+            stack:
+            \(exception.callStackSymbols.joined(separator: "\n"))
+            """
+            AppDiagnostics.log(.lifecycle, "uncaughtException", [
+                ("name", exception.name.rawValue),
+                ("reason", exception.reason ?? "<none>")
+            ])
+            AppDiagnostics.log(.lifecycle, "uncaughtException.stack", [
+                ("frames", exception.callStackSymbols.prefix(24).joined(separator: " | "))
+            ])
+            print(text)
+        }
+        #endif
+    }
+
+    #if !DEBUG
 
     static func log(_ category: Category, _ event: String, _ fields: [(String, Any)] = []) {}
     static func describe(_ error: Error) -> String { "" }

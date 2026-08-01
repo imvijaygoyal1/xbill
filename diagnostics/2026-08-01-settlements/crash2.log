@@ -1,0 +1,1220 @@
+
+===== SESSION START 2026-07-28T01:16:07.431Z =====
+[2026-07-28T01:16:07.430Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:16:07.890Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T01:16:09.190Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:16:18.439Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:16:19.177Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:18:39.062Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:18:39.301Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:18:39.334Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:18:39.837Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:18:40.225Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:18:40.301Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:18:40.301Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:18:44.295Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:18:44.892Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:18:46.086Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:18:48.035Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:18:48.037Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:19:14.738Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:19:16.139Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:21:29.186Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:21:29.404Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:21:29.421Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:21:29.858Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:21:30.183Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:21:30.216Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:21:30.217Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:21:32.908Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:21:32.919Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:21:33.112Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:21:33.474Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:21:33.476Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:22:19.419Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:22:20.187Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:22:37.770Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:22:38.045Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:22:38.078Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:22:38.813Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:22:38.867Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:22:39.193Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:22:39.196Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:22:41.544Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:22:41.557Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:22:41.710Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:22:42.092Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:22:42.094Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:23:26.711Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-28T01:23:26.713Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:23:26.839Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:23:26.877Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-28T01:23:59.965Z] [payment] GroupDetailView.openPaymentURL.request provider=PayPal scheme=https host=paypal.me url=https://paypal.me/imvijaygoyal/1.9USD group=Tokyo Trip
+[2026-07-28T01:24:00.021Z] [payment] GroupDetailView.openPaymentURL.result provider=PayPal accepted=true
+[2026-07-28T01:24:00.048Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:24:00.085Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=false
+[2026-07-28T01:24:00.816Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:24:00.838Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:24:10.155Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:24:10.178Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:24:10.429Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:24:10.469Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:24:10.515Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:24:10.521Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:24:10.642Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:24:10.652Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:24:10.964Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:24:10.965Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:24:11.698Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:24:11.725Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:24:14.384Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:24:14.422Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:24:14.463Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:24:14.468Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:24:14.568Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:24:14.588Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:24:14.848Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:24:14.850Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:24:16.581Z] [payment] GroupDetailView.openPaymentURL.request provider=PayPal scheme=https host=paypal.me url=https://paypal.me/imvijaygoyal/1.9USD group=Tokyo Trip
+[2026-07-28T01:24:16.645Z] [payment] GroupDetailView.openPaymentURL.result provider=PayPal accepted=true
+[2026-07-28T01:24:16.668Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:24:16.686Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=false
+[2026-07-28T01:24:17.411Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:24:17.432Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:25:40.519Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:25:40.548Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:25:40.790Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:25:40.827Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:25:40.871Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:25:40.878Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:25:41.225Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:25:41.291Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:25:41.573Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:25:41.574Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:25:41.659Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:25:41.675Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:25:44.361Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:25:44.398Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:25:44.442Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:25:44.446Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:25:44.527Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:25:44.548Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:25:44.824Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:25:44.825Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:27:19.142Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:27:19.181Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:27:19.707Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:27:19.746Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:29:05.826Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:29:05.856Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:29:06.086Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:29:06.125Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:29:06.173Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:29:06.180Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:29:06.498Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:29:06.561Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:29:06.871Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:29:06.872Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:29:07.160Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:29:07.191Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:29:10.131Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:29:10.171Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:29:10.211Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:29:10.215Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:29:10.299Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:29:10.328Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:29:10.581Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:29:10.583Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:31:07.481Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:31:07.503Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:31:08.298Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:31:08.327Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+
+===== SESSION START 2026-07-28T01:35:46.425Z =====
+[2026-07-28T01:35:46.425Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:35:47.218Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T01:35:47.667Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:35:55.592Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-28T01:35:55.593Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:35:55.705Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:35:55.763Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-28T01:36:13.990Z] [payment] GroupDetailView.openPaymentURL.request provider=PayPal scheme=https host=paypal.me url=https://paypal.me/imvijaygoyal/1.90USD group=Tokyo Trip
+[2026-07-28T01:36:14.052Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:36:14.070Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:36:14.096Z] [payment] GroupDetailView.openPaymentURL.result provider=PayPal accepted=true
+[2026-07-28T01:36:14.801Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:36:14.824Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:36:21.661Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:36:21.679Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:36:21.937Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:36:21.956Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:36:21.995Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:36:22.002Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:36:22.127Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:36:22.175Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:36:22.441Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:36:22.442Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:36:22.815Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:36:22.839Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:36:25.313Z] [payment] GroupDetailView.openPaymentURL.request provider=PayPal scheme=https host=paypal.me url=https://paypal.me/imvijaygoyal/1.90USD group=Tokyo Trip
+[2026-07-28T01:36:25.359Z] [payment] GroupDetailView.openPaymentURL.result provider=PayPal accepted=true
+[2026-07-28T01:36:26.125Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:36:26.148Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:36:30.450Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:36:30.469Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:36:30.729Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:36:30.748Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:36:30.786Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:36:30.794Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:36:30.977Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:36:31.019Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:36:31.355Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:36:31.358Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:36:31.473Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:36:31.497Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:36:34.171Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:36:34.189Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:36:34.223Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:36:34.229Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:36:34.355Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:36:34.367Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:36:34.693Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:36:34.694Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:37:03.157Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:37:03.174Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:37:11.483Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:37:11.502Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:37:12.228Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:37:12.246Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:37:12.280Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:37:12.288Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:37:12.686Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:37:12.732Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:37:13.028Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:37:13.029Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:37:13.709Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:37:13.724Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:37:14.388Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:37:14.421Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:38:39.524Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:38:39.543Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:38:39.720Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:38:39.737Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:38:39.773Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:38:39.779Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:38:40.068Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:38:40.113Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:38:40.482Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:38:40.484Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:38:40.588Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:38:40.610Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:38:42.724Z] [payment] GroupDetailView.openPaymentURL.request provider=PayPal scheme=https host=paypal.me url=https://paypal.me/imvijaygoyal/1.90USD group=Tokyo Trip
+[2026-07-28T01:38:42.770Z] [payment] GroupDetailView.openPaymentURL.result provider=PayPal accepted=true
+[2026-07-28T01:38:43.548Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:38:43.570Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+
+===== SESSION START 2026-07-28T01:43:30.852Z =====
+[2026-07-28T01:43:30.852Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:43:31.561Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T01:43:31.884Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:43:35.092Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-28T01:43:35.093Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:43:35.212Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:43:35.247Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-28T01:44:00.600Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-28T01:44:00.603Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:44:00.746Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:44:00.786Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-28T01:44:02.602Z] [payment] GroupDetailView.openPaymentURL.request provider=PayPal scheme=https host=paypal.me url=https://paypal.me/imvijaygoyal/9.50USD group=Tokyo Trip
+[2026-07-28T01:44:02.662Z] [payment] GroupDetailView.openPaymentURL.result provider=PayPal accepted=true
+[2026-07-28T01:44:02.688Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:44:02.704Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=false
+[2026-07-28T01:44:03.437Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:44:03.457Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:44:10.860Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:44:10.887Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:44:11.126Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:44:11.161Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:44:11.197Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:44:11.203Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:44:11.341Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:44:11.377Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:44:11.714Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:44:11.716Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:44:11.964Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:44:11.989Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:44:14.649Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:44:14.683Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:44:14.723Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:44:14.728Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:44:14.837Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:44:14.853Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:44:15.182Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:44:15.183Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:44:45.891Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:44:45.915Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:45:59.660Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:45:59.695Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:46:00.389Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:46:00.426Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:46:00.460Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:46:00.465Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:46:00.648Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:46:00.683Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:46:00.696Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:46:00.711Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:46:00.976Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:46:00.977Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:46:02.778Z] [payment] GroupDetailView.openPaymentURL.request provider=PayPal scheme=https host=paypal.me url=https://paypal.me/imvijaygoyal/9.50USD group=Tokyo Trip
+[2026-07-28T01:46:02.826Z] [payment] GroupDetailView.openPaymentURL.result provider=PayPal accepted=true
+[2026-07-28T01:46:03.618Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:46:03.638Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:46:08.218Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:46:08.241Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:46:08.486Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:46:08.522Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:46:08.559Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:46:08.565Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:46:08.677Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:46:08.685Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:46:08.979Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:46:08.981Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:46:09.138Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:46:09.163Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:46:11.841Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:46:11.877Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:46:11.914Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:46:11.919Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:46:12.007Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:46:12.023Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:46:12.283Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:46:12.284Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:46:39.384Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:46:39.416Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:50:23.512Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:50:23.542Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:50:24.224Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:50:24.257Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:50:24.287Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:50:24.293Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:50:24.747Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:50:24.791Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:50:25.128Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:50:25.130Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:50:27.536Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:50:27.564Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:50:29.113Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=true
+[2026-07-28T01:50:29.126Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+
+===== SESSION START 2026-07-28T01:51:28.535Z =====
+[2026-07-28T01:51:28.534Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:51:28.844Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T01:51:29.240Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:51:34.965Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-28T01:51:34.966Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:51:35.107Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:51:35.148Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-28T01:51:44.059Z] [payment] GroupDetailView.openPaymentURL.request provider=PayPal scheme=https host=paypal.me url=https://paypal.me/imvijaygoyal/1.90USD group=Tokyo Trip
+[2026-07-28T01:51:44.120Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:51:44.148Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:51:44.154Z] [payment] GroupDetailView.openPaymentURL.result provider=PayPal accepted=true
+[2026-07-28T01:51:44.891Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:51:44.913Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:51:51.760Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:51:51.780Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:51:52.034Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:51:52.061Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:51:52.095Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:51:52.096Z] [payment] handoffPrompt.deferred reason=appLocked provider=PayPal
+[2026-07-28T01:51:52.103Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:51:52.307Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:51:52.351Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:51:52.603Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:51:52.604Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:51:53.124Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:51:53.155Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:51:53.535Z] [payment] handoffPrompt.arming provider=PayPal
+[2026-07-28T01:51:54.166Z] [payment] handoffPrompt.presented provider=PayPal
+[2026-07-28T01:51:55.839Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:51:55.865Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:51:55.902Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:51:55.907Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:51:55.995Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:51:56.004Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:51:56.276Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:51:56.278Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:52:07.250Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:52:07.268Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:52:14.037Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:52:14.058Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:52:15.528Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:52:15.557Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+
+===== SESSION START 2026-07-28T01:55:34.044Z =====
+[2026-07-28T01:55:34.043Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:55:34.220Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T01:55:34.521Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:55:37.626Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-28T01:55:37.627Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:55:37.729Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:55:37.770Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-28T01:55:45.122Z] [payment] GroupDetailView.openPaymentURL.request provider=PayPal scheme=https host=paypal.me url=https://paypal.me/imvijaygoyal/1.90USD group=Tokyo Trip
+[2026-07-28T01:55:45.178Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:55:45.203Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:55:45.210Z] [payment] GroupDetailView.openPaymentURL.result provider=PayPal accepted=true
+[2026-07-28T01:55:45.956Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:55:45.979Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:55:52.934Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:55:52.955Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:55:53.215Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:55:53.234Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T01:55:53.272Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:55:53.273Z] [payment] handoffPrompt.deferred reason=appLocked provider=PayPal
+[2026-07-28T01:55:53.280Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:55:53.400Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:55:53.433Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:55:53.728Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:55:53.730Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:55:54.974Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T01:55:54.999Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=true isLocked=true
+[2026-07-28T01:55:55.389Z] [payment] handoffPrompt.arming provider=PayPal
+[2026-07-28T01:55:56.029Z] [payment] handoffPrompt.presented provider=PayPal
+[2026-07-28T01:55:57.689Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T01:55:57.708Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T01:55:57.744Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:55:57.751Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T01:55:58.223Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T01:55:58.245Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T01:55:58.524Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T01:55:58.527Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T01:56:29.710Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:56:29.725Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+[2026-07-28T01:56:37.337Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T01:56:37.357Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=false
+[2026-07-28T01:56:38.704Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T01:56:38.735Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false pendingHandoff=false isLocked=true
+
+===== SESSION START 2026-07-28T13:41:29.666Z =====
+[2026-07-28T13:41:29.666Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T13:41:31.384Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T13:41:32.020Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T13:41:42.868Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T13:41:43.395Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-07-28T19:29:12.925Z =====
+[2026-07-28T19:29:12.925Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T19:29:14.332Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T19:29:14.759Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T19:29:57.703Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-28T19:29:57.704Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:29:57.864Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T19:29:57.936Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-28T19:30:07.637Z] [payment] GroupDetailView.openPaymentURL.request provider=PayPal scheme=https host=paypal.me url=https://paypal.me/imvijaygoyal/1.90USD group=Tokyo Trip
+[2026-07-28T19:30:07.742Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T19:30:07.759Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-07-28T19:30:07.770Z] [payment] GroupDetailView.openPaymentURL.result provider=PayPal accepted=true
+[2026-07-28T19:30:09.442Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T19:30:09.466Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=pending isLocked=true
+[2026-07-28T19:30:14.711Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T19:30:14.733Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=pending isLocked=true
+[2026-07-28T19:30:14.963Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T19:30:15.001Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T19:30:15.038Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=pending isLocked=true
+[2026-07-28T19:30:15.039Z] [payment] handoffPrompt.deferred reason=appLocked provider=PayPal
+[2026-07-28T19:30:15.044Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:30:15.684Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T19:30:15.695Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=true isLoadingBalances=true hasLoadedBalances=true balanceLoadFailed=false handoff=pending isLocked=true
+[2026-07-28T19:30:15.699Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T19:30:15.700Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T19:30:16.114Z] [payment] handoffPrompt.arming provider=PayPal
+[2026-07-28T19:30:16.275Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T19:30:16.277Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T19:30:16.736Z] [payment] handoffPrompt.presented provider=PayPal
+[2026-07-28T19:30:18.402Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T19:30:18.439Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T19:30:18.474Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=asking isLocked=false
+[2026-07-28T19:30:18.479Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:30:18.742Z] [lifecycle] alert.presented binding=item callSite=xBill/GroupDetailView.swift:335 title=Something went wrong message=This settlement cannot be matched to the current expense splits. Refresh the group and try again.
+[2026-07-28T19:30:18.876Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T19:30:18.890Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T19:30:19.329Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T19:30:19.331Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T19:31:37.891Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T19:31:37.912Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-07-28T19:31:38.660Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T19:31:38.690Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+
+===== SESSION START 2026-07-28T19:42:15.113Z =====
+[2026-07-28T19:42:15.113Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T19:42:16.221Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T19:42:16.637Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T19:42:18.409Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-28T19:42:18.410Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:42:18.536Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=6 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T19:42:18.589Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-28T19:42:28.315Z] [balance] GroupViewModel.recordSettlement.enter group=Tokyo Trip from=73E894FF-E588-4760-881D-2B0E2B3A0FBD to=AAAAAAAA-0001-0001-0001-000000000001 amount=0.6
+[2026-07-28T19:42:28.501Z] [balance] GroupViewModel.recordSettlement.splitsUpdated group=Tokyo Trip count=1 amount=0.6
+[2026-07-28T19:42:29.254Z] [balance] GroupViewModel.load.skipped group=Tokyo Trip reason=already loading
+[2026-07-28T19:42:33.227Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=6 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:42:33.240Z] [balance] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-28T19:42:34.440Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=6 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:42:34.452Z] [balance] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-28T19:42:35.759Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=6 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:42:35.771Z] [balance] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-28T19:43:31.443Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T19:43:31.471Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=6 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-07-28T19:43:34.572Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T19:43:34.614Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=6 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+
+===== SESSION START 2026-07-28T19:46:07.753Z =====
+[2026-07-28T19:46:07.752Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T19:46:08.414Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T19:46:08.972Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T19:46:11.078Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-28T19:46:11.079Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:46:11.207Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=5 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T19:46:11.238Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-28T19:46:30.051Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=5 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:46:30.068Z] [balance] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-28T19:46:30.967Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=5 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:46:30.981Z] [balance] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-28T19:46:32.242Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=5 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:46:32.254Z] [balance] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-28T19:46:34.778Z] [balance] GroupViewModel.recordSettlement.enter group=Tokyo Trip from=73E894FF-E588-4760-881D-2B0E2B3A0FBD to=AAAAAAAA-0002-0002-0002-000000000002 amount=0.4
+[2026-07-28T19:46:34.872Z] [balance] GroupViewModel.recordSettlement.splitsUpdated group=Tokyo Trip count=1 amount=0.4
+[2026-07-28T19:46:35.421Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=5 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:46:35.564Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T19:46:37.005Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:46:37.018Z] [balance] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-28T19:46:39.579Z] [balance] GroupViewModel.recordSettlement.enter group=Tokyo Trip from=AAAAAAAA-0001-0001-0001-000000000001 to=73E894FF-E588-4760-881D-2B0E2B3A0FBD amount=2.3
+[2026-07-28T19:46:39.815Z] [balance] GroupViewModel.recordSettlement.splitsUpdated group=Tokyo Trip count=3 amount=2.3
+[2026-07-28T19:46:40.567Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:46:40.697Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T19:46:42.811Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:46:42.823Z] [balance] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-28T19:46:43.615Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:46:43.628Z] [balance] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-28T19:46:46.663Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:46:46.674Z] [balance] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-28T19:47:17.177Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T19:47:17.214Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=background connected=true expenses=5 suggestions=4 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-07-28T19:47:32.402Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T19:47:32.434Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=4 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-07-28T19:47:33.137Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T19:47:33.162Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T19:47:33.190Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=4 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-07-28T19:47:33.196Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:47:33.360Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T19:47:33.368Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=4 isLoading=true isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-07-28T19:47:33.513Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T19:47:33.581Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T19:47:33.963Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T19:47:33.965Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T19:47:37.906Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T19:47:37.934Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T19:47:38.074Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T19:47:38.369Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T19:47:38.371Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T19:47:40.227Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T19:47:40.945Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-07-28T19:51:13.679Z =====
+[2026-07-28T19:51:13.678Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T19:51:14.445Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T19:51:14.814Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T19:51:19.926Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-28T19:51:19.927Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:51:20.095Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T19:51:20.134Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-28T19:51:25.157Z] [balance] GroupViewModel.recordSettlement.enter group=Tokyo Trip from=AAAAAAAA-0001-0001-0001-000000000001 to=73E894FF-E588-4760-881D-2B0E2B3A0FBD amount=2.3
+[2026-07-28T19:51:25.536Z] [balance] GroupViewModel.recordSettlement.splitsUpdated group=Tokyo Trip count=3 amount=2.3
+[2026-07-28T19:51:26.793Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:51:26.960Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T19:52:10.088Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T19:52:10.111Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=4 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-07-28T19:52:10.780Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T19:52:10.815Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=4 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+
+===== SESSION START 2026-07-28T19:53:26.731Z =====
+[2026-07-28T19:53:26.731Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T19:53:27.309Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T19:53:27.625Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T19:53:30.990Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-28T19:53:30.991Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:53:31.286Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T19:53:31.326Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-28T19:53:34.805Z] [balance] GroupViewModel.recordSettlement.enter group=Tokyo Trip from=AAAAAAAA-0001-0001-0001-000000000001 to=73E894FF-E588-4760-881D-2B0E2B3A0FBD amount=2.3
+[2026-07-28T19:53:34.932Z] [balance] GroupViewModel.recordSettlement.splitsUpdated group=Tokyo Trip count=3 amount=2.3
+[2026-07-28T19:53:35.565Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:53:35.696Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T19:53:39.240Z] [balance] GroupViewModel.recordSettlement.enter group=Tokyo Trip from=AAAAAAAA-0001-0001-0001-000000000001 to=AAAAAAAA-0002-0002-0002-000000000002 amount=0.4
+[2026-07-28T19:53:39.337Z] [balance] GroupViewModel.recordSettlement.splitsUpdated group=Tokyo Trip count=1 amount=0.4
+[2026-07-28T19:53:39.666Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:53:39.791Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T19:54:08.977Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T19:54:09.001Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-07-28T19:54:12.007Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T19:54:12.040Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-07-28T19:54:12.814Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T19:54:12.841Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T19:54:12.866Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-07-28T19:54:12.871Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T19:54:13.204Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T19:54:13.251Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T19:54:14.348Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T19:54:14.350Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T19:55:15.459Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T19:55:15.479Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-07-28T19:55:16.139Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T19:55:16.168Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+
+===== SESSION START 2026-07-28T20:02:10.055Z =====
+[2026-07-28T20:02:10.055Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T20:02:10.906Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T20:02:11.185Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T20:02:13.473Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T20:02:14.200Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T20:02:14.990Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T20:02:15.272Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T20:02:15.306Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T20:02:15.454Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T20:02:15.712Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T20:02:15.714Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T20:02:16.076Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T20:02:18.810Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T20:02:18.840Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T20:02:18.969Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T20:02:19.236Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T20:02:19.238Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T20:02:20.504Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T20:02:21.768Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T20:02:22.339Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T20:02:22.619Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T20:02:22.649Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T20:02:22.924Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T20:02:23.310Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T20:02:23.312Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T20:02:23.610Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T20:02:26.323Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T20:02:26.355Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T20:02:26.527Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T20:02:27.013Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T20:02:27.013Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T20:03:43.253Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T20:04:53.611Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T20:04:54.321Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T20:04:54.342Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T20:04:54.917Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T20:04:54.958Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T20:04:55.201Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T20:04:55.202Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T20:04:57.696Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T20:04:57.716Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T20:04:57.829Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T20:04:58.033Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T20:04:58.034Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T20:05:06.319Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-28T20:05:06.320Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T20:05:06.407Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T20:05:06.434Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-28T20:05:10.072Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T20:05:10.093Z] [balance] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-28T20:05:22.402Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=true connected=true expenses=5 cachedExpenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T20:05:22.416Z] [balance] GroupViewModel.load.catch group=Tokyo Trip showError=true silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-07-28T20:06:44.030Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T20:06:44.073Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=background connected=true expenses=5 suggestions=4 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-07-28T20:23:03.840Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T20:23:03.876Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=background to=inactive connected=true expenses=5 suggestions=4 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-07-28T20:23:04.538Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T20:23:04.580Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T20:23:04.616Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=active connected=true expenses=5 suggestions=4 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-07-28T20:23:04.621Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T20:23:04.735Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T20:23:04.748Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=active to=inactive connected=true expenses=5 suggestions=4 isLoading=true isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-07-28T20:23:05.361Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=true
+[2026-07-28T20:23:05.381Z] [lifecycle] GroupDetailView.scenePhase group=Tokyo Trip from=inactive to=background connected=true expenses=5 suggestions=4 isLoading=true isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+
+===== SESSION START 2026-07-28T21:15:10.433Z =====
+[2026-07-28T21:15:10.433Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T21:15:11.697Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T21:15:12.039Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T21:15:55.913Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T21:16:29.526Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T21:16:30.326Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T21:16:30.352Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T21:16:30.526Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T21:16:30.866Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T21:16:30.938Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T21:16:30.939Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T21:16:31.593Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T21:16:36.089Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T21:16:36.297Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T21:16:36.327Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T21:16:36.519Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T21:16:36.890Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T21:16:36.892Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T21:16:37.196Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T21:16:39.916Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T21:16:39.947Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T21:16:39.999Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T21:16:40.952Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T21:16:40.954Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T21:17:12.954Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T21:17:17.625Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T21:17:18.429Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T21:17:18.459Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T21:17:18.796Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T21:17:18.883Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T21:17:19.213Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T21:17:19.214Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T21:17:21.396Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-07-28T21:24:31.880Z =====
+[2026-07-28T21:24:31.880Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T21:24:32.407Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T21:24:32.787Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T21:25:03.200Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-28T21:25:03.201Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T21:25:03.321Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T21:25:03.676Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-28T21:25:15.625Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T21:25:16.339Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T21:25:22.076Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T21:25:22.241Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T21:25:22.260Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T21:25:22.528Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T21:25:22.827Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T21:25:22.829Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T21:25:24.226Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T21:25:26.947Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T21:25:26.976Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T21:25:27.124Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T21:25:27.322Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T21:25:27.323Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T21:25:28.077Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-07-28T21:25:28.085Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-07-28T21:25:28.234Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=4 hasLoadedBalances=true balanceLoadFailed=false
+[2026-07-28T21:25:28.266Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-07-28T21:25:36.543Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T21:25:37.293Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-07-28T22:07:09.584Z =====
+[2026-07-28T22:07:09.584Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:07:10.494Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T22:07:10.865Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:07:56.598Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T22:08:01.448Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:08:02.199Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T22:08:02.227Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:08:02.364Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:08:02.568Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:08:02.927Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:08:02.929Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:08:03.284Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T22:08:03.313Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:08:03.467Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:08:03.730Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:08:03.732Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:08:27.244Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:08:27.975Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T22:08:28.197Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:08:28.432Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T22:08:28.460Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T22:08:29.022Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:08:29.286Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:08:29.299Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:08:29.300Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:08:32.009Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T22:08:32.035Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:08:32.221Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:08:32.513Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:08:32.515Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:08:49.841Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:08:50.541Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T22:08:50.775Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:08:51.007Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T22:08:51.036Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T22:08:51.182Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:08:51.416Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:08:51.418Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:08:51.805Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:08:54.521Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T22:08:54.548Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:08:54.693Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:08:54.953Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:08:54.956Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:09:09.051Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:09:09.785Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T22:09:11.096Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:09:11.293Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T22:09:11.321Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T22:09:11.681Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:09:11.932Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:09:12.018Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:09:12.020Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:09:14.641Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T22:09:14.669Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:09:14.874Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:09:15.220Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:09:15.222Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:10:58.435Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T22:11:03.424Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:11:04.272Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T22:11:04.303Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:11:04.329Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:11:04.846Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:11:05.167Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-07-28T22:15:18.564Z =====
+[2026-07-28T22:15:18.564Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:15:18.981Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T22:15:19.284Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:15:27.092Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:15:27.835Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T22:15:28.364Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:15:28.564Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T22:15:28.592Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T22:15:28.858Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:15:29.142Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:15:29.144Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:15:29.384Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:15:32.115Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1
+[2026-07-28T22:15:32.160Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:15:32.317Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:15:32.629Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:15:32.630Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:18:19.517Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:18:20.667Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-07-28T22:19:11.064Z =====
+[2026-07-28T22:19:11.063Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:19:11.476Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T22:19:11.753Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:19:22.282Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:19:22.988Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T22:19:24.055Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:19:24.248Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=true
+[2026-07-28T22:19:24.266Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T22:19:25.107Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:19:25.528Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-28T22:19:25.820Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-07-28T22:19:27.825Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-28T22:19:27.850Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:19:28.052Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:19:28.400Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:19:28.403Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+
+===== SESSION START 2026-07-28T22:23:25.500Z =====
+[2026-07-28T22:23:25.500Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:23:25.959Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T22:23:26.256Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:23:31.522Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:23:32.238Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T22:23:33.123Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:23:33.326Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=true
+[2026-07-28T22:23:33.342Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T22:23:34.274Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:23:34.706Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-28T22:23:34.994Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-07-28T22:23:37.006Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-28T22:23:37.031Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:23:37.220Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:23:37.919Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:23:37.921Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:24:52.361Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:24:53.127Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-07-28T22:27:06.079Z =====
+[2026-07-28T22:27:06.079Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:27:06.521Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T22:27:06.794Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:27:17.297Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:27:18.020Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T22:27:18.578Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:27:18.780Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=true
+[2026-07-28T22:27:18.796Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T22:27:19.343Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:27:19.766Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-28T22:27:19.947Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-07-28T22:27:22.075Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-28T22:27:22.100Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:27:22.271Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:27:22.533Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:27:22.535Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:27:59.657Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:28:00.955Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T22:28:01.784Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:28:01.975Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=true
+[2026-07-28T22:28:02.000Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T22:28:02.558Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:28:02.975Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-28T22:28:03.244Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-07-28T22:28:05.284Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-28T22:28:05.317Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:28:05.466Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:28:05.709Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:28:05.711Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:28:06.317Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T22:28:09.432Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-28T22:28:09.756Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-07-28T22:28:10.690Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:28:11.488Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-28T22:28:11.522Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:28:11.807Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:28:12.007Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:28:12.356Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:28:12.358Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:28:12.543Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T22:28:19.569Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:28:19.839Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=true
+[2026-07-28T22:28:19.865Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T22:28:20.495Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:28:21.134Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=true
+
+===== SESSION START 2026-07-28T22:31:12.816Z =====
+[2026-07-28T22:31:12.816Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:31:13.467Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T22:31:13.806Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:31:15.274Z] [balance] ActivityService.markRead.failed error={swiftType=PostgrestError | domain=Helpers.PostgrestError | code=1 | localized=Cannot coerce the result to a single JSON object}
+[2026-07-28T22:31:15.281Z] [lifecycle] alert.presented binding=item callSite=xBill/ActivityView.swift:58 title=Activity Update Failed message=This notification could not be marked read. Try again.
+[2026-07-28T22:31:16.909Z] [balance] ActivityService.markRead.failed error={swiftType=PostgrestError | domain=Helpers.PostgrestError | code=1 | localized=Cannot coerce the result to a single JSON object}
+[2026-07-28T22:31:16.916Z] [lifecycle] alert.presented binding=item callSite=xBill/ActivityView.swift:58 title=Activity Update Failed message=This notification could not be marked read. Try again.
+[2026-07-28T22:31:20.180Z] [balance] ActivityService.markRead.failed error={swiftType=PostgrestError | domain=Helpers.PostgrestError | code=1 | localized=Cannot coerce the result to a single JSON object}
+[2026-07-28T22:31:20.186Z] [lifecycle] alert.presented binding=item callSite=xBill/ActivityView.swift:58 title=Activity Update Failed message=This notification could not be marked read. Try again.
+[2026-07-28T22:31:21.766Z] [balance] ActivityService.markUnread.failed error={swiftType=PostgrestError | domain=Helpers.PostgrestError | code=1 | localized=Cannot coerce the result to a single JSON object}
+[2026-07-28T22:31:21.778Z] [lifecycle] alert.presented binding=item callSite=xBill/ActivityView.swift:58 title=Activity Update Failed message=This notification could not be marked unread. Try again.
+[2026-07-28T22:31:23.057Z] [balance] ActivityService.markUnread.failed error={swiftType=PostgrestError | domain=Helpers.PostgrestError | code=1 | localized=Cannot coerce the result to a single JSON object}
+[2026-07-28T22:31:23.070Z] [lifecycle] alert.presented binding=item callSite=xBill/ActivityView.swift:58 title=Activity Update Failed message=This notification could not be marked unread. Try again.
+[2026-07-28T22:31:29.107Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:31:29.834Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T22:31:31.065Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:31:31.268Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=true
+[2026-07-28T22:31:31.284Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T22:31:35.186Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T22:31:35.627Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-28T22:31:35.863Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-07-28T22:31:37.936Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-28T22:31:37.962Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:31:38.112Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:31:38.352Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:31:38.354Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:32:26.945Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:32:26.972Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-28T22:32:26.994Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T22:32:27.012Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T22:32:27.258Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T22:32:27.539Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T22:32:27.541Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T22:32:30.994Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-28T22:32:34.045Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T22:32:35.220Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-07-28T23:05:58.622Z =====
+[2026-07-28T23:05:58.622Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T23:05:59.391Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T23:05:59.801Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T23:06:06.549Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T23:06:07.269Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T23:06:08.020Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T23:06:08.212Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=true
+[2026-07-28T23:06:08.239Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T23:06:09.373Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T23:06:09.783Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-28T23:06:10.083Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-07-28T23:06:12.099Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-28T23:06:12.130Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T23:06:12.358Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T23:06:12.803Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T23:06:12.805Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T23:06:17.187Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T23:06:18.137Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-07-28T23:47:42.621Z =====
+[2026-07-28T23:47:42.621Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T23:47:43.419Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-28T23:47:43.816Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T23:48:04.230Z] [balance] ActivityViewModel.readState.localOnly id=EEEEEEEE-0001-0001-0001-000000000001 isRead=false serverBacked=false
+[2026-07-28T23:48:17.747Z] [balance] ActivityViewModel.readState.remote id=2D660169-8B56-47A3-AE87-79A78EF176E8 isRead=true succeeded=true
+[2026-07-28T23:48:19.784Z] [balance] ActivityViewModel.readState.remote id=2D660169-8B56-47A3-AE87-79A78EF176E8 isRead=false succeeded=true
+[2026-07-28T23:48:35.609Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T23:48:36.317Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-28T23:48:43.201Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T23:48:43.398Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=true
+[2026-07-28T23:48:43.415Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-28T23:48:44.558Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-28T23:48:44.973Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-28T23:48:45.540Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-07-28T23:48:47.270Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-28T23:48:47.296Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T23:48:47.469Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T23:48:47.908Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T23:48:47.911Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T23:49:30.473Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-07-28T23:49:53.843Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-28T23:49:55.995Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T23:49:56.320Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-07-28T23:49:56.707Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-28T23:49:56.732Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-28T23:49:56.787Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-28T23:49:56.899Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-28T23:49:57.278Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-28T23:49:57.281Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-28T23:49:57.534Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-29T00:29:53.746Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-29T00:29:53.938Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=true
+[2026-07-29T00:29:53.956Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-29T00:29:56.214Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-29T00:29:56.633Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-29T00:29:57.644Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-07-29T00:29:58.929Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-29T00:29:58.955Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-29T00:29:59.189Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-29T00:29:59.509Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-29T00:29:59.511Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-29T00:30:11.204Z] [balance] ActivityViewModel.delete.localOnly id=EEEEEEEE-0001-0001-0001-000000000001
+[2026-07-29T00:30:14.556Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-29T00:30:15.272Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-07-29T00:30:22.280Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-07-29T00:30:22.480Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=true
+[2026-07-29T00:30:22.496Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-07-29T00:30:23.309Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-07-29T00:30:23.725Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-07-29T00:30:24.040Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-07-29T00:30:26.031Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-29T00:30:26.057Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-29T00:30:26.238Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-29T00:30:26.639Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-29T00:30:26.641Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-29T00:30:52.094Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-29T00:30:52.809Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-07-29T02:28:07.768Z =====
+[2026-07-29T02:28:07.767Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-29T02:28:09.098Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-29T02:28:09.485Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-29T02:28:21.592Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-29T02:28:22.331Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-07-31T16:37:46.802Z =====
+[2026-07-31T16:37:46.802Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-31T16:37:49.034Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-07-31T16:37:50.117Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-31T16:38:24.644Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-31T16:38:26.191Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-07-31T16:38:26.221Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-07-31T16:38:26.775Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-07-31T16:38:27.418Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-07-31T16:38:27.420Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-07-31T16:38:28.354Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-07-31T16:38:28.962Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-08-01T14:35:08.488Z =====
+[2026-08-01T14:35:08.487Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-08-01T14:35:10.302Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-08-01T14:35:11.310Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-08-01T14:36:46.727Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-08-01T14:37:35.672Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-08-01T14:37:36.427Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=true
+[2026-08-01T14:37:36.455Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-08-01T14:37:36.833Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-08-01T14:37:37.249Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-08-01T14:37:37.980Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-08-01T14:37:39.316Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-08-01T14:39:41.516Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-08-01T14:39:41.724Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=true
+[2026-08-01T14:39:41.752Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-08-01T14:39:43.706Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-08-01T14:39:44.126Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-08-01T14:39:44.992Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-08-01T14:39:46.436Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=1 isLocked=false
+[2026-08-01T14:39:46.468Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-08-01T14:39:46.634Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-08-01T14:39:47.079Z] [balance] HomeViewModel.loadAll.success groups=1
+[2026-08-01T14:39:47.082Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-08-01T14:39:54.477Z] [lifecycle] GroupDetailView.task.begin group=Tokyo Trip
+[2026-08-01T14:39:54.478Z] [balance] GroupViewModel.load.enter group=Tokyo Trip groupID=CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC showError=false connected=true expenses=5 cachedExpenses=5 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T14:39:54.629Z] [balance] GroupViewModel.load.success group=Tokyo Trip expenses=5 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T14:39:54.654Z] [lifecycle] GroupDetailView.task.end group=Tokyo Trip
+[2026-08-01T14:40:55.519Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-08-01T14:40:55.536Z] [balance] HomeViewModel.loadAll.catch silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-08-01T14:40:58.864Z] [balance] HomeViewModel.loadAll.enter connected=true groups=1 isLoading=false
+[2026-08-01T14:40:58.885Z] [balance] HomeViewModel.loadAll.catch silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-08-01T14:40:58.894Z] [balance] HomeViewModel.loadArchivedGroups.catch silent=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-08-01T14:41:26.930Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-08-01T14:41:27.958Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-08-01T14:42:58.525Z =====
+[2026-08-01T14:42:58.525Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-08-01T14:42:59.238Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-08-01T14:42:59.680Z] [balance] HomeViewModel.loadAll.success groups=2
+[2026-08-01T14:43:15.766Z] [lifecycle] GroupDetailView.task.begin group=Ledger Test 🧪
+[2026-08-01T14:43:15.767Z] [balance] GroupViewModel.load.enter group=Ledger Test 🧪 groupID=BBBB0001-0000-0000-0000-000000000001 showError=false connected=true expenses=3 cachedExpenses=3 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T14:43:15.915Z] [balance] GroupViewModel.load.success group=Ledger Test 🧪 expenses=3 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T14:43:15.942Z] [lifecycle] GroupDetailView.task.end group=Ledger Test 🧪
+[2026-08-01T14:44:41.766Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-08-01T14:44:41.799Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=active to=inactive connected=true expenses=3 suggestions=3 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-08-01T14:44:42.490Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-08-01T14:44:42.525Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=inactive to=background connected=true expenses=3 suggestions=3 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+
+===== SESSION START 2026-08-01T14:50:09.703Z =====
+[2026-08-01T14:50:09.702Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-08-01T14:50:10.257Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-08-01T14:50:11.215Z] [balance] HomeViewModel.loadAll.success groups=2
+[2026-08-01T14:50:13.049Z] [lifecycle] GroupDetailView.task.begin group=Ledger Test 🧪
+[2026-08-01T14:50:13.050Z] [balance] GroupViewModel.load.enter group=Ledger Test 🧪 groupID=BBBB0001-0000-0000-0000-000000000001 showError=false connected=true expenses=3 cachedExpenses=3 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T14:50:13.167Z] [balance] GroupViewModel.load.success group=Ledger Test 🧪 expenses=3 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T14:50:13.191Z] [lifecycle] GroupDetailView.task.end group=Ledger Test 🧪
+[2026-08-01T14:51:34.205Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-08-01T14:51:34.913Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+
+===== SESSION START 2026-08-01T14:51:38.214Z =====
+[2026-08-01T14:51:38.214Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-08-01T14:51:38.377Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-08-01T14:51:38.725Z] [balance] HomeViewModel.loadAll.success groups=2
+[2026-08-01T14:51:45.360Z] [balance] HomeViewModel.loadAll.enter connected=true groups=2 isLoading=false
+[2026-08-01T14:51:45.383Z] [balance] HomeViewModel.loadAll.catch silent=true connected=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-08-01T14:51:45.392Z] [balance] HomeViewModel.loadArchivedGroups.catch silent=true error={swiftType=CancellationError | domain=Swift.CancellationError | code=1 | localized=The operation couldn’t be completed. (Swift.CancellationError error 1.)}
+[2026-08-01T14:51:47.270Z] [lifecycle] GroupDetailView.task.begin group=Ledger Test 🧪
+[2026-08-01T14:51:47.272Z] [balance] GroupViewModel.load.enter group=Ledger Test 🧪 groupID=BBBB0001-0000-0000-0000-000000000001 showError=false connected=true expenses=3 cachedExpenses=3 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T14:51:47.402Z] [balance] GroupViewModel.load.success group=Ledger Test 🧪 expenses=3 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T14:51:47.438Z] [lifecycle] GroupDetailView.task.end group=Ledger Test 🧪
+[2026-08-01T14:53:38.421Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-08-01T14:53:38.445Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=active to=background connected=true expenses=3 suggestions=3 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-08-01T14:54:10.290Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-08-01T14:54:10.312Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=background to=inactive connected=true expenses=3 suggestions=3 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-08-01T14:54:11.019Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=2 isLocked=true
+[2026-08-01T14:54:11.042Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-08-01T14:54:11.064Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=inactive to=active connected=true expenses=3 suggestions=3 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-08-01T14:54:11.073Z] [balance] GroupViewModel.load.enter group=Ledger Test 🧪 groupID=BBBB0001-0000-0000-0000-000000000001 showError=false connected=true expenses=3 cachedExpenses=3 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T14:54:11.593Z] [balance] GroupViewModel.load.success group=Ledger Test 🧪 expenses=3 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T14:54:11.985Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-08-01T14:54:12.008Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=active to=inactive connected=true expenses=3 suggestions=3 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-08-01T14:54:12.412Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-08-01T14:54:12.668Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-08-01T14:54:14.687Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=2 isLocked=false
+[2026-08-01T14:54:14.712Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-08-01T14:54:14.748Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=inactive to=active connected=true expenses=3 suggestions=3 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-08-01T14:54:14.754Z] [balance] GroupViewModel.load.enter group=Ledger Test 🧪 groupID=BBBB0001-0000-0000-0000-000000000001 showError=false connected=true expenses=3 cachedExpenses=3 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T14:54:14.924Z] [balance] GroupViewModel.load.success group=Ledger Test 🧪 expenses=3 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T14:54:14.967Z] [balance] HomeViewModel.loadAll.enter connected=true groups=2 isLoading=false
+[2026-08-01T14:54:15.293Z] [balance] HomeViewModel.loadAll.success groups=2
+[2026-08-01T14:54:15.295Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-08-01T14:54:51.747Z] [lifecycle] GroupDetailView.task.begin group=Ledger Test 🧪
+[2026-08-01T14:54:51.755Z] [balance] GroupViewModel.load.enter group=Ledger Test 🧪 groupID=BBBB0001-0000-0000-0000-000000000001 showError=false connected=true expenses=3 cachedExpenses=3 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T14:54:52.205Z] [balance] GroupViewModel.load.success group=Ledger Test 🧪 expenses=3 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T14:54:52.245Z] [lifecycle] GroupDetailView.task.end group=Ledger Test 🧪
+[2026-08-01T14:57:01.775Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-08-01T14:57:01.808Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=active to=inactive connected=true expenses=3 suggestions=3 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-08-01T14:57:02.577Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-08-01T14:57:02.612Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=inactive to=background connected=true expenses=3 suggestions=3 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+
+===== SESSION START 2026-08-01T15:00:23.307Z =====
+[2026-08-01T15:00:23.306Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-08-01T15:00:24.218Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-08-01T15:00:25.341Z] [balance] HomeViewModel.loadAll.success groups=2
+[2026-08-01T15:00:27.499Z] [lifecycle] GroupDetailView.task.begin group=Ledger Test 🧪
+[2026-08-01T15:00:27.500Z] [balance] GroupViewModel.load.enter group=Ledger Test 🧪 groupID=BBBB0001-0000-0000-0000-000000000001 showError=false connected=true expenses=3 cachedExpenses=3 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T15:00:27.855Z] [balance] GroupViewModel.load.success group=Ledger Test 🧪 expenses=3 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T15:00:27.900Z] [lifecycle] GroupDetailView.task.end group=Ledger Test 🧪
+[2026-08-01T15:01:47.514Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-08-01T15:01:47.546Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=active to=inactive connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-08-01T15:01:48.224Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-08-01T15:01:48.260Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=inactive to=background connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-08-01T15:05:19.769Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-08-01T15:05:19.803Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=background to=inactive connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-08-01T15:05:19.948Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=2 isLocked=true
+[2026-08-01T15:05:19.961Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-08-01T15:05:19.976Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=inactive to=active connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-08-01T15:05:19.982Z] [balance] GroupViewModel.load.enter group=Ledger Test 🧪 groupID=BBBB0001-0000-0000-0000-000000000001 showError=false connected=true expenses=3 cachedExpenses=3 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T15:05:20.829Z] [balance] GroupViewModel.load.success group=Ledger Test 🧪 expenses=3 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T15:05:20.889Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-08-01T15:05:20.912Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=active to=inactive connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-08-01T15:05:21.323Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-08-01T15:05:21.604Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-08-01T15:05:23.617Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=2 isLocked=false
+[2026-08-01T15:05:23.645Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-08-01T15:05:23.683Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=inactive to=active connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-08-01T15:05:23.689Z] [balance] GroupViewModel.load.enter group=Ledger Test 🧪 groupID=BBBB0001-0000-0000-0000-000000000001 showError=false connected=true expenses=3 cachedExpenses=3 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T15:05:23.800Z] [balance] GroupViewModel.load.success group=Ledger Test 🧪 expenses=3 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T15:05:23.878Z] [balance] HomeViewModel.loadAll.enter connected=true groups=2 isLoading=false
+[2026-08-01T15:05:24.317Z] [balance] HomeViewModel.loadAll.success groups=2
+[2026-08-01T15:05:24.319Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+
+===== SESSION START 2026-08-01T15:08:04.658Z =====
+[2026-08-01T15:08:04.658Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-08-01T15:08:05.312Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-08-01T15:08:05.683Z] [balance] HomeViewModel.loadAll.success groups=2
+[2026-08-01T15:08:58.183Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-08-01T15:09:20.487Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-08-01T15:09:21.285Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=2 isLocked=true
+[2026-08-01T15:09:21.306Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-08-01T15:09:21.525Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-08-01T15:09:22.216Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-08-01T15:09:22.896Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-08-01T15:09:23.790Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-08-01T15:09:24.028Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-08-01T15:09:24.267Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=2 isLocked=true
+[2026-08-01T15:09:24.290Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-08-01T15:09:24.993Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-08-01T15:09:25.427Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-08-01T15:09:26.132Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-08-01T15:09:27.724Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=2 isLocked=false
+[2026-08-01T15:09:27.757Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-08-01T15:09:27.967Z] [lifecycle] GroupDetailView.task.begin group=Ledger Test 🧪
+[2026-08-01T15:09:27.968Z] [balance] GroupViewModel.load.enter group=Ledger Test 🧪 groupID=BBBB0001-0000-0000-0000-000000000001 showError=false connected=true expenses=3 cachedExpenses=3 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T15:09:28.048Z] [balance] HomeViewModel.loadAll.enter connected=true groups=2 isLoading=false
+[2026-08-01T15:09:28.124Z] [balance] GroupViewModel.load.success group=Ledger Test 🧪 expenses=3 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T15:09:28.157Z] [lifecycle] GroupDetailView.task.end group=Ledger Test 🧪
+[2026-08-01T15:09:28.357Z] [balance] HomeViewModel.loadAll.success groups=2
+[2026-08-01T15:09:28.359Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-08-01T15:13:16.386Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-08-01T15:13:16.405Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=active to=inactive connected=true expenses=3 suggestions=3 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-08-01T15:13:17.055Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-08-01T15:13:17.092Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=inactive to=background connected=true expenses=3 suggestions=3 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+
+===== SESSION START 2026-08-01T15:53:14.511Z =====
+[2026-08-01T15:53:14.511Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-08-01T15:53:16.006Z] [balance] HomeViewModel.loadAll.enter connected=true groups=0 isLoading=false
+[2026-08-01T15:53:16.509Z] [balance] HomeViewModel.loadAll.success groups=2
+[2026-08-01T15:53:19.586Z] [lifecycle] GroupDetailView.task.begin group=Ledger Test 🧪
+[2026-08-01T15:53:19.587Z] [balance] GroupViewModel.load.enter group=Ledger Test 🧪 groupID=BBBB0001-0000-0000-0000-000000000001 showError=false connected=true expenses=3 cachedExpenses=3 suggestions=0 hasLoadedBalances=false balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T15:53:19.733Z] [balance] GroupViewModel.load.success group=Ledger Test 🧪 expenses=3 suggestions=3 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T15:53:19.773Z] [lifecycle] GroupDetailView.task.end group=Ledger Test 🧪
+[2026-08-01T15:53:33.906Z] [lifecycle] ContentView.scenePhase from=active to=background appLockEnabled=true isLocked=false
+[2026-08-01T15:53:33.930Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=active to=background connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-08-01T15:53:36.391Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-08-01T15:53:36.748Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-08-01T15:53:43.218Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=false
+[2026-08-01T15:53:43.249Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=background to=inactive connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-08-01T15:53:43.970Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=2 isLocked=false
+[2026-08-01T15:53:43.995Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-08-01T15:53:44.030Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=inactive to=active connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-08-01T15:53:44.035Z] [balance] GroupViewModel.load.enter group=Ledger Test 🧪 groupID=BBBB0001-0000-0000-0000-000000000001 showError=false connected=true expenses=3 cachedExpenses=3 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T15:53:44.339Z] [balance] GroupViewModel.load.success group=Ledger Test 🧪 expenses=3 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T15:53:44.491Z] [balance] HomeViewModel.loadAll.enter connected=true groups=2 isLoading=false
+[2026-08-01T15:53:44.869Z] [balance] HomeViewModel.loadAll.success groups=2
+[2026-08-01T15:53:44.871Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-08-01T15:53:45.300Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=false
+[2026-08-01T15:53:45.328Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=active to=inactive connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-08-01T15:53:45.994Z] [lifecycle] ContentView.scenePhase from=inactive to=background appLockEnabled=true isLocked=false
+[2026-08-01T15:53:46.030Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=inactive to=background connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-08-01T15:53:50.257Z] [lifecycle] ContentView.scenePhase from=background to=inactive appLockEnabled=true isLocked=true
+[2026-08-01T15:53:50.283Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=background to=inactive connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-08-01T15:53:50.461Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=2 isLocked=true
+[2026-08-01T15:53:50.475Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=true
+[2026-08-01T15:53:50.491Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=inactive to=active connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-08-01T15:53:50.498Z] [balance] GroupViewModel.load.enter group=Ledger Test 🧪 groupID=BBBB0001-0000-0000-0000-000000000001 showError=false connected=true expenses=3 cachedExpenses=3 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T15:53:50.682Z] [balance] GroupViewModel.load.success group=Ledger Test 🧪 expenses=3 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T15:53:51.341Z] [lifecycle] ContentView.scenePhase from=active to=inactive appLockEnabled=true isLocked=true
+[2026-08-01T15:53:51.369Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=active to=inactive connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=true
+[2026-08-01T15:53:51.773Z] [lifecycle] MainTabView.unlocked.refreshBegin
+[2026-08-01T15:53:52.022Z] [lifecycle] MainTabView.unlocked.refreshComplete
+[2026-08-01T15:53:54.060Z] [lifecycle] MainTabView.didBecomeActive connected=true groups=2 isLocked=false
+[2026-08-01T15:53:54.086Z] [lifecycle] ContentView.scenePhase from=inactive to=active appLockEnabled=true isLocked=false
+[2026-08-01T15:53:54.121Z] [lifecycle] GroupDetailView.scenePhase group=Ledger Test 🧪 from=inactive to=active connected=true expenses=3 suggestions=2 isLoading=false isLoadingBalances=false hasLoadedBalances=true balanceLoadFailed=false handoff=none isLocked=false
+[2026-08-01T15:53:54.127Z] [balance] GroupViewModel.load.enter group=Ledger Test 🧪 groupID=BBBB0001-0000-0000-0000-000000000001 showError=false connected=true expenses=3 cachedExpenses=3 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false hasKnownNonEmpty=true
+[2026-08-01T15:53:54.228Z] [balance] GroupViewModel.load.success group=Ledger Test 🧪 expenses=3 suggestions=2 hasLoadedBalances=true balanceLoadFailed=false
+[2026-08-01T15:53:54.257Z] [balance] HomeViewModel.loadAll.enter connected=true groups=2 isLoading=false
+[2026-08-01T15:53:54.570Z] [balance] HomeViewModel.loadAll.success groups=2
+[2026-08-01T15:53:54.571Z] [lifecycle] MainTabView.didBecomeActive.refreshComplete
+[2026-08-01T15:53:58.273Z] [balance] GroupViewModel.deletePayment.enter id=B3D14B21-6012-4AD7-A775-1FA1B5C9B5F4 amount=8 settlements=3 suggestions=2

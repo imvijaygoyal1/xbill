@@ -158,6 +158,13 @@ struct xBillApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var authVM = AuthViewModel()
 
+    init() {
+        // Must be installed before any UI exists: a UIKit assertion aborts through
+        // `objc_exception_throw`, and the exception's `reason` — absent from the `.ips`
+        // report — is the only place the fault is actually described.
+        AppDiagnostics.installUncaughtExceptionLogger()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView(authVM: authVM)

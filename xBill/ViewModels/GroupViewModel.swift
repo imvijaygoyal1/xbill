@@ -507,13 +507,36 @@ final class GroupViewModel {
                 balanceLoadFailed = true
                 logger.warning("Keeping previous split map because split loading failed: \(error.localizedDescription, privacy: .public)")
             }
-            balances = SplitCalculator.netBalances(
-                expenses: expenses, splits: splitsMap, settlements: settlements)
-            settlementSuggestions = SplitCalculator.settlementSuggestions(
-                expenses: expenses, splits: splitsMap, settlements: settlements,
-                names: memberNames, currency: group.currency)
-            hasLoadedBalances = true
+            applyDerivedBalances()
         } while shouldRecomputeBalances
+    }
+
+    /// Recomputes balances and suggestions from state already in memory. Pure and synchronous:
+    /// no fetch, no `await`, no suspension point.
+    ///
+    /// Recording or deleting a payment changes the settlements ledger; it cannot change a
+    /// single split. `splitsMap` is therefore already correct, and the round-trip
+    /// `computeBalances()` makes is not merely wasted — it is the crash.
+    ///
+    /// `deletePayment` used to remove the row from `settlements` and then `await
+    /// computeBalances()`. The `await` split one user action into two separately published
+    /// mutations of the same `List`: the payment section lost a row immediately, and the
+    /// settle-up section gained one only after the network returned. Both landed while the
+    /// swipe-delete animation was still running, so `UICollectionView` was handed a batch
+    /// update it could not reconcile against its own applied state and aborted with
+    /// `NSInternalInconsistencyException`: "the number of items ... after the update (3) must
+    /// be equal to the number ... before the update (2), plus or minus the number inserted (0)"
+    /// — device crash 2026-08-01, `diagnostics/2026-08-01-settlements/crash3.log`.
+    ///
+    /// Calling this instead keeps both mutations in a single synchronous turn, so SwiftUI sees
+    /// one coherent state change. `load()` still refreshes `splitsMap` from the network.
+    private func applyDerivedBalances() {
+        balances = SplitCalculator.netBalances(
+            expenses: expenses, splits: splitsMap, settlements: settlements)
+        settlementSuggestions = SplitCalculator.settlementSuggestions(
+            expenses: expenses, splits: splitsMap, settlements: settlements,
+            names: memberNames, currency: group.currency)
+        hasLoadedBalances = true
     }
 
     // MARK: - Members
@@ -745,7 +768,7 @@ final class GroupViewModel {
                 settlements.insert(saved, at: 0)
             }
             lastRecordedPayment = (id: saved.id, from: fromUserID, to: toUserID, amount: amount, at: Date())
-            await computeBalances()
+            applyDerivedBalances()
 
             let note = NotificationItem.settlement(
                 suggestion: SettlementSuggestion(
@@ -818,7 +841,7 @@ final class GroupViewModel {
         defer { isLoading = false }
         settlements.removeAll { $0.id == settlement.id }
         pendingSettlementChanges[settlement.id] = .deleted(generation: settlementFetchGeneration)
-        await computeBalances()
+        applyDerivedBalances()
         do {
             try await settlementService.deleteSettlement(id: settlement.id)
             // Re-assert the removal now that the delete has actually committed. Both halves are
@@ -835,7 +858,7 @@ final class GroupViewModel {
             pendingSettlementChanges[settlement.id] = .deleted(generation: settlementFetchGeneration)
             // Only when something actually changed — `computeBalances` refetches the split map,
             // and the common path here removes nothing because the optimistic removal still holds.
-            if wasResurrected { await computeBalances() }
+            if wasResurrected { applyDerivedBalances() }
             // Correcting a mistake — delete, then immediately re-record the same amount — must
             // not be swallowed by the IMP-4 duplicate window above. Keyed on the settlement's
             // own id, not its (from, to, amount) value: an *older* payment between the same two
@@ -864,7 +887,7 @@ final class GroupViewModel {
             // expires at the next fetch instead of persisting: whichever happened, the first
             // response issued after this point settles it.
             pendingSettlementChanges[settlement.id] = .recorded(settlement, generation: settlementFetchGeneration)
-            await computeBalances()
+            applyDerivedBalances()
             AppDiagnostics.log(.balance, "GroupViewModel.deletePayment.catch", [
                 ("id", settlement.id.uuidString),
                 ("silent", AppError.isSilent(error)),

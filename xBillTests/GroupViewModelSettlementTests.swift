@@ -835,3 +835,58 @@ struct GroupViewModelPaymentTests {
         #expect(vm.balance(for: bob) == 0)
     }
 }
+
+// MARK: - Atomic state change (device crash 2026-08-01)
+
+@Suite("Payment paths recompute without suspending")
+@MainActor
+struct PaymentRecomputeIsSynchronousTests {
+
+    private func makeGroup() -> BillGroup {
+        BillGroup(id: UUID(), name: "Trip", emoji: "✈️", createdBy: UUID(),
+                  isArchived: false, currency: "USD", createdAt: Date())
+    }
+
+    /// `deletePayment` removed the row from `settlements`, then `await computeBalances()` —
+    /// which fetched splits over the network before reassigning `settlementSuggestions`. That
+    /// `await` split one user action into two separately published mutations of the same
+    /// `List`, landing either side of a network round-trip while the swipe-delete animation
+    /// was still running. `UICollectionView` aborted with `NSInternalInconsistencyException`:
+    /// "the number of items ... after the update (3) must be equal to the number ... before
+    /// the update (2), plus or minus the number inserted (0)".
+    ///
+    /// Recording or deleting a payment cannot change a split, so the fetch was never needed.
+    /// Asserting zero fetches is how "both mutations happen in one synchronous turn" is
+    /// pinned: a fetch is the suspension point, and no fetch means no suspension.
+    @Test("Recording and deleting a payment fetch no splits")
+    func paymentPathsDoNotRefetchSplits() async {
+        let group = makeGroup(); let alice = UUID(); let bob = UUID()
+        let expenses = FakeExpenseService(); let settlements = FakeSettlementService()
+        let e = Expense(id: UUID(), groupID: group.id, title: "Dinner", amount: 30,
+                        currency: "USD", payerID: alice, category: .food, notes: nil,
+                        receiptURL: nil, originalAmount: nil, originalCurrency: nil,
+                        recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
+        expenses.expenses = [e]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
+                                 isSettled: false, settledAt: nil)]
+
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: expenses, settlementService: settlements,
+                                currentUserIDProvider: { bob })
+        await vm.load(showError: false)
+
+        // Baseline: load() legitimately fetches splits. Everything after it must not.
+        let afterLoad = expenses.fetchSplitsCount
+        #expect(afterLoad > 0, "load() is still expected to fetch splits")
+
+        await vm.recordPayment(from: bob, to: alice, amount: 10)
+        #expect(expenses.fetchSplitsCount == afterLoad, "recordPayment must not refetch splits")
+        #expect(vm.balance(for: bob) == 0, "the balance must still be recomputed")
+
+        let payment = try! #require(vm.settlements.first)
+        await vm.deletePayment(payment)
+        #expect(expenses.fetchSplitsCount == afterLoad, "deletePayment must not refetch splits")
+        #expect(vm.balance(for: bob) == -10, "the debt must come back")
+        #expect(vm.settlementSuggestions.count == 1, "the suggestion must be restored in the same turn")
+    }
+}
