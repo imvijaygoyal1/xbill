@@ -41,7 +41,11 @@ struct ScanResult: Sendable {
 
 // Internal helper for Gap 7: bundles a parsed item with the alternate prices
 // extracted from OCR candidate strings for that row, enabling constraint-solving.
-private struct ParsedItem: Sendable {
+/// Module-internal rather than private **so the parsing core can be tested directly**.
+/// `VisionService` was 3.7% covered: the pure text→receipt logic — the part that turns OCR text
+/// into money — was unreachable from tests because every function was `private`, while the
+/// remainder is Vision/CoreImage plumbing that needs real images. Nothing here is public API.
+struct ParsedItem: Sendable {
     var item:            ReceiptItem
     var candidatePrices: [Decimal]
 }
@@ -371,7 +375,7 @@ final class VisionService {
     /// existing row whose anchor Y is within `threshold`, or opening a new row.
     /// This replaces the previous O(n²) implementation that re-scanned remaining lines for
     /// every anchor element.
-    private func groupIntoRows(_ lines: [OCRLine], threshold: CGFloat = 0.025) -> [[OCRLine]] {
+    func groupIntoRows(_ lines: [OCRLine], threshold: CGFloat = 0.025) -> [[OCRLine]] {
         let sorted = lines.sorted { $0.midY < $1.midY }
         // `rowAnchors` holds the representative midY for each open row; index matches `rows`.
         var rowAnchors: [CGFloat] = []
@@ -408,7 +412,7 @@ final class VisionService {
 
     /// Scans OCR text for the first plausible transaction date using NSDataDetector.
     /// Rejects future dates (> tomorrow) and dates more than 5 years old.
-    private func extractTransactionDate(from text: String) -> Date? {
+    func extractTransactionDate(from text: String) -> Date? {
         guard let detector = try? NSDataDetector(
             types: NSTextCheckingResult.CheckingType.date.rawValue
         ) else { return nil }
@@ -430,7 +434,7 @@ final class VisionService {
     // MARK: - Gap 5: Auto-Category from Merchant / Items
 
     /// Keyword-based category suggestion; on-device, no network.
-    private func suggestCategory(merchant: String?, items: [ReceiptItem]) -> Expense.Category? {
+    func suggestCategory(merchant: String?, items: [ReceiptItem]) -> Expense.Category? {
         let searchText = ([merchant] + items.map(\.name))
             .compactMap { $0 }
             .joined(separator: " ")
@@ -470,7 +474,7 @@ final class VisionService {
 
     // MARK: - Tier 2: Improved Heuristics
 
-    private func parseWithHeuristics(rows: [[OCRLine]]) -> (receipt: Receipt, candidates: [ParsedItem]) {
+    func parseWithHeuristics(rows: [[OCRLine]]) -> (receipt: Receipt, candidates: [ParsedItem]) {
         var parsedItems: [ParsedItem] = []
         var total:    Decimal?
         var tax:      Decimal?
@@ -575,7 +579,7 @@ final class VisionService {
     /// Only tries when `|delta| ≤ $2.00` — larger gaps indicate a structural parse failure,
     /// not a single-digit OCR misread. Returns `true` and mutates `candidates` on success.
     @discardableResult
-    private func reconcile(candidates: inout [ParsedItem],
+    func reconcile(candidates: inout [ParsedItem],
                            total: Decimal, tax: Decimal, tip: Decimal) -> Bool {
         let itemsSum = candidates.reduce(Decimal.zero) { $0 + $1.item.totalPrice }
         let delta    = total - (itemsSum + tax + tip)
@@ -619,7 +623,7 @@ final class VisionService {
         return metaKeywords.contains { lower.contains($0) }
     }
 
-    private func parseQuantity(from text: String, totalPrice: Decimal) -> (Int, Decimal) {
+    func parseQuantity(from text: String, totalPrice: Decimal) -> (Int, Decimal) {
         let patterns: [(String, NSRegularExpression?)] = [
             (#"^(\d+)\s*[xX@×]\s*"#,    try? NSRegularExpression(pattern: #"^(\d+)\s*[xX@×]\s*"#)),
             (#"^[Qq][Tt][Yy]\s*(\d+)"#, try? NSRegularExpression(pattern: #"^[Qq][Tt][Yy]\s*(\d+)"#)),
@@ -636,8 +640,11 @@ final class VisionService {
         return (1, totalPrice)
     }
 
-    private func stripQuantityPrefix(from text: String) -> String {
-        let patterns = [#"^\d+\s*[xX@]\s*"#, #"^[Qq][Tt][Yy]\s*\d+\s*"#]
+    func stripQuantityPrefix(from text: String) -> String {
+        // `[xX@×]` must match `parseQuantity`'s class exactly. The Tier-1 fix that added U+00D7
+        // for European receipts ("2×1.99") extended the *parsing* regex and not this one, so the
+        // quantity was read correctly and then left glued to the item name as "2×BURGER".
+        let patterns = [#"^\d+\s*[xX@×]\s*"#, #"^[Qq][Tt][Yy]\s*\d+\s*"#]
         for pattern in patterns {
             if let regex = try? NSRegularExpression(pattern: pattern) {
                 let range  = NSRange(text.startIndex..., in: text)
@@ -648,14 +655,16 @@ final class VisionService {
         return text
     }
 
-    private func stripPrice(from text: String) -> String {
-        let pattern = #"[\$£€₹]?\s*\d{1,6}[.,]\d{2}\s*$"#
+    func stripPrice(from text: String) -> String {
+        // Character class kept identical to `extractDecimal`'s. When it was narrower, a yen or
+        // won line had its digits stripped and the bare symbol left behind: "BURGER ¥".
+        let pattern = #"[\$£€₹¥￥₩]?\s*\d{1,6}[.,]\d{2}\s*$"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
         let range = NSRange(text.startIndex..., in: text)
         return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
     }
 
-    private func extractDecimal(from string: String) -> Decimal? {
+    func extractDecimal(from string: String) -> Decimal? {
         let pattern = #"[\$£€₹¥￥₩]?\s*(\d{1,6}[.,]\d{2})"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
         let range = NSRange(string.startIndex..., in: string)
