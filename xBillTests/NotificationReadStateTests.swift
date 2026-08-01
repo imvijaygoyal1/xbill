@@ -693,3 +693,111 @@ struct ActivityViewModelReadMutationTests {
         #expect(store.pendingReadStates(userID: user).isEmpty)
     }
 }
+
+// MARK: - ActivityViewModel.load()
+
+/// `load()` was 30 executable lines at **0% coverage** — the primary entry point of the Activity
+/// tab, doing reconciliation, error handling and badge sync, with an injection seam already in
+/// place. Nothing was stopping it being tested; it just wasn't. Its catch branch is the one that
+/// keeps previously-fetched rows visible when a refresh fails, which is exactly the behaviour a
+/// user notices and no other test asserted.
+@Suite("ActivityViewModel.load")
+@MainActor
+struct ActivityViewModelLoadTests {
+
+    /// Fetches succeed or throw on demand, and records whether reconciliation ran.
+    final class LoadFake: ActivityReadWriting {
+        var fetched: [NotificationItem] = []
+        var fetchError: Error?
+        var reconciled = false
+
+        func fetchRecentActivity(userID: UUID, limit: Int) async throws -> [NotificationItem] {
+            if let fetchError { throw fetchError }
+            return fetched
+        }
+        func reconcilePendingReadStates(userID: UUID) async { reconciled = true }
+        func markRead(id: UUID) async -> Bool { true }
+        func markUnread(id: UUID) async -> Bool { true }
+        func markAllRead(userID: UUID) async -> Bool { true }
+        func delete(id: UUID) async -> Bool { true }
+    }
+
+    private func makeStore() -> NotificationStore {
+        let suffix = UUID().uuidString
+        return NotificationStore(
+            itemsKey: "load_items_\(suffix)",
+            lastViewedKey: "load_viewed_\(suffix)",
+            pendingReadKey: "load_pending_\(suffix)")
+    }
+
+    private func item(isRead: Bool, title: String = "Groceries") -> NotificationItem {
+        .remote(id: UUID(), eventType: .expenseAdded, title: title, subtitle: "🏠 Roommates",
+                amount: 18, currency: "USD", category: .food, createdAt: Date(),
+                isRead: isRead, groupID: nil, expenseID: nil)
+    }
+
+    @Test("A successful load publishes fetched items and reconciles pending state")
+    func successfulLoad() async {
+        let user = UUID(); let service = LoadFake(); let store = makeStore()
+        service.fetched = [item(isRead: false)]
+
+        let vm = ActivityViewModel(service: service, store: store, currentUserIDProvider: { user })
+        await vm.load()
+
+        #expect(vm.items.count == 1)
+        #expect(service.reconciled, "Pending read intents must be replayed on every load.")
+        #expect(vm.errorAlert == nil)
+        #expect(!vm.isLoading, "isLoading must be released via defer even on the success path.")
+    }
+
+    /// The behaviour a user actually sees: a failed refresh must not blank the list.
+    @Test("A failed load keeps previously stored items visible")
+    func failedLoadKeepsStoredItems() async {
+        let user = UUID(); let service = LoadFake(); let store = makeStore()
+        store.merge([item(isRead: false, title: "Earlier")], userID: user)
+        service.fetchError = AppError.networkUnavailable
+
+        let vm = ActivityViewModel(service: service, store: store, currentUserIDProvider: { user })
+        await vm.load()
+
+        #expect(vm.items.count == 1, "A failed refresh must not blank the list.")
+        #expect(vm.items.first?.title == "Earlier")
+        #expect(vm.errorAlert != nil, "A genuine network failure should be surfaced.")
+    }
+
+    /// Session expiry is routine, not an error worth interrupting the user for.
+    @Test("An unauthenticated load raises no alert")
+    func unauthenticatedIsSilent() async {
+        let service = LoadFake(); let store = makeStore()
+        let vm = ActivityViewModel(service: service, store: store, currentUserIDProvider: { nil })
+        await vm.load()
+
+        #expect(vm.errorAlert == nil, "Session expiry must not present an alert.")
+        #expect(!vm.isLoading)
+    }
+}
+
+// MARK: - NotificationStore.lastViewedAt
+
+@Suite("NotificationStore.lastViewedAt")
+@MainActor
+struct NotificationStoreLastViewedTests {
+
+    @Test("lastViewedAt round-trips per user and defaults to distantPast")
+    func lastViewedRoundTrips() {
+        let suffix = UUID().uuidString
+        let store = NotificationStore(
+            itemsKey: "lv_items_\(suffix)",
+            lastViewedKey: "lv_viewed_\(suffix)",
+            pendingReadKey: "lv_pending_\(suffix)")
+        let user = UUID()
+
+        #expect(store.lastViewedAt(userID: user) == .distantPast,
+                "An account that has never opened Activity must not hide history.")
+
+        store.markAllRead(userID: user)
+        #expect(store.lastViewedAt(userID: user) > .distantPast)
+        #expect(store.lastViewedAt(userID: UUID()) == .distantPast,
+                "The marker is user-scoped; another account must be unaffected.")
+    }
+}
