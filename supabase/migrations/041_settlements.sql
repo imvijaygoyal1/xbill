@@ -76,6 +76,14 @@ JOIN public.expenses e ON e.id = s.expense_id
 WHERE s.is_settled
   AND e.paid_by IS NOT NULL
   AND e.paid_by <> s.user_id
+  -- `splits.amount` permits 0.00 (`CHECK (amount >= 0)`); `settlements.amount` requires
+  -- `> 0`. A single settled 0.00 non-payer split would therefore violate the CHECK and roll
+  -- the ENTIRE migration back -- table, policies, indexes and all. Excluding it is not a
+  -- balance change: a 0.00 split contributes 0 under both models, so there is nothing for a
+  -- settlement row to offset. Verified read-only against production 2026-07-31: zero splits
+  -- of any kind have amount = 0, so this guard is insurance against future data, not a fix
+  -- for existing rows.
+  AND s.amount > 0
   -- One-time backfill. The INSERT has no natural key to conflict on, so a second run would
   -- insert a duplicate set and silently double the offset, corrupting every balance. This
   -- project has already had one migration-history desync (031_remote_history_placeholder.sql),
