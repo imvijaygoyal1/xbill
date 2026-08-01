@@ -98,18 +98,25 @@ final class GroupViewModel {
     private let expenseService: any ExpenseDataProviding
     private let settlementService: any SettlementDataProviding
     private let currentUserIDProvider: @MainActor () -> UUID?
+    /// R2: injection seam mirroring `currentUserIDProvider` so a test can force `load()` down
+    /// its offline branch deterministically. `NetworkMonitor.shared.isConnected` is a real
+    /// `NWPathMonitor`-backed singleton with a `private(set)` property — nothing in the test
+    /// target could previously flip it, so the offline branch had zero coverage.
+    private let isConnectedProvider: @MainActor () -> Bool
 
     init(
         group: BillGroup,
         groupService: any GroupDataProviding = GroupService.shared,
         expenseService: any ExpenseDataProviding = ExpenseService.shared,
         settlementService: any SettlementDataProviding = SettlementService.shared,
-        currentUserIDProvider: @escaping @MainActor () -> UUID? = { AuthService.shared.currentUserID }
+        currentUserIDProvider: @escaping @MainActor () -> UUID? = { AuthService.shared.currentUserID },
+        isConnectedProvider: @escaping @MainActor () -> Bool = { NetworkMonitor.shared.isConnected }
     ) {
         self.groupService = groupService
         self.expenseService = expenseService
         self.settlementService = settlementService
         self.currentUserIDProvider = currentUserIDProvider
+        self.isConnectedProvider = isConnectedProvider
         self.group = group
         let cachedMembers = CacheService.shared.loadMembers(groupID: group.id)
         let cachedExpenses = CacheService.shared.loadExpenses(groupID: group.id)
@@ -140,6 +147,49 @@ final class GroupViewModel {
         balances[userID] ?? .zero
     }
 
+    /// True when the settle-up suggestions currently on screen may be too high, because the
+    /// last load could not confirm which of them were already paid.
+    ///
+    /// This is deliberately **not** the same condition as `GroupDetailView`'s empty-list error
+    /// state. That state replaces an empty suggestions list with a retry prompt — there is
+    /// nothing to show, so nothing is at risk of being wrong. This one is the opposite and more
+    /// dangerous case: `settlementSuggestions` is non-empty, so there IS a list on screen, and
+    /// it was computed with `settlements` possibly missing rows a fetch failure (R1) or a gap in
+    /// offline caching (R2) could not surface — every unaccounted-for payment inflates a debt
+    /// to its gross, pre-payment amount with a Record Payment button still showing. Requiring
+    /// `settlementSuggestions.isEmpty` (as the empty-list predicate does) makes a warning here
+    /// impossible in exactly the case it exists to catch — the residual finding this property
+    /// fixes.
+    ///
+    /// `!isLoading && !isLoadingBalances` matches the empty-list predicate: a warning should not
+    /// flash on top of suggestions that are mid-recompute from a load already in flight.
+    var settlementsMayBeStale: Bool {
+        !settlementSuggestions.isEmpty && balanceLoadFailed && !isLoading && !isLoadingBalances
+    }
+
+    /// True exactly when the Settle Up tab should show its full-list error/retry state —
+    /// nothing safe to render, so it replaces the (empty) suggestions list. Extracted verbatim
+    /// from what was a `GroupDetailView`-private computed property, unchanged, so a regression
+    /// test can assert this rendering decision directly rather than only the `balanceLoadFailed`
+    /// flag that feeds it and several other states besides. Deliberately requires
+    /// `settlementSuggestions.isEmpty` — see `settlementsMayBeStale` for the non-empty case this
+    /// one cannot and must not cover.
+    var settleUpErrorStateShouldShow: Bool {
+        (hasKnownNonEmptyExpenses || !expenses.isEmpty) &&
+        settlementSuggestions.isEmpty &&
+        balanceLoadFailed &&
+        !isLoading &&
+        !isLoadingBalances
+    }
+
+    /// True exactly when the Settle Up tab should show its loading/refresh overlay. Extracted
+    /// verbatim from a `GroupDetailView`-private computed property, unchanged.
+    var settleUpRefreshStateShouldShow: Bool {
+        (hasKnownNonEmptyExpenses || !expenses.isEmpty) &&
+        settlementSuggestions.isEmpty &&
+        (isLoading || isLoadingBalances || (!hasLoadedBalances && !balanceLoadFailed))
+    }
+
     // MARK: - Load
 
     func load(showError: Bool = true) async {
@@ -157,7 +207,7 @@ final class GroupViewModel {
             ("group", group.name),
             ("groupID", group.id.uuidString),
             ("showError", showError),
-            ("connected", NetworkMonitor.shared.isConnected),
+            ("connected", isConnectedProvider()),
             ("expenses", expenses.count),
             ("cachedExpenses", CacheService.shared.loadExpenses(groupID: group.id).count),
             ("suggestions", settlementSuggestions.count),
@@ -166,7 +216,7 @@ final class GroupViewModel {
             ("hasKnownNonEmpty", hasKnownNonEmptyExpenses)
         ])
 
-        if NetworkMonitor.shared.isConnected {
+        if isConnectedProvider() {
             do {
                 // REV-04: cleared here, before the fetch. It used to be cleared at the top of
                 // computeBalances, which runs *after* applyFetchedExpenses — so a stale-data
@@ -205,7 +255,7 @@ final class GroupViewModel {
                     ("group", group.name),
                     ("showError", showError),
                     ("silent", AppError.isSilent(error)),
-                    ("connected", NetworkMonitor.shared.isConnected),
+                    ("connected", isConnectedProvider()),
                     ("error", AppDiagnostics.describe(error))
                 ])
                 guard !AppError.isSilent(error) else { return }
@@ -239,6 +289,19 @@ final class GroupViewModel {
             members  = CacheService.shared.loadMembers(groupID: group.id)
             expenses = CacheService.shared.loadExpenses(groupID: group.id)
             hasKnownNonEmptyExpenses = hasKnownNonEmptyExpenses || !expenses.isEmpty || CacheService.shared.hasKnownNonEmptyExpenses(groupID: group.id)
+            // R2: `CacheService` has no settlements persistence, so a view model that has never
+            // loaded online — or was just created offline — always starts with `settlements ==
+            // []`, indistinguishable from "no payments have ever been made". Without this guard
+            // that renders every debt at its gross, pre-payment amount with `balanceLoadFailed`
+            // still false — the same defect as the online settlements-fetch failure above, just
+            // reached with no network error and no warning at all. Two cases must NOT raise it:
+            // a genuinely empty group (nothing to be wrong about — `hasKnownNonEmptyExpenses` is
+            // false), and a VM that already has `settlements` populated in memory from an
+            // earlier successful online load in this session (going offline afterward does not
+            // invalidate a ledger this VM already has).
+            if hasKnownNonEmptyExpenses, settlements.isEmpty {
+                balanceLoadFailed = true
+            }
             await computeBalances()
         }
     }
@@ -428,7 +491,7 @@ final class GroupViewModel {
                     ("group", group.name),
                     ("expenses", expenses.count),
                     ("splitsMap", splitsMap.count),
-                    ("connected", NetworkMonitor.shared.isConnected),
+                    ("connected", isConnectedProvider()),
                     ("error", AppDiagnostics.describe(error))
                 ])
                 // REV-05: `continue` rather than `return`. In a repeat/while this re-checks
@@ -552,7 +615,7 @@ final class GroupViewModel {
     /// payer filter so a group does not stall when one member does not open the app. The
     /// backend RPC claims each occurrence atomically, so concurrent callers are safe.
     func createDueRecurringInstances() async {
-        guard NetworkMonitor.shared.isConnected else { return }
+        guard isConnectedProvider() else { return }
         do {
             let dueExpenses = try await expenseService.fetchDueRecurringExpenses(groupID: group.id)
             guard !dueExpenses.isEmpty else { return }

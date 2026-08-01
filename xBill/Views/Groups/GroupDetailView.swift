@@ -514,6 +514,27 @@ struct GroupDetailView: View {
                 .listRowBackground(Color.bgCard)
                 .listRowSeparator(.hidden)
             } else {
+                // R1: `shouldShowBalanceErrorState` above requires `settlementSuggestions.isEmpty`
+                // and therefore can never fire in the one case that matters here — a settlements
+                // fetch failure with a non-empty suggestions list, which is exactly when a debt
+                // can render at its gross, pre-payment amount with a Record Payment button still
+                // showing. That predicate is deliberately left alone: it drives an *error state*
+                // that replaces an empty list, and loosening it to admit a non-empty list would
+                // hide the suggestions a user still needs to see. This is a different kind of
+                // signal — a *stale-data warning* laid over a populated list — so it is a second,
+                // separate condition (`GroupViewModel.settlementsMayBeStale`) and a banner above
+                // the list, not a change to the state that replaces it.
+                if vm.settlementsMayBeStale {
+                    Label(
+                        "Amounts shown may be too high — xBill couldn't load this group's recorded payments. Check your connection and try again before paying.",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.appCaption)
+                    .foregroundStyle(.orange)
+                    .listRowBackground(Color.bgCard)
+                    .listRowSeparator(.hidden)
+                    .accessibilityIdentifier("xBill.settleUp.staleBalanceWarning")
+                }
                 ForEach(vm.settlementSuggestions) { suggestion in
                     settlementRow(suggestion)
                         .listRowBackground(Color.bgCard)
@@ -532,19 +553,13 @@ struct GroupDetailView: View {
         .listRowSeparatorTint(Color.separator)
     }
 
-    private var shouldShowBalanceRefreshState: Bool {
-        (vm.hasKnownNonEmptyExpenses || !vm.expenses.isEmpty) &&
-        vm.settlementSuggestions.isEmpty &&
-        (vm.isLoading || vm.isLoadingBalances || (!vm.hasLoadedBalances && !vm.balanceLoadFailed))
-    }
+    // R1: these two now delegate to `GroupViewModel` computed properties (extracted verbatim,
+    // unchanged) so the rendering decision is directly testable without instantiating a
+    // SwiftUI view. See `GroupViewModel.settleUpErrorStateShouldShow` /
+    // `.settleUpRefreshStateShouldShow` / `.settlementsMayBeStale`.
+    private var shouldShowBalanceRefreshState: Bool { vm.settleUpRefreshStateShouldShow }
 
-    private var shouldShowBalanceErrorState: Bool {
-        (vm.hasKnownNonEmptyExpenses || !vm.expenses.isEmpty) &&
-        vm.settlementSuggestions.isEmpty &&
-        vm.balanceLoadFailed &&
-        !vm.isLoading &&
-        !vm.isLoadingBalances
-    }
+    private var shouldShowBalanceErrorState: Bool { vm.settleUpErrorStateShouldShow }
 
     private var shouldShowExpenseRefreshState: Bool {
         vm.expenses.isEmpty &&
