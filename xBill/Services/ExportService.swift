@@ -262,8 +262,21 @@ final class ExportService {
     }
 
     private func csvEscape(_ value: String) -> String {
-        let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
-        return escaped.contains(",") || escaped.contains("\"") || escaped.contains("\n")
+        // Excel, Numbers and Google Sheets evaluate a cell beginning `=`, `+`, `-` or `@` (or a
+        // leading tab/CR) as a **formula**. Any group member can name an expense, and the export
+        // is a file the user hands to someone else — so a title like `=1+1` becomes a live
+        // formula in the recipient's spreadsheet. Prefixing with an apostrophe is the standard
+        // mitigation: spreadsheets treat the cell as literal text and do not display the prefix.
+        var sanitized = value
+        if let first = sanitized.first, "=+-@\t\r".contains(first) {
+            sanitized = "'" + sanitized
+        }
+        let escaped = sanitized.replacingOccurrences(of: "\"", with: "\"\"")
+        // `\r` matters as much as `\n`: rows are joined with `\r\n`, so a lone carriage return
+        // inside a field is indistinguishable from a row break to a strict parser, silently
+        // splitting one expense into two malformed rows.
+        return escaped.contains(",") || escaped.contains("\"")
+            || escaped.contains("\n") || escaped.contains("\r")
             ? "\"\(escaped)\""
             : escaped
     }
