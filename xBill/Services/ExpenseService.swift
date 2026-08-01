@@ -175,16 +175,6 @@ final class ExpenseService {
             .value
     }
 
-    // MARK: - Settle
-
-    func settleSplit(id: UUID) async throws {
-        let payload = SplitSettlePayload(isSettled: true, settledAt: Date())
-        try await supabase.table("splits")
-            .update(payload)
-            .eq("id", value: id)
-            .execute()
-    }
-
     // MARK: - Notify
 
     func notifyExpenseAdded(
@@ -292,14 +282,5 @@ private struct AddExpenseRPCParams: Encodable {
         case originalCurrency    = "p_original_currency"
         case recurrence          = "p_recurrence"
         case nextOccurrenceDate  = "p_next_occurrence_date"
-    }
-}
-
-private struct SplitSettlePayload: Encodable {
-    let isSettled: Bool
-    let settledAt: Date
-    enum CodingKeys: String, CodingKey {
-        case isSettled  = "is_settled"
-        case settledAt  = "settled_at"
     }
 }

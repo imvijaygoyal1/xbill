@@ -56,8 +56,12 @@ final class GroupViewModel {
         /// the row — a failed delete may have committed anyway — only that this VM is showing
         /// it again; see `deletePayment`.
         case recorded(Settlement, generation: UInt64)
-        /// A payment `deletePayment` removed locally. Keeps a fetch whose snapshot predates the
-        /// delete from putting the row back.
+        /// A payment `deletePayment` removed locally. Keeps a fetch whose snapshot predates
+        /// the delete from putting the row back — but only while the entry outranks that
+        /// fetch. It is first written *before* the delete request, at which point the row is
+        /// still on the server, so a `load()` issued in that window claims a higher generation
+        /// and expires it; `deletePayment` closes that by tagging again after the commit and
+        /// re-removing the row. This case alone does not make a deleted row stay deleted.
         case deleted(generation: UInt64)
 
         var generation: UInt64 {
@@ -722,14 +726,20 @@ final class GroupViewModel {
     /// row deletable, and deleting a row the server no longer has fails, which lands on the
     /// error path below.
     ///
-    /// The entry is tagged **twice**, and the second tag is the load-bearing one. Every other
-    /// entry in the map is written after its change has committed, which is what makes
-    /// "a fetch issued later is authoritative over it" true. This one has to be written *before*
-    /// the request as well, to cover the in-flight fetch above — and that early tag does not
-    /// satisfy the invariant, because the row is still on the server when it is written. A
-    /// `load()` issued between the two points claims a higher generation and expires it. The
-    /// success branch therefore tags again after the commit, and re-removes the row if that
-    /// `load()` already merged it back.
+    /// The entry is tagged **twice**, and both tags are load-bearing — they cover different
+    /// fetches and neither substitutes for the other.
+    ///
+    /// Every other entry in the map is written after its change has committed, which is what
+    /// makes "a fetch issued later is authoritative over it" true. This one is written *before*
+    /// the request as well, because a fetch already in flight holds a snapshot that still
+    /// contains the row and would otherwise merge it straight back; only the early tag stops
+    /// that, and nothing written after the commit can, because that merge has already run.
+    ///
+    /// The early tag does not, however, satisfy the generation invariant: the row is still on
+    /// the server when it is written, so a `load()` issued between the tag and the commit
+    /// legitimately claims a higher generation and expires it. The success branch therefore
+    /// tags again after the commit — restoring the invariant — and re-removes the row in case
+    /// that `load()` already put it back.
     func deletePayment(_ settlement: Settlement) async {
         isLoading = true
         defer { isLoading = false }

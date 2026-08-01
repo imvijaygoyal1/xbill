@@ -16,6 +16,15 @@ struct Split: Codable, Identifiable, Equatable, Sendable {
     let userID: UUID
     var amount: Decimal
     var percentage: Decimal?
+    /// **Legacy. Read by nothing, written by nothing.** `public.settlements` (migration 041)
+    /// replaced this as the record of who has paid whom; balances are now every split minus
+    /// every settlement. The column and these two properties are retained for one release so
+    /// the pre-migration state can be re-derived if the backfill proves wrong.
+    ///
+    /// Do not add a write path back. The one that existed — `ExpenseService.settleSplit` —
+    /// was deleted precisely because a method named "settle" that returns HTTP 200 and moves
+    /// no balance is worse than no method at all. Record a payment through
+    /// `SettlementService.recordSettlement` instead.
     var isSettled: Bool
     var settledAt: Date?
 

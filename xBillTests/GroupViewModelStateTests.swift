@@ -19,9 +19,6 @@ import Testing
 final class FakeExpenseService: ExpenseDataProviding {
     var expenses: [Expense] = []
     var splits: [Split] = []
-    /// Split ids that `settleSplit` should reject.
-    var failingSplitIDs: Set<UUID> = []
-    var settledSplitIDs: [UUID] = []
     var deletedExpenseIDs: [UUID] = []
     var fetchSplitsError: Error?
     var notifyCount = 0
@@ -31,16 +28,6 @@ final class FakeExpenseService: ExpenseDataProviding {
     func fetchSplits(expenseIDs: [UUID]) async throws -> [Split] {
         if let fetchSplitsError { throw fetchSplitsError }
         return splits.filter { expenseIDs.contains($0.expenseID) }
-    }
-
-    func settleSplit(id: UUID) async throws {
-        if failingSplitIDs.contains(id) {
-            throw AppError.permissionDenied
-        }
-        settledSplitIDs.append(id)
-        if let index = splits.firstIndex(where: { $0.id == id }) {
-            splits[index].isSettled = true
-        }
     }
 
     func deleteExpense(id: UUID) async throws {

@@ -184,7 +184,9 @@ struct SplitCalculatorTests {
 
         let balances = SplitCalculator.netBalances(expenses: [expense], splits: splits, settlements: [])
 
-        // Payer credited +20 per unsettled non-payer split (2 × $20 = $40)
+        // Payer credited +20 per non-payer split (2 × $20 = $40). `is_settled` is not
+        // consulted — migration 041 moved repayment into `public.settlements`, and this call
+        // passes no settlements, so both shares count in full.
         #expect(balances[payerID]      == 40.00)
         #expect(balances[participant1] == -20.00)
         #expect(balances[participant2] == -20.00)
@@ -218,8 +220,15 @@ struct SplitCalculatorTests {
         #expect(suggestions.count <= 2)
     }
 
-    @Test("Direct settlement suggestions remain actionable as whole splits")
-    func directSettlementSuggestionsDoNotInventNetTransfers() {
+    @Test("Disjoint debtor/creditor pairs are not netted together")
+    func disjointPairsAreNotNettedTogether() {
+        // The previous name — "do not invent net transfers" — asserted a property
+        // `settlementSuggestions` explicitly disclaims: it *does* net a pair's mutual debts
+        // against each other. What it must not do is net across two different pairs. Here
+        // debtor owes creditor 2.00 and reversePayer owes debtor 0.10; the debtor's own
+        // position nets to 1.90, but no such transfer exists between any two people, and
+        // offering it would send the debtor to a payment app for an amount neither party
+        // recognises.
         let creditorID = UUID()
         let debtorID = UUID()
         let reversePayerID = UUID()

@@ -26,8 +26,9 @@ import Testing
 ///    taking the suite down with it.
 @MainActor
 final class InterleavingGate {
-    /// Orders of magnitude longer than the microseconds a correct interleaving needs, so this
-    /// can only expire on a genuine mis-sequencing, never on a slow machine.
+    /// Orders of magnitude longer than the microseconds a correct interleaving needs. A
+    /// correctly sequenced test is not expected to reach it, but nothing here can rule that
+    /// out — an expiry is a signal to check the sequencing first, not proof of a defect.
     static let timeout: Duration = .seconds(5)
 
     private var isArmed = false
