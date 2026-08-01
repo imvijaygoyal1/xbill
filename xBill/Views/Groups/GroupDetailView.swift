@@ -553,7 +553,15 @@ struct GroupDetailView: View {
                 memberNames: vm.memberNames,
                 currency: vm.group.currency,
                 currentUserID: currentUserID,
-                onDelete: { settlement in Task { await vm.deletePayment(settlement) } })
+                onDelete: { settlement in
+                    Task {
+                        await vm.deletePayment(settlement)
+                        // Symmetric with recording. Deleting a payment is not a lesser action —
+                        // it puts a debt back — so it gets the same confirmation. Added after
+                        // device testing found the record path buzzed and this one did not.
+                        if vm.errorAlert == nil { HapticManager.success() } else { HapticManager.error() }
+                    }
+                })
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
