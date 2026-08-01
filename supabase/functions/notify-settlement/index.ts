@@ -58,18 +58,14 @@ serve(async (req) => {
   try {
     const {
       settlementId,
-      groupId,
-      toUserID,
-      amount,
-      currency,
       isDevelopment,
     } = await req.json()
 
-    // H-09: use callerID (verified JWT identity) as the sender — never trust body-supplied fromUserID.
-    const fromUserID = callerID
-
-    if (!settlementId || !groupId || !toUserID || Number(amount) <= 0) {
-      throw new Error('Invalid settlement payload')
+    if (!settlementId) {
+      return new Response(JSON.stringify({ error: 'settlementId required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     const supabase = createClient(
@@ -77,7 +73,43 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // H-09: fetch fromName from profiles using callerID — never trust body-supplied fromName.
+    // Under the settlements ledger either party may record a payment, so the caller is no
+    // longer necessarily the payer. Resolve the event entirely from the trusted row — nothing
+    // security-relevant comes from the request body — rather than trusting a body-supplied
+    // sender the way the pre-ledger `is_settled` flow used to.
+    const { data: settlement, error: settlementError } = await supabase
+      .from('settlements')
+      .select('id, group_id, from_user_id, to_user_id, amount, currency, recorded_by')
+      .eq('id', settlementId)
+      .single()
+
+    if (settlementError || !settlement) {
+      return new Response(JSON.stringify({ error: 'settlement not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Preserves H-09 and strengthens it: the caller must be the account that recorded this
+    // payment, which the settlements table's own RLS also enforces on INSERT. Nothing here
+    // trusts the request body for identity.
+    if (settlement.recorded_by !== callerID) {
+      return new Response(JSON.stringify({ error: 'forbidden' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const groupId    = settlement.group_id
+    const fromUserID = settlement.from_user_id
+    const toUserID   = settlement.to_user_id
+    const amount     = settlement.amount
+    const currency   = settlement.currency
+    // Notify whichever party did not record it — the recorder already knows they acted.
+    const recipientID = callerID === fromUserID ? toUserID : fromUserID
+
+    // Fetch fromName from profiles using the row's from_user_id — never callerID, which may
+    // now be the creditor recording a payment on the debtor's behalf.
     const { data: senderProfile, error: profileError } = await supabase
       .from('profiles')
       .select('display_name')
@@ -92,34 +124,6 @@ serve(async (req) => {
     }
     const fromName: string = senderProfile.display_name ?? 'Someone'
 
-    // H-09: validate that toUserID is actually a member of groupId — prevent spoofed pushes.
-    const { data: memberCheck, error: memberCheckError } = await supabase
-      .from('group_members')
-      .select('user_id')
-      .eq('group_id', groupId)
-      .eq('user_id', toUserID)
-      .maybeSingle()
-
-    if (memberCheckError || !memberCheck) {
-      return new Response(JSON.stringify({ error: 'Recipient is not a member of the specified group' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const { data: callerMembership, error: callerMembershipError } = await supabase
-      .from('group_members')
-      .select('user_id')
-      .eq('group_id', groupId)
-      .eq('user_id', callerID)
-      .maybeSingle()
-    if (callerMembershipError || !callerMembership) {
-      return new Response(JSON.stringify({ error: 'Caller is not a member of the specified group' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
     const { data: group, error: groupError } = await supabase
       .from('groups')
       .select('name')
@@ -132,12 +136,31 @@ serve(async (req) => {
       })
     }
 
+    // The recipient is either the payee (recipientID === toUserID, the common case where the
+    // debtor recorded their own payment) or the payer (recipientID === fromUserID, when the
+    // creditor recorded the payment on the debtor's behalf). Copy must not tell the debtor
+    // "<their own name> paid you" — resolve the recorder's name for that branch instead.
+    const recipientIsPayer = recipientID === fromUserID
+    let recorderName = fromName
+    if (recipientIsPayer) {
+      const { data: recorderProfile } = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', toUserID)
+        .maybeSingle()
+      recorderName = recorderProfile?.display_name ?? 'Someone'
+    }
+    const alertTitle = recipientIsPayer ? `${recorderName} marked you as paid` : `${fromName} settled up`
+    const alertBody  = recipientIsPayer
+      ? `You paid ${formatCurrency(amount, currency)} in ${group.name}`
+      : `Paid you ${formatCurrency(amount, currency)} in ${group.name}`
+
     const { error: notificationError } = await supabase.from('notifications').upsert({
-      recipient_id: toUserID,
-      dedupe_key: `settlement:${settlementId}:${toUserID}`,
+      recipient_id: recipientID,
+      dedupe_key: `settlement:${settlementId}:${recipientID}`,
       event_type: 'settlementMade',
-      title: `${fromName} settled up`,
-      subtitle: `${group.name} · Paid you ${formatCurrency(amount, currency)}`,
+      title: alertTitle,
+      subtitle: `${group.name} · ${recipientIsPayer ? 'You paid' : 'Paid you'} ${formatCurrency(amount, currency)}`,
       amount,
       currency,
       category: 'other',
@@ -145,11 +168,11 @@ serve(async (req) => {
     }, { onConflict: 'dedupe_key', ignoreDuplicates: true })
     if (notificationError) throw notificationError
 
-    // Push only the creditor (toUserID) — they are being paid
+    // Push whichever party did not record the payment.
     const { data: tokenRows } = await supabase
       .from('device_tokens')
       .select('token')
-      .eq('user_id', toUserID)
+      .eq('user_id', recipientID)
 
     if (!tokenRows?.length) {
       return new Response(JSON.stringify({ sent: 0 }), { headers: corsHeaders })
@@ -171,15 +194,15 @@ serve(async (req) => {
     const { count: badgeCount } = await supabase
       .from('notifications')
       .select('id', { count: 'exact', head: true })
-      .eq('recipient_id', toUserID)
+      .eq('recipient_id', recipientID)
       .is('read_at', null)
     const badge = badgeCount ?? 0
 
     const apnsPayload = {
       aps: {
         alert: {
-          title: `${fromName} settled up`,
-          body:  `Paid you ${formatCurrency(amount, currency)} in ${group.name}`,
+          title: alertTitle,
+          body:  alertBody,
         },
         sound: 'default',
         badge,

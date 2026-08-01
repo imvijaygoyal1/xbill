@@ -211,16 +211,15 @@ final class ExpenseService {
         }
     }
 
-    func notifySettlementRecorded(
-        settlementID: UUID,
-        groupID:      UUID,
-        toUserID:     UUID,
-        amount:       Decimal,
-        currency:     String
-    ) async {
+    /// The Edge Function reads the settlement row with the service role and derives
+    /// `fromUserID`/`toUserID`/`amount`/`currency`/`group_id` from it — nothing security- or
+    /// money-relevant is sent from the client. This is a deliberate strengthening of the old
+    /// `callerID`-as-sender fix (H-09): under the settlements ledger, either party may record
+    /// a payment, so the caller is no longer necessarily the payer, and the function verifies
+    /// `settlement.recorded_by == callerID` itself.
+    func notifySettlementRecorded(settlementID: UUID) async {
         struct Payload: Encodable {
-            let settlementId, groupId, toUserID, currency: String
-            let amount: Double
+            let settlementId: String
             let isDevelopment: Bool
         }
         #if DEBUG
@@ -230,10 +229,6 @@ final class ExpenseService {
         #endif
         let payload = Payload(
             settlementId:  settlementID.uuidString,
-            groupId:       groupID.uuidString,
-            toUserID:      toUserID.uuidString,
-            currency:      currency,
-            amount:        NSDecimalNumber(decimal: amount).doubleValue,
             isDevelopment: dev
         )
         do {

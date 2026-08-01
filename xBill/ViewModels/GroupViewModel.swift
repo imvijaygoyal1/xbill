@@ -648,9 +648,7 @@ final class GroupViewModel {
             NotificationStore.shared.merge([note], userID: fromUserID)
 
             if CacheService.defaults.bool(forKey: NotificationService.settlementPreferenceKey) {
-                await expenseService.notifySettlementRecorded(
-                    settlementID: saved.id, groupID: group.id,
-                    toUserID: toUserID, amount: amount, currency: group.currency)
+                await expenseService.notifySettlementRecorded(settlementID: saved.id)
             }
         } catch {
             guard !AppError.isSilent(error) else { return }

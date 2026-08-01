@@ -29,13 +29,7 @@ protocol ExpenseDataProviding: AnyObject, Sendable {
         expectedNextOccurrence: Date,
         newNextOccurrence: Date
     ) async throws -> Expense?
-    func notifySettlementRecorded(
-        settlementID: UUID,
-        groupID: UUID,
-        toUserID: UUID,
-        amount: Decimal,
-        currency: String
-    ) async
+    func notifySettlementRecorded(settlementID: UUID) async
 }
 
 /// The group/member operations `GroupViewModel` depends on.

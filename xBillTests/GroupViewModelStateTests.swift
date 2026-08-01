@@ -51,7 +51,7 @@ final class FakeExpenseService: ExpenseDataProviding {
     func updateExpense(_ expense: Expense) async throws -> Expense { expense }
     func fetchDueRecurringExpenses(groupID: UUID) async throws -> [Expense] { [] }
     func createRecurringInstance(templateID: UUID, expectedNextOccurrence: Date, newNextOccurrence: Date) async throws -> Expense? { nil }
-    func notifySettlementRecorded(settlementID: UUID, groupID: UUID, toUserID: UUID, amount: Decimal, currency: String) async {
+    func notifySettlementRecorded(settlementID: UUID) async {
         notifyCount += 1
     }
 }
