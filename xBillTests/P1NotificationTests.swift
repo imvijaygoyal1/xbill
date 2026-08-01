@@ -303,7 +303,6 @@ struct NotificationItemFactoryTests {
     @Test("settlement factory maps all fields correctly")
     func settlementFactory() {
         let suggestion = SettlementSuggestion(
-            id:         UUID(),
             fromUserID: UUID(),
             fromName:   "Bob",
             toUserID:   UUID(),
@@ -320,7 +319,16 @@ struct NotificationItemFactoryTests {
         // not from suggestion.id. Verify determinism: same inputs → same ID across calls.
         let item2 = NotificationItem.settlement(suggestion: suggestion, groupName: "Trip", groupEmoji: "✈️")
         #expect(item.id == item2.id, "settlement ID must be deterministic for deduplication")
-        #expect(item.id != suggestion.id, "settlement ID must not use the unstable suggestion UUID")
+        // The old assertion here compared this id against `suggestion.id` to prove the factory
+        // did not adopt the suggestion's then-random UUID. `SettlementSuggestion` no longer has
+        // a stored id, so that can no longer happen by construction. What still needs proving is
+        // that the id is derived from the payment's *content* — otherwise two different payments
+        // would collide and one would be dropped as a duplicate.
+        var differentAmount = suggestion
+        differentAmount.amount = 26.00
+        let other = NotificationItem.settlement(
+            suggestion: differentAmount, groupName: "Trip", groupEmoji: "✈️")
+        #expect(item.id != other.id, "a different amount must produce a different settlement ID")
         #expect(item.eventType == .settlementMade)
         #expect(item.title.contains("Bob"))
         #expect(item.subtitle.contains("Alice"))

@@ -600,7 +600,7 @@ struct GroupDetailView: View {
                 XBillButton(title: "Record Payment", style: .primary) {
                     paymentToRecord = suggestion
                 }
-                .accessibilityIdentifier("xBill.settleUp.recordPaymentButton.\(suggestion.id.uuidString)")
+                .accessibilityIdentifier("xBill.settleUp.recordPaymentButton.\(suggestion.id)")
             }
             if currentUserID == suggestion.fromUserID,
                let recipient = vm.members.first(where: { $0.id == suggestion.toUserID }) {
@@ -614,7 +614,7 @@ struct GroupDetailView: View {
                         .font(.appCaption)
                         .foregroundStyle(Color.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityIdentifier("xBill.settleUp.noPaymentHandle.\(suggestion.id.uuidString)")
+                        .accessibilityIdentifier("xBill.settleUp.noPaymentHandle.\(suggestion.id)")
                 } else {
                     HStack(spacing: AppSpacing.sm) {
                         if let handle = venmoHandle,
@@ -626,7 +626,7 @@ struct GroupDetailView: View {
                                     .font(.appCaptionMedium)
                             }
                             .buttonStyle(.borderless)
-                            .accessibilityIdentifier("xBill.settleUp.venmoButton.\(suggestion.id.uuidString)")
+                            .accessibilityIdentifier("xBill.settleUp.venmoButton.\(suggestion.id)")
                         }
                         if let handle = paypalHandle,
                            let paypalURL = PaymentLinkService.shared.paymentLink(for: suggestion, recipient: recipient, method: .paypal) {
@@ -637,7 +637,7 @@ struct GroupDetailView: View {
                                     .font(.appCaptionMedium)
                             }
                             .buttonStyle(.borderless)
-                            .accessibilityIdentifier("xBill.settleUp.paypalButton.\(suggestion.id.uuidString)")
+                            .accessibilityIdentifier("xBill.settleUp.paypalButton.\(suggestion.id)")
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -646,7 +646,7 @@ struct GroupDetailView: View {
         }
         .padding(.vertical, XBillSpacing.sm)
         .opacity(isParty ? 1 : 0.55)
-        .accessibilityIdentifier("xBill.settleUp.suggestionRow.\(suggestion.id.uuidString)")
+        .accessibilityIdentifier("xBill.settleUp.suggestionRow.\(suggestion.id)")
     }
 
     private func openPaymentURL(_ url: URL, providerName: String, suggestion: SettlementSuggestion) {

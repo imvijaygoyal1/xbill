@@ -219,7 +219,6 @@ enum SplitCalculator {
 
             if transferAmount > epsilon, rounded > .zero {
                 suggestions.append(SettlementSuggestion(
-                    id: UUID(),
                     fromUserID: debtorID,
                     fromName: names[debtorID] ?? "Unknown",
                     toUserID: creditorID,
@@ -301,7 +300,6 @@ enum SplitCalculator {
             var m = magnitude
             NSDecimalRound(&rounded, &m, 2, .bankers)
             return SettlementSuggestion(
-                id: UUID(),
                 fromUserID: debtor,  fromName: names[debtor] ?? "Unknown",
                 toUserID: creditor,  toName: names[creditor] ?? "Unknown",
                 amount: rounded, currency: currency)

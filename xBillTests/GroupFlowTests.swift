@@ -303,10 +303,10 @@ struct GroupArchiveLogicTests {
 
     @Test("Archive warning pluralises correctly")
     func archiveWarningPluralSingular() {
-        let single = [SettlementSuggestion(id: UUID(), fromUserID: UUID(), fromName: "A",
+        let single = [SettlementSuggestion(fromUserID: UUID(), fromName: "A",
                                            toUserID: UUID(), toName: "B", amount: 10, currency: "USD")]
         let multi  = [single[0],
-                      SettlementSuggestion(id: UUID(), fromUserID: UUID(), fromName: "C",
+                      SettlementSuggestion(fromUserID: UUID(), fromName: "C",
                                            toUserID: UUID(), toName: "D", amount: 20, currency: "USD")]
 
         let singleMsg = "unsettled balance\(single.count == 1 ? "" : "s")"

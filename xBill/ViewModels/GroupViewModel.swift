@@ -749,7 +749,7 @@ final class GroupViewModel {
 
             let note = NotificationItem.settlement(
                 suggestion: SettlementSuggestion(
-                    id: saved.id, fromUserID: fromUserID, fromName: memberNames[fromUserID] ?? "Someone",
+                    fromUserID: fromUserID, fromName: memberNames[fromUserID] ?? "Someone",
                     toUserID: toUserID, toName: memberNames[toUserID] ?? "Someone",
                     amount: amount, currency: group.currency),
                 groupName: group.name, groupEmoji: group.emoji)
@@ -804,6 +804,16 @@ final class GroupViewModel {
     /// tags again after the commit — restoring the invariant — and re-removes the row in case
     /// that `load()` already put it back.
     func deletePayment(_ settlement: Settlement) async {
+        // The 2026-08-01 device crash landed here with no trace, because neither this method
+        // nor `recordPayment` logged anything: the log's silence could not distinguish "never
+        // reached" from "crashed midway". That is the same gap recorded after the notification
+        // work — log the success path, not only failures.
+        AppDiagnostics.log(.balance, "GroupViewModel.deletePayment.enter", [
+            ("id", settlement.id.uuidString),
+            ("amount", settlement.amount.description),
+            ("settlements", settlements.count),
+            ("suggestions", settlementSuggestions.count)
+        ])
         isLoading = true
         defer { isLoading = false }
         settlements.removeAll { $0.id == settlement.id }
@@ -834,6 +844,12 @@ final class GroupViewModel {
             if lastRecordedPayment?.id == settlement.id {
                 lastRecordedPayment = nil
             }
+            AppDiagnostics.log(.balance, "GroupViewModel.deletePayment.committed", [
+                ("id", settlement.id.uuidString),
+                ("wasResurrected", wasResurrected),
+                ("settlements", settlements.count),
+                ("suggestions", settlementSuggestions.count)
+            ])
         } catch {
             // Scoped rollback: re-insert only this settlement, and only if nothing else (a
             // concurrent load(), a retry) has already put it back.
@@ -849,6 +865,12 @@ final class GroupViewModel {
             // response issued after this point settles it.
             pendingSettlementChanges[settlement.id] = .recorded(settlement, generation: settlementFetchGeneration)
             await computeBalances()
+            AppDiagnostics.log(.balance, "GroupViewModel.deletePayment.catch", [
+                ("id", settlement.id.uuidString),
+                ("silent", AppError.isSilent(error)),
+                ("settlements", settlements.count),
+                ("error", AppDiagnostics.describe(error))
+            ])
             guard !AppError.isSilent(error) else { return }
             errorAlert = ErrorAlert(title: "Payment Not Removed", message: error.localizedDescription)
         }

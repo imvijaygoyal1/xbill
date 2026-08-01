@@ -49,11 +49,28 @@ struct Settlement: Codable, Identifiable, Equatable, Sendable {
 
 /// Represents who should pay whom, derived from SplitCalculator.
 struct SettlementSuggestion: Identifiable, Equatable, Sendable {
-    let id: UUID
     let fromUserID: UUID
     let fromName: String
     let toUserID: UUID
     let toName: String
     var amount: Decimal
     var currency: String
+
+    /// Identity is "who owes whom, in which currency" — derived, never stored.
+    ///
+    /// This was a stored `id: UUID` populated with `UUID()` at every construction site, so a
+    /// recompute produced structurally identical rows carrying brand-new identities. SwiftUI
+    /// therefore treated every settle-up row as deleted-and-reinserted on each balance
+    /// refresh. When that reached `UICollectionView` inside the swipe-delete animation of the
+    /// payment list in the same `List`, the batch update no longer reconciled and UIKit
+    /// aborted: "Invalid number of items in section" (device crash 2026-08-01, `.ips` 110535).
+    ///
+    /// The field is computed rather than merely assigned carefully because a stored id can be
+    /// filled with `UUID()` by the next caller — as all four original sites did. There is no
+    /// stored id, so there is nothing to get wrong.
+    ///
+    /// `currency` is part of the key because `HomeViewModel.crossGroupSuggestions` minimizes
+    /// per currency and concatenates, where one debtor/creditor pair may legitimately appear
+    /// once per currency.
+    var id: String { "\(fromUserID.uuidString)|\(toUserID.uuidString)|\(currency)" }
 }

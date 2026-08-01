@@ -194,7 +194,7 @@ struct PayPalUsernameValidationTests {
     private let service = PaymentLinkService.shared
 
     private func makeSettlement(name: String) -> SettlementSuggestion {
-        SettlementSuggestion(id: UUID(), fromUserID: UUID(), fromName: "Alice",
+        SettlementSuggestion(fromUserID: UUID(), fromName: "Alice",
                              toUserID: UUID(), toName: name,
                              amount: 25.00, currency: "USD")
     }

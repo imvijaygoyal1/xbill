@@ -403,3 +403,53 @@ struct RecordPaymentPrefillTests {
         #expect(Decimal(string: text, locale: Locale(identifier: "en_US_POSIX")) == Decimal(string: "1234.50"))
     }
 }
+
+// MARK: - Settle-up row identity
+
+/// `SettlementSuggestion.id` was `UUID()`, minted fresh on every computation, so SwiftUI saw
+/// every settle-up row deleted and re-inserted on each balance recompute. When that landed
+/// inside the swipe-delete animation of the payment list in the same `List`, UICollectionView
+/// aborted: "Invalid number of items in section" (device crash 2026-08-01, .ips 110535).
+@Suite("Settlement suggestion identity is stable")
+struct SettlementSuggestionIdentityTests {
+
+    private func member(_ n: Int) -> UUID {
+        UUID(uuidString: "AAAAAAAA-0000-0000-0000-00000000000\(n)")!
+    }
+
+    /// The exact defect: identical inputs must produce identical row identities, or SwiftUI
+    /// rebuilds every row on every refresh.
+    @Test("Recomputing from identical balances yields identical ids")
+    func minimizeTransactionsIsStable() {
+        let balances = [member(1): Decimal(-25), member(2): Decimal(10), member(3): Decimal(15)]
+        let names = [member(1): "Alice", member(2): "Bob", member(3): "Cara"]
+
+        let first  = SplitCalculator.minimizeTransactions(balances: balances, names: names, currency: "USD")
+        let second = SplitCalculator.minimizeTransactions(balances: balances, names: names, currency: "USD")
+
+        #expect(!first.isEmpty)
+        #expect(first.map(\.id) == second.map(\.id))
+    }
+
+    @Test("Ids are unique within one produced list")
+    func idsAreUniqueWithinAList() {
+        let balances = [member(1): Decimal(-25), member(2): Decimal(10), member(3): Decimal(15)]
+        let suggestions = SplitCalculator.minimizeTransactions(
+            balances: balances, names: [:], currency: "USD")
+        #expect(Set(suggestions.map(\.id)).count == suggestions.count)
+    }
+
+    /// `HomeViewModel.crossGroupSuggestions` minimizes per currency and concatenates, so the
+    /// same debtor/creditor pair can legitimately appear twice. Identity must separate them or
+    /// the merged list carries duplicate ids.
+    @Test("The same pair in two currencies gets two identities")
+    func currencySeparatesIdentity() {
+        let balances = [member(1): Decimal(-10), member(2): Decimal(10)]
+        let usd = SplitCalculator.minimizeTransactions(balances: balances, names: [:], currency: "USD")
+        let eur = SplitCalculator.minimizeTransactions(balances: balances, names: [:], currency: "EUR")
+
+        #expect(usd.count == 1)
+        #expect(eur.count == 1)
+        #expect(usd[0].id != eur[0].id)
+    }
+}

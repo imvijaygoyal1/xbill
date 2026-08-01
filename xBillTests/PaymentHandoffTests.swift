@@ -41,7 +41,6 @@ struct PaymentHandoffTests {
 
     private func suggestion(amount: Decimal = 95, currency: String = "USD") -> SettlementSuggestion {
         SettlementSuggestion(
-            id: UUID(),
             fromUserID: UUID(),
             fromName: "Alice Chen",
             toUserID: UUID(),

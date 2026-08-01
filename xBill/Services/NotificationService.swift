@@ -53,11 +53,11 @@ final class NotificationService {
         content.title = "Payment Reminder"
         content.body = "You owe \(suggestion.toName) \(suggestion.amount.formatted(currencyCode: suggestion.currency))"
         content.sound = .default
-        content.userInfo = ["settlementId": suggestion.id.uuidString]
+        content.userInfo = ["settlementId": suggestion.id]
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, seconds), repeats: false)
         let request = UNNotificationRequest(
-            identifier: "settlement-\(suggestion.id.uuidString)",
+            identifier: "settlement-\(suggestion.id)",
             content: content,
             trigger: trigger
         )

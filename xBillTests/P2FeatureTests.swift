@@ -17,7 +17,7 @@ struct CrossGroupDebtTests {
     // Helper to build a SettlementSuggestion stub
     private func suggest(from: UUID, fromName: String, to: UUID, toName: String,
                          amount: Decimal, currency: String = "USD") -> SettlementSuggestion {
-        SettlementSuggestion(id: UUID(), fromUserID: from, fromName: fromName,
+        SettlementSuggestion(fromUserID: from, fromName: fromName,
                              toUserID: to, toName: toName, amount: amount, currency: currency)
     }
 
