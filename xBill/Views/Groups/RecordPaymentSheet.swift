@@ -24,7 +24,12 @@ struct RecordPaymentSheet: View {
         self.suggestion = suggestion
         self.currency = currency
         self.onConfirm = onConfirm
-        _amountText = State(initialValue: NSDecimalNumber(decimal: suggestion.amount).stringValue)
+        // `NSDecimalNumber.stringValue` drops trailing zeros, so an $8.00 debt prefilled as
+        // "8" — the same trailing-zero behaviour that made PayPal.Me silently ignore a
+        // settlement amount (`95USD` instead of `95.00USD`). `formattedAmount` is the house
+        // fix: en_US_POSIX, exactly 2dp, grouping disabled — so it also cannot emit a comma
+        // that `enteredAmount`'s parser would then reject.
+        _amountText = State(initialValue: PaymentLinkService.formattedAmount(suggestion.amount))
     }
 
     private var enteredAmount: Decimal? {

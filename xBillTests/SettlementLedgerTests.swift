@@ -373,3 +373,33 @@ struct BackfillEquivalenceTests {
         #expect(withoutGuard.count == applyBackfillRule(expenses: expenses, splits: splits).count + 1)
     }
 }
+
+// MARK: - Record Payment prefill
+
+@Suite("Record Payment amount prefill")
+struct RecordPaymentPrefillTests {
+
+    /// The sheet prefilled via `NSDecimalNumber.stringValue`, which drops trailing zeros, so an
+    /// $8.00 debt showed as "8". Same behaviour that made PayPal.Me ignore a settlement amount
+    /// (`95USD` rather than `95.00USD`) — see `PaymentLinkService.formattedAmount`.
+    @Test("A whole-dollar amount prefills with two decimals")
+    func wholeAmountKeepsTwoDecimals() {
+        #expect(PaymentLinkService.formattedAmount(Decimal(8)) == "8.00")
+        #expect(PaymentLinkService.formattedAmount(Decimal(string: "7")!) == "7.00")
+    }
+
+    @Test("A fractional amount is unchanged")
+    func fractionalAmountIsExact() {
+        #expect(PaymentLinkService.formattedAmount(Decimal(string: "15.50")!) == "15.50")
+        #expect(PaymentLinkService.formattedAmount(Decimal(string: "0.20")!) == "0.20")
+    }
+
+    /// The prefill is fed straight back into the sheet's own parser, so it must not contain a
+    /// grouping separator — `Decimal(string:locale:)` would reject "1,234.50".
+    @Test("A four-figure prefill round-trips through the sheet's parser")
+    func largeAmountRoundTrips() {
+        let text = PaymentLinkService.formattedAmount(Decimal(string: "1234.50")!)
+        #expect(!text.contains(","))
+        #expect(Decimal(string: text, locale: Locale(identifier: "en_US_POSIX")) == Decimal(string: "1234.50"))
+    }
+}
