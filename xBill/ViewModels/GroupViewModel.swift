@@ -76,6 +76,10 @@ final class GroupViewModel {
     /// Count of settlement fetches started by this VM. Only ever compared, never persisted;
     /// monotonicity is the only property it needs. Mutated on the main actor exclusively.
     @ObservationIgnored private var settlementFetchGeneration: UInt64 = 0
+    /// Generation of the newest settlements response that has actually been applied. Zero
+    /// means none has. `applyFetchedSettlements` refuses anything at or below it, so a slower
+    /// earlier fetch cannot overwrite a newer one's result. See I4 in that method's comment.
+    @ObservationIgnored private var lastAppliedSettlementGeneration: UInt64 = 0
     /// Consecutive fetches that returned no settlements while this VM believed the server had
     /// some. Reset by any fetch that is applied. See the empty-response guard in
     /// `applyFetchedSettlements`.
@@ -201,6 +205,20 @@ final class GroupViewModel {
                     ("error", AppDiagnostics.describe(error))
                 ])
                 guard !AppError.isSilent(error) else { return }
+                // C1: the three fetches share one `try await` tuple, so a failure in ANY of
+                // them lands here — including a settlements-only failure while members and
+                // expenses succeeded. `settlements` then still holds whatever it held before
+                // (empty on a first load), and `computeBalances()` below derives balances
+                // from an unoffset ledger: every split counts as unpaid and Settle Up renders
+                // the full, gross, pre-payment debt with a Record Payment button on each row.
+                // A user could pay a debt they have already paid.
+                //
+                // `balanceLoadFailed` was cleared at the top of this branch (REV-04) and was
+                // never restored here, so that gross figure was presented as authoritative
+                // with no stale-data warning. Raise it for the same reason `HomeViewModel`
+                // does on its settlements branch (IMP-2): the failure mode of a missing
+                // settlements read is the largest possible wrong number, not a small one.
+                balanceLoadFailed = true
                 // Unconditionally restore from cache on any network error — a partial
                 // in-flight fetch may have written one array but not the other.
                 let cachedMembers  = CacheService.shared.loadMembers(groupID: group.id)
@@ -307,6 +325,29 @@ final class GroupViewModel {
     /// the row if a fetch put it back in the meantime; see its success branch. Expiry alone
     /// cannot, because the resurrecting merge has already run by then.
     private func applyFetchedSettlements(_ fetchedSettlements: [Settlement], fetchGeneration: UInt64) {
+        // I4: generation expiry above decides which *local* changes a response outranks. It says
+        // nothing about which of two responses outranks the other, and two loads really can be
+        // in flight at once: `deletePayment` takes no `!isLoading` guard and its `defer` clears
+        // `isLoading` while an earlier `load()` is still awaiting its fetches, so the next
+        // refresh sails past `load()`'s own guard. If load B (generation 2) returns first and
+        // load A (generation 1) returns after it, A's older snapshot was applied wholesale on
+        // top of B's — a payment recorded between the two fetches disappeared and the balance
+        // reverted to gross until something triggered another fetch.
+        //
+        // Only a response strictly newer than the last one applied may be applied. Discarding a
+        // stale response loses nothing: everything in it is, by construction, also in the newer
+        // one, minus whatever the newer one has that it lacks.
+        //
+        // The counter advances here rather than at the end, so it also covers the one path
+        // below that returns without writing `settlements` — the empty-response guard. That
+        // guard's decision is "keep what we have and warn"; letting an older response through
+        // afterwards would quietly overturn it with data that is older still.
+        guard fetchGeneration > lastAppliedSettlementGeneration else {
+            logger.warning("Discarding a settlements response from generation \(fetchGeneration, privacy: .public); generation \(self.lastAppliedSettlementGeneration, privacy: .public) has already been applied")
+            return
+        }
+        lastAppliedSettlementGeneration = fetchGeneration
+
         // Rows recorded after this fetch started are not rows it failed to return, so they must
         // not make an empty response look suspicious.
         let expectedFromServer = settlements.filter { !isRecordedAfterFetch($0.id, generation: fetchGeneration) }
@@ -645,7 +686,15 @@ final class GroupViewModel {
                     toUserID: toUserID, toName: memberNames[toUserID] ?? "Someone",
                     amount: amount, currency: group.currency),
                 groupName: group.name, groupEmoji: group.emoji)
-            NotificationStore.shared.merge([note], userID: fromUserID)
+            // I1: scoped to the account that recorded it, not the debtor. `NotificationStore`
+            // keys are user-scoped, and this is a local Activity entry for what *this device's*
+            // signed-in user just did. Before this branch only the debtor could settle, so
+            // `fromUserID == recordedBy` always held and the distinction never showed; breaking
+            // that invariant is the whole point of the settlements ledger. With `fromUserID`,
+            // a creditor recording a payment filed the note under the debtor's key on the
+            // recorder's own device — so the recorder saw no Activity row at all, and the
+            // debtor would only see it if they ever signed in on that device.
+            NotificationStore.shared.merge([note], userID: recordedBy)
 
             if CacheService.defaults.bool(forKey: NotificationService.settlementPreferenceKey) {
                 await expenseService.notifySettlementRecorded(settlementID: saved.id)

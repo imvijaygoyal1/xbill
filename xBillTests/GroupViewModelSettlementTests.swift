@@ -90,6 +90,9 @@ final class FakeSettlementService: SettlementDataProviding {
     var stored: [Settlement] = []
     var insertError: Error?
     var deleteError: Error?
+    /// When set, `fetchSettlements` throws. Models the settlements-only outage behind C1: the
+    /// members and expenses fetches succeed, and only the ledger read fails.
+    var fetchError: Error?
     /// When set, `deleteSettlement` removes the row from `stored` and *then* throws — the
     /// commit-but-error case: a request that landed on the server while the client saw a
     /// timeout, a dropped response, or a 500 raised after the write. Distinct from
@@ -112,6 +115,10 @@ final class FakeSettlementService: SettlementDataProviding {
         events.append("fetch.start")
         let snapshot = stored
         await fetchGate.waitIfArmed()
+        if let fetchError {
+            events.append("fetch.failed")
+            throw fetchError
+        }
         events.append("fetch.end")
         return snapshot
     }
@@ -709,5 +716,121 @@ struct GroupViewModelPaymentTests {
         #expect(vm.settlements.count == 2)
         #expect(vm.settlements.first?.amount == 7)
         #expect(vm.settlements.last?.id == older.id)
+    }
+
+    @Test("A settlements-only fetch failure raises the stale-data warning")
+    func settlementsFetchFailureRaisesBalanceLoadFailed() async {
+        // C1. `load()` fetches members, expenses and settlements through one `try await` tuple,
+        // so a settlements-only outage throws the whole `do`. The catch restores members and
+        // expenses from cache and recomputes — against an empty `settlements` array. Every split
+        // then counts as unpaid, which is the largest possible wrong number, and Settle Up puts
+        // a Record Payment button on each row. `balanceLoadFailed` was cleared before the fetch
+        // and never restored, so that figure was presented as authoritative with no warning:
+        // a user could pay a debt they had already paid.
+        let group = makeGroup(); let alice = UUID(); let bob = UUID()
+        let e = Expense(id: UUID(), groupID: group.id, title: "Dinner", amount: 30,
+                        currency: "USD", payerID: alice, category: .food, notes: nil,
+                        receiptURL: nil, originalAmount: nil, originalCurrency: nil,
+                        recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
+        let split = Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
+                          isSettled: false, settledAt: nil)
+        let repayment = Settlement(id: UUID(), groupID: group.id, fromUserID: bob,
+                                   toUserID: alice, amount: 10, currency: "USD",
+                                   recordedBy: bob, createdAt: Date())
+
+        // A healthy load first. It also populates the expense cache, which is what the failing
+        // VM below reads back — the real shape of this bug is a relaunch (or any later load)
+        // where expenses are available and the ledger read is not.
+        let healthyExpenses = FakeExpenseService()
+        healthyExpenses.expenses = [e]; healthyExpenses.splits = [split]
+        let healthySettlements = FakeSettlementService()
+        healthySettlements.stored = [repayment]
+        let healthyVM = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                       expenseService: healthyExpenses,
+                                       settlementService: healthySettlements,
+                                       currentUserIDProvider: { bob })
+        await healthyVM.load(showError: false)
+        #expect(healthyVM.balance(for: bob) == 0)
+        #expect(!healthyVM.balanceLoadFailed)
+
+        // Now the same group with only the settlements read failing.
+        let expenses = FakeExpenseService()
+        expenses.expenses = [e]; expenses.splits = [split]
+        let settlements = FakeSettlementService()
+        settlements.stored = [repayment]
+        settlements.fetchError = AppError.networkUnavailable
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: expenses, settlementService: settlements,
+                                currentUserIDProvider: { bob })
+        await vm.load(showError: false)
+
+        // The number on screen really is the gross, pre-payment debt — the repayment exists on
+        // the server and is nowhere in this VM. That is precisely why the warning must be up.
+        #expect(vm.settlements.isEmpty)
+        #expect(vm.balance(for: bob) == -10)
+        #expect(vm.balanceLoadFailed)
+    }
+
+    @Test("A stale settlements response cannot overwrite a newer one")
+    func staleSettlementsResponseIsDiscarded() async {
+        // I4. Two `load()`s can be in flight at once: `deletePayment` takes no `!isLoading`
+        // guard and its `defer` clears the flag while an earlier load is still awaiting, so the
+        // next refresh sails past `load()`'s own guard. If the later load returns first, the
+        // earlier one's older snapshot used to be applied wholesale on top of it — a payment
+        // recorded in between disappeared and the balance reverted to gross.
+        let group = makeGroup(); let alice = UUID(); let bob = UUID()
+        let expenses = FakeExpenseService(); let settlements = FakeSettlementService()
+        let e = Expense(id: UUID(), groupID: group.id, title: "Dinner", amount: 30,
+                        currency: "USD", payerID: alice, category: .food, notes: nil,
+                        receiptURL: nil, originalAmount: nil, originalCurrency: nil,
+                        recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
+        expenses.expenses = [e]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
+                                 isSettled: false, settledAt: nil)]
+        // A small earlier payment by bob, so he can delete it — the isLoading hole this needs.
+        let earlier = Settlement(id: UUID(), groupID: group.id, fromUserID: bob, toUserID: alice,
+                                 amount: 2, currency: "USD", recordedBy: bob,
+                                 createdAt: Date().addingTimeInterval(-3600))
+        settlements.stored = [earlier]
+
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: expenses, settlementService: settlements,
+                                currentUserIDProvider: { bob })
+        await vm.load(showError: false)
+        #expect(vm.balance(for: bob) == -8)
+        settlements.events = []
+
+        // Load A starts and parks holding a snapshot that still contains only `earlier`.
+        settlements.fetchGate.arm()
+        let loadA = Task { await vm.load(showError: false) }
+        await settlements.fetchGate.waitUntilParked()
+
+        // Deleting `earlier` completes while load A is still parked; its `defer` clears
+        // `isLoading` for everyone, which is what lets load B start below.
+        await vm.deletePayment(earlier)
+        #expect(!vm.isLoading)
+
+        // A full repayment is recorded in the same window.
+        await vm.recordPayment(from: bob, to: alice, amount: 10)
+        #expect(vm.balance(for: bob) == 0)
+
+        // Load B is issued and returns the true current ledger. The gate is one-shot and load A
+        // consumed it, so B runs straight through.
+        await vm.load(showError: false)
+        #expect(vm.balance(for: bob) == 0)
+
+        // Only now does load A come back, carrying a snapshot that predates both the delete and
+        // the payment.
+        settlements.fetchGate.release()
+        await loadA.value
+
+        // Both later fetches really did complete inside load A's window.
+        #expect(settlements.events == ["fetch.start", "delete.start", "delete.end", "record",
+                                       "fetch.start", "fetch.end", "fetch.end"])
+        // Load A's response is older than the one already applied, so it is discarded whole:
+        // the repayment survives, the deleted payment stays deleted, the balance holds.
+        #expect(vm.settlements.count == 1)
+        #expect(vm.settlements.first?.amount == 10)
+        #expect(vm.balance(for: bob) == 0)
     }
 }
