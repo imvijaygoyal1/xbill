@@ -1366,8 +1366,13 @@ supabase functions deploy notify-settlement
 **Nothing is applied to the live database or Edge Functions without that approval.**
 
 **Ordering requirement — all three ship together.** The new `notify-settlement` payload
-(`{settlementId, isDevelopment}`) and the currently-live function are mutually incompatible: the
-live function returns 400 on the new payload, and the new function 500s until migration 041 exists.
+(`{settlementId, isDevelopment}`) and the currently-live function are mutually incompatible.
+Verified against the code, because a partial deploy is diagnosed by these codes:
+- **Live function + new payload → 500.** Its payload validation is a bare `throw` inside the top
+  level `try`, so the outer catch turns it into a generic 500, not a 400.
+- **New function before migration 041 → 404.** `supabase-js` returns `{data: null, error}` for a
+  missing relation rather than throwing, so the explicit `if (settlementError || !settlement)`
+  branch answers 404, not a 500.
 Deploy migration 041, then the function, then the app build. Migration 041 must also run **before**
 any app build that can write to
 `settlements` reaches a user. The backfill is gated on `NOT EXISTS (SELECT 1 FROM
