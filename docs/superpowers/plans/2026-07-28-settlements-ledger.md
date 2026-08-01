@@ -1365,7 +1365,11 @@ supabase functions deploy notify-settlement
 
 **Nothing is applied to the live database or Edge Functions without that approval.**
 
-**Ordering requirement.** Migration 041 must run **before** any app build that can write to
+**Ordering requirement — all three ship together.** The new `notify-settlement` payload
+(`{settlementId, isDevelopment}`) and the currently-live function are mutually incompatible: the
+live function returns 400 on the new payload, and the new function 500s until migration 041 exists.
+Deploy migration 041, then the function, then the app build. Migration 041 must also run **before**
+any app build that can write to
 `settlements` reaches a user. The backfill is gated on `NOT EXISTS (SELECT 1 FROM
 public.settlements)`, so if a real user's payment lands first the backfill silently no-ops
 forever and the 2 pre-migration settled debts are never represented in the ledger — with no
