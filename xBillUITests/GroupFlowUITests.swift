@@ -146,7 +146,6 @@ final class GroupFlowUITests: XCTestCase {
             app.buttons["xBill.tab.groups"],
             app.otherElements["xBill.tab.groups"],
             app.staticTexts["xBill.tab.groups"],
-            app.buttons["xBill.uitest.tab.groups"],
             app.tabBars.buttons["Groups"],
             app.buttons["Groups"].firstMatch,
             app.otherElements["Groups"].firstMatch

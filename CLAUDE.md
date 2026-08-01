@@ -92,6 +92,47 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-01 (later) — UI regression suite aligned to the settlements ledger
+
+Baseline first: `scripts/run-coverage.sh regression-ui` was **15/15 green** before any change, so
+the settlements rename had not broken the suite. Three findings came out of aligning it
+(`AUDIT_REPORT.md` → `UIT-01`…`UIT-03`); the suite is now **16/16**.
+
+- **UIT-01 — five accessibility identifiers did not exist at runtime.**
+  `.accessibilityIdentifier` on the settlement row's enclosing `VStack` propagates to every
+  descendant and **overwrites** their own, so `recordPaymentButton`, `venmoButton`,
+  `paypalButton`, `noPaymentHandle` and `nonPartyCaption` were all reported as the row id. The
+  identifier now sits on the header `HStack`, which already forms its own accessibility element.
+  **The suite already referenced `xBill.settleUp.recordPaymentButton.` and it could never have
+  matched** — it survived only inside `||` chains where another branch was true. A green
+  assertion that cannot fail is worse than a missing one.
+- **UIT-02** — `xBill.uitest.tab.groups` was a tap candidate in two test files and defined nowhere
+  in the app; a leftover from the DEBUG hit-target overlay removed in M-66.
+- **UIT-03 — the ledger had no UI coverage at all.** The seed fixtures create groups with the
+  owner as the only member, and a single-member group cannot hold a debt, so the settle-up test
+  could only assert the "All Settled Up!" empty state. None of the four defects device testing
+  found earlier the same day was reachable from this suite. New
+  `scripts/seed-ledger-regression-group.sql` seeds a three-member `SeedLedger-Regression` group
+  producing one row of every kind ($7.00 debtor, $8.00 creditor, $15.50 non-party) plus both
+  sides of the delete gate.
+
+### Key Pattern — a container's accessibilityIdentifier overwrites its children's
+Never put `.accessibilityIdentifier` on a row/card container that holds identified controls. It
+propagates down and replaces theirs, silently deleting every inner identifier. Attach it to a
+subview that already forms its own accessibility element (`.accessibilityElement(children:
+.ignore)`), and after adding identifiers to a composite row, assert one of the *inner* ones from
+a UI test — a prefix predicate sitting in an `||` chain will pass without ever matching.
+
+### Key Pattern — a UI test fixture needs more than one member
+`seed-ui-test-data.sh` seeds single-member groups, which can never carry a debt, so any
+balance/settle-up assertion against them degenerates to the empty state. Multi-member scenarios
+need `scripts/seed-ledger-regression-group.sql`. Its name follows the `SeedActive`/`SeedArchived`
+convention deliberately: those names sit **outside** the disposable prefixes in
+`purge-ui-test-groups.sh`, so a routine purge cannot delete the fixtures a regression run depends
+on. `testSettleUpLedgerRegression` is **read-only** — it opens the Record Payment sheet and
+cancels, because recording would move the fixture's balances and the next run would start
+somewhere else. It covers the surfaces, not the writes.
+
 ## Recent Fix Log — 2026-08-01
 
 ### Settlements ledger — device verification, and a crash only the device could find

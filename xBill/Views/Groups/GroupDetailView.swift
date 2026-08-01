@@ -611,6 +611,15 @@ struct GroupDetailView: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(suggestion.fromName) owes \(suggestion.toName) \(suggestion.amount.formatted(currencyCode: suggestion.currency))")
+            // The row identifier belongs HERE, on the header — which already forms its own
+            // accessibility element — not on the enclosing VStack. Applied to the container it
+            // propagates to every descendant and *overwrites* their own identifiers, so
+            // `recordPaymentButton`, `venmoButton`, `paypalButton`, `noPaymentHandle` and
+            // `nonPartyCaption` did not exist at runtime: every element in the row reported the
+            // row id. The regression suite's `xBill.settleUp.recordPaymentButton.` predicate
+            // could therefore never match; it survived only inside `||` chains where another
+            // branch was true. Found by the element dump in `testSettleUpLedgerRegression`.
+            .accessibilityIdentifier("xBill.settleUp.suggestionRow.\(suggestion.id)")
             if isParty {
                 XBillButton(title: "Record Payment", style: .primary) {
                     paymentToRecord = suggestion
@@ -671,7 +680,6 @@ struct GroupDetailView: View {
         }
         .padding(.vertical, XBillSpacing.sm)
         .opacity(isParty ? 1 : 0.55)
-        .accessibilityIdentifier("xBill.settleUp.suggestionRow.\(suggestion.id)")
     }
 
     private func openPaymentURL(_ url: URL, providerName: String, suggestion: SettlementSuggestion) {

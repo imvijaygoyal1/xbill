@@ -439,6 +439,99 @@ final class RegressionUITests: XCTestCase {
                       "Unread Activity should show an empty state or unread items.")
     }
 
+    /// Settle Up against a group that actually carries a debt.
+    ///
+    /// `testSettleUpAndActivitySurfacesRegression` above creates a fresh, single-member group, so
+    /// it can only ever assert the "All Settled Up!" empty state — a single-member group cannot
+    /// hold a debt. That left the entire settlements ledger with no UI coverage: none of the four
+    /// defects found by device testing on 2026-08-01 (unnamed parties, an `8` prefill where
+    /// `8.00` was required, unstable row identity, and a crash on delete) was reachable from this
+    /// suite. This test uses the multi-member `SeedLedger-Regression` fixture so all three row
+    /// kinds and both sides of the delete gate are on screen at once.
+    ///
+    /// Read-only by construction: it opens the Record Payment sheet and cancels. Recording would
+    /// mutate the fixture and make the next run start from a different balance.
+    func testSettleUpLedgerRegression() throws {
+        launch(route: "groups")
+        try signInIfNeeded()
+        dismissNotificationPromptIfNeeded()
+
+        let fixture = "SeedLedger-Regression"
+        guard activeGroupButton(named: fixture).waitForExistence(timeout: 8) else {
+            return XCTFail("""
+                Fixture group "\(fixture)" is missing. The settlements-ledger UI coverage needs a \
+                multi-member group with a real debt; create it with:
+                  supabase db query --file scripts/seed-ledger-regression-group.sql --linked
+                Failing rather than skipping, matching how this suite treats absent credentials.
+                """)
+        }
+        // Filter the list first. Every other test opens a group it just created, which lands at
+        // the top; this fixture is a long-lived group further down, where the row can exist in
+        // the hierarchy (so `waitForExistence` passes) while being off-screen and not hittable,
+        // so the tap silently fails to open anything.
+        searchGroups(fixture)
+        try openGroup(named: fixture)
+        try openGroupTab("Settle Up")
+
+        // A debt the account is party to: the button exists because migration 041's INSERT policy
+        // admits either party.
+        // `descendants(matching: .any)`, not `app.buttons`: `.accessibilityIdentifier` on a
+        // composite SwiftUI view can land on a wrapper element rather than the inner Button, so
+        // an element-type-specific query misses it. The pre-existing suite only ever used this
+        // predicate as a fallback against an empty group, so it never had to match anything and
+        // the mismatch stayed hidden.
+        let recordButton = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "xBill.settleUp.recordPaymentButton."))
+            .firstMatch
+        if !recordButton.waitForExistence(timeout: 12) {
+            XCTFail("""
+                A debt the signed-in account is party to should offer Record Payment, but no                 element carried that identifier. Settle Up tree follows:
+                \(app.debugDescription)
+                """)
+            return
+        }
+
+        // A debt between two OTHER members: no button, and a caption saying why. Before this the
+        // row was simply dimmed with no explanation, which reads as a broken button.
+        let nonPartyCaption = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "xBill.settleUp.nonPartyCaption."))
+            .firstMatch
+        XCTAssertTrue(nonPartyCaption.waitForExistence(timeout: 4),
+                      "A debt between two other members should explain why it cannot be recorded.")
+
+        // Recent Payments is populated, so the ledger's history surface is exercised too.
+        let historyRow = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "xBill.paymentHistory.row."))
+            .firstMatch
+        XCTAssertTrue(historyRow.waitForExistence(timeout: 4),
+                      "Recorded payments should be listed under Recent Payments.")
+
+        recordButton.tap()
+
+        let amountField = app.textFields["xBill.recordPayment.amountField"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 6), "Record Payment sheet should open.")
+
+        // The regression that shipped to a device: the sheet prefilled via
+        // `NSDecimalNumber.stringValue`, which drops trailing zeros, so an $8.00 debt appeared as
+        // "8". Same behaviour made PayPal.Me ignore a settlement amount. Assert the shape, not a
+        // specific figure, so the test survives a fixture whose balances change.
+        let prefill = (amountField.value as? String) ?? ""
+        XCTAssertTrue(
+            prefill.range(of: #"^\d+\.\d{2}$"#, options: .regularExpression) != nil,
+            "Prefilled amount must carry exactly two decimals; got \"\(prefill)\"."
+        )
+
+        XCTAssertTrue(app.buttons["xBill.recordPayment.confirmButton"].exists,
+                      "Record Payment sheet should offer a confirm action.")
+
+        // Cancel — see the read-only note above.
+        let cancel = app.buttons["Cancel"].firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 4), "Record Payment sheet should be cancellable.")
+        cancel.tap()
+        XCTAssertTrue(recordButton.waitForExistence(timeout: 6),
+                      "Cancelling should return to Settle Up with the debt intact.")
+    }
+
     func testProfileQRCodeAndAccountCancelRegression() throws {
         launchMainApp(initialTab: "groups")
         try signInIfNeeded()
@@ -916,7 +1009,6 @@ final class RegressionUITests: XCTestCase {
             app.buttons["xBill.tab.groups"],
             app.otherElements["xBill.tab.groups"],
             app.staticTexts["xBill.tab.groups"],
-            app.buttons["xBill.uitest.tab.groups"],
             app.tabBars.buttons["Groups"],
             app.buttons["Groups"].firstMatch,
             app.otherElements["Groups"].firstMatch
