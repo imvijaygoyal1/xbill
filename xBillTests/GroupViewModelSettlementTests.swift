@@ -43,6 +43,14 @@ final class InterleavingGate {
     /// Called from inside the fake. Suspends there until `release()`.
     func waitIfArmed() async {
         guard isArmed else { return }
+        // `parked` holds one continuation. Parking a second call overwrites the first, which is
+        // then never resumed — the task hangs forever, and the watchdog cannot report it because
+        // its `parkToken == token` guard now fails for the stranded park. That is a silent hang
+        // of the whole suite, which this file has already caused once. Refuse loudly instead.
+        guard parked == nil else {
+            Issue.record("InterleavingGate: armed while a park was still live. The gate holds one continuation; the earlier park would be stranded. Release it first.")
+            return
+        }
         isArmed = false
         parkToken += 1
         let token = parkToken

@@ -261,6 +261,13 @@ struct GroupDetailView: View {
                     Task {
                         await vm.recordPayment(
                             from: suggestion.fromUserID, to: suggestion.toUserID, amount: amount)
+                        // Recording money moving between people is the most consequential action
+                        // on this screen and it happened silently. The old post-handoff
+                        // confirmationDialog fired this; the flow it was replaced by did not, so
+                        // the feedback was lost rather than deliberately dropped. Keyed off the
+                        // alert because that is the only signal available here — `recordPayment`
+                        // surfaces failure that way and returns Void.
+                        if vm.errorAlert == nil { HapticManager.success() } else { HapticManager.error() }
                     }
                 }
             }
@@ -601,6 +608,16 @@ struct GroupDetailView: View {
                     paymentToRecord = suggestion
                 }
                 .accessibilityIdentifier("xBill.settleUp.recordPaymentButton.\(suggestion.id)")
+            } else {
+                // A dimmed row with no button and no explanation reads as a bug. Migration 041's
+                // INSERT policy requires `auth.uid() IN (from_user_id, to_user_id)`, so this is a
+                // real constraint rather than a UI choice — say so, matching the neighbouring
+                // "Ask <name> to add a payment handle" pattern rather than leaving it silent.
+                Text("Only \(suggestion.fromName) or \(suggestion.toName) can record this payment.")
+                    .font(.appCaption)
+                    .foregroundStyle(Color.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("xBill.settleUp.nonPartyCaption.\(suggestion.id)")
             }
             if currentUserID == suggestion.fromUserID,
                let recipient = vm.members.first(where: { $0.id == suggestion.toUserID }) {
