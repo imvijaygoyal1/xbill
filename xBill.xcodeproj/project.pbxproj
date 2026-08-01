@@ -40,6 +40,7 @@
 		1ED33E0BD52902791C3224C7 /* LoadingOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40A69C55FFF1DB3E06C04CB2 /* LoadingOverlay.swift */; };
 		1F84DDE27084D553E6C68558 /* AppLockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1AA80878C6019F39FCF7C81 /* AppLockView.swift */; };
 		1FA27BE13A2ED0B77F4BA3CF /* Split.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BE26925670AA40279463526 /* Split.swift */; };
+		1FC05027617AEBA54CD06789 /* SettleUpDisplayStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25E1014F88CCE9709E91F975 /* SettleUpDisplayStateTests.swift */; };
 		21EB93A95C6C0AC5CAC91651 /* xBillBalanceWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90B07034E025E41574AD9D77 /* xBillBalanceWidget.swift */; };
 		2465BB59E2C0A610C52C38A3 /* XBillIllustrationKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A3EB8FD01BC1D9B60ECE624 /* XBillIllustrationKit.swift */; };
 		24FBE7F0178498D36C63D26F /* XBillScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B7DD861EB79D8F2736E75 /* XBillScrollView.swift */; };
@@ -275,6 +276,7 @@
 		1EB95AF7F1C155D9C83D8E6B /* P3HelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P3HelperTests.swift; sourceTree = "<group>"; };
 		22DF7A2C76A62C77099A3B73 /* ProfilePayloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePayloadTests.swift; sourceTree = "<group>"; };
 		256F7DDB19351E2D8938CD52 /* ActivityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityService.swift; sourceTree = "<group>"; };
+		25E1014F88CCE9709E91F975 /* SettleUpDisplayStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettleUpDisplayStateTests.swift; sourceTree = "<group>"; };
 		26C33DD3A8F942B96FA9D543 /* Receipt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Receipt.swift; sourceTree = "<group>"; };
 		270F53F1AB491F71EAD02ECE /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
 		274BD787140D4659DE42DC95 /* XBillFriendRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFriendRow.swift; sourceTree = "<group>"; };
@@ -435,7 +437,7 @@
 		F4FA0DF138FAAA01522B668E /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
 		F684542CE9913F0736FC5EC2 /* XBillFloatingAddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFloatingAddButton.swift; sourceTree = "<group>"; };
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
-		"TEMP_327CFDDC-D45B-4716-BE3B-FDDC30A5D0A5" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_EF671CD2-1AC6-419A-951B-6C3642A8FAE5" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -819,6 +821,7 @@
 				22DF7A2C76A62C77099A3B73 /* ProfilePayloadTests.swift */,
 				B54708E8A101CDBA935A0CB1 /* SecurityFixTests.swift */,
 				0DABCE480259AD8AD4049DD3 /* SettlementLedgerTests.swift */,
+				25E1014F88CCE9709E91F975 /* SettleUpDisplayStateTests.swift */,
 				E1F4F6CAEAA6F1B8E28C86B8 /* SplitCalculatorReviewTests.swift */,
 				6F7E985AB9EB58FE61DF4C83 /* SplitCalculatorTests.swift */,
 				A28B5711E408A24F8E16F7D7 /* ViewModelCoverageTests.swift */,
@@ -887,10 +890,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_B6AD6606-B00B-4A1E-93AE-5A23DAD8FB20" /* xBill */ = {
+		"TEMP_46E6EDBC-15A5-4278-93DE-8E22FD683916" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_327CFDDC-D45B-4716-BE3B-FDDC30A5D0A5" /* Secrets.xcconfig */,
+				"TEMP_EF671CD2-1AC6-419A-951B-6C3642A8FAE5" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1115,6 +1118,7 @@
 				D9E701E34E097E0354761519 /* PaymentHandoffTests.swift in Sources */,
 				332D8C2CF9600B2E9F96A806 /* ProfilePayloadTests.swift in Sources */,
 				C58704A0F34205927C5EFF48 /* SecurityFixTests.swift in Sources */,
+				1FC05027617AEBA54CD06789 /* SettleUpDisplayStateTests.swift in Sources */,
 				1AC5951AD6B0D8EE5E44BC41 /* SettlementLedgerTests.swift in Sources */,
 				64F5B0691E7A8205A55F06BE /* SplitCalculatorReviewTests.swift in Sources */,
 				3480BEBFF1A5006FEC9457CC /* SplitCalculatorTests.swift in Sources */,
@@ -1337,7 +1341,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_327CFDDC-D45B-4716-BE3B-FDDC30A5D0A5" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_EF671CD2-1AC6-419A-951B-6C3642A8FAE5" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1546,7 +1550,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_327CFDDC-D45B-4716-BE3B-FDDC30A5D0A5" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_EF671CD2-1AC6-419A-951B-6C3642A8FAE5" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
