@@ -570,16 +570,32 @@ struct GroupDetailView: View {
     private func settlementRow(_ suggestion: SettlementSuggestion) -> some View {
         let isParty = currentUserID == suggestion.fromUserID || currentUserID == suggestion.toUserID
         return VStack(spacing: XBillSpacing.md) {
+            // Two avatars and an amount used to be the whole row, so a settlement read as
+            // "A → A $7.00" whenever two members shared an initial — which is exactly when
+            // knowing who owes whom matters most. Name the parties in text.
+            let debtorIsMe   = currentUserID == suggestion.fromUserID
+            let debtorLabel  = debtorIsMe ? "You" : suggestion.fromName
+            let creditorLabel = currentUserID == suggestion.toUserID ? "you" : suggestion.toName
+
             HStack(spacing: XBillSpacing.md) {
                 AvatarView(name: suggestion.fromName, size: XBillIcon.avatarSm)
-                Image(systemName: "arrow.right")
-                    .foregroundStyle(Color.brandAccent)
-                AvatarView(name: suggestion.toName, size: XBillIcon.avatarSm)
-                Spacer()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(debtorLabel)
+                        .font(.appBody)
+                        .foregroundStyle(Color.textPrimary)
+                    Text("\(debtorIsMe ? "owe" : "owes") \(creditorLabel)")
+                        .font(.appCaption)
+                        .foregroundStyle(Color.textSecondary)
+                }
+                .lineLimit(1)
+                Spacer(minLength: XBillSpacing.sm)
                 Text(suggestion.amount.formatted(currencyCode: suggestion.currency))
                     .font(.xbillLargeAmount)
                     .foregroundStyle(Color.textPrimary)
+                    .monospacedDigit()
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(suggestion.fromName) owes \(suggestion.toName) \(suggestion.amount.formatted(currencyCode: suggestion.currency))")
             if isParty {
                 XBillButton(title: "Record Payment", style: .primary) {
                     paymentToRecord = suggestion
