@@ -35,6 +35,12 @@ struct PaymentHistorySection: View {
                             .foregroundStyle(Color.textSecondary)
                     }
                     .listRowBackground(Color.bgCard)
+                    // Combine into ONE element. Without this the identifier applied below
+                    // propagates to each inner `Text` (see UIT-01), so the row exists only as
+                    // three fragments: VoiceOver reads "xbill.uitest paid Alice Chen", "$3.00"
+                    // and "recorded by …" as separate items, and no single element represents
+                    // the row to swipe. Combining fixes both at once.
+                    .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("xBill.paymentHistory.row.\(settlement.id.uuidString)")
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         // RLS permits deletion only by the recorder; showing it to anyone

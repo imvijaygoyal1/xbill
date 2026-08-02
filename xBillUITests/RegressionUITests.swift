@@ -532,6 +532,80 @@ final class RegressionUITests: XCTestCase {
                       "Cancelling should return to Settle Up with the debt intact.")
     }
 
+    /// The ledger's **write** path: recording a payment moves real money.
+    ///
+    /// `testSettleUpLedgerRegression` covers the settle-up surfaces read-only. This asserts that
+    /// a recorded payment actually reduces the debt by exactly the amount paid — a *partial*
+    /// payment, which the old `splits.is_settled` boolean could not represent at all (REV-02),
+    /// and which shipped with no automated coverage.
+    ///
+    /// **Deliberately one-way.** Deleting a settlement is only reachable through a SwiftUI List
+    /// swipe action, and XCUITest cannot open those here: the rows are not exposed as cells
+    /// (settle-up rows appear as `Other`, a payment row as `StaticText`), so neither
+    /// `swipeLeft()` nor an element- or window-level drag reaches the row. Eight approaches were
+    /// tried and the database confirmed the delete never fired. So this test records and does not
+    /// clean up after itself; `scripts/reset-ledger-regression-fixture.sql` restores the fixture
+    /// and `run-coverage.sh regression-ui` runs it after every pass.
+    ///
+    /// A negative assertion for the delete gate was written and then **removed**: with swipes
+    /// never opening, `XCTAssertFalse(deleteButton.exists)` passed unconditionally. A green check
+    /// that cannot fail is worse than a missing one — see UIT-01, found the same day.
+    func testSettleUpLedgerWriteRegression() throws {
+        launch(route: "groups")
+        try signInIfNeeded()
+        dismissNotificationPromptIfNeeded()
+
+        let fixture = "SeedLedger-Regression"
+        guard activeGroupButton(named: fixture).waitForExistence(timeout: 8) else {
+            return XCTFail("""
+                Fixture group "\(fixture)" is missing. Create it with:
+                  supabase db query --file scripts/seed-ledger-regression-group.sql --linked
+                """)
+        }
+
+        searchGroups(fixture)
+        try openGroup(named: fixture)
+        try openGroupTab("Settle Up")
+
+        // The row where the signed-in account is the CREDITOR — the REV-01 path, impossible to
+        // record before migration 041 because RLS on `splits` admitted only the debtor.
+        let creditorRow = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
+                                  "xBill.settleUp.suggestionRow.", "Bob Patel owes"))
+            .firstMatch
+        XCTAssertTrue(creditorRow.waitForExistence(timeout: 10), "Fixture should show a debt owed to this account.")
+        XCTAssertTrue(waitForLabel(creditorRow, toContain: "$8.00", timeout: 10),
+                      """
+                      Fixture must start at $8.00; got \(creditorRow.label). A previous run left a \
+                      payment behind — run scripts/reset-ledger-regression-fixture.sql.
+                      """)
+
+        let suffix = creditorRow.identifier.replacingOccurrences(
+            of: "xBill.settleUp.suggestionRow.", with: "")
+        let recordButton = app.descendants(matching: .any)["xBill.settleUp.recordPaymentButton.\(suffix)"]
+        XCTAssertTrue(recordButton.waitForExistence(timeout: 4), "Creditor row should offer Record Payment.")
+        recordButton.tap()
+
+        // --- WRITE ---
+        let amountField = app.textFields["xBill.recordPayment.amountField"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 6), "Record Payment sheet should open.")
+        amountField.tap()
+        if let existing = amountField.value as? String, !existing.isEmpty {
+            amountField.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
+        }
+        amountField.typeText("1.23")
+        app.buttons["xBill.recordPayment.confirmButton"].tap()
+
+        // The debt must fall by exactly the amount paid, and the remainder stays actionable.
+        XCTAssertTrue(waitForLabel(creditorRow, toContain: "$6.77", timeout: 12),
+                      "$8.00 minus a $1.23 payment must render as $6.77 — the partial-payment path.")
+
+        // The payment is recorded in history, attributed to this account.
+        let paymentRow = paymentHistoryRow(containing: "$1.23")
+        XCTAssertTrue(scrollUntilHittable(paymentRow), "The recorded payment should appear under Recent Payments.")
+        XCTAssertTrue(paymentRow.label.contains("recorded by"), "History must show who recorded the payment.")
+    }
+
     func testProfileQRCodeAndAccountCancelRegression() throws {
         launchMainApp(initialTab: "groups")
         try signInIfNeeded()
@@ -928,6 +1002,46 @@ final class RegressionUITests: XCTestCase {
             }
         }
     }
+
+    // MARK: - Ledger write helpers
+
+
+
+    /// Scrolls until the element is actually hittable.
+    ///
+    /// `waitForExistence` is true for elements that exist in the hierarchy but are **off-screen**,
+    /// and a swipe gesture on an off-screen element silently does nothing — which is why the
+    /// payment-row cleanup appeared to run and changed nothing. Recent Payments sits below the
+    /// suggestion rows, so it is off-screen on first render.
+    @discardableResult
+    private func scrollUntilHittable(_ element: XCUIElement, maxSwipes: Int = 6) -> Bool {
+        guard element.waitForExistence(timeout: 4) else { return false }
+        for _ in 0..<maxSwipes {
+            if element.isHittable { return true }
+            app.swipeUp()
+        }
+        return element.isHittable
+    }
+
+    private func paymentHistoryRow(containing text: String) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
+                                  "xBill.paymentHistory.row.", text))
+            .firstMatch
+    }
+
+    /// Polls an element's `label`, which — unlike existence — is not covered by
+    /// `waitForExistence`. The row object stays the same while its amount changes, so waiting for
+    /// existence would return instantly and assert the *old* figure.
+    private func waitForLabel(_ element: XCUIElement, toContain text: String, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.exists, element.label.contains(text) { return true }
+            _ = element.waitForExistence(timeout: 0.3)
+        }
+        return false
+    }
+
 
     private func searchGroups(_ text: String) {
         for _ in 0..<3 {

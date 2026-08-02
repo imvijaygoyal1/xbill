@@ -103,6 +103,14 @@ run_ui_test_cleanup() {
   local original_status="$1"
 
   echo
+  # testSettleUpLedgerWriteRegression records a real payment and cannot undo it through the UI:
+  # deleting a settlement is only reachable via a SwiftUI List swipe action, which XCUITest
+  # cannot open here. Restore the fixture's balances so the next run starts where this one did.
+  echo "Restoring the settlements-ledger regression fixture..."
+  if ! supabase db query --file scripts/reset-ledger-regression-fixture.sql --linked >/dev/null; then
+    echo "warning: ledger fixture reset failed — SeedLedger-Regression may start at the wrong balance." >&2
+  fi
+
   echo "Cleaning up disposable UI test groups..."
   if ! scripts/purge-ui-test-groups.sh --execute; then
     echo "error: UI test group cleanup failed." >&2
