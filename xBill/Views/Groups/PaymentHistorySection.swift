@@ -35,6 +35,19 @@ struct PaymentHistorySection: View {
                             .foregroundStyle(Color.textSecondary)
                     }
                     .listRowBackground(Color.bgCard)
+                    // A context menu **as well as** the swipe, matching `ActivityView`, which
+                    // offers both for delete. A swipe is the only way to correct a mis-recorded
+                    // payment and it is invisible until discovered — and there is no edit path,
+                    // because the ledger has no UPDATE policy, so a correction is
+                    // delete-then-record. Same `recordedBy` gate as the swipe: never offer an
+                    // action the RLS DELETE policy would refuse.
+                    .contextMenu {
+                        if settlement.recordedBy == currentUserID {
+                            Button(role: .destructive) { onDelete(settlement) } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
                     // Combine into ONE element. Without this the identifier applied below
                     // propagates to each inner `Text` (see UIT-01), so the row exists only as
                     // three fragments: VoiceOver reads "xbill.uitest paid Alice Chen", "$3.00"

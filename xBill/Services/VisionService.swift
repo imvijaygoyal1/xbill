@@ -679,12 +679,26 @@ final class VisionService {
 
     // MARK: - Convert ParsedReceiptJSON → Receipt
 
-    private func convert(_ parsed: ParsedReceiptJSON) -> Receipt {
+    /// Converts a JSON amount to `Decimal` **without** inheriting the binary float's error.
+    ///
+    /// `Decimal(Double)` reproduces the float exactly as stored, so a receipt line of 4.99 becomes
+    /// `4.990000000000001024`, 0.07 becomes `0.07000000000000001024`, and a 9.98 total becomes
+    /// `9.980000000000002048`. Going through the shortest round-trip decimal string — which is
+    /// what `String(Double)` produces — recovers the number the model actually meant.
+    ///
+    /// This is the only place money enters the app as a binary float: everywhere else the rule is
+    /// `Decimal` end to end. The model returns JSON numbers, so the boundary is unavoidable; the
+    /// error it introduces is not.
+    static func money(_ value: Double) -> Decimal {
+        Decimal(string: String(value)) ?? Decimal(value)
+    }
+
+    func convert(_ parsed: ParsedReceiptJSON) -> Receipt {
         let items = parsed.items.map { item in
             ReceiptItem(
                 name:      item.name,
                 quantity:  item.quantity,
-                unitPrice: Decimal(item.unitPrice)
+                unitPrice: Self.money(item.unitPrice)
             )
         }
         return Receipt(
@@ -693,10 +707,10 @@ final class VisionService {
             imageURL:        nil,
             merchant:        parsed.merchant,
             items:           items,
-            subtotal:        parsed.subtotal.map { Decimal($0) },
-            tax:             parsed.tax.map       { Decimal($0) },
-            tip:             parsed.tip.map       { Decimal($0) },
-            total:           parsed.total.map     { Decimal($0) },
+            subtotal:        parsed.subtotal.map { Self.money($0) },
+            tax:             parsed.tax.map       { Self.money($0) },
+            tip:             parsed.tip.map       { Self.money($0) },
+            total:           parsed.total.map     { Self.money($0) },
             currency:        parsed.currency,
             transactionDate: nil,   // set by processScan after return
             scannedAt:       Date()

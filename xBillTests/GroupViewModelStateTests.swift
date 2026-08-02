@@ -71,6 +71,8 @@ final class FakeExpenseService: ExpenseDataProviding {
 @MainActor
 final class FakeGroupService: GroupDataProviding {
     var members: [User] = []
+    var groups: [BillGroup] = []
+    func fetchGroups(for userID: UUID) async throws -> [BillGroup] { groups }
     func fetchMembers(groupID: UUID, includeInactive: Bool) async throws -> [User] { members }
     func addMember(groupId: UUID, userId: UUID) async throws {}
     func removeMember(groupId: UUID, userId: UUID) async throws {}

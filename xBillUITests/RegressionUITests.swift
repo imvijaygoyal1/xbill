@@ -604,6 +604,12 @@ final class RegressionUITests: XCTestCase {
         let paymentRow = paymentHistoryRow(containing: "$1.23")
         XCTAssertTrue(scrollUntilHittable(paymentRow), "The recorded payment should appear under Recent Payments.")
         XCTAssertTrue(paymentRow.label.contains("recorded by"), "History must show who recorded the payment.")
+
+        // Delete is NOT asserted here — see UIT-06. `.swipeActions` and `.contextMenu` on
+        // these rows cannot be opened from XCUITest (twelve approaches tried; the database
+        // confirmed the delete never fired), so any assertion about it would pass without
+        // testing anything. That is the UIT-01 defect, and a green check that cannot fail is
+        // worse than a missing one. Deletion is covered by device testing only.
     }
 
     func testProfileQRCodeAndAccountCancelRegression() throws {
@@ -1047,7 +1053,14 @@ final class RegressionUITests: XCTestCase {
         for _ in 0..<3 {
             let searchField = groupsSearchField()
             if searchField.waitForExistence(timeout: 2) {
-                searchField.tap()
+                // `focusTextInput` rather than a bare `tap()`: it confirms the keyboard actually
+                // appeared and retries if not. Typing into an unfocused field raises "Neither
+                // element nor any descendant has keyboard focus", which fails the whole test as
+                // a runtime error rather than an assertion — a flake this suite hit twice.
+                guard focusTextInput(searchField) else {
+                    app.swipeDown()
+                    continue
+                }
                 if let value = searchField.value as? String, !value.isEmpty, value != "Search groups" {
                     let fieldClearButton = searchField.buttons["Clear text"]
                     if fieldClearButton.exists {

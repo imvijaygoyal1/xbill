@@ -103,6 +103,14 @@ run_ui_test_cleanup() {
   local original_status="$1"
 
   echo
+  # A UI-test predicate that matches nothing does not fail — it sits in an `||` chain and the
+  # suite stays green while asserting nothing. Two such selectors were found on 2026-08-01.
+  echo "Checking UI test accessibility identifiers..."
+  if ! scripts/check-ui-test-identifiers.sh; then
+    echo "error: UI tests reference identifiers the app never sets." >&2
+    return 1
+  fi
+
   # testSettleUpLedgerWriteRegression records a real payment and cannot undo it through the UI:
   # deleting a settlement is only reachable via a SwiftUI List swipe action, which XCUITest
   # cannot open here. Restore the fixture's balances so the next run starts where this one did.

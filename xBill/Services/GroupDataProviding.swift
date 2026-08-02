@@ -34,11 +34,27 @@ protocol ExpenseDataProviding: AnyObject, Sendable {
 /// The group/member operations `GroupViewModel` depends on.
 @MainActor
 protocol GroupDataProviding: AnyObject, Sendable {
+    /// Needed by `ActivityService`, which derives historical expense activity per group.
+    func fetchGroups(for userID: UUID) async throws -> [BillGroup]
     func fetchMembers(groupID: UUID, includeInactive: Bool) async throws -> [User]
     func addMember(groupId: UUID, userId: UUID) async throws
     func removeMember(groupId: UUID, userId: UUID) async throws
     func updateGroup(_ group: BillGroup) async throws -> BillGroup
 }
 
+/// The `public.notifications` surface `ActivityService` depends on.
+///
+/// Added so `ActivityService` can be tested at all: it held four hard-coded singletons and sat at
+/// 27.7% coverage, with `fetchLegacyExpenseActivity`, `reconcilePendingReadStates`,
+/// `fetchRecentActivity` and `items(for:)` entirely unreachable from tests.
+protocol RemoteNotificationProviding: AnyObject, Sendable {
+    func fetch(userID: UUID, limit: Int) async throws -> [NotificationItem]
+    func markRead(id: UUID) async throws
+    func markUnread(id: UUID) async throws
+    func markAllRead(userID: UUID) async throws
+    func delete(id: UUID) async throws
+}
+
 extension ExpenseService: ExpenseDataProviding {}
+extension RemoteNotificationService: RemoteNotificationProviding {}
 extension GroupService: GroupDataProviding {}

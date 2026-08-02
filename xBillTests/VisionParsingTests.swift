@@ -171,3 +171,53 @@ struct VisionParsingTests {
                 "The total line must not be captured as a purchasable item.")
     }
 }
+
+// MARK: - Money crossing the JSON boundary
+
+/// The model returns amounts as JSON numbers, so `ParsedReceiptJSON` carries `Double` and
+/// `convert` turns them back into `Decimal`. Every other money path in this app is Decimal-only
+/// by rule (never `Double`), and this is the one place a receipt total is reconstructed from a
+/// binary float before becoming a real expense. If `Decimal(Double)` introduces an artifact here,
+/// a scanned receipt silently produces an amount nobody typed.
+@Suite("Receipt amounts survive the JSON boundary")
+@MainActor
+struct ReceiptMoneyConversionTests {
+
+    private func parsed(total: Double, unitPrice: Double) -> ParsedReceiptJSON {
+        // Keys are snake_case per `ParsedItemJSON.CodingKeys`, and `total_price` is NOT optional.
+        let json = """
+        {"merchant":"Joe's",
+         "items":[{"name":"Burger","quantity":1,"unit_price":\(unitPrice),"total_price":\(unitPrice)}],
+         "subtotal":null,"tax":null,"tip":null,"total":\(total),
+         "currency":"USD","confidence":0.9,"transaction_date":null}
+        """
+        return try! JSONDecoder().decode(ParsedReceiptJSON.self, from: Data(json.utf8))
+    }
+
+    /// Values chosen for the ways binary floating point goes wrong: repeating fractions (0.1),
+    /// prices ending in 9 (4.99, 19.99), a cent-level tax (0.07), and a four-figure total.
+    @Test(arguments: [
+        (4.99, "4.99"), (0.1, "0.1"), (19.99, "19.99"),
+        (0.07, "0.07"), (1234.56, "1234.56"), (100.0, "100")
+    ])
+    func amountsConvertExactly(_ value: Double, _ expected: String) {
+        let receipt = VisionService.shared.convert(parsed(total: value, unitPrice: value))
+        let want = Decimal(string: expected)!
+
+        #expect(receipt.total == want,
+                "Total \(value) became \(String(describing: receipt.total)); expected \(want).")
+        #expect(receipt.items.first?.unitPrice == want,
+                "Unit price \(value) became \(String(describing: receipt.items.first?.unitPrice)); expected \(want).")
+    }
+
+    /// The sum of converted line items must still equal a converted total — an artifact in either
+    /// would surface as a spurious "doesn't match items + tax + tip" warning, or worse, not.
+    @Test("Converted items still sum to the converted total")
+    func convertedItemsStillSum() {
+        let receipt = VisionService.shared.convert(parsed(total: 9.98, unitPrice: 4.99))
+        let itemSum = receipt.items.reduce(Decimal.zero) { $0 + $1.unitPrice * Decimal($1.quantity) }
+        #expect(itemSum * 2 == receipt.total ?? .zero || itemSum == Decimal(string: "4.99"),
+                "Line-item arithmetic must stay exact after the Double round trip.")
+        #expect(receipt.total == Decimal(string: "9.98"))
+    }
+}

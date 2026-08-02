@@ -71,12 +71,28 @@ protocol ActivityReadWriting: AnyObject {
 @MainActor
 final class ActivityService: ActivityReadWriting {
     static let shared = ActivityService()
-    private let groupService   = GroupService.shared
-    private let expenseService = ExpenseService.shared
-    private let store          = NotificationStore.shared
-    private let remote         = RemoteNotificationService.shared
+    private let groupService:   any GroupDataProviding
+    private let expenseService: any ExpenseDataProviding
+    private let store:          NotificationStore
+    private let remote:         any RemoteNotificationProviding
 
-    private init() {}
+    /// Injection seam, defaulted to the singletons so production call sites are unchanged.
+    ///
+    /// These were four hard-coded `.shared` references, which is why this type sat at 27.7%
+    /// coverage with its four largest functions completely untestable. Mirrors the seams
+    /// `GroupViewModel` and `ActivityViewModel` already have — both of which were added
+    /// reactively, after a defect made them necessary.
+    init(
+        groupService:   any GroupDataProviding = GroupService.shared,
+        expenseService: any ExpenseDataProviding = ExpenseService.shared,
+        store:          NotificationStore = .shared,
+        remote:         any RemoteNotificationProviding = RemoteNotificationService.shared
+    ) {
+        self.groupService   = groupService
+        self.expenseService = expenseService
+        self.store          = store
+        self.remote         = remote
+    }
 
     /// Fetches server notifications and supplements them with historical expense
     /// activity. Historical rows are read-only context; only server notification
@@ -84,7 +100,7 @@ final class ActivityService: ActivityReadWriting {
     func fetchRecentActivity(userID: UUID, limit: Int = 50) async throws -> [NotificationItem] {
         var remoteItems: [NotificationItem] = []
         do {
-            remoteItems = try await remote.fetch(userID: userID)
+            remoteItems = try await remote.fetch(userID: userID, limit: 100)
         } catch {
             AppDiagnostics.log(.balance, "ActivityService.remoteFetch.fallback", [
                 ("error", AppDiagnostics.describe(error))
