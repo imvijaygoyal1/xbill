@@ -41,8 +41,28 @@ final class FakeExpenseService: ExpenseDataProviding {
     }
 
     func updateExpense(_ expense: Expense) async throws -> Expense { expense }
-    func fetchDueRecurringExpenses(groupID: UUID) async throws -> [Expense] { [] }
-    func createRecurringInstance(templateID: UUID, expectedNextOccurrence: Date, newNextOccurrence: Date) async throws -> Expense? { nil }
+
+    // MARK: Recurring-expense seam
+    var dueRecurring: [Expense] = []
+    var dueRecurringError: Error?
+    /// Template ids whose instantiation was *attempted*, in order. CRIT-01 was that one failure
+    /// aborted the whole batch, so which ids are reached is the assertion that matters.
+    var recurringAttempts: [(templateID: UUID, expected: Date, newNext: Date)] = []
+    /// Template ids that should throw when instantiated.
+    var recurringFailures: Set<UUID> = []
+
+    func fetchDueRecurringExpenses(groupID: UUID) async throws -> [Expense] {
+        if let dueRecurringError { throw dueRecurringError }
+        return dueRecurring
+    }
+
+    func createRecurringInstance(templateID: UUID, expectedNextOccurrence: Date, newNextOccurrence: Date) async throws -> Expense? {
+        recurringAttempts.append((templateID, expectedNextOccurrence, newNextOccurrence))
+        if recurringFailures.contains(templateID) {
+            throw AppError.serverError("instantiation refused")
+        }
+        return nil
+    }
     func notifySettlementRecorded(settlementID: UUID) async {
         notifyCount += 1
     }
@@ -54,7 +74,13 @@ final class FakeGroupService: GroupDataProviding {
     func fetchMembers(groupID: UUID, includeInactive: Bool) async throws -> [User] { members }
     func addMember(groupId: UUID, userId: UUID) async throws {}
     func removeMember(groupId: UUID, userId: UUID) async throws {}
-    func updateGroup(_ group: BillGroup) async throws -> BillGroup { group }
+    var updateGroupError: Error?
+    private(set) var updatedGroups: [BillGroup] = []
+    func updateGroup(_ group: BillGroup) async throws -> BillGroup {
+        if let updateGroupError { throw updateGroupError }
+        updatedGroups.append(group)
+        return group
+    }
 }
 
 // MARK: - Fixtures

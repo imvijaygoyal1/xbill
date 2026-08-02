@@ -367,9 +367,20 @@ struct ActivityViewModelUnreadTests {
         #expect(vm.unreadCount == 0)
     }
 
+    /// Uses an **injected** store, not `NotificationStore.shared`.
+    ///
+    /// This test previously drove the shared singleton and raced other suites that clear it: it
+    /// passed at 287 tests and failed at 295 purely because more tests changed the parallel
+    /// schedule. A prior attempt to work around that (counting unread from in-memory items,
+    /// below) treated the symptom while leaving the shared write in place. `ActivityViewModel`
+    /// has an injection seam — using it removes the race rather than narrowing the window.
     @Test("markRead and delete update vm items and unread count")
     func markReadAndDeleteUpdateVM() {
-        NotificationStore.shared.clearAll()
+        let suffix = UUID().uuidString
+        let store = NotificationStore(
+            itemsKey: "p1_items_\(suffix)",
+            lastViewedKey: "p1_viewed_\(suffix)",
+            pendingReadKey: "p1_pending_\(suffix)")
         let userID = AuthService.shared.currentUserID
         let item = NotificationItem(
             id:        UUID(),
@@ -381,12 +392,10 @@ struct ActivityViewModelUnreadTests {
             category:  .food,
             createdAt: Date()
         )
-        NotificationStore.shared.merge([item], userID: userID)
+        store.merge([item], userID: userID)
 
-        let vm = ActivityViewModel()
+        let vm = ActivityViewModel(store: store)
         vm.items = [item]
-        // Count unread from in-memory items to avoid a race against other test suites that
-        // share NotificationStore.shared and may clear it on a background thread.
         vm.unreadCount = vm.items.filter { !$0.isRead }.count
         #expect(vm.unreadCount == 1)
 
@@ -396,7 +405,7 @@ struct ActivityViewModelUnreadTests {
 
         vm.delete(item)
         #expect(vm.items.isEmpty)
-        #expect(NotificationStore.shared.loadAll(userID: userID).isEmpty)
+        #expect(store.loadAll(userID: userID).isEmpty)
     }
 }
 
