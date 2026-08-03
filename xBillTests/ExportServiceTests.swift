@@ -137,3 +137,38 @@ struct ExportServiceCSVTests {
         #expect(data.starts(with: Array("%PDF".utf8)), "Output must actually be a PDF.")
     }
 }
+
+/// One definition of two-decimal formatting, shared by CSV export and payment links.
+///
+/// Both previously fell back to `String(format: "%.2f", NSDecimalNumber(...).doubleValue)`, which
+/// routes money through a binary float — the pattern that gave scanned receipts amounts like
+/// `4.990000000000001024` (VIS-04) — and duplicated a rule that then had two places to drift.
+@Suite("Canonical two-decimal formatting")
+struct PlainTwoDecimalStringTests {
+
+    @Test(arguments: [
+        ("8",       "8.00"),   ("7.5",     "7.50"),
+        ("4.99",    "4.99"),   ("0.07",    "0.07"),
+        ("1234.50", "1234.50"),                       // no grouping separator
+        ("0",       "0.00")
+    ])
+    func formatsExactly(_ input: String, _ expected: String) {
+        #expect(Decimal(string: input)!.plainTwoDecimalString == expected)
+    }
+
+    /// A grouping separator would break a CSV column and a payment URL alike.
+    @Test("Large amounts carry no grouping separator")
+    func noGroupingSeparator() {
+        #expect(!Decimal(string: "1234567.89")!.plainTwoDecimalString.contains(","))
+    }
+
+    /// The export and the payment link must agree — that is the point of having one definition.
+    @Test("CSV export and payment links format identically")
+    @MainActor
+    func exportAndPaymentLinkAgree() {
+        for raw in ["8", "4.99", "1234.50", "0.07"] {
+            let value = Decimal(string: raw)!
+            #expect(PaymentLinkService.formattedAmount(value) == value.plainTwoDecimalString)
+        }
+    }
+}

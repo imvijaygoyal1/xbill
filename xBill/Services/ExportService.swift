@@ -36,7 +36,10 @@ final class ExportService {
             let date      = df.string(from: expense.createdAt)
             let title     = csvEscape(expense.title)
             let category  = expense.category.displayName
-            let amount    = String(format: "%.2f", NSDecimalNumber(decimal: expense.amount).doubleValue)
+            // Decimal-direct. The previous `String(format: "%.2f", …doubleValue)` routed exported
+            // money through a binary float — the pattern behind VIS-04 — and duplicated a 2dp rule
+            // that already existed in `PaymentLinkService`.
+            let amount    = expense.amount.plainTwoDecimalString
             let currency  = expense.currency
             let paidBy    = csvEscape(expense.payerID.flatMap { memberNames[$0] } ?? "Unknown")
             let notes     = csvEscape(expense.notes ?? "")

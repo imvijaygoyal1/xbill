@@ -95,8 +95,7 @@ final class PaymentLinkService: Sendable {
         // would print "5" instead of "5.00". `String(format:)` without an explicit locale is not
         // locale-sensitive (always renders "." regardless of device locale), so this fallback keeps
         // the two-decimal guarantee independent of `NumberFormatter` entirely.
-        amountFormatter.string(from: amount as NSDecimalNumber)
-            ?? String(format: "%.2f", NSDecimalNumber(decimal: amount).doubleValue)
+        amount.plainTwoDecimalString
     }
 
     // MARK: - Venmo

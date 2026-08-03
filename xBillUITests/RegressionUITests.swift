@@ -136,14 +136,12 @@ final class RegressionUITests: XCTestCase {
 
         let titleField = app.textFields["xBill.addExpense.titleField"]
         XCTAssertTrue(titleField.waitForExistence(timeout: 4), "Expense title field should be visible.")
-        titleField.tap()
-        titleField.typeText("Validation expense \(uniqueSuffix())")
+        typeInto(titleField, "Validation expense \(uniqueSuffix())")
         XCTAssertFalse(saveButton.isEnabled, "Save Expense should remain disabled without an amount.")
 
         let amountField = app.textFields["xBill.addExpense.amountField"]
         XCTAssertTrue(amountField.waitForExistence(timeout: 4), "Amount field should be visible.")
-        amountField.tap()
-        amountField.typeText("12.34")
+        typeInto(amountField, "12.34")
         XCTAssertTrue(saveButton.isEnabled, "Save Expense should enable after title and amount are entered.")
 
         tapVisibleBackButton()
@@ -231,8 +229,7 @@ final class RegressionUITests: XCTestCase {
 
         let commentField = commentFieldElement()
         XCTAssertTrue(commentField.waitForExistence(timeout: 6), "Comment field should be visible.")
-        commentField.tap()
-        commentField.typeText(commentText)
+        typeInto(commentField, commentText)
         postCommentButton().tap()
 
         XCTAssertTrue(app.staticTexts[commentText].waitForExistence(timeout: 8), "Posted comment should appear in the expense detail.")
@@ -266,11 +263,10 @@ final class RegressionUITests: XCTestCase {
         let venmoField = app.textFields["xBill.profile.venmoField"]
         scrollToElement(venmoField)
         XCTAssertTrue(venmoField.waitForExistence(timeout: 4), "Venmo field should be available.")
-        venmoField.tap()
         // "bad" is 3 characters; Venmo's documented minimum is 5, so this must be rejected.
         // The old copy demanded a leading "@" — PaymentHandleValidator now strips "@" when
         // present rather than requiring it, because a Venmo username does not contain one.
-        venmoField.typeText("bad")
+        typeInto(venmoField, "bad")
         let lengthMessage = app.staticTexts["Venmo handles are 5–30 characters."]
         XCTAssertTrue(lengthMessage.waitForExistence(timeout: 4), "Invalid Venmo handle should show validation.")
 
@@ -333,13 +329,11 @@ final class RegressionUITests: XCTestCase {
 
         let titleField = app.textFields["xBill.addExpense.titleField"]
         XCTAssertTrue(titleField.waitForExistence(timeout: 4), "Expense title field should be visible.")
-        titleField.tap()
-        titleField.typeText("Split mode validation \(uniqueSuffix())")
+        typeInto(titleField, "Split mode validation \(uniqueSuffix())")
 
         let amountField = app.textFields["xBill.addExpense.amountField"]
         XCTAssertTrue(amountField.waitForExistence(timeout: 4), "Amount field should be visible.")
-        amountField.tap()
-        amountField.typeText("30.00")
+        typeInto(amountField, "30.00")
         dismissKeyboardIfNeeded()
 
         XCTAssertTrue(app.buttons["Equal"].waitForExistence(timeout: 4), "Equal split segment should be visible.")
@@ -664,8 +658,7 @@ final class RegressionUITests: XCTestCase {
 
         let search = app.textFields["xBill.addFriend.searchField"]
         XCTAssertTrue(search.waitForExistence(timeout: 6), "Add Friend search field should be visible.")
-        search.tap()
-        search.typeText("nobody-\(uniqueSuffix())@example.invalid")
+        typeInto(search, "nobody-\(uniqueSuffix())@example.invalid")
 
         XCTAssertTrue(app.staticTexts["No matching friends"].waitForExistence(timeout: 8), "No-results state should appear for an impossible search.")
         XCTAssertTrue(app.buttons["xBill.addFriend.importContactsButton"].waitForExistence(timeout: 4), "Import Contacts action should be visible.")
@@ -685,13 +678,11 @@ final class RegressionUITests: XCTestCase {
 
         let emailField = app.textFields["xBill.emailAuth.emailField"]
         XCTAssertTrue(emailField.waitForExistence(timeout: 4), "Email field should be visible.")
-        emailField.tap()
-        emailField.typeText("invalid-email")
+        typeInto(emailField, "invalid-email")
 
         let passwordField = app.secureTextFields["xBill.emailAuth.passwordField"]
         XCTAssertTrue(passwordField.waitForExistence(timeout: 4), "Password field should be visible.")
-        passwordField.tap()
-        passwordField.typeText("short")
+        typeInto(passwordField, "short")
         XCTAssertFalse(submitButton.isEnabled, "Sign In should remain disabled for invalid email and short password.")
 
         app.buttons["xBill.emailAuth.forgotPasswordButton"].tap()
@@ -703,8 +694,7 @@ final class RegressionUITests: XCTestCase {
 
         let confirmField = app.secureTextFields["xBill.emailAuth.confirmPasswordField"]
         XCTAssertTrue(confirmField.waitForExistence(timeout: 4), "Confirm password field should be visible in sign-up mode.")
-        confirmField.tap()
-        confirmField.typeText("different-password")
+        typeInto(confirmField, "different-password")
         XCTAssertTrue(app.staticTexts["Passwords don't match."].waitForExistence(timeout: 4), "Password mismatch validation should appear.")
     }
 
@@ -898,9 +888,19 @@ final class RegressionUITests: XCTestCase {
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap()
     }
 
+    /// Focuses an element and types, asserting the keyboard actually appeared first.
+    ///
+    /// `element.tap()` followed by `typeText` is the pattern behind two flakes and one 67-minute
+    /// hang: XCUITest raises "Neither element nor any descendant has keyboard focus" — or simply
+    /// wedges — when the tap did not focus the field. `focusTextInput` retries and confirms the
+    /// keyboard, so failures surface as an assertion rather than a stuck run.
+    private func typeInto(_ element: XCUIElement, _ text: String) {
+        XCTAssertTrue(focusTextInput(element), "Field should accept keyboard focus before typing.")
+        element.typeText(text)
+    }
+
     private func clearAndType(_ text: String, into element: XCUIElement) {
-        element.tap()
-        element.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 80))
+        typeInto(element, String(repeating: XCUIKeyboardKey.delete.rawValue, count: 80))
         element.typeText(text)
     }
 
@@ -1240,13 +1240,11 @@ final class RegressionUITests: XCTestCase {
 
         let titleField = app.textFields["xBill.addExpense.titleField"]
         XCTAssertTrue(titleField.waitForExistence(timeout: 4), "Expense title field should be visible.")
-        titleField.tap()
-        titleField.typeText(title)
+        typeInto(titleField, title)
 
         let amountField = app.textFields["xBill.addExpense.amountField"]
         XCTAssertTrue(amountField.waitForExistence(timeout: 4), "Amount field should be visible.")
-        amountField.tap()
-        amountField.typeText(amount)
+        typeInto(amountField, amount)
         dismissKeyboardIfNeeded()
 
         let saveButton = app.buttons["xBill.addExpense.saveButton"]

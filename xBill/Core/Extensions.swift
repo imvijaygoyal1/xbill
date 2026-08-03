@@ -21,6 +21,40 @@ extension Decimal {
         return formatter.string(from: self as NSDecimalNumber) ?? "\(currencyCode) \(self)"
     }
 
+    /// The canonical machine-readable two-decimal rendering: `1234.50`, never `1,234.5`.
+    ///
+    /// One definition, because a second copy drifts. This project has produced that failure three
+    /// times — `PaymentHandleValidator` (three disagreeing handle rules), and `VisionService`'s
+    /// `parseQuantity`/`stripQuantityPrefix` and `extractDecimal`/`stripPrice` pairs, where a fix
+    /// was applied to one regex of a pair and not the other.
+    ///
+    /// Formats the `Decimal` **directly**: `String(format: "%.2f", NSDecimalNumber(...).doubleValue)`
+    /// routes money through a binary float, which is the pattern that gave scanned receipts
+    /// amounts like `4.990000000000001024` (VIS-04). `en_US_POSIX` and no grouping separator so
+    /// the output is parseable — a comma would break both a CSV column and a payment URL.
+    var plainTwoDecimalString: String {
+        Self.plainFormatter.string(from: self as NSDecimalNumber)
+            ?? "\(Self.roundedToTwoPlaces(self))"
+    }
+
+    private static let plainFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.numberStyle = .decimal
+        f.minimumFractionDigits = 2
+        f.maximumFractionDigits = 2
+        f.usesGroupingSeparator = false
+        f.roundingMode = .halfEven
+        return f
+    }()
+
+    /// Decimal-only fallback for the (practically unreachable) formatter failure — still no `Double`.
+    private static func roundedToTwoPlaces(_ value: Decimal) -> Decimal {
+        var result = Decimal(); var mutable = value
+        NSDecimalRound(&result, &mutable, 2, .bankers)
+        return result
+    }
+
     /// Rounds to two decimal places using bankers rounding.
     var rounded: Decimal {
         var result = Decimal()
