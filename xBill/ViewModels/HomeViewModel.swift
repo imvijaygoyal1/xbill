@@ -175,14 +175,21 @@ final class HomeViewModel {
         realtimeTask?.cancel()
         realtimeTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            guard let user = self.currentUser else { return }
+            guard let user = self.currentUser else {
+                AppDiagnostics.log(.sync, "HomeViewModel.realtime.skipped", [("reason", "no current user")])
+                return
+            }
             if self.groups.isEmpty && self.archivedGroups.isEmpty {
                 await self.loadAll()
             }
             let groupIDs = (self.groups + self.archivedGroups).map(\.id)
             guard let stream = try? await self.groupService.groupChanges(userID: user.id, groupIDs: groupIDs) else { return }
+            AppDiagnostics.log(.sync, "HomeViewModel.realtime.subscribed", [
+                ("groups", groupIDs.count)
+            ])
             for await _ in stream {
                 guard !Task.isCancelled else { return }
+                AppDiagnostics.log(.sync, "HomeViewModel.realtime.event", [])
                 await self.loadAll()
             }
         }

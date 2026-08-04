@@ -43,7 +43,19 @@ struct HomeView: View {
                     }
             }
         }
-        .task { vm.startRealtimeUpdates() }
+        // Keyed on the signed-in user, NOT a bare `.task`.
+        //
+        // `startRealtimeUpdates()` begins `guard let user = currentUser else { return }`. On a cold
+        // launch this `.task` races the auth listener and usually wins — auth is a network
+        // round-trip — so the guard returned and nothing ever retried, because a bare `.task` does
+        // not re-run when `currentUser` later arrives. Realtime was then dead for the whole
+        // session, invisibly: pull-to-refresh and `MainTabView`'s foreground reload mask it
+        // completely. Verified on device 2026-08-04 — an inserted group did not appear until a
+        // manual refresh.
+        //
+        // `.task(id:)` re-runs when the id changes, so the subscription starts the moment the user
+        // is known, and restarts on account switch.
+        .task(id: vm.currentUser?.id) { vm.startRealtimeUpdates() }
         .errorAlert(item: $vm.errorAlert)
     }
 
