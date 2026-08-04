@@ -66,7 +66,17 @@ struct EmailAuthView: View {
         .toolbar(.hidden, for: .navigationBar)
         .toolbarBackground(AppColors.background, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .errorAlert(item: $vm.errorAlert)
+        // NO `.errorAlert` here. `AuthView` — the root of this NavigationStack — already binds
+        // `$vm.errorAlert`, and this screen is *pushed*, so both views stay in the hierarchy at
+        // once. Two views presenting the same `Identifiable` optional fight: one presents, the
+        // other's dismissal writes `nil` back to the shared binding and tears it down. On device
+        // that showed as "Sign In Failed" flashing for about a second — long enough to see that
+        // something went wrong, too short to read why.
+        //
+        // The root binding covers both screens because an alert presented from the stack root
+        // appears over a pushed destination. Presenting from the ancestor is also the more
+        // reliable direction: the payment-handoff work found SwiftUI drops a presentation made
+        // from a descendant mid-transition.
         .sheet(isPresented: $showForgotPassword) {
             ForgotPasswordView(prefillEmail: vm.email)
                 .presentationDetents([.large])
