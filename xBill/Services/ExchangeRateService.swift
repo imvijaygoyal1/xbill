@@ -14,7 +14,31 @@ import OSLog
 
 actor ExchangeRateService {
     static let shared = ExchangeRateService()
-    private init() {}
+
+    /// Injection seam, defaulted to the real network and `UserDefaults.standard`.
+    ///
+    /// This service was **0% covered** while converting money between currencies — the highest
+    /// risk per line in the app, because a wrong rate silently changes what an expense is worth
+    /// and nothing crashes. It also carries the `Decimal(string: String(double))` round-trip from
+    /// H-08/H-15, the same guard added to `VisionService` for VIS-04; nothing verified it held.
+    ///
+    /// `defaults` is injectable too, so a test cannot collide with the real disk cache — the
+    /// stale-rate fallback below reads and writes it.
+    init(
+        fetch: (@Sendable (URL) async throws -> (Data, URLResponse))? = nil,
+        defaults: UserDefaults = .standard
+    ) {
+        self.injectedFetch = fetch
+        self.defaults = defaults
+    }
+
+    private let injectedFetch: (@Sendable (URL) async throws -> (Data, URLResponse))?
+    private let defaults: UserDefaults
+
+    private func fetch(_ url: URL) async throws -> (Data, URLResponse) {
+        if let injectedFetch { return try await injectedFetch(url) }
+        return try await session.data(from: url)
+    }
     private let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "ExchangeRates")
 
     private struct CacheEntry {
@@ -66,7 +90,7 @@ actor ExchangeRateService {
             throw AppError.unknown("Invalid exchange rate URL")
         }
         do {
-            let (data, response) = try await session.data(from: url)
+            let (data, response) = try await fetch(url)
             if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                 throw AppError.unknown("Exchange rate unavailable (HTTP \(http.statusCode)). Try again later.")
             }
@@ -95,12 +119,12 @@ actor ExchangeRateService {
     /// Persists a rate dictionary for `base` to UserDefaults so it survives app restarts.
     private func persistRates(_ rates: [String: Decimal], base: String) {
         guard let data = try? JSONEncoder().encode(rates) else { return }
-        UserDefaults.standard.set(data, forKey: "er_cache_\(base)")
+        defaults.set(data, forKey: "er_cache_\(base)")
     }
 
     /// Returns a previously persisted rate dictionary for `base`, or nil if absent / undecodable.
     private func cachedRates(base: String) -> [String: Decimal]? {
-        guard let data = UserDefaults.standard.data(forKey: "er_cache_\(base)"),
+        guard let data = defaults.data(forKey: "er_cache_\(base)"),
               let dict = try? JSONDecoder().decode([String: Decimal].self, from: data)
         else { return nil }
         return dict
