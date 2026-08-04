@@ -66,6 +66,17 @@ struct EmailAuthView: View {
         .toolbar(.hidden, for: .navigationBar)
         .toolbarBackground(AppColors.background, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
+        // Signup succeeded but needs email confirmation: pop back so the user actually sees the
+        // "Check your email" banner, which lives on `AuthView`.
+        //
+        // Without this the screen appears to do nothing — the banner renders on the view
+        // *underneath* the one the user is standing on. Latent until email confirmation is
+        // enabled in Supabase, because `AppError.confirmationRequired` cannot be thrown while
+        // autoconfirm is on; found 2026-08-04 while preparing to turn confirmation on. The
+        // banner's own copy ("…then sign in") shows returning here was always the intent.
+        .onChange(of: vm.confirmationEmailSent) { _, pending in
+            if pending { dismiss() }
+        }
         // NO `.errorAlert` here. `AuthView` — the root of this NavigationStack — already binds
         // `$vm.errorAlert`, and this screen is *pushed*, so both views stay in the hierarchy at
         // once. Two views presenting the same `Identifiable` optional fight: one presents, the
