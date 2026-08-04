@@ -7,6 +7,19 @@
 //  Guards that reject bad input **before** any network call, and are therefore reachable from a
 //  unit test without a seam or a fake.
 //
+//  ⚠️ ONLY guards that return BEFORE any network call belong here. Two tests were removed on
+//  2026-08-04 after they were found writing to **production**: `paddedDisplayNameIsTrimmed` set a
+//  display name and called `saveProfile`, and `AuthService.updateProfile` writes using
+//  `currentUserID` from the **live session** — not the `vm.user.id` the test set — so it renamed
+//  the real `xbill.uitest` profile to "Alice Chen", which then broke the ledger UI fixture.
+//  `iouAdmitsEitherParty` likewise called `createIOU` with valid parties and attempted a live
+//  insert; it only failed harmlessly because the party UUIDs violated a foreign key.
+//
+//  Asserting the *positive* direction of these guards — that legitimate input is admitted —
+//  needs an injection seam on `ProfileViewModel` and `IOUService`, which neither has. Until then
+//  only the rejection direction is covered, and that is a real gap: a guard that refused
+//  everything would satisfy these tests.
+//
 //  This is deliberately narrow. `IOUService`, `FriendService` and `CommentService` are otherwise
 //  PostgREST query building: a "unit test" over them would assert what a fake returns, not what
 //  the app does, which is the coverage-for-its-own-sake this codebase has already been bitten by
@@ -39,28 +52,6 @@ struct PreNetworkGuardTests {
         }
     }
 
-    /// The guard must admit both legitimate roles, or creating a normal IOU breaks. Asserting only
-    /// the rejection would pass against a guard that refused everything.
-    @Test("Both the lender and the borrower may create the IOU")
-    func iouAdmitsEitherParty() async {
-        let lender = UUID(), borrower = UUID()
-
-        // Reaching the network means the guard let it through — that is the assertion. The request
-        // itself then fails (no test backend), which is expected and not what is being checked.
-        for creator in [lender, borrower] {
-            do {
-                _ = try await IOUService.shared.createIOU(
-                    createdBy: creator, lenderID: lender, borrowerID: borrower,
-                    amount: 10, currency: "USD", description: nil)
-            } catch let error as AppError {
-                if case .validationFailed(let message) = error {
-                    Issue.record("A legitimate party was rejected by the guard: \(message)")
-                }
-            } catch {
-                // Any non-AppError is a transport failure — the guard passed.
-            }
-        }
-    }
 
     // MARK: - ProfileViewModel (H-17)
 
@@ -79,18 +70,4 @@ struct PreNetworkGuardTests {
         #expect(!vm.isSaved)
     }
 
-    /// Whitespace around an otherwise valid name must be trimmed rather than rejected — the guard
-    /// trims and continues, and asserting only the rejection above would not catch a guard that
-    /// rejected " Alice " too.
-    @Test("A padded display name is trimmed, not rejected")
-    func paddedDisplayNameIsTrimmed() async {
-        let vm = ProfileViewModel()
-        vm.user = User(id: UUID(), email: "a@b.com", displayName: "Alice",
-                       avatarURL: nil, createdAt: Date())
-        vm.displayName = "  Alice Chen  "
-
-        await vm.saveProfile(avatarImage: nil)
-
-        #expect(vm.displayName == "Alice Chen", "The stored name must be trimmed before saving.")
-    }
 }

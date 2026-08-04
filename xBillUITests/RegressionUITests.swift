@@ -606,6 +606,60 @@ final class RegressionUITests: XCTestCase {
         // worse than a missing one. Deletion is covered by device testing only.
     }
 
+    /// The recorder-only delete gate, both directions — UIT-06.
+    ///
+    /// This is what migration 041's DELETE policy enforces (`recorded_by = auth.uid()`), and it is
+    /// the whole point of the ledger's audit trail: you may undo your own record of a payment and
+    /// not someone else's. It was device-only until now because SwiftUI exposes these rows as
+    /// unnamed cells, so every gesture aimed at the visible label missed the cell that owns the
+    /// swipe actions.
+    ///
+    /// Read-only: it opens the swipe on both rows and asserts which offers Delete, then cancels.
+    /// It never deletes, so the fixture's balances are untouched.
+    func testPaymentDeleteGateRegression() throws {
+        launch(route: "groups")
+        try signInIfNeeded()
+        dismissNotificationPromptIfNeeded()
+
+        let fixture = "SeedLedger-Regression"
+        guard activeGroupButton(named: fixture).waitForExistence(timeout: 8) else {
+            return XCTFail("""
+                Fixture group "\(fixture)" is missing. Create it with:
+                  supabase db query --file scripts/seed-ledger-regression-group.sql --linked
+                """)
+        }
+        searchGroups(fixture)
+        try openGroup(named: fixture)
+        try openGroupTab("Settle Up")
+
+        // A payment THIS account recorded — RLS permits deleting it, so the UI must offer it.
+        // Keyed on the fixture's amounts, which are unique and stable: $2.00 was recorded by
+        // this account, $3.00 by Alice Chen. The recorder is then asserted from the row's own
+        // label, so the test still fails loudly if the fixture is ever reshaped.
+        let mine = paymentHistoryRow(containing: "$2.00")
+        XCTAssertTrue(scrollUntilHittable(mine), "The fixture should list the $2.00 payment.")
+        XCTAssertTrue(mine.label.contains("recorded by xbill.uitest"),
+                      "The $2.00 payment should be recorded by this account; got: \(mine.label)")
+        let myCell = try XCTUnwrap(cellContaining(mine), "Every history row sits in a List cell.")
+        myCell.swipeLeft()
+        XCTAssertTrue(app.buttons["Delete"].waitForExistence(timeout: 4),
+                      "A payment this account recorded must offer Delete.")
+        myCell.swipeRight()
+        XCTAssertFalse(app.buttons["Delete"].waitForExistence(timeout: 2), "The swipe should close again.")
+
+        // A payment ANOTHER member recorded — RLS would refuse the delete, so the UI must not
+        // offer it. Offering an action the database rejects is the REV-01 mistake this whole
+        // branch exists to remove.
+        let theirs = paymentHistoryRow(containing: "$3.00")
+        XCTAssertTrue(scrollUntilHittable(theirs), "The fixture should list the $3.00 payment.")
+        XCTAssertTrue(theirs.label.contains("recorded by Alice Chen"),
+                      "The $3.00 payment should be recorded by Alice Chen; got: \(theirs.label)")
+        let theirCell = try XCTUnwrap(cellContaining(theirs), "Every history row sits in a List cell.")
+        theirCell.swipeLeft()
+        XCTAssertFalse(app.buttons["Delete"].waitForExistence(timeout: 3),
+                       "A payment recorded by another member must NOT offer Delete.")
+    }
+
     func testProfileQRCodeAndAccountCancelRegression() throws {
         launchMainApp(initialTab: "groups")
         try signInIfNeeded()
@@ -1013,6 +1067,24 @@ final class RegressionUITests: XCTestCase {
 
 
 
+    /// Returns the `List` cell that visually contains `element`.
+    ///
+    /// SwiftUI exposes these rows as cells with **no identifier and no label**, so no query can
+    /// find them by name — which is why twelve attempts to open `.swipeActions` failed: they all
+    /// targeted the inner `StaticText`, and a gesture there never reaches the cell that owns the
+    /// swipe. Matching by frame is the only handle available. Verified by dumping the hierarchy:
+    /// 5 unnamed hittable cells for 3 suggestion rows + 2 payment rows.
+    private func cellContaining(_ element: XCUIElement) -> XCUIElement? {
+        guard element.exists else { return nil }
+        let point = CGPoint(x: element.frame.midX, y: element.frame.midY)
+        for i in 0..<app.cells.count {
+            let cell = app.cells.element(boundBy: i)
+            guard cell.exists else { continue }
+            if cell.frame.contains(point) { return cell }
+        }
+        return nil
+    }
+
     /// Scrolls until the element is actually hittable.
     ///
     /// `waitForExistence` is true for elements that exist in the hierarchy but are **off-screen**,
@@ -1020,13 +1092,18 @@ final class RegressionUITests: XCTestCase {
     /// payment-row cleanup appeared to run and changed nothing. Recent Payments sits below the
     /// suggestion rows, so it is off-screen on first render.
     @discardableResult
-    private func scrollUntilHittable(_ element: XCUIElement, maxSwipes: Int = 6) -> Bool {
-        guard element.waitForExistence(timeout: 4) else { return false }
+    private func scrollUntilHittable(_ element: XCUIElement, maxSwipes: Int = 8) -> Bool {
+        // Does NOT require the element to exist first. `List` recycles rows, so one below the
+        // fold is absent from the accessibility tree entirely — not merely off-screen. An
+        // earlier version guarded on `waitForExistence` and so never scrolled to anything that
+        // had not already been rendered, which read as "the row isn't there".
+        if element.exists, element.isHittable { return true }
+        _ = element.waitForExistence(timeout: 2)
         for _ in 0..<maxSwipes {
-            if element.isHittable { return true }
+            if element.exists, element.isHittable { return true }
             app.swipeUp()
         }
-        return element.isHittable
+        return element.exists && element.isHittable
     }
 
     private func paymentHistoryRow(containing text: String) -> XCUIElement {
