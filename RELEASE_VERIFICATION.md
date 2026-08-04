@@ -48,7 +48,7 @@ supabase migration list --linked
 Expected:
 
 - Local and remote migration numbers match.
-- Current expected latest migration: `040`.
+- Current expected latest migration: `041` (settlements ledger, deployed 2026-08-01).
 
 ### Realtime Publication
 
@@ -147,6 +147,22 @@ select
 SQL
 ```
 
+**Payment handles must be `NULL` on every seeded profile.** Run this and expect `0`:
+
+```bash
+supabase db query --linked <<'SQL'
+select count(*) from public.profiles
+ where venmo_handle is not null or paypal_handle is not null;
+SQL
+```
+
+A fabricated or personal handle on a demo profile becomes a **live deep link**: a reviewer taps
+PayPal in Settle Up and lands on the provider's error page, which reads as an xBill defect — or
+worse, on a real person's payment page. This has now happened twice: seeded handles in July
+(`'appreviewer'`), and a hand-typed `paypal_handle` found by this runbook on 2026-08-03 and
+cleared. The seed writes `NULL` correctly, so any non-zero count came from a human entering one
+during testing. Check it before every submission.
+
 Expected:
 
 - `auth_users = 1`
@@ -155,7 +171,7 @@ Expected:
 - `tokyo_members = 3`
 - `tokyo_expenses = 5`
 - `tokyo_splits = 15`
-- `tokyo_comments = 2`
+- `tokyo_comments >= 2` (was 4 on 2026-08-03 — extra comments from device testing are harmless to a reviewer; the count only needs to be non-empty)
 - `ious_total >= 1`
 
 ## 3. Simulator Smoke Test
