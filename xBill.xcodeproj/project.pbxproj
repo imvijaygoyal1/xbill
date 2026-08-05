@@ -457,7 +457,7 @@
 		F684542CE9913F0736FC5EC2 /* XBillFloatingAddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFloatingAddButton.swift; sourceTree = "<group>"; };
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
 		FA59435ADAF303865175315B /* VisionParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionParsingTests.swift; sourceTree = "<group>"; };
-		"TEMP_1B323289-2EE7-4CAD-A865-30A225158868" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_40C8BEA2-C3E0-450F-8649-E2D95F094E8B" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -920,10 +920,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_865B8DFE-B9A0-4429-ABE5-BF2B67610153" /* xBill */ = {
+		"TEMP_B8E2EBB3-7A05-4B0D-9DF0-0C70C2B5858C" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_1B323289-2EE7-4CAD-A865-30A225158868" /* Secrets.xcconfig */,
+				"TEMP_40C8BEA2-C3E0-450F-8649-E2D95F094E8B" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1381,7 +1381,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_1B323289-2EE7-4CAD-A865-30A225158868" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_40C8BEA2-C3E0-450F-8649-E2D95F094E8B" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1467,7 +1467,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -1550,7 +1550,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.vijaygoyal.xbill;
 				SDKROOT = iphoneos;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -1590,7 +1590,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_1B323289-2EE7-4CAD-A865-30A225158868" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_40C8BEA2-C3E0-450F-8649-E2D95F094E8B" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

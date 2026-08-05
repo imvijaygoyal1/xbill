@@ -55,6 +55,13 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vijaygoyal.xbill
         INFOPLIST_FILE: xBill/Info.plist
+        # Must be set HERE, not only in the project-level `settings.base` above: xcodegen
+        # writes its own per-target default of "1,2" for an iOS application, which overrides
+        # the project-level value. The widget targets already set it explicitly and were
+        # correct; the app target did not, so the shipped bundle declared UIDeviceFamily
+        # [1,2] — iPad support the app was never designed for. App Store Connect then applied
+        # iPad multitasking rules and rejected the upload with error 90474.
+        TARGETED_DEVICE_FAMILY: "1"        # iPhone only
       configs:
         debug:
           SWIFT_OPTIMIZATION_LEVEL: "-Onone"

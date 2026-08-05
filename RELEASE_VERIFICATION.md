@@ -414,6 +414,37 @@ Backend expectations:
 
 ## 9. App Store Readiness
 
+### Bundle Shape — check the BUILT plist, not `project.yml`
+
+Apple reads the compiled `Info.plist`, and build settings do not always survive to it. Verify
+against a real Release build:
+
+```bash
+xcodebuild build -project xBill.xcodeproj -scheme xBill -configuration Release \
+  -destination 'generic/platform=iOS'
+P=$(ls -d ~/Library/Developer/Xcode/DerivedData/xBill-*/Build/Products/Release-iphoneos/xBill.app | head -1)/Info.plist
+plutil -extract UIDeviceFamily xml1 -o - "$P" | grep integer      # expect ONLY <integer>1</integer>
+plutil -p "$P" | grep -A2 'UISupportedInterfaceOrientations"'      # expect Portrait
+plutil -extract ITSAppUsesNonExemptEncryption raw "$P"             # expect false
+```
+
+Expected:
+
+- `UIDeviceFamily` is **`[1]`** — iPhone only. If it contains `2`, the bundle claims iPad support
+  and App Store Connect applies **iPad multitasking** rules.
+- `UISupportedInterfaceOrientations` (the **generic** key) is present. A `~iphone`-only variant does
+  not satisfy the validator.
+
+**This rejected an upload on 2026-08-04** (error 90474). `project.yml` set
+`TARGETED_DEVICE_FAMILY: "1"` in `settings.base`, but **xcodegen writes its own per-target default
+of `"1,2"` for an iOS application**, overriding it — so the app shipped as universal while the
+widget targets, which set it explicitly, were correct. The error text blamed missing orientations;
+adding all four would have "fixed" the upload while shipping iPad support the UI was never built or
+tested for. Fixed by pinning `TARGETED_DEVICE_FAMILY: "1"` on the app target itself.
+
+Nothing in the test suites catches this: every device run used a physical iPhone and every simulator
+run an iPhone model, so the iPad claim is only observable at App Store validation.
+
 ### Privacy
 
 - App Store Connect privacy labels match `APPSTORE_PRIVACY_RECONCILIATION.md`.
