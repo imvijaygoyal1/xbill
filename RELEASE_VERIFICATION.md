@@ -445,6 +445,25 @@ tested for. Fixed by pinning `TARGETED_DEVICE_FAMILY: "1"` on the app target its
 Nothing in the test suites catches this: every device run used a physical iPhone and every simulator
 run an iPhone model, so the iPad claim is only observable at App Store validation.
 
+### App Icon — no alpha channel
+
+```bash
+for f in xBill/Assets.xcassets/AppIcon.appiconset/*.png; do
+  sips -g hasAlpha "$f" | grep -q "hasAlpha: yes" && echo "ALPHA: $(basename $f)"
+done
+```
+
+Expected: **no output.** Any alpha fails the upload with error 90717 ("large app icon … can't be
+transparent or contain an alpha channel").
+
+**Rejected an upload on 2026-08-04.** All 13 icons carried alpha, with fully transparent corners —
+a ~67px radius baked into a 1024px icon. Note the trap: iOS applies its **own** corner mask
+(~22% radius, far more aggressive than the 6.5% baked in), so those corners were never visible and
+the transparency served no purpose. Fixed by compositing each icon onto its own background colour,
+sampled from the midpoint of its top edge — `rgb(60, 52, 137)` for every icon here — then saving
+without an alpha channel. Do not flatten onto white by reflex: if the baked radius were ever
+*larger* than Apple's mask, white would show through at the corners.
+
 ### Privacy
 
 - App Store Connect privacy labels match `APPSTORE_PRIVACY_RECONCILIATION.md`.
