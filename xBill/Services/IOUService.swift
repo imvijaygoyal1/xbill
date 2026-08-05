@@ -60,6 +60,20 @@ final class IOUService {
 
     // MARK: - Create
 
+    /// M-25: mirrors the DB CHECK `created_by = lender_id OR created_by = borrower_id`, so a
+    /// caller cannot file an IOU between two other people and get an error the user cannot act on.
+    ///
+    /// Extracted from `createIOU` so it can be tested in **both** directions without a network
+    /// call. Testing it through `createIOU` is not merely awkward — it writes: a test doing that
+    /// attempted a live `ious` insert and only failed because the party UUIDs violated a foreign
+    /// key (TEST-01). A pure function cannot reach the database at all, which is a stronger
+    /// guarantee than remembering not to.
+    static func validateParties(createdBy: UUID, lenderID: UUID, borrowerID: UUID) throws {
+        guard createdBy == lenderID || createdBy == borrowerID else {
+            throw AppError.validationFailed("You must be either the lender or borrower of an IOU you create.")
+        }
+    }
+
     func createIOU(
         createdBy:   UUID,
         lenderID:    UUID,
@@ -68,12 +82,7 @@ final class IOUService {
         currency:    String,
         description: String?
     ) async throws -> IOU {
-        // M-25: client-side guard mirrors the DB CHECK constraint
-        // (created_by = lender_id OR created_by = borrower_id).
-        // Prevents callers from accidentally setting a third-party as a party.
-        guard createdBy == lenderID || createdBy == borrowerID else {
-            throw AppError.validationFailed("You must be either the lender or borrower of an IOU you create.")
-        }
+        try Self.validateParties(createdBy: createdBy, lenderID: lenderID, borrowerID: borrowerID)
         struct Payload: Encodable {
             let createdBy:   UUID
             let lenderID:    UUID

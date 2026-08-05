@@ -123,12 +123,23 @@ final class ProfileViewModel {
 
     // MARK: - Save Profile
 
+    /// H-17: the display name a save should use, or `nil` if it is blank.
+    ///
+    /// Extracted from `saveProfile` so both directions are testable without a network call.
+    /// `saveProfile` continues past this guard into `AuthService.updateProfile`, which writes
+    /// using `currentUserID` from the **live session** — so a test asserting the trim through
+    /// `saveProfile` renames a real profile in production. That happened (TEST-01). A pure
+    /// function removes the possibility rather than relying on care.
+    static func validatedDisplayName(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     func saveProfile(avatarImage: UIImage?) async {
         guard let user else { return }
 
-        // H-17: validate display name before any network calls.
-        let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else {
+        // H-17: validate before any network call.
+        guard let trimmedName = Self.validatedDisplayName(displayName) else {
             errorAlert = ErrorAlert(title: "Name required", message: "Please enter a display name.")
             return
         }

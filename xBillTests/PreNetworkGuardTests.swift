@@ -7,18 +7,12 @@
 //  Guards that reject bad input **before** any network call, and are therefore reachable from a
 //  unit test without a seam or a fake.
 //
-//  ⚠️ ONLY guards that return BEFORE any network call belong here. Two tests were removed on
-//  2026-08-04 after they were found writing to **production**: `paddedDisplayNameIsTrimmed` set a
-//  display name and called `saveProfile`, and `AuthService.updateProfile` writes using
-//  `currentUserID` from the **live session** — not the `vm.user.id` the test set — so it renamed
-//  the real `xbill.uitest` profile to "Alice Chen", which then broke the ledger UI fixture.
-//  `iouAdmitsEitherParty` likewise called `createIOU` with valid parties and attempted a live
-//  insert; it only failed harmlessly because the party UUIDs violated a foreign key.
-//
-//  Asserting the *positive* direction of these guards — that legitimate input is admitted —
-//  needs an injection seam on `ProfileViewModel` and `IOUService`, which neither has. Until then
-//  only the rejection direction is covered, and that is a real gap: a guard that refused
-//  everything would satisfy these tests.
+//  ⚠️ Test the guard's **pure function**, never the method that calls it. `saveProfile` and
+//  `createIOU` continue past their guards into the network, and services resolve the acting user
+//  from the **live session** — so an earlier version of this file renamed a real profile in
+//  production and attempted a live `ious` insert (TEST-01). Both guards are now extracted as
+//  static pure functions precisely so a test cannot reach the database at all: a stronger
+//  guarantee than remembering not to.
 //
 //  This is deliberately narrow. `IOUService`, `FriendService` and `CommentService` are otherwise
 //  PostgREST query building: a "unit test" over them would assert what a fake returns, not what
@@ -39,26 +33,46 @@ struct PreNetworkGuardTests {
     // MARK: - IOUService (M-25)
 
     /// M-25 mirrors the DB CHECK `created_by = lender_id OR created_by = borrower_id`. Without the
-    /// client guard a caller could file an IOU between two other people, and the database would
-    /// reject it — an error the user could not act on.
-    @Test("Creating an IOU you are not party to is refused before any request")
-    func iouRequiresCallerToBeAParty() async {
-        let stranger = UUID(), lender = UUID(), borrower = UUID()
+    /// client guard a caller could file an IOU between two other people and get a database error
+    /// the user cannot act on.
+    @Test("An IOU may only be created by its lender or borrower")
+    func iouRequiresCallerToBeAParty() throws {
+        let lender = UUID(), borrower = UUID(), stranger = UUID()
 
-        await #expect(throws: AppError.self) {
-            _ = try await IOUService.shared.createIOU(
-                createdBy: stranger, lenderID: lender, borrowerID: borrower,
-                amount: 10, currency: "USD", description: nil)
+        #expect(throws: AppError.self) {
+            try IOUService.validateParties(createdBy: stranger, lenderID: lender, borrowerID: borrower)
+        }
+        // Both legitimate roles must still be admitted. Asserting only the rejection would pass
+        // against a guard that refused everything — which is the failure this pair exists to catch.
+        #expect(throws: Never.self) {
+            try IOUService.validateParties(createdBy: lender, lenderID: lender, borrowerID: borrower)
+        }
+        #expect(throws: Never.self) {
+            try IOUService.validateParties(createdBy: borrower, lenderID: lender, borrowerID: borrower)
         }
     }
 
-
     // MARK: - ProfileViewModel (H-17)
 
-    /// H-17: a blank display name must be caught before the avatar upload, or a user can wipe
-    /// their name and the upload still runs.
-    @Test("A blank display name is rejected before any network call")
-    func blankDisplayNameRejected() async {
+    /// H-17: a blank name must be caught before the avatar upload, or a user can wipe their name
+    /// and the upload still runs.
+    @Test("A display name is rejected only when it is genuinely empty")
+    func displayNameValidation() {
+        #expect(ProfileViewModel.validatedDisplayName("") == nil)
+        #expect(ProfileViewModel.validatedDisplayName("   ") == nil)
+        #expect(ProfileViewModel.validatedDisplayName("\n\t ") == nil)
+
+        // Padding is trimmed, not rejected — the other half of the guard, and the half a
+        // rejection-only test would silently lose.
+        #expect(ProfileViewModel.validatedDisplayName("  Alice Chen  ") == "Alice Chen")
+        #expect(ProfileViewModel.validatedDisplayName("Bob") == "Bob")
+    }
+
+    /// The guard still has to be *wired in*: a pure function nothing calls protects nothing.
+    /// This is the one assertion that goes through the view model, and it is safe because a blank
+    /// name returns before any network call.
+    @Test("saveProfile refuses a blank name and does not report success")
+    func saveProfileHonoursTheGuard() async {
         let vm = ProfileViewModel()
         vm.user = User(id: UUID(), email: "a@b.com", displayName: "Alice",
                        avatarURL: nil, createdAt: Date())
