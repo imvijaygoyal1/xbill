@@ -445,6 +445,25 @@ tested for. Fixed by pinning `TARGETED_DEVICE_FAMILY: "1"` on the app target its
 Nothing in the test suites catches this: every device run used a physical iPhone and every simulator
 run an iPhone model, so the iPad claim is only observable at App Store validation.
 
+### dSYMs — archive and check the UUIDs match
+
+```bash
+xcodebuild archive -project xBill.xcodeproj -scheme xBill -configuration Release \
+  -destination 'generic/platform=iOS' -archivePath /tmp/xBill.xcarchive -allowProvisioningUpdates
+ls /tmp/xBill.xcarchive/dSYMs                    # expect app, widget appex and widget core
+dwarfdump --uuid /tmp/xBill.xcarchive/Products/Applications/xBill.app/xBill
+dwarfdump --uuid /tmp/xBill.xcarchive/dSYMs/xBill.app.dSYM
+```
+
+Expected: three dSYMs, and the binary's UUID **identical** to its dSYM's.
+
+**Rejected an upload on 2026-08-04.** `DEBUG_INFORMATION_FORMAT: dwarf-with-dsym` and
+`GCC_GENERATE_DEBUGGING_SYMBOLS: NO` were both set on Release and contradict each other — with no
+symbols generated there is nothing to put in the dSYM. The `NO` came from security finding **L4**
+and bought nothing: `STRIP_INSTALLED_PRODUCT = YES` already strips symbols from the shipped binary,
+and a `.dSYM` is a separate artefact never delivered to users. The real cost was unsymbolicated
+crash reports — every production crash would have arrived as raw addresses.
+
 ### App Icon — no alpha channel
 
 ```bash

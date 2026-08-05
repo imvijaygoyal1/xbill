@@ -74,7 +74,13 @@ targets:
           VALIDATE_PRODUCT: YES
           CODE_SIGN_ENTITLEMENTS: xBill/xBill.entitlements
           DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
-          GCC_GENERATE_DEBUGGING_SYMBOLS: NO
+          # Must be YES, despite L4 setting it to NO as a hardening measure. It contradicted
+          # `dwarf-with-dsym`: with no symbols generated there is nothing to put in the dSYM, so
+          # the archive shipped without one and App Store Connect rejected it ("did not include a
+          # dSYM ... with the UUIDs"). It also bought no security — `STRIP_INSTALLED_PRODUCT = YES`
+          # already strips symbols from the shipped binary, and the .dSYM is a separate artefact
+          # that is never delivered to users. What it did cost is symbolicated crash reports.
+          GCC_GENERATE_DEBUGGING_SYMBOLS: YES
 
   xBillWidgetCore:
     type: framework

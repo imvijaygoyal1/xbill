@@ -457,7 +457,7 @@
 		F684542CE9913F0736FC5EC2 /* XBillFloatingAddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFloatingAddButton.swift; sourceTree = "<group>"; };
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
 		FA59435ADAF303865175315B /* VisionParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionParsingTests.swift; sourceTree = "<group>"; };
-		"TEMP_40C8BEA2-C3E0-450F-8649-E2D95F094E8B" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_32F0C476-FC49-4796-B086-D61909D00BD1" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -920,10 +920,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_B8E2EBB3-7A05-4B0D-9DF0-0C70C2B5858C" /* xBill */ = {
+		"TEMP_496AD945-4485-4AB3-BAEB-F0E8C6B483C2" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_40C8BEA2-C3E0-450F-8649-E2D95F094E8B" /* Secrets.xcconfig */,
+				"TEMP_32F0C476-FC49-4796-B086-D61909D00BD1" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1381,7 +1381,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_40C8BEA2-C3E0-450F-8649-E2D95F094E8B" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_32F0C476-FC49-4796-B086-D61909D00BD1" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1541,7 +1541,7 @@
 				CODE_SIGN_ENTITLEMENTS = xBill/xBill.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				INFOPLIST_FILE = xBill/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1590,7 +1590,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_40C8BEA2-C3E0-450F-8649-E2D95F094E8B" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_32F0C476-FC49-4796-B086-D61909D00BD1" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
