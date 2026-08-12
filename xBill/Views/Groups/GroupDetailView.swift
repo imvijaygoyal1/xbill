@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import StoreKit
 
 struct GroupDetailView: View {
     // Owned in @State so the ViewModel survives parent body re-evaluations (e.g. App Lock
@@ -29,6 +30,10 @@ struct GroupDetailView: View {
     @State private var searchText = ""
     @State private var filterCategory: Expense.Category? = nil
     @State private var paymentHandoffAlert: ErrorAlert?
+    /// Held in `@State` so `@Observable` tracks it — the same reason `ProfileView` holds
+    /// `AppLockService.shared` this way (M-41). Reading the singleton inline would not observe.
+    @State private var reviewPrompt = ReviewPromptService.shared
+    @Environment(\.requestReview) private var requestReview
     /// A payment app was opened for this suggestion and we are waiting to ask whether it
     /// completed. View state, not model state — a handoff has no meaning once this screen
     /// is gone.
@@ -172,6 +177,20 @@ struct GroupDetailView: View {
                 if !locked { presentHandoffPromptIfReady() }
             }
             .refreshable { await vm.refresh() }
+            .onChange(of: reviewPrompt.isRequestPending) { _, pending in
+                guard pending else { return }
+                Task { @MainActor in
+                    // Record Payment is a sheet, and it dismisses on success. Asking while that
+                    // transition is in flight is the same mistake the payment-return prompt made
+                    // (fixed 2026-07-27): SwiftUI drops a presentation made mid-transition. This
+                    // one is StoreKit's to render, but it is still raised from this view, so wait
+                    // for the screen to settle first.
+                    try? await Task.sleep(for: .milliseconds(800))
+                    guard reviewPrompt.isRequestPending, !AppLockService.shared.isLocked else { return }
+                    requestReview()
+                    reviewPrompt.consumePendingRequest()
+                }
+            }
             .onChange(of: selectedTab) { _, _ in
                 searchText = ""
                 filterCategory = nil

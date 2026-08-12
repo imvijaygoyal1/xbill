@@ -13,6 +13,7 @@
 		02E8CE55B58B350C5A15C09E /* XBillNotificationRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3579B0A2FDA39F331B61D49 /* XBillNotificationRow.swift */; };
 		0369471B28585A20BC63BB56 /* XBillAvatarStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29E67B0F2B4186BE801115F9 /* XBillAvatarStack.swift */; };
 		0382A3B05FD435103A7599E5 /* GroupDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA937D31A0181F43B8747D40 /* GroupDetailView.swift */; };
+		04202A90634E03B867F34843 /* ReviewPromptPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46B1654DF24F1A01DAC8F085 /* ReviewPromptPolicyTests.swift */; };
 		0710E36826856521B9A4EF86 /* FriendService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED55048DF249C5268DC42F8 /* FriendService.swift */; };
 		0A726A1D819C6155645F4A2D /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395C4D39C71AAE22F3D2CAA4 /* EmptyStateView.swift */; };
 		0ADB22C3506F27AB43A4F2AF /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 089113BCA5CC5EBB34974DD9 /* HapticManager.swift */; };
@@ -159,6 +160,7 @@
 		C890F505DE688EB3DD73C89E /* ExchangeRateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F41CFA2B1CB435C590ECF374 /* ExchangeRateService.swift */; };
 		CB3C903B5EE8C407F8544C45 /* Settlement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6254841C9BA8DCEF16494B86 /* Settlement.swift */; };
 		CCE3F9B5588D20D85B1DC3D3 /* GreetingHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A091C82B575E5CAC10B0351 /* GreetingHelper.swift */; };
+		CE3208620DF87CCDB7FF9518 /* ReviewPromptService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 244F935515F203166B0E5F4C /* ReviewPromptService.swift */; };
 		CE9313445761692A45CF9868 /* XBillVisualAssets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D92174E4E357082804DD4A9 /* XBillVisualAssets.swift */; };
 		CF7BB5EDBB1D51E7878487CB /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCE2A2449DE087F7C0D3279 /* NetworkMonitor.swift */; };
 		D04816EEDFDC9CF26CFFAD40 /* GroupViewModelMaintenanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E5843A89FB9191BE4437CD6 /* GroupViewModelMaintenanceTests.swift */; };
@@ -288,6 +290,7 @@
 		1E8B4D781A6BA5080BC7AF4D /* XBillDetailHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillDetailHeader.swift; sourceTree = "<group>"; };
 		1EB95AF7F1C155D9C83D8E6B /* P3HelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P3HelperTests.swift; sourceTree = "<group>"; };
 		22DF7A2C76A62C77099A3B73 /* ProfilePayloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePayloadTests.swift; sourceTree = "<group>"; };
+		244F935515F203166B0E5F4C /* ReviewPromptService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewPromptService.swift; sourceTree = "<group>"; };
 		24BD802F744BC6F8432F35E8 /* ExchangeRateServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExchangeRateServiceTests.swift; sourceTree = "<group>"; };
 		256F7DDB19351E2D8938CD52 /* ActivityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityService.swift; sourceTree = "<group>"; };
 		25E1014F88CCE9709E91F975 /* SettleUpDisplayStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettleUpDisplayStateTests.swift; sourceTree = "<group>"; };
@@ -312,6 +315,7 @@
 		40A69C55FFF1DB3E06C04CB2 /* LoadingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingOverlay.swift; sourceTree = "<group>"; };
 		410250FF5165956E1D72F2AB /* ShareSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheetView.swift; sourceTree = "<group>"; };
 		46030FF3CE3722DB807BD7BA /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		46B1654DF24F1A01DAC8F085 /* ReviewPromptPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewPromptPolicyTests.swift; sourceTree = "<group>"; };
 		47F58D4BA74441B823AEDCE2 /* XBillButtons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillButtons.swift; sourceTree = "<group>"; };
 		482A03C4A082448A734C4FDD /* XBillButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillButton.swift; sourceTree = "<group>"; };
 		48D7C0BA48229A9BAB246A08 /* XBillProfilePrimitives.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillProfilePrimitives.swift; sourceTree = "<group>"; };
@@ -457,7 +461,7 @@
 		F684542CE9913F0736FC5EC2 /* XBillFloatingAddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFloatingAddButton.swift; sourceTree = "<group>"; };
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
 		FA59435ADAF303865175315B /* VisionParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionParsingTests.swift; sourceTree = "<group>"; };
-		"TEMP_32F0C476-FC49-4796-B086-D61909D00BD1" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_337DC4A5-15AE-47DC-8A6B-64992AD105BE" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -509,6 +513,7 @@
 				B33016E6C4C9822060E8D180 /* PaymentHandleValidator.swift */,
 				E5F57D9E8BA76933667996CC /* PaymentLinkService.swift */,
 				28D56647FF642DB35536819E /* RemoteNotificationService.swift */,
+				244F935515F203166B0E5F4C /* ReviewPromptService.swift */,
 				0F3979BA7AFFF227CE528BC6 /* SettlementService.swift */,
 				A2D0C24457A00F28DAEEA2D4 /* SplitCalculator.swift */,
 				EB8ECB0D8B3E6EACF9A77C06 /* SpotlightService.swift */,
@@ -848,6 +853,7 @@
 				2E4A953CB265858F40B70470 /* PaymentHandoffTests.swift */,
 				9989B2F753C7A286AE29A6FE /* PreNetworkGuardTests.swift */,
 				22DF7A2C76A62C77099A3B73 /* ProfilePayloadTests.swift */,
+				46B1654DF24F1A01DAC8F085 /* ReviewPromptPolicyTests.swift */,
 				B54708E8A101CDBA935A0CB1 /* SecurityFixTests.swift */,
 				0DABCE480259AD8AD4049DD3 /* SettlementLedgerTests.swift */,
 				25E1014F88CCE9709E91F975 /* SettleUpDisplayStateTests.swift */,
@@ -920,10 +926,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_496AD945-4485-4AB3-BAEB-F0E8C6B483C2" /* xBill */ = {
+		"TEMP_62C0C8FD-C572-4E2F-93F3-693FD8394310" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_32F0C476-FC49-4796-B086-D61909D00BD1" /* Secrets.xcconfig */,
+				"TEMP_337DC4A5-15AE-47DC-8A6B-64992AD105BE" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1152,6 +1158,7 @@
 				D9E701E34E097E0354761519 /* PaymentHandoffTests.swift in Sources */,
 				7BEA29D6C232B79F5E007F79 /* PreNetworkGuardTests.swift in Sources */,
 				332D8C2CF9600B2E9F96A806 /* ProfilePayloadTests.swift in Sources */,
+				04202A90634E03B867F34843 /* ReviewPromptPolicyTests.swift in Sources */,
 				C58704A0F34205927C5EFF48 /* SecurityFixTests.swift in Sources */,
 				1FC05027617AEBA54CD06789 /* SettleUpDisplayStateTests.swift in Sources */,
 				1AC5951AD6B0D8EE5E44BC41 /* SettlementLedgerTests.swift in Sources */,
@@ -1272,6 +1279,7 @@
 				7123AC17FF7F1D246B648AE0 /* RecordPaymentSheet.swift in Sources */,
 				3683F448F526DEFFE48580B3 /* RemoteNotificationService.swift in Sources */,
 				169E0F2F71F2AC933FACE7DB /* ResetPasswordView.swift in Sources */,
+				CE3208620DF87CCDB7FF9518 /* ReviewPromptService.swift in Sources */,
 				98DC99B2D9719939557DC8B9 /* SafariView.swift in Sources */,
 				CB3C903B5EE8C407F8544C45 /* Settlement.swift in Sources */,
 				3297F967720A57D03E04390A /* SettlementService.swift in Sources */,
@@ -1381,7 +1389,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_32F0C476-FC49-4796-B086-D61909D00BD1" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_337DC4A5-15AE-47DC-8A6B-64992AD105BE" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1590,7 +1598,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_32F0C476-FC49-4796-B086-D61909D00BD1" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_337DC4A5-15AE-47DC-8A6B-64992AD105BE" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

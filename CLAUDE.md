@@ -93,6 +93,45 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-12 — App Store review prompt (ASO-01)
+
+### The app had no way to ever ask for a rating
+v1.0 went live 2026-08-11 with **zero** StoreKit integration — no `requestReview`, no
+`SKStoreReviewController`, no `import StoreKit` anywhere. At 0 ratings with no mechanism to ask,
+the app stays at 0 ratings indefinitely, which suppresses both App Store search ranking and
+conversion for everyone who does reach the page. Found while diagnosing why xBill was not
+appearing in App Store search 24h after release.
+
+- **`ReviewPromptService.swift` (new)** — `ReviewPromptPolicy` is a pure value type holding the
+  rule; the `@Observable` service owns the persisted counter and raises `isRequestPending`.
+  `requestReview` is only reachable through `@Environment(\.requestReview)`, so the **view** makes
+  the call and the service makes the decision.
+- **Trigger: a recorded settlement**, not an added expense. Adding an expense starts a chore;
+  closing a debt ends one. The call sits at the end of `recordPayment`'s `do` block, so it is
+  unreachable from the duplicate-payment early return and from every failure path.
+- **Milestone: 3 settlements.** Apple allows only **three prompts per user per year**, system-wide.
+  An ask spent on a user with one recorded payment cannot be made later when they are invested.
+- **Version-gated.** Re-asks on a later version, never twice on the same one — StoreKit swallows a
+  repeat, so it burns the signal without reaching the user.
+- **Deferred 800 ms and skipped while App Lock is engaged.** Record Payment is a sheet that
+  dismisses on success; raising a prompt mid-transition is the defect the payment-return prompt
+  already shipped (2026-07-27), and presenting while locked renders behind the lock overlay.
+
+### Key Pattern — test the rule, not the system call
+`requestReview` hands the decision to StoreKit, which may display nothing and reports no outcome.
+The app cannot observe whether a prompt appeared, so the only honest thing to test is the rule
+leading up to it. Extracted as a pure function rather than an injection seam — a seam still permits
+the StoreKit call, a pure function cannot. Same reasoning as `IOUService.validateParties`.
+
+**Verification:** `scripts/run-coverage.sh unit` → **324 passed, 0 failed, 0 skipped**
+(`TestResults/Coverage/2026.08.12_19-13-22-unit.xcresult`); both new suites confirmed present in the
+result bundle by name, not inferred from the exit status. Mutation-tested: against a policy that
+always returns true, **5 of the 8 tests fail** — the 3 that do not are the positive-direction tests,
+which an always-true policy legitimately satisfies. Debug build succeeded; installed and launched on
+`DA97985A-F7CC-44F6-8281-9DD24C22B978` (PID 89328).
+**Not verified, and not verifiable here:** that a prompt actually appears. StoreKit decides, and it
+deliberately shows nothing in most debug runs. Only real-device use over time proves display.
+
 ## Recent Fix Log — 2026-08-01 (later) — UI regression suite aligned to the settlements ledger
 
 Baseline first: `scripts/run-coverage.sh regression-ui` was **15/15 green** before any change, so

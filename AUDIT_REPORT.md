@@ -580,3 +580,14 @@ together, in that order.
 | App Store assets | P0 | Screenshots, preview video, keyword strategy — only remaining submission blocker. No code work required. |
 | App Group registration | Setup | Register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Identifiers → App Groups before widget data sharing will work on a device. |
 | Apple JWT secret renewal | Maintenance | JWT secret for Sign in with Apple expires 2026-10-28. Regenerate before that date using `generate_apple_secret.js`. |
+
+## ASO-01 — No App Store review prompt (2026-08-12)
+
+| Field | Value |
+|---|---|
+| **ID** | ASO-01 |
+| **File** | `xBill/Services/ReviewPromptService.swift` (new), `xBill/ViewModels/GroupViewModel.swift`, `xBill/Views/Groups/GroupDetailView.swift` |
+| **Issue** | v1.0 shipped with no StoreKit integration at all, so the app could never ask for a rating. 0 ratings suppresses App Store search ranking and conversion, and without a prompt that state is self-perpetuating. |
+| **Status** | ✅ Fixed |
+| **Fix** | `ReviewPromptPolicy` (pure) decides; `ReviewPromptService` counts recorded settlements and raises `isRequestPending`; `GroupDetailView` calls `requestReview` after an 800 ms settle and only when App Lock is disengaged. Milestone 3, version-gated. |
+| **Verification** | 324/324 unit tests, both new suites confirmed by name in the result bundle. Mutation-tested: 5 of 8 fail against an always-true policy. Debug build installed and launched on simulator. Display itself is unverifiable — StoreKit owns that decision. |

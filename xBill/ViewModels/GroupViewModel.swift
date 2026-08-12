@@ -789,6 +789,12 @@ final class GroupViewModel {
             if CacheService.defaults.bool(forKey: NotificationService.settlementPreferenceKey) {
                 await expenseService.notifySettlementRecorded(settlementID: saved.id)
             }
+
+            // A debt was just closed — the one moment in xBill worth asking for a review. Placed
+            // at the end of the `do` block so it is unreachable from the duplicate-payment
+            // early return and from every failure path: a prompt after a payment that did not
+            // record is worse than no prompt.
+            ReviewPromptService.shared.recordPositiveEvent()
         } catch {
             guard !AppError.isSilent(error) else { return }
             errorAlert = ErrorAlert(title: "Payment Not Recorded", message: error.localizedDescription)
