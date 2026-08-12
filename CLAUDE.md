@@ -93,6 +93,57 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-12 (later) — CRASH-01: index-backed element bindings
+
+### A production crash in the shipped build, from `ForEach($array)`
+A device crash report for **1.0 (1)** — the build now live on the App Store — showed
+`EXC_BREAKPOINT`/`SIGTRAP` on the main thread: `Array._checkSubscript` → `_assertionFailure`,
+reached from `Switch.updateUIView` → `Binding<A>.subscript.getter`. An **array index out of range**
+inside a SwiftUI element binding.
+
+**There is no app frame below `main()`.** The trap happens inside SwiftUI's deferred update pass
+(`_UIUpdateSequenceRunNext`), long after the body that produced the binding returned, so the stack
+names no view. The site was identified by elimination: `ForEach($vm.splitInputs)` in
+`AddExpenseView` held the app's only collection-bound `Toggle`, and `Toggle`/`Switch` frames are
+explicit in the stack.
+
+- **`AddExpenseView` (the crash site).** Now `ForEach(vm.splitInputs)` over **values**; the Toggle,
+  the shares ±, and the exact-amount field each resolve the row by `userID` through the view model.
+  `AddExpenseViewModel.toggle(participantID:)` already did the safe id lookup **and no view had
+  ever called it** — the safe path was written and never wired up. Added `input(for:)`,
+  `setAmount(_:participantID:)`, `adjustShares(by:participantID:)` (clamped at 1, a rule that
+  previously lived in the `-` button and only held while every caller remembered it).
+- **`ReceiptReviewView` (sibling, found by sweeping for other `ForEach($`).** Arguably worse:
+  `.onDelete { vm.items.remove(atOffsets:) }` sits directly on a `ForEach($vm.items)`, so the array
+  shrinks by user action while index-backed bindings are live. Converted to value iteration;
+  `ItemRow` takes a value; the last binding-written field gained `updateName(itemID:name:)`; and
+  `.onDelete` now maps offsets to **ids before mutating**, so a shifted row cannot be deleted by
+  mistake. This site has **no `Toggle`**, so it is not what crashed — it is a live bug that had not
+  been reported yet.
+
+**What was not established:** the exact sequence that invalidates the index in `AddExpenseView`.
+`splitInputs` is assigned only in `init` and the VM is correctly owned in `@State`, so the first
+hypothesis — the array shrinking — was measured and **disproved**. The fix does not depend on
+knowing: id resolution makes an out-of-range index *unrepresentable* rather than unlikely.
+
+### Key Pattern — never `ForEach($collection)` for editable rows
+Element bindings are backed by an **array index**, and UIKit reads them back during a deferred
+update pass after the producing body has returned. Iterate values and resolve every edit by id
+through the model. A bounds check at the call site is not equivalent — a call site can forget,
+`firstIndex(where:) + guard` cannot. Sweep for `ForEach($` before shipping; the second instance
+here was found only because the first was.
+
+**Verification:** `scripts/run-coverage.sh unit` → **329 passed, 0 failed, 0 skipped**
+(`TestResults/Coverage/2026.08.12_19-39-55-unit.xcresult`), new suite confirmed present by name.
+Mutation-tested: replacing the three `guard let index … else { return }` with `?? 0` fails
+`absentParticipantIsInert` and **only** that test — the four positive-direction tests correctly
+still pass, since they use ids that exist. Version bumped to **1.1 (2)**, verified against the
+**built artifact** (`CFBundleShortVersionString` `1.1`, `CFBundleVersion` `2`), installed and
+launched on `DA97985A-F7CC-44F6-8281-9DD24C22B978` (PID 95320).
+**Not verified:** that the crash is gone. It was never reproducible on demand, the tests cannot
+reach SwiftUI's update cycle, and absence of a crash report is not proof. What is proven is that
+the trapping construct no longer exists anywhere in the app.
+
 ## Recent Fix Log — 2026-08-12 — App Store review prompt (ASO-01)
 
 ### The app had no way to ever ask for a rating

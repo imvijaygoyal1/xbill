@@ -165,6 +165,7 @@
 		CF7BB5EDBB1D51E7878487CB /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCE2A2449DE087F7C0D3279 /* NetworkMonitor.swift */; };
 		D04816EEDFDC9CF26CFFAD40 /* GroupViewModelMaintenanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E5843A89FB9191BE4437CD6 /* GroupViewModelMaintenanceTests.swift */; };
 		D094BFFD15B7E99C76CF4C8F /* XBillFriendRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 274BD787140D4659DE42DC95 /* XBillFriendRow.swift */; };
+		D0AAFD9E219EC3A7EC76B71A /* SplitParticipantEditTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E4F79FE723F4711D06CE7B5 /* SplitParticipantEditTests.swift */; };
 		D0CC4E253D676DBD1E40A406 /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AB8AF6F4AAD3693C507E55E /* AppError.swift */; };
 		D1143B7C72271E61F8099CC8 /* XBillActionRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DD851F2B2A58922E91AD724 /* XBillActionRow.swift */; };
 		D1B4793846C9BB681C1A9218 /* PreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C43781D2C072F853FAB5AEC /* PreviewData.swift */; };
@@ -386,6 +387,7 @@
 		9A92E6317BFEDCD8644649CC /* xBillApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = xBillApp.swift; sourceTree = "<group>"; };
 		9C43781D2C072F853FAB5AEC /* PreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewData.swift; sourceTree = "<group>"; };
 		9E3AD9DA04A7B74364B7F695 /* AppSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSpacing.swift; sourceTree = "<group>"; };
+		9E4F79FE723F4711D06CE7B5 /* SplitParticipantEditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitParticipantEditTests.swift; sourceTree = "<group>"; };
 		9EB816E24270B4C654962814 /* XBillActionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillActionCard.swift; sourceTree = "<group>"; };
 		9F8F16B3438806F2C6691444 /* PaymentHandleValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentHandleValidatorTests.swift; sourceTree = "<group>"; };
 		A19018B425F735551B80FBD2 /* ReceiptScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptScanView.swift; sourceTree = "<group>"; };
@@ -461,7 +463,7 @@
 		F684542CE9913F0736FC5EC2 /* XBillFloatingAddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFloatingAddButton.swift; sourceTree = "<group>"; };
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
 		FA59435ADAF303865175315B /* VisionParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionParsingTests.swift; sourceTree = "<group>"; };
-		"TEMP_337DC4A5-15AE-47DC-8A6B-64992AD105BE" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_8A54DAAA-1318-4B50-B02C-7897E8DD09C6" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -859,6 +861,7 @@
 				25E1014F88CCE9709E91F975 /* SettleUpDisplayStateTests.swift */,
 				E1F4F6CAEAA6F1B8E28C86B8 /* SplitCalculatorReviewTests.swift */,
 				6F7E985AB9EB58FE61DF4C83 /* SplitCalculatorTests.swift */,
+				9E4F79FE723F4711D06CE7B5 /* SplitParticipantEditTests.swift */,
 				A28B5711E408A24F8E16F7D7 /* ViewModelCoverageTests.swift */,
 				FA59435ADAF303865175315B /* VisionParsingTests.swift */,
 				C0F594004D5366FF8FB39E99 /* VisionServiceTier1Tests.swift */,
@@ -926,10 +929,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_62C0C8FD-C572-4E2F-93F3-693FD8394310" /* xBill */ = {
+		"TEMP_09A5E6D6-06CD-494E-A5A7-19FF797C0ABA" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_337DC4A5-15AE-47DC-8A6B-64992AD105BE" /* Secrets.xcconfig */,
+				"TEMP_8A54DAAA-1318-4B50-B02C-7897E8DD09C6" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1164,6 +1167,7 @@
 				1AC5951AD6B0D8EE5E44BC41 /* SettlementLedgerTests.swift in Sources */,
 				64F5B0691E7A8205A55F06BE /* SplitCalculatorReviewTests.swift in Sources */,
 				3480BEBFF1A5006FEC9457CC /* SplitCalculatorTests.swift in Sources */,
+				D0AAFD9E219EC3A7EC76B71A /* SplitParticipantEditTests.swift in Sources */,
 				F310602856C92A325B62A729 /* ViewModelCoverageTests.swift in Sources */,
 				C296351A69D9E826C9B72F92 /* VisionParsingTests.swift in Sources */,
 				11651519E7380C3E815A846A /* VisionServiceTier1Tests.swift in Sources */,
@@ -1389,7 +1393,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_337DC4A5-15AE-47DC-8A6B-64992AD105BE" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_8A54DAAA-1318-4B50-B02C-7897E8DD09C6" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1422,7 +1426,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 7B5U5LACV3;
 				ENABLE_STRICT_CONCURRENCY = complete;
@@ -1443,7 +1447,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1501,7 +1505,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = xBillWidget/xBillWidget.entitlements;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_STRICT_CONCURRENCY = complete;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = xBillWidget/Info.plist;
@@ -1510,7 +1514,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vijaygoyal.xbill.widget;
 				SDKROOT = iphoneos;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
@@ -1523,7 +1527,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = xBillWidget/xBillWidget.entitlements;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_STRICT_CONCURRENCY = complete;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = xBillWidget/Info.plist;
@@ -1532,7 +1536,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vijaygoyal.xbill.widget;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -1598,7 +1602,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_337DC4A5-15AE-47DC-8A6B-64992AD105BE" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_8A54DAAA-1318-4B50-B02C-7897E8DD09C6" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1631,7 +1635,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 7B5U5LACV3;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -1646,7 +1650,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

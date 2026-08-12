@@ -123,9 +123,39 @@ final class AddExpenseViewModel {
         }
     }
 
+    // MARK: - Participant edits
+    //
+    // CRASH-01. Every mutation of a participant row resolves the row **by id**, and a
+    // participant that is no longer present is a no-op rather than a trap.
+    //
+    // The view previously edited rows through `ForEach($vm.splitInputs)` element bindings, which
+    // are backed by an **array index**. UIKit reads those bindings from `Switch.updateUIView`
+    // during a deferred update pass — after the body that produced them has returned — and an
+    // index that no longer resolves calls `Array._checkSubscript`, which traps. That shipped in
+    // 1.0 (1) and crashed on a real device. `firstIndex(where:)` + `guard` cannot trap, so
+    // routing every edit through these makes the whole class of failure unrepresentable rather
+    // than merely unlikely.
+
+    func input(for participantID: UUID) -> SplitInput? {
+        splitInputs.first { $0.userID == participantID }
+    }
+
     func toggle(participantID: UUID) {
         guard let index = splitInputs.firstIndex(where: { $0.userID == participantID }) else { return }
         splitInputs[index].isIncluded.toggle()
+        recomputeSplits()
+    }
+
+    func setAmount(_ amount: Decimal, participantID: UUID) {
+        guard let index = splitInputs.firstIndex(where: { $0.userID == participantID }) else { return }
+        splitInputs[index].amount = amount
+    }
+
+    /// Clamped at 1: a participant cannot hold zero shares, and the old `-` button enforced that
+    /// at the call site — a rule that only held as long as every caller remembered it.
+    func adjustShares(by delta: Int, participantID: UUID) {
+        guard let index = splitInputs.firstIndex(where: { $0.userID == participantID }) else { return }
+        splitInputs[index].shares = max(1, splitInputs[index].shares + delta)
         recomputeSplits()
     }
 

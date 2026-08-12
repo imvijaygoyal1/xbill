@@ -53,10 +53,19 @@ struct ReceiptReviewView: View {
             }
 
             Section("Items") {
-                ForEach($vm.items) { $item in
-                    ItemRow(item: $item, vm: vm, currency: currency)
+                // CRASH-01 (sibling site): iterate values, never `ForEach($vm.items)`. This list
+                // has `.onDelete`, so the array shrinks by user action — and an element binding
+                // is backed by an array index that SwiftUI may read back after the row is gone,
+                // trapping in `Array._checkSubscript`. `ItemRow` now resolves every field by id.
+                ForEach(vm.items) { item in
+                    ItemRow(item: item, vm: vm, currency: currency)
                 }
-                .onDelete { vm.items.remove(atOffsets: $0) }
+                .onDelete { offsets in
+                    // Map to ids *before* mutating: offsets describe the array as it was when the
+                    // swipe began, and removing by id cannot act on the wrong row if it shifted.
+                    let ids = offsets.map { vm.items[$0].id }
+                    for id in ids { vm.removeItem(id: id) }
+                }
 
                 Button { showAddItem = true } label: {
                     Label("Add Item", systemImage: "plus")
@@ -192,7 +201,7 @@ struct ReceiptReviewView: View {
 // File-private subview so it can hold @State for the price text field.
 
 private struct ItemRow: View {
-    @Binding var item: ReceiptItem
+    let item: ReceiptItem
     @Bindable var vm:  ReceiptViewModel
     let currency:      String
 
@@ -205,7 +214,10 @@ private struct ItemRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                TextField("Item name", text: $item.name)
+                TextField("Item name", text: Binding(
+                    get: { vm.items.first { $0.id == item.id }?.name ?? item.name },
+                    set: { vm.updateName(itemID: item.id, name: $0) }
+                ))
                     .font(.subheadline)
                 Spacer(minLength: 8)
                 // Inline price editing

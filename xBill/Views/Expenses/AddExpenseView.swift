@@ -191,7 +191,13 @@ struct AddExpenseView: View {
                             sectionHeader("Participants")
                             XBillCard(padding: 0) {
                                 VStack(spacing: 0) {
-                                    ForEach($vm.splitInputs) { $input in
+                                    // CRASH-01: iterate **values**, never `ForEach($vm.splitInputs)`.
+                                    // Element bindings are backed by an array index that UIKit
+                                    // reads back from `Switch.updateUIView` during a deferred
+                                    // update pass; a stale index traps in `Array._checkSubscript`.
+                                    // Every edit below resolves the row by `userID` instead, so a
+                                    // row that is gone is a no-op rather than a crash.
+                                    ForEach(vm.splitInputs) { input in
                                         HStack(spacing: XBillSpacing.md) {
                                             AvatarView(name: input.displayName, url: input.avatarURL, size: XBillIcon.avatarSm)
                                             Text(input.displayName)
@@ -199,7 +205,10 @@ struct AddExpenseView: View {
                                                 .foregroundStyle(Color.textPrimary)
                                             Spacer()
                                             if vm.splitStrategy == .exact {
-                                                TextField("0.00", value: $input.amount, format: .number)
+                                                TextField("0.00", value: Binding(
+                                                    get: { vm.input(for: input.userID)?.amount ?? .zero },
+                                                    set: { vm.setAmount($0, participantID: input.userID) }
+                                                ), format: .number)
                                                     .font(.xbillSmallAmount)
                                                     .keyboardType(.decimalPad)
                                                     .multilineTextAlignment(.trailing)
@@ -209,23 +218,21 @@ struct AddExpenseView: View {
                                             } else if vm.splitStrategy == .shares {
                                                 HStack(spacing: XBillSpacing.xs) {
                                                     Button {
-                                                        guard input.shares > 1 else { return }
-                                                        input.shares -= 1
-                                                        vm.recomputeSplits()
+                                                        vm.adjustShares(by: -1, participantID: input.userID)
                                                     } label: {
                                                         Image(systemName: "minus.circle")
                                                             .foregroundStyle(input.shares > 1 ? Color.brandPrimary : Color.textTertiary)
                                                             .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                                                     }
                                                     .buttonStyle(.plain)
+                                                    .disabled(input.shares <= 1)
                                                     .accessibilityIdentifier("xBill.addExpense.decreaseShares.\(input.userID.uuidString)")
                                                     Text("\(input.shares)×")
                                                         .font(.xbillLabel)
                                                         .foregroundStyle(Color.textPrimary)
                                                         .frame(minWidth: 26)
                                                     Button {
-                                                        input.shares += 1
-                                                        vm.recomputeSplits()
+                                                        vm.adjustShares(by: 1, participantID: input.userID)
                                                     } label: {
                                                         Image(systemName: "plus.circle")
                                                             .foregroundStyle(Color.brandPrimary)
@@ -242,10 +249,15 @@ struct AddExpenseView: View {
                                                     .font(.xbillSmallAmount)
                                                     .foregroundStyle(Color.textSecondary)
                                             }
-                                            Toggle("", isOn: $input.isIncluded)
+                                            // `toggle(participantID:)` already recomputes, so the
+                                            // old `.onChange(of:)` recompute is gone with it.
+                                            Toggle("", isOn: Binding(
+                                                get: { vm.input(for: input.userID)?.isIncluded ?? false },
+                                                set: { _ in vm.toggle(participantID: input.userID) }
+                                            ))
                                                 .labelsHidden()
                                                 .tint(Color.brandPrimary)
-                                                .onChange(of: input.isIncluded) { _, _ in vm.recomputeSplits() }
+                                                .accessibilityIdentifier("xBill.addExpense.includeToggle.\(input.userID.uuidString)")
                                         }
                                         .padding(.horizontal, XBillSpacing.base)
                                         .padding(.vertical, XBillSpacing.sm)

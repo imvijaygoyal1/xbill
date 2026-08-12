@@ -207,6 +207,17 @@ final class ReceiptViewModel {
 
     // MARK: - Edit
 
+    /// CRASH-01 (sibling site). The name was the last field still written through a
+    /// `ForEach($vm.items)` element binding, and this list has `.onDelete` — so the array shrinks
+    /// by user action while SwiftUI may still hold an index-backed binding into it. Every field
+    /// now resolves by id, which cannot trap.
+    func updateName(itemID: UUID, name: String) {
+        guard let index = items.firstIndex(where: { $0.id == itemID }) else { return }
+        var item = items[index]
+        item.name = name
+        items[index] = item
+    }
+
     func updateUnitPrice(itemID: UUID, unitPrice: Decimal) {
         guard let index = items.firstIndex(where: { $0.id == itemID }) else { return }
         // Copy-then-mutate: preserves all existing fields (including any future additions

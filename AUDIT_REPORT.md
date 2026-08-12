@@ -591,3 +591,14 @@ together, in that order.
 | **Status** | ✅ Fixed |
 | **Fix** | `ReviewPromptPolicy` (pure) decides; `ReviewPromptService` counts recorded settlements and raises `isRequestPending`; `GroupDetailView` calls `requestReview` after an 800 ms settle and only when App Lock is disengaged. Milestone 3, version-gated. |
 | **Verification** | 324/324 unit tests, both new suites confirmed by name in the result bundle. Mutation-tested: 5 of 8 fail against an always-true policy. Debug build installed and launched on simulator. Display itself is unverifiable — StoreKit owns that decision. |
+
+## CRASH-01 — Index-backed element bindings trap in SwiftUI's update pass (2026-08-12)
+
+| Field | Value |
+|---|---|
+| **ID** | CRASH-01 |
+| **File** | `xBill/Views/Expenses/AddExpenseView.swift`, `xBill/Views/Expenses/ReceiptReviewView.swift`, `xBill/ViewModels/AddExpenseViewModel.swift`, `xBill/ViewModels/ReceiptViewModel.swift` |
+| **Issue** | Shipped 1.0 (1) crashed on device: `Array._checkSubscript` → `_assertionFailure` from `Switch.updateUIView` → `Binding.subscript.getter`. `ForEach($collection)` element bindings are index-backed and are read back during a deferred update pass. `ReceiptReviewView` carried the same construct with `.onDelete` shrinking the array. |
+| **Status** | ✅ Fixed (crash site + sibling); root sequence in AddExpenseView unproven |
+| **Fix** | Value iteration everywhere; all edits resolve by id through the model (`toggle`/`setAmount`/`adjustShares`/`input(for:)`, `updateName`). `.onDelete` maps offsets to ids before mutating. No `ForEach($` remains in the app. |
+| **Verification** | 329/329 unit tests, suite confirmed by name. Mutation test (`?? 0` instead of `guard`) fails exactly the safety test and no other. Built artifact 1.1 (2) installed and launched. Crash itself was never reproducible — absence of a report is not proof. |
