@@ -20,8 +20,9 @@ struct XBillFloatingAddButton: View {
                 .font(.appH2)
                 .foregroundStyle(AppColors.textInverse)
                 .frame(width: 56, height: 56)
-                .background(AppColors.primary)
-                .clipShape(Circle())
+                // Tinted so the brand colour survives; interactive so it responds to touch the
+                // way system glass controls do.
+                .liquidGlassButton(tint: AppColors.primary, fallback: AppColors.primary, in: Circle())
                 .shadow(color: shadow.color, radius: shadow.radius, x: shadow.x, y: shadow.y)
         }
         .buttonStyle(.plain)

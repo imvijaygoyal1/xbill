@@ -210,4 +210,37 @@ extension View {
             self.background(fallback, in: shape)
         }
     }
+
+    // MARK: - Tinted glass
+    //
+    // Untinted glass takes its colour from whatever is behind it, which destroys any colour that
+    // *carries meaning*. `AmountBadge` is the clear case: green means owed to you and red means
+    // you owe, and a plain `.regular` glass would render both identically. `.tint()` keeps the
+    // semantic fill and lets glass supply only the depth and refraction.
+    //
+    // Both fall back to a flat fill below iOS 26 — the deployment target is **17.0**, so an
+    // unguarded `glassEffect` would not compile, and every glass surface in the app must have a
+    // defined non-glass appearance.
+
+    /// Tinted, non-interactive Liquid Glass on iOS 26+; flat `fallback` fill on earlier OS.
+    @ViewBuilder
+    func liquidGlass(tint: Color, fallback: some ShapeStyle, in shape: some Shape) -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffect(.regular.tint(tint), in: shape)
+        } else {
+            self.background(fallback, in: shape)
+        }
+    }
+
+    /// Tinted, interactive Liquid Glass on iOS 26+; flat `fallback` fill on earlier OS.
+    /// Use for controls that must keep a brand or semantic colour — a primary CTA whose fill is
+    /// the affordance cannot become clear glass without losing its prominence.
+    @ViewBuilder
+    func liquidGlassButton(tint: Color, fallback: some ShapeStyle, in shape: some Shape) -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffect(.regular.tint(tint).interactive(), in: shape)
+        } else {
+            self.background(fallback, in: shape)
+        }
+    }
 }

@@ -55,8 +55,7 @@ struct AmountBadge: View {
             .foregroundStyle(fg)
             .padding(.horizontal, XBillSpacing.sm)
             .padding(.vertical, XBillSpacing.xs)
-            .background(bg)
-            .clipShape(Capsule())
+            .liquidGlass(tint: bg, fallback: bg, in: Capsule())
             .accessibilityLabel(accessibilityDescription)
     }
 }

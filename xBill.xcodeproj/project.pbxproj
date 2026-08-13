@@ -131,7 +131,6 @@
 		9C8C60C76D48B1AD67037CBF /* ExportShareItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 055BF8DC467A086CE7181803 /* ExportShareItem.swift */; };
 		9D47B8D7D70AD856BCAE5D0B /* XBillGroupCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9843CB1B37A84CDAE7E2FECC /* XBillGroupCard.swift */; };
 		9FCBA411853C06D848043A83 /* GroupStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120CE4CD8F77F9C169C04174 /* GroupStatsView.swift */; };
-		A03E9F6CA03D85C197D4BCCE /* BalanceBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F38393AE0CF6D1799617DF5B /* BalanceBadge.swift */; };
 		A39FA18B4B057799E1007694 /* GroupInviteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C7FA86BA6CFBFDE4B55D14 /* GroupInviteView.swift */; };
 		A3C97EE52AE95E47C7608669 /* XBillLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8774FF8110279703171745B /* XBillLayout.swift */; };
 		A5AAAB569AA05321AD5732D1 /* XBillCardModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4D0D78A5AA944448B3F1160 /* XBillCardModifier.swift */; };
@@ -454,7 +453,6 @@
 		ED1F81BD1F1817FCBF7438D7 /* IOUService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOUService.swift; sourceTree = "<group>"; };
 		F0F0634D4C601FD9464A0F10 /* GroupChipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChipView.swift; sourceTree = "<group>"; };
 		F3579B0A2FDA39F331B61D49 /* XBillNotificationRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillNotificationRow.swift; sourceTree = "<group>"; };
-		F38393AE0CF6D1799617DF5B /* BalanceBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalanceBadge.swift; sourceTree = "<group>"; };
 		F3B09DB08A10227EBBB8F379 /* EmailAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAuthView.swift; sourceTree = "<group>"; };
 		F41CFA2B1CB435C590ECF374 /* ExchangeRateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExchangeRateService.swift; sourceTree = "<group>"; };
 		F49FA8D722592F00E7722063 /* ReceiptJSON.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptJSON.swift; sourceTree = "<group>"; };
@@ -463,7 +461,7 @@
 		F684542CE9913F0736FC5EC2 /* XBillFloatingAddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFloatingAddButton.swift; sourceTree = "<group>"; };
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
 		FA59435ADAF303865175315B /* VisionParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionParsingTests.swift; sourceTree = "<group>"; };
-		"TEMP_8A54DAAA-1318-4B50-B02C-7897E8DD09C6" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_D0474182-CF3C-4CA4-881E-8D20C19DBB47" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -655,7 +653,6 @@
 			children = (
 				F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */,
 				6C2516D590CE1CD48191C4DD /* AvatarView.swift */,
-				F38393AE0CF6D1799617DF5B /* BalanceBadge.swift */,
 				8B613E685BD7816E9407BCC9 /* BalanceHeroCard.swift */,
 				E65272EFDCFD007E43ADAD46 /* CategoryIconView.swift */,
 				362A00575B134D755A4256E6 /* ContactPickerView.swift */,
@@ -929,10 +926,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_09A5E6D6-06CD-494E-A5A7-19FF797C0ABA" /* xBill */ = {
+		"TEMP_CF7703B8-64B9-4F27-9695-0BFFB3579B69" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_8A54DAAA-1318-4B50-B02C-7897E8DD09C6" /* Secrets.xcconfig */,
+				"TEMP_D0474182-CF3C-4CA4-881E-8D20C19DBB47" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1210,7 +1207,6 @@
 				168141EA2E00DFF2AED4E262 /* AuthView.swift in Sources */,
 				5E5422BE958D4C203E810A61 /* AuthViewModel.swift in Sources */,
 				C345C3FCACF011DD4FBBBBE6 /* AvatarView.swift in Sources */,
-				A03E9F6CA03D85C197D4BCCE /* BalanceBadge.swift in Sources */,
 				988027AF52C6E1EAB234B285 /* BalanceHeroCard.swift in Sources */,
 				2FFF728AF51D9BB654C67CE3 /* BalanceMessageHelper.swift in Sources */,
 				187D161AEE815B7BD5BCD462 /* CacheService.swift in Sources */,
@@ -1393,7 +1389,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_8A54DAAA-1318-4B50-B02C-7897E8DD09C6" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_D0474182-CF3C-4CA4-881E-8D20C19DBB47" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1602,7 +1598,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_8A54DAAA-1318-4B50-B02C-7897E8DD09C6" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_D0474182-CF3C-4CA4-881E-8D20C19DBB47" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

@@ -5,6 +5,20 @@
 
 import SwiftUI
 
+/// Glass fill for an enabled button, flat fill for a disabled one.
+private struct XBillButtonSurface: ViewModifier {
+    let background: Color
+    let isDisabled: Bool
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous)
+        if isDisabled {
+            content.background(AppColors.surfaceSoft).clipShape(shape)
+        } else {
+            content.liquidGlassButton(tint: background, fallback: background, in: shape)
+        }
+    }
+}
+
 private struct XBillButtonBase: View {
     let title: String
     var icon: String?
@@ -33,8 +47,10 @@ private struct XBillButtonBase: View {
             .foregroundStyle(isDisabled ? AppColors.textSecondary : foreground)
             .frame(maxWidth: .infinity)
             .frame(minHeight: AppSpacing.controlHeight)
-            .background(isDisabled ? AppColors.surfaceSoft : background)
-            .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
+            // Disabled stays deliberately flat. Glass reads as "live and touchable", so a
+            // disabled control rendered in glass invites taps that do nothing — the opposite of
+            // the affordance E-1/E-2 established for this button.
+            .modifier(XBillButtonSurface(background: background, isDisabled: isDisabled))
             .overlay(
                 RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous)
                     .stroke(isDisabled ? AppColors.border : border, lineWidth: 1)

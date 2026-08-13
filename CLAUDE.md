@@ -93,6 +93,66 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-12 (later still) — Liquid Glass on the interface layer
+
+### The glass had been lost in the redesign, and this file claimed otherwise
+`CLAUDE.md` listed seven Liquid Glass surfaces. Measurement found **one** live call site
+(`BalanceBadge`) — and `BalanceBadge` was referenced nowhere, so the app had **no reachable glass
+at all**. Two of the views named here (`GroupRowView`, `SettleUpView`) no longer exist; the rest
+lost their glass during the DesignSystem migration and nobody noticed because nothing tested it.
+
+**System chrome was already correct** and needed no work: the app links `iphonesimulator26.5` and
+sets no `UIDesignRequiresCompatibility`, so tab bars, navigation bars and sheets get Liquid Glass
+automatically on iOS 26. Only the custom surfaces had regressed.
+
+### Applied to the interface layer only
+Apple's guidance is that glass belongs to the layer floating **above** content, not to content
+itself; glass-on-glass and text-on-glass hurt legibility, especially over this app's cream canvas.
+So content rows and cards (`XBillExpenseRow`, `XBillGroupCard`, `XBillBalanceCard`,
+`XBillFriendRow`) are deliberately unchanged.
+
+| Component | Treatment | Call sites |
+|---|---|---|
+| `XBillFloatingAddButton` | tinted interactive glass, `Circle` | 1 |
+| `XBillButtons` (shared base) | tinted interactive glass; **disabled stays flat** | 12 |
+| `XBillSearchBar` | glass, rounded rect | 3 |
+| `XBillSegmentedControl` | glass on the **selected** pill only | 3 |
+| `AmountBadge` | **tinted** glass, `Capsule` | 6 |
+
+- **Tinted variants added** to the `Extensions.swift` wrappers (`liquidGlass(tint:fallback:in:)`,
+  `liquidGlassButton(tint:fallback:in:)`). Untinted `.regular` glass takes its colour from what is
+  behind it, which would have rendered `AmountBadge`'s "owed to you" green and "you owe" red
+  **identically** — destroying the semantic signal. `.tint()` keeps the meaning and lets glass
+  supply only depth.
+- **Disabled buttons stay flat.** Glass reads as live and touchable; a disabled control in glass
+  invites taps that do nothing, undoing the E-1/E-2 affordance work.
+- **Only the selected segment gets glass**, so the track does not become glass-on-glass.
+- **Skipped as dead code:** `XBillTabBar` and `FABButton` (0 uses — the app uses the native tab
+  bar, which gets glass free from the SDK). `BalanceBadge` was **deleted**; it was unreferenced and
+  held the app's last orphaned glass call, so it read as part of the glass system while being
+  unreachable.
+- Deployment target is **iOS 17.0**, so every wrapper keeps an `#available(iOS 26, *)` guard and a
+  defined flat fallback. Release was built as well as Debug to prove glass is not Debug-only.
+
+### Key Pattern — tint glass whose colour carries meaning
+Reach for `.glassEffect(.regular.tint(x))` rather than `.regular` wherever the fill is a signal
+rather than decoration. And check a component is *referenced* before styling it — `BalanceBadge`
+absorbed the only glass in the app while being dead.
+
+**Verification:** unit **329/329**, UI regression **18/18**, both `0` failures / `0` skips
+(`TestResults/Coverage/2026.08.12_20-27-32-regression-ui.xcresult`). Debug **and** Release builds
+succeeded; installed, launched, and the rendered result inspected by screenshot — tinted glass
+renders with brand colour and text contrast intact.
+**Flake recorded, not diagnosed:** an earlier run of the same UI suite failed
+`testArchiveUnarchiveRegression` **once**. It then passed both in isolation and on a full re-run,
+and the original failure message was never captured, so the cause is **unknown**. Logged here so a
+recurrence has a prior data point rather than looking like a first occurrence. A first attempt to
+reproduce it was itself invalid — a bare `xcodebuild` omits the UI-test credentials and failed for
+that unrelated reason.
+**Not verified:** appearance on real hardware. Glass composites against live wallpaper and ambient
+content that a simulator does not reproduce; contrast on the tinted badges deserves a device look
+before submission.
+
 ## Recent Fix Log — 2026-08-12 (later) — CRASH-01: index-backed element bindings
 
 ### A production crash in the shipped build, from `ForEach($array)`

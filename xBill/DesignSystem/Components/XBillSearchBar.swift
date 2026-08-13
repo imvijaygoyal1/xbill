@@ -34,8 +34,8 @@ struct XBillSearchBar: View {
         .foregroundStyle(AppColors.textPrimary)
         .frame(minHeight: AppSpacing.tapTarget)
         .padding(.horizontal, AppSpacing.md)
-        .background(AppColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
+        .liquidGlass(fallback: AppColors.surface,
+                     in: RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous)
                 .stroke(AppColors.border, lineWidth: 1)
