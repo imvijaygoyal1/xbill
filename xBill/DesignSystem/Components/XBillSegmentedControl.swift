@@ -35,6 +35,10 @@ struct XBillSegmentedControl<Option: Hashable>: View {
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: AppSpacing.tapTarget)
                         .modifier(XBillSegmentSurface(isSelected: selection == option))
+                        // Same defect as XBillButtonBase: the label is centred `Text`, so without
+                        // this only the text itself is tappable and the padding either side of a
+                        // segment is inert.
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }

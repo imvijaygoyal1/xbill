@@ -140,6 +140,7 @@ struct HomeView: View {
                                         .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                                         .background(AppColors.primary)
                                         .clipShape(Circle())
+                                    .contentShape(Circle())
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityLabel("Create group")
@@ -339,6 +340,7 @@ struct HomeView: View {
                 RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
                     .stroke(AppColors.border, lineWidth: 1)
             )
+            .contentShape(RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)

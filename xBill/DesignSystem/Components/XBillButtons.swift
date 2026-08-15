@@ -55,6 +55,13 @@ private struct XBillButtonBase: View {
                 RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous)
                     .stroke(isDisabled ? AppColors.border : border, lineWidth: 1)
             )
+            // Device-reported: taps at the left and right of the button did nothing while the
+            // middle worked. With `.buttonStyle(.plain)` the hit region follows the label's
+            // **content** — here a centred `Text` — so `.frame(maxWidth: .infinity)` widened the
+            // painted area without widening the tappable one. Neither `.background` nor
+            // `.glassEffect` contributes a hit region. This affects every primary and secondary
+            // CTA in the app and predates the glass work.
+            .contentShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(isLoading || isDisabled)

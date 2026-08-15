@@ -129,6 +129,7 @@ struct AuthView: View {
                         .foregroundStyle(AppColors.primary)
                         .underline()
                         .frame(minHeight: AppSpacing.tapTarget)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
@@ -145,6 +146,7 @@ struct AuthView: View {
                         .foregroundStyle(AppColors.primary)
                         .underline()
                         .frame(minHeight: AppSpacing.tapTarget)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }

@@ -537,6 +537,7 @@ struct ProfileView: View {
                             .foregroundStyle(AppColors.textInverse, AppColors.primary)
                             .offset(x: AppSpacing.xs, y: AppSpacing.xs)
                     }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity)

@@ -111,6 +111,9 @@ struct XBillSettingsRow<Trailing: View>: View {
                     action()
                 } label: {
                     rowContent
+                        // A settings row must be tappable across its whole width, not only on the
+                        // icon and label text. See XBillButtonBase for the underlying reason.
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             } else {

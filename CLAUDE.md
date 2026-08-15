@@ -93,6 +93,64 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-15 — TAP-01: buttons whose hit region was smaller than the button
+
+### Found on a physical device; **no test suite here could have found it**
+A user reported the Add Friend button "works on the second or third tap". It was not intermittent —
+it was **positional**: tapping the middle worked, tapping the left or right did nothing.
+
+With `.buttonStyle(.plain)`, SwiftUI derives the hit region from the **label's content**, not its
+frame. `.frame(maxWidth: .infinity)` widens the painted area; `.background`, `.clipShape` and
+`.glassEffect` all paint without contributing any hit region. So on a full-width CTA only the
+centred `Text` was live, and on an icon button only the SF Symbol's **rendered strokes** were.
+
+**All of this ships in 1.0 (1).** It is not a regression from the Liquid Glass work — the
+`XBillCircularIconButton` case was never touched by it.
+
+15 buttons across 13 files, all fixed with an explicit `.contentShape(...)`:
+
+| Component | What was dead |
+|---|---|
+| `XBillButtonBase` | left/right of every primary and secondary CTA — 12 call sites |
+| `XBillPageHeader` | the **back button**, on every detail and modal screen |
+| `XBillFloatingAddButton` | everything except the `+` glyph strokes |
+| `XBillCircularIconButton` | Add Friend / Create Group |
+| `XBillSegmentedControl` | the padding beside each segment label |
+| `XBillProfileCard`, `XBillSettingsRow`, legacy `XBillButton` | QR, Edit, settings rows, Forgot Password, Join Group |
+| `GroupListView` rows | the gap between a group's name and its balance |
+| `AuthView`, `EmailAuthView` | **Terms of Service / Privacy Policy links** and the sign-in toggle |
+| `HomeView`, `AddIOUView`, `ProfileView`, `GroupSettingsView` | add, clear-search, avatar, remove-member |
+
+### Key Pattern — a painted area is not a tappable area
+Any `Button`/`NavigationLink` with `.buttonStyle(.plain)` whose label does not fill its frame needs
+an explicit `.contentShape(...)`. Sweep for `buttonStyle(.plain)` in files lacking `contentShape`.
+
+**And correct the received wisdom about XCUITest.** It taps an element's *centre*, which is usually
+the live region — so it reports green through this entire defect class. But when the dead zone **is**
+the centre it does catch it, and reports it as something else entirely: `GroupListView`'s row is
+`avatar | title | ……gap…… | balance`, the centre landed in the gap, and the failure surfaced as
+`"Group detail should open"` — a navigation timeout, not a hit-testing error. Nine files were
+initially set aside as "probably fine"; that one was not, and neither was `ReceiptReviewView` in the
+earlier CRASH-01 sweep. **"Probably fine" is not a category to trust once a defect class is known.**
+
+### Flake ledger for `xBillUITests/RegressionUITests`
+Recorded so the next recurrence starts with data instead of a guess.
+
+- **`testArchiveUnarchiveRegression` — was a real regression, now fixed.** Passed 4/4 across
+  2026-08-02…04, then failed twice in three runs on 08-12. It was **wrongly recorded as a transient
+  flake** after it passed one re-run; the bundle history said otherwise. Cause: the missing
+  `contentShape` on the group row. Two consecutive passes after the fix.
+- **`testAuthValidationRegression` — genuine flake, unexplained.** Passed **9** runs including twice
+  on the exact current code, then failed once on 08-15 with
+  `Failed to not hittable … xBill.emailAuth.toggleModeButton`. It follows `dismissSheetIfPossible()`,
+  so the Forgot Password sheet was most likely still dismissing and covering the button. Timing, not
+  hit area. Not investigated further; if it exceeds roughly 1 in 10, harden the dismissal wait.
+
+**Verification:** unit **329/329**. UI regression **18/18** on the run after the group-row fix, and
+`testArchiveUnarchiveRegression` green in both subsequent runs. Debug and Release both build.
+Installed on physical iPhone 16 Pro; **user confirmed on device** that the FAB, Add Friend, shares
+steppers, back button and settings rows now respond on the first tap anywhere on the control.
+
 ## Recent Fix Log — 2026-08-12 (later still) — Liquid Glass on the interface layer
 
 ### The glass had been lost in the redesign, and this file claimed otherwise

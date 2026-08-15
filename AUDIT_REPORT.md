@@ -602,3 +602,13 @@ together, in that order.
 | **Status** | ✅ Fixed (crash site + sibling); root sequence in AddExpenseView unproven |
 | **Fix** | Value iteration everywhere; all edits resolve by id through the model (`toggle`/`setAmount`/`adjustShares`/`input(for:)`, `updateName`). `.onDelete` maps offsets to ids before mutating. No `ForEach($` remains in the app. |
 | **Verification** | 329/329 unit tests, suite confirmed by name. Mutation test (`?? 0` instead of `guard`) fails exactly the safety test and no other. Built artifact 1.1 (2) installed and launched. Crash itself was never reproducible — absence of a report is not proof. |
+
+## TAP-01 — Hit region smaller than the painted button (2026-08-15)
+
+| Field | Value |
+|---|---|
+| **ID** | TAP-01 |
+| **File** | 13 files — `XBillButtons`, `XBillPageHeader`, `XBillFloatingAddButton`, `XBillDashboardPrimitives`, `XBillSegmentedControl`, `XBillProfileCard`, `XBillProfilePrimitives`, `XBillButton`, `GroupListView`, `AuthView`, `EmailAuthView`, `HomeView`, `AddIOUView`, `ProfileView`, `GroupSettingsView` |
+| **Issue** | `.buttonStyle(.plain)` derives the hit region from the label's *content*. Full-width CTAs were tappable only on their centred text; icon buttons only on the glyph strokes. Affects every primary CTA, the back button, and group rows. Ships in 1.0 (1). |
+| **Status** | ✅ Fixed (15 buttons); 9 lower-traffic files deliberately deferred pending individual review |
+| **Verification** | Device-confirmed by the user on 5 controls. Unit 329/329; UI regression 18/18 with the previously-failing archive test green across two consecutive runs. |

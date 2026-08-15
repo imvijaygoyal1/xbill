@@ -143,6 +143,8 @@ struct XBillCircularIconButton: View {
                 .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                 .background(AppColors.primary)
                 .clipShape(Circle())
+                // See XBillFloatingAddButton: without this only the glyph strokes are tappable.
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)

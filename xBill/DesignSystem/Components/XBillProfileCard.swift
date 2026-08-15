@@ -48,6 +48,8 @@ struct XBillProfileCard: View {
                         .foregroundStyle(AppColors.primary)
                         .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                         .background(AppColors.surfaceSoft)
+                        // Hit region follows the label's content, not its frame — see XBillButtonBase.
+                        .contentShape(Circle())
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -62,6 +64,9 @@ struct XBillProfileCard: View {
                     .frame(minHeight: AppSpacing.tapTarget)
                     .background(AppColors.surfaceSoft)
                     .clipShape(Capsule())
+                    // Modifiers here apply to the Button itself, so the hit region is still the
+                    // "Edit" text — `minWidth`/`background` widen the pill without widening it.
+                    .contentShape(Capsule())
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
                     .buttonStyle(.plain)

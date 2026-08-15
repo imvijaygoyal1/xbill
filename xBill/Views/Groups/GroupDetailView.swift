@@ -104,13 +104,15 @@ struct GroupDetailView: View {
         ZStack(alignment: .bottomTrailing) {
             decoratedContent
 
+            // Shown on every tab, not just Expenses. Adding an expense is always a valid action
+            // here, and gating it to tab 0 was the only reason the toolbar menu needed its own
+            // duplicate "Add Expense" row — which put two live paths to one action on the
+            // Expenses tab while leaving the other two tabs dependent on a buried menu item.
             // Keep the primary action visible offline, then explain why it cannot continue.
-            if selectedTab == 0 {
-                FABButton { openAddExpense() }
-                    .accessibilityLabel(NetworkMonitor.shared.isConnected ? "Add Expense" : "Add Expense unavailable offline")
-                    .padding(.bottom, AppSpacing.floatingActionBottomPadding)
-                    .padding(.trailing, AppSpacing.md)
-            }
+            FABButton { openAddExpense() }
+                .accessibilityLabel(NetworkMonitor.shared.isConnected ? "Add Expense" : "Add Expense unavailable offline")
+                .padding(.bottom, AppSpacing.floatingActionBottomPadding)
+                .padding(.trailing, AppSpacing.md)
         }
         .searchable(text: $searchText, prompt: "Search expenses")
     }
@@ -711,9 +713,8 @@ struct GroupDetailView: View {
 
     private var groupMenu: some View {
         Menu {
-            Button { openAddExpense() } label: {
-                Label("Add Expense", systemImage: "plus")
-            }
+            // "Add Expense" intentionally absent: the FAB now covers every tab, so this row was
+            // a second path to the same action. The menu is group *management* only.
             Button { showStats = true } label: {
                 Label("Stats", systemImage: "chart.bar.fill")
             }

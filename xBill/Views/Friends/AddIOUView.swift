@@ -168,6 +168,7 @@ struct AddIOUView: View {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(AppColors.textSecondary)
                                 .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }

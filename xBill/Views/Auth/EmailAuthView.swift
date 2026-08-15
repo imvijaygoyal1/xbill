@@ -178,6 +178,7 @@ struct EmailAuthView: View {
                     .foregroundStyle(AppColors.textSecondary)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: AppSpacing.tapTarget)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("xBill.emailAuth.toggleModeButton")
@@ -193,6 +194,7 @@ struct EmailAuthView: View {
                         .underline()
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: AppSpacing.tapTarget)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("xBill.emailAuth.forgotPasswordButton")

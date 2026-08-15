@@ -37,6 +37,8 @@ struct XBillPageHeader<Trailing: View>: View {
                         .foregroundStyle(AppColors.primary)
                         .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                         .background(AppColors.surfaceSoft)
+                        // Hit region follows the label's content, not its frame — see XBillButtonBase.
+                        .contentShape(Circle())
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)

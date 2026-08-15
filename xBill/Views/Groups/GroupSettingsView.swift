@@ -246,6 +246,7 @@ struct GroupSettingsView: View {
                         .font(.appTitle)
                         .foregroundStyle(member.isActive ? AppColors.error : AppColors.textTertiary)
                         .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(!member.isActive)

@@ -223,6 +223,7 @@ struct AddExpenseView: View {
                                                         Image(systemName: "minus.circle")
                                                             .foregroundStyle(input.shares > 1 ? Color.brandPrimary : Color.textTertiary)
                                                             .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                                                            .contentShape(Rectangle())
                                                     }
                                                     .buttonStyle(.plain)
                                                     .disabled(input.shares <= 1)
@@ -237,6 +238,7 @@ struct AddExpenseView: View {
                                                         Image(systemName: "plus.circle")
                                                             .foregroundStyle(Color.brandPrimary)
                                                             .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                                                            .contentShape(Rectangle())
                                                     }
                                                     .buttonStyle(.plain)
                                                     .accessibilityIdentifier("xBill.addExpense.increaseShares.\(input.userID.uuidString)")

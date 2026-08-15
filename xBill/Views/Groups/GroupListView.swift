@@ -112,6 +112,13 @@ struct GroupListView: View {
                     ForEach(filteredGroups) { group in
                         NavigationLink(value: group) { groupRow(group, isArchived: false) }
                             .buttonStyle(.plain)
+                            // The row spans the full width but its content does not: the gap
+                            // between the title block and the trailing balance had no hit region,
+                            // so a tap landing there did nothing. XCUITest taps element *centres*,
+                            // which is exactly that gap — this is why
+                            // `testArchiveUnarchiveRegression` began failing intermittently with
+                            // "Group detail should open".
+                            .contentShape(Rectangle())
                             .accessibilityElement(children: .ignore)
                             .accessibilityLabel("\(group.name) group, active, \(group.currency)")
                             .accessibilityIdentifier("xBill.group.active.\(group.id.uuidString)")
@@ -138,6 +145,8 @@ struct GroupListView: View {
                         ForEach(filteredArchivedGroups) { group in
                             NavigationLink(value: group) { groupRow(group, isArchived: true) }
                                 .buttonStyle(.plain)
+                                // Same as the active row above.
+                                .contentShape(Rectangle())
                                 .accessibilityElement(children: .ignore)
                                 .accessibilityLabel("\(group.name) group, archived, \(group.currency)")
                                 .accessibilityIdentifier("xBill.group.archived.\(group.id.uuidString)")

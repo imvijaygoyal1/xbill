@@ -67,6 +67,9 @@ struct XBillButton: View {
             .frame(maxWidth: .infinity)
             .frame(minHeight: AppSpacing.controlHeight)
             .background(bgColor)
+            // Same defect as XBillButtonBase: centred `Text` in a full-width frame meant only the
+            // middle of the button was tappable. Still used by ForgotPasswordView and JoinGroupView.
+            .contentShape(Rectangle())
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
