@@ -63,12 +63,17 @@ struct Expense: Codable, Identifiable, Equatable, Sendable {
             switch self {
             case .food:          return "fork.knife"
             case .transport:     return "car.fill"
-            case .accommodation: return "house.fill"
+            // Not `house.fill` — that is the Home tab's symbol, and one glyph must not mean two
+            // things. `bed.double.fill` is also more precise: accommodation is lodging, not home.
+            case .accommodation: return "bed.double.fill"
             case .entertainment: return "film.fill"
             case .utilities:     return "bolt.fill"
             case .shopping:      return "bag.fill"
-            case .health:        return "heart.fill"
-            case .other:         return "ellipsis.circle.fill"
+            // Not `heart.fill` — everywhere else in iOS that reads as "favourite".
+            case .health:        return "cross.case.fill"
+            // Free-standing, matching the other seven. `ellipsis.circle.fill` was the only
+            // circle-enclosed glyph in the set and read as a different icon system.
+            case .other:         return "tag.fill"
             }
         }
     }

@@ -70,7 +70,7 @@ struct MainTabView: View {
                 Task { await authVM.signOut() }
             })
             .tabItem {
-                Label("Profile", systemImage: "person.fill")
+                Label("Profile", systemImage: "person.crop.circle.fill")
                     .accessibilityIdentifier("xBill.tab.profile")
             }
             .tag(Tab.profile)
