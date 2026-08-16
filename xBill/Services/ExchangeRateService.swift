@@ -9,7 +9,13 @@ import Foundation
 import OSLog
 
 // MARK: - ExchangeRateService
-// Uses open.er-api.com (no API key, 1500 req/month free tier).
+// Uses open.er-api.com Open Access (no API key). There is **no monthly quota** — the earlier
+// "1500 req/month" note was wrong; access is IP rate-limited, answering HTTP 429 with a ~20 minute
+// cooldown. The 1-hour cache below sits comfortably inside that.
+//
+// Commercial use is permitted **only with attribution**: the app must link back with the words
+// "Rates By Exchange Rate API". See `XBillURLs.exchangeRateAttribution`; it is rendered in
+// AddExpenseView's conversion preview and permanently in the Profile footer.
 // Caches rates for 1 hour per base currency to avoid hammering the API.
 
 actor ExchangeRateService {

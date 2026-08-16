@@ -488,6 +488,18 @@ struct ProfileView: View {
             }
             .buttonStyle(.plain)
 
+            // Required attribution for ExchangeRate-API's Open Access tier. Also shown beside a
+            // live conversion in Add Expense, but that only appears for a foreign-currency
+            // expense — a user who never converts would otherwise never see the credit, so the
+            // permanent one lives here.
+            Link(destination: XBillURLs.exchangeRateAttribution) {
+                Text("Rates By Exchange Rate API")
+                    .font(.appCaption)
+                    .foregroundStyle(AppColors.textTertiary)
+                    .underline()
+            }
+            .accessibilityIdentifier("xBill.profile.rateAttribution")
+
             Text("xBill v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")")
                 .font(.appCaption)
                 .foregroundStyle(AppColors.textTertiary)

@@ -386,6 +386,7 @@ struct AddExpenseView: View {
                     Text("1 \(vm.expenseCurrency) = \(String(format: "%.4f", NSDecimalNumber(decimal: rate).doubleValue)) \(vm.currency)")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
+                    exchangeRateAttribution
                 }
                 .padding(.bottom, XBillSpacing.xs)
             } else {
@@ -395,6 +396,18 @@ struct AddExpenseView: View {
                     .padding(.bottom, XBillSpacing.xs)
             }
         }
+    }
+
+    /// Required by ExchangeRate-API's Open Access terms — see `XBillURLs.exchangeRateAttribution`.
+    /// Placed with the converted amount so it appears wherever a rate is actually shown.
+    private var exchangeRateAttribution: some View {
+        Link(destination: XBillURLs.exchangeRateAttribution) {
+            Text("Rates By Exchange Rate API")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .underline()
+        }
+        .accessibilityIdentifier("xBill.addExpense.rateAttribution")
     }
 
     // MARK: - Helpers

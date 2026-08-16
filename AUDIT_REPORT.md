@@ -612,3 +612,14 @@ together, in that order.
 | **Issue** | `.buttonStyle(.plain)` derives the hit region from the label's *content*. Full-width CTAs were tappable only on their centred text; icon buttons only on the glyph strokes. Affects every primary CTA, the back button, and group rows. Ships in 1.0 (1). |
 | **Status** | ✅ Fixed (15 buttons); 9 lower-traffic files deliberately deferred pending individual review |
 | **Verification** | Device-confirmed by the user on 5 controls. Unit 329/329; UI regression 18/18 with the previously-failing archive test green across two consecutive runs. |
+
+## LIC-01 — Exchange rates used without required attribution (2026-08-16)
+
+| Field | Value |
+|---|---|
+| **ID** | LIC-01 |
+| **File** | `xBill/Services/ExchangeRateService.swift`, `xBill/Core/Constants/XBillURLs.swift`, `xBill/Views/Expenses/AddExpenseView.swift`, `xBill/Views/Profile/ProfileView.swift` |
+| **Issue** | ExchangeRate-API's Open Access tier permits commercial use only with a "Rates By Exchange Rate API" backlink. The app displayed none. Live in v1.0. |
+| **Status** | ✅ Fixed |
+| **Fix** | Attribution beside the live conversion and permanently in the Profile footer; URL centralised in `XBillURLs` and commented as a licence condition. Stale "1500 req/month" comment corrected — the endpoint has no quota, only IP rate limiting. |
+| **Verification** | Unit 329/329, UI 18/18. Wider licence audit found no other exposure: no bundled fonts, no third-party image assets, app icon is original art, all dependencies MIT/Apache-2.0. |

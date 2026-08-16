@@ -93,6 +93,45 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-16 — LIC-01: shipping exchange rates without the required attribution
+
+### v1.0 shipped in breach of ExchangeRate-API's terms
+`ExchangeRateService` calls `open.er-api.com` for every foreign-currency conversion. Its Open
+Access terms **permit commercial use** — but only on condition that the app links back with the
+words **"Rates By Exchange Rate API"**. The app displayed nothing; the only match anywhere in the
+codebase was an error-message string. Live since 1.0.
+
+Found by auditing the project rather than by any tool warning — nothing in a build, a test or App
+Store validation flags a missing attribution.
+
+- **`XBillURLs.exchangeRateAttribution`** — the URL lives with the other constants, commented as a
+  **licence condition, not decoration**, so it is not deleted later as clutter.
+- **Two placements, deliberately.** Beside the live conversion in `AddExpenseView`, *and*
+  permanently in the `ProfileView` footer beside Terms and Privacy. The conversion preview only
+  renders for a foreign-currency expense, so a user who never converts would otherwise never see
+  the credit — attribution conditional on an optional feature is not attribution.
+- Wording is verbatim as required; styled discreetly, which the terms explicitly allow.
+
+### Also corrected: a comment asserting something nobody had checked
+`ExchangeRateService` claimed *"no API key, 1500 req/month free tier."* There is **no monthly
+quota** on the Open Access endpoint — it is IP rate-limited, answering HTTP 429 with a ~20 minute
+cooldown. The 1-hour cache sits comfortably inside that. This is the third stale doc-claim found in
+two days, after the release-status header and the email-confirmation note.
+
+### Licence audit — everything else is clean
+Fonts: system only, nothing bundled. Image assets: **zero** third-party files; every illustration is
+drawn in SwiftUI. App icon: original raster art, not an SF Symbol — which matters, because SF
+Symbols are licensed for **UI only** and may not be used in an app icon or logo. Dependencies:
+supabase-swift (MIT), Apple's swift-crypto/asn1/http-types (Apache 2.0), Point-Free packages (MIT),
+Deno std (MIT) — all permissive, none requiring a NOTICE. Venmo/PayPal appear as plain text for
+interoperability (nominative use); keep them out of ASO keywords, where third-party trademarks are
+a known rejection trigger.
+
+**Add a licence check to the pre-submission runbook.** Nothing automated catches this class.
+
+**Verification:** unit **329/329**, UI regression **18/18**, both 0 failures / 0 skips. Debug build
+clean.
+
 ## Recent Fix Log — 2026-08-15 — TAP-01: buttons whose hit region was smaller than the button
 
 ### Found on a physical device; **no test suite here could have found it**
