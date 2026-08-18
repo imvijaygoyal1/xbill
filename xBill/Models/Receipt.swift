@@ -52,6 +52,14 @@ struct ReceiptItem: Codable, Identifiable, Equatable, Sendable {
     var unitPrice: Decimal
     var assignedUserIDs: [UUID]
 
+    /// OCR confidence for the row this item was parsed from, `0...1`.
+    ///
+    /// Defaults to `1` so the LLM (Tier 1) path and any hand-added item are treated as certain —
+    /// only the heuristic path has a Vision confidence to report. Used by the review screen to
+    /// point the user at the rows worth checking instead of asking them to verify all of them
+    /// equally, which is how a review step gets skipped.
+    var confidence: Double = 1
+
     var totalPrice: Decimal { unitPrice * Decimal(quantity) }
 
     init(id: UUID = UUID(), name: String, quantity: Int = 1, unitPrice: Decimal) {

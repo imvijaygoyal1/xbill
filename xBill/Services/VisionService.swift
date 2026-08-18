@@ -174,7 +174,9 @@ final class VisionService {
         let category = suggestCategory(merchant: receipt.merchant, items: receipt.items)
         return ScanResult(
             receipt:           receipt,
-            confidence:        warning == nil ? 0.75 : 0.55,
+            // Derived from the OCR line confidences rather than a constant — see
+            // `aggregateConfidence`. `allLines` is the recognised text this receipt was built from.
+            confidence:        Self.aggregateConfidence(allLines, hasWarning: warning != nil),
             tier:              "Heuristic",
             validationWarning: warning,
             suggestedCategory: category
@@ -396,6 +398,30 @@ final class VisionService {
         return rows.map { $0.sorted { $0.midX < $1.midX } }
     }
 
+    // MARK: - OCR confidence
+
+    /// A receipt-level confidence derived from the **actual** OCR line confidences.
+    ///
+    /// This replaced a constant. Tier 2 previously reported `0.75`, or `0.55` when a validation
+    /// warning fired — so a crisp receipt in good light and a blurred one at an angle showed the
+    /// user an identical number, while `OCRLine.confidence` was captured from Vision for every
+    /// line and read nowhere. A fabricated score is worse than none, because it invites trust it
+    /// has not earned.
+    ///
+    /// Uses the **mean of the weakest half** rather than the overall mean: a receipt is only as
+    /// trustworthy as the lines that were hardest to read, and averaging across many clean lines
+    /// hides the few misreads that actually change the total.
+    static func aggregateConfidence(_ lines: [OCRLine], hasWarning: Bool) -> Double {
+        let scores = lines.map { Double($0.confidence) }.sorted()
+        guard !scores.isEmpty else { return 0 }
+        let weakestHalf = scores.prefix(max(1, scores.count / 2))
+        let mean = weakestHalf.reduce(0, +) / Double(weakestHalf.count)
+        // A failed items-vs-total check is independent evidence that something was misread, so it
+        // discounts the score rather than replacing it.
+        let penalised = hasWarning ? mean * 0.6 : mean
+        return min(max(penalised, 0), 1)
+    }
+
     // MARK: - Gap 5: Language Detection (NaturalLanguage)
 
     /// Returns BCP-47 language tag (e.g. "fr", "de") or nil if undetermined.
@@ -523,7 +549,12 @@ final class VisionService {
             let rightText   = rightLines.map(\.text).joined(separator: " ")
             let priceSource = rightText.isEmpty ? fullText : rightText
 
-            guard let amount = extractDecimal(from: priceSource), amount > .zero else { continue }
+            guard let rawAmount = extractDecimal(from: priceSource), rawAmount != .zero else { continue }
+            // A discount is a real line on the receipt and must survive to the review screen; if it
+            // is dropped, items no longer sum to the total and the user sees an unexplained
+            // mismatch. Normalised to a negative so the arithmetic works without special cases.
+            let isDiscount = rawAmount < .zero || isDiscountLine(lower)
+            let amount     = isDiscount ? -abs(rawAmount) : rawAmount
 
             if lower.contains("total") && !lower.contains("sub") && !lower.contains("subtotal") {
                 if let existing = total { total = max(existing, amount) } else { total = amount }
@@ -540,7 +571,12 @@ final class VisionService {
                 name = name.trimmingCharacters(in: .whitespacesAndNewlines)
                 if name.isEmpty || name.count < 2 { continue }
 
-                let (qty, unitPrice) = parseQuantity(from: name, totalPrice: amount)
+                // A discount is always a single line worth its face value. Routing it through
+                // `parseQuantity` would divide a negative by a parsed quantity for no benefit —
+                // "2x" never appears on a voucher line — and risks turning £-2.00 into £-1.00.
+                let (qty, unitPrice) = isDiscount
+                    ? (1, amount)
+                    : parseQuantity(from: name, totalPrice: amount)
                 let cleanName        = stripQuantityPrefix(from: name)
 
                 // Gap 7: collect alternate prices from OCR candidate strings for this row's
@@ -549,9 +585,13 @@ final class VisionService {
                 let altPrices: [Decimal] = priceLines
                     .flatMap(\.alternates)
                     .compactMap { extractDecimal(from: $0) }
-                    .filter { $0 > .zero && $0 != amount }
+                    .filter { (isDiscount ? $0 < .zero : $0 > .zero) && $0 != amount }
 
-                let item = ReceiptItem(name: cleanName, quantity: qty, unitPrice: unitPrice)
+                // The row's own OCR confidence, so the review screen can point at the lines that
+                // were hardest to read. Uses the weakest line in the row: the price is what matters
+                // and a confident item name does not vouch for a doubtful number beside it.
+                var item = ReceiptItem(name: cleanName, quantity: qty, unitPrice: unitPrice)
+                item.confidence = Double(row.map(\.confidence).min() ?? 1)
                 parsedItems.append(ParsedItem(item: item, candidatePrices: altPrices))
             }
         }
@@ -664,17 +704,40 @@ final class VisionService {
         return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
     }
 
+    /// Extracts the rightmost money value on a line, **preserving its sign**.
+    ///
+    /// The sign matters: the previous pattern had no `-`, so a discount line reading `-2.00`
+    /// extracted as `2.00`, passed the `amount > .zero` guard, and was added as a **+2.00 item**.
+    /// A receipt with a £2 voucher therefore over-counted by £4 and produced a mismatch warning
+    /// with no visible cause. Both a leading minus and the trailing-minus form some tills print
+    /// (`2.00-`) are recognised, as is the Unicode minus `−` that OCR frequently returns for `-`.
     func extractDecimal(from string: String) -> Decimal? {
-        let pattern = #"[\$£€₹¥￥₩]?\s*(\d{1,6}[.,]\d{2})"#
+        let pattern = #"([-−])?\s*[\$£€₹¥￥₩]?\s*(\d{1,6}[.,]\d{2})\s*([-−])?"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
         let range = NSRange(string.startIndex..., in: string)
         // M-12: use lastMatch so that on lines like "2x BURGER 4.99 9.98" we
         // pick up the rightmost value (line total) instead of the unit price.
         let matches = regex.matches(in: string, range: range)
         guard let match = matches.last,
-              let capRange = Range(match.range(at: 1), in: string) else { return nil }
+              let capRange = Range(match.range(at: 2), in: string) else { return nil }
         let raw = string[capRange].replacingOccurrences(of: ",", with: ".")
-        return Decimal(string: raw)
+        guard let value = Decimal(string: raw) else { return nil }
+
+        let leading  = Range(match.range(at: 1), in: string).map { String(string[$0]) }
+        let trailing = Range(match.range(at: 3), in: string).map { String(string[$0]) }
+        let isNegative = leading != nil || trailing != nil
+        return isNegative ? -value : value
+    }
+
+    /// Lines that reduce the bill rather than adding to it. Checked in addition to a parsed
+    /// negative, because plenty of receipts print a discount as a positive number under a label.
+    static let discountKeywords = [
+        "discount", "coupon", "voucher", "promo", "savings", "saved",
+        "off", "rebate", "credit", "refund", "adjustment"
+    ]
+
+    func isDiscountLine(_ lower: String) -> Bool {
+        Self.discountKeywords.contains { lower.contains($0) }
     }
 
     // MARK: - Convert ParsedReceiptJSON → Receipt

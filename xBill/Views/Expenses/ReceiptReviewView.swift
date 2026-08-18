@@ -214,6 +214,16 @@ private struct ItemRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
+                // Flags rows Vision struggled to read, so the user checks three lines rather than
+                // re-reading fifteen. Threshold is deliberately generous: a false "check this" is
+                // cheap, a missed misread reaches the split and the money.
+                if item.confidence < 0.5 {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(AppColors.warning)
+                        .accessibilityLabel("Low scan confidence — check this line")
+                        .accessibilityIdentifier("xBill.receiptReview.lowConfidence.\(item.id.uuidString)")
+                }
                 TextField("Item name", text: Binding(
                     get: { vm.items.first { $0.id == item.id }?.name ?? item.name },
                     set: { vm.updateName(itemID: item.id, name: $0) }

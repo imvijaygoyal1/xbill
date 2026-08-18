@@ -93,6 +93,65 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-18 (later) — receipt scanning: SCAN-01/02/03
+
+Three defects in the pure text→receipt layer, found by reading the pipeline rather than by a
+failure report. All are in the **heuristic (Tier 2)** path; Tier 1 (Apple Intelligence) is
+unaffected.
+
+### SCAN-01 — a discount was parsed with the **wrong sign**, not dropped
+`extractDecimal`'s pattern was `[\$£€₹¥￥₩]?\s*(\d{1,6}[.,]\d{2})` — **no minus**. So a line
+reading `-2.00` extracted as `2.00`, passed the `amount > .zero` guard, and was appended as a
+**+£2 item**. A £2 voucher therefore moved the item sum **£4** the wrong way and produced an
+items-vs-total mismatch warning with no visible cause. On any receipt with a loyalty discount this
+happened every time.
+
+Now sign-aware: leading `-`, the trailing form some tills print (`2.00-`), and the **Unicode minus
+`−` (U+2212)** that OCR frequently returns instead of ASCII. Discounts are also detected by wording,
+because many receipts print them as a positive under a label. They are normalised negative and flow
+through as items so they reach the review screen and the arithmetic closes. A discount bypasses
+`parseQuantity` — "2x" never appears on a voucher line, and dividing a negative there could halve it.
+
+### SCAN-02 — the confidence shown to the user was a **constant**
+Tier 2 returned `warning == nil ? 0.75 : 0.55`. Every heuristic scan reported one of two numbers
+regardless of how the OCR actually went, so a crisp receipt in good light and a blurred one at an
+angle were indistinguishable to the user — while `OCRLine.confidence` was captured from Vision for
+**every line and read nowhere**. A fabricated score is worse than none: it invites trust it has not
+earned.
+
+`aggregateConfidence` now derives it from the real line confidences, using the **mean of the weakest
+half** rather than the overall mean — a receipt is only as trustworthy as its hardest-to-read lines,
+and averaging across many clean rows hides the few misreads that change the total. A validation
+warning discounts the result rather than replacing it.
+
+### SCAN-03 — low-confidence rows were indistinguishable from clean ones
+`ReceiptItem.confidence` now carries the weakest line confidence from its row, and the review screen
+flags rows below `0.5`. The user checks three lines instead of re-reading fifteen, which is the
+difference between a review step people use and one they skip. Defaults to `1`, so Tier 1 results
+and hand-added items are never flagged. Excluded from `CodingKeys`, so nothing about encoding
+changes.
+
+### Key Pattern — mutation testing caught a test that proved nothing
+`warningPenalises` originally asserted only `warned < clean` and `warned > 0`. **Both hold for the
+constant `0.55`/`0.75` it was written to replace** — it would have passed against the exact defect
+it existed to prevent, the same class as `UIT-01`. It now asserts that two *warned* receipts still
+score differently, and it fails against the constant. Assert the property that **distinguishes** the
+fix from the bug, not merely a property the fix happens to have.
+
+### Considered and deliberately not done
+- **Possible preprocessing double-up.** `VNDocumentCameraViewController` already applies perspective
+  correction and enhancement; `preprocessForOCR` then adds grayscale, contrast ×1.4 and sharpen ×0.4.
+  Stacking sharpening on enhanced output can create artefacts. This is an **experiment** — run the
+  same receipts with and without and compare extracted totals — not a change to make on a hunch.
+- **`reconcile` gives up above a $2.00 delta**, yet a single misread digit (`18.99`→`78.99`) is a $60
+  delta, i.e. exactly when OCR alternates would help most. The threshold is backwards relative to
+  where the errors are.
+- **Item→person assignment** is the real bottleneck once parsing is correct, not OCR.
+
+**Verification:** unit **346/346** (10 new), UI regression **18/18**. Mutation-tested with two
+mutants — discarding the sign fails 2 tests, restoring the constant fails 4; the tests that pass
+under each are correctly unaffected.
+
 ## Recent Fix Log — 2026-08-18 — App Intents phase 1, and a missing Info.plist key that broke Siri
 
 ### The feature

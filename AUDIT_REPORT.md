@@ -667,3 +667,14 @@ together, in that order.
 | **Status** | ✅ Fixed |
 | **Fix** | `deleteDeviceTokensReportingFailure()` catches and logs via `Logger`; all 4 call sites use it. |
 | **Verification** | Unit 329/329, UI 18/18. |
+
+## SCAN-01/02/03 — Receipt scanning: sign, confidence, per-item flags (2026-08-18)
+
+| Field | Value |
+|---|---|
+| **ID** | SCAN-01, SCAN-02, SCAN-03 |
+| **File** | `xBill/Services/VisionService.swift`, `xBill/Models/Receipt.swift`, `xBill/Views/Expenses/ReceiptReviewView.swift` |
+| **Issue** | (01) `extractDecimal` had no minus in its pattern, so a `-2.00` discount became a **+2.00 item** and the item sum ran high by twice the discount. (02) Tier 2 confidence was the constant `0.75`/`0.55` while real per-line OCR confidence was captured and never read. (03) No way to tell which rows were badly read. |
+| **Status** | ✅ Fixed |
+| **Fix** | Sign-aware extraction incl. trailing and Unicode minus, plus keyword detection; discounts flow through as negative items. `aggregateConfidence` uses the mean of the weakest half of line confidences. `ReceiptItem.confidence` drives a review-screen flag below 0.5. |
+| **Verification** | Unit 346/346, UI 18/18. Two mutants: discarding the sign fails 2 tests, restoring the constant fails 4. One test (`warningPenalises`) was found to pass against the constant and was strengthened. |
