@@ -93,6 +93,59 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-18 — App Intents phase 1, and a missing Info.plist key that broke Siri
+
+### The feature
+`xBill/Intents/` — `GroupEntity` + `GroupQuery`, `CheckBalanceIntent`, `XBillShortcuts`.
+
+`CheckBalanceIntent` runs **headlessly** (`openAppWhenRun = false`): it answers from the balance
+snapshot `CacheService` already writes to the App Group for the widget, so it needs no network, no
+Supabase session and no app launch. That shaped the whole design — an intent may run out of
+process, and xBill's session lives in a Keychain item with **no shared access group**, so an intent
+cannot authenticate. **Reads come from the cache; anything that writes must open the app.**
+
+`GroupEntity` resolves a spoken group name to a real group and exists for the intents that follow.
+Its query filters archived groups: "add to Tokyo Trip" about a trip archived last year means the
+active one, and offering the archived one files an expense where nobody will look for it.
+
+### CRASH-adjacent find — `CFBundleDevelopmentRegion` was missing from every build ever shipped
+Siri answered *"xBill hasn't added support for that"* while **Shortcuts and Spotlight both worked**.
+
+The build log's ordering is what located it: SSU YAML *generated* ✓, *copied* ✓, then
+`Archiving all locales.` → `error: Could not archive SSU artifacts`. Generation succeeded;
+**archiving** failed. `Metadata.appintents/root.ssu.yaml` was written with `training: []`.
+
+Cause: `xBill/Info.plist` had no `CFBundleDevelopmentRegion`, and the app has no `.lproj` bundles,
+so the archiver had **no locale to archive for**. Xcode's *generated* Info.plist supplies that key
+automatically; this one is hand-written (it must be, for the `$(SUPABASE_URL)` substitution) and so
+never declared it. Fixed with a literal `en` — **not** `$(DEVELOPMENT_LANGUAGE)`, which xcodegen
+does not define and which would have resolved to an empty string, i.e. worse than absent.
+
+Why the failure was so misleading: intent metadata in `extract.actionsdata` was **perfect**, so the
+two surfaces that read it worked. Only Siri reads the speech corpus. Two of three surfaces working
+made it look like a phrasing problem, and the error message named "SSU artifacts" rather than
+localisation.
+
+**This key was absent from v1.0 and from the v1.1 currently in review.** It affects nothing else
+today, but it would have blocked any future Siri work with an error naming the wrong subsystem.
+
+### Key Pattern — an out-of-process surface is not verified by a green suite
+Third instance this session, after `WIDGET-01` (framework embedding) and `WIDGET-02` (asset
+resolution). `BalanceSummaryTests` covers the spoken **wording rules** — deliberately not
+`AppIntent.perform()`, which is reachable only through Siri/Shortcuts and returns an opaque
+`IntentResult`, so asserting on it would assert on Apple's framework rather than our behaviour.
+Registration, phrase matching and out-of-process execution are **invisible to unit tests**, and
+every real problem here lived in that gap. Device verification is mandatory, on all three surfaces.
+
+Also learned: an **upgrade install does not reliably refresh Siri's shortcut vocabulary**; the
+working state was reached only after going past a plain reinstall. A restart *before* the corpus
+existed could not have helped — sequencing matters when the artifact is what is missing.
+
+**Verification:** unit **336/336** (7 new, mutation-tested: 6 of 7 fail against a collapsed
+`spokenSummary`, and the survivor correctly does not), UI regression **18/18**. Debug and Release
+both build; `root.ssu.yaml` confirmed to carry all four utterances and the `xBill` synonym.
+**Device-verified by the user on all three surfaces — Shortcuts, Spotlight and Siri.**
+
 ## Release status — v1.1 (2) submitted for review 2026-08-17
 
 v1.0 (1) approved 2026-08-11 and live. **v1.1 (2) submitted 2026-08-17**, containing:

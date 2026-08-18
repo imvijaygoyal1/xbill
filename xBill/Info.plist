@@ -2,6 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Required by the App Intents SSU (Siri Speech Understanding) build step. Its
+	     "Archiving all locales" phase needs a locale to archive for; with this key absent and no
+	     .lproj bundles it fails with "Could not archive SSU artifacts", the intent still registers
+	     (Shortcuts and Spotlight work) but Siri's training corpus is written EMPTY, so every spoken
+	     phrase returns "xBill hasn't added support for that". Xcode's generated Info.plist supplies
+	     this automatically; this one is hand-written for the $(SUPABASE_URL) substitution and so
+	     must declare it. -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>xBill</string>
 	<key>NSHumanReadableCopyright</key>
