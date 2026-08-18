@@ -93,6 +93,37 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Release status — v1.1 (2) submitted for review 2026-08-17
+
+v1.0 (1) approved 2026-08-11 and live. **v1.1 (2) submitted 2026-08-17**, containing:
+
+| Defect | Severity | Found by |
+|---|---|---|
+| `CRASH-01` — index-backed element bindings | crash on device | user's `.ips` |
+| `WIDGET-01/02` — widget never worked since 2026-07-15 | feature dead | user testing it |
+| `TAP-01` / `TAP-01b` — 19 controls with dead hit regions | usability | user noticing *where* he tapped |
+| `LIC-01` — no ExchangeRate-API attribution | licence breach | licence audit |
+| `MINOR-01` — silent APNs token-delete failure | privacy | pattern scan |
+| `ASO-01` review prompt · Liquid Glass · icons · About screen | — | — |
+
+**The archive was independently verified before submission** — not the build settings, the archive:
+`UIDeviceFamily [1]`, no icon alpha, all three dSYMs present with the app's UUID matching the
+binary, `ITSAppUsesNonExemptEncryption false`, `Frameworks/xBillWidgetCore.framework` embedded, and
+`Assets.car` inside the `.appex`. The last two are `WIDGET-01/02`, which had only ever been proven
+in Debug.
+
+Metadata changed in this submission (name, subtitle, keywords) to fix discoverability — v1.0 was
+effectively unsearchable: the name carried no keywords, the subtitle was empty, and the keyword
+field unused.
+
+### What this release should have taught the process
+**Four of six defects were found by the user operating a real device**, with every suite green
+throughout. Each was structurally invisible to the tests that existed: XCUITest taps element
+centres so it cannot see hit regions; widget tests link the framework directly so they cannot see
+bundle layout; nothing validates a vendor's licence terms. Before the next release, add to
+`RELEASE_VERIFICATION.md`: **put the widget on a real home screen**, **run a licence check**, and
+**run `OnboardingUITests`** — which is in no routine suite mode and was never exercised today.
+
 ## Recent Fix Log — 2026-08-17 (later still) — About screen
 
 `xBill/Views/Profile/AboutView.swift` (new), reached from a single **About xBill** row at the
