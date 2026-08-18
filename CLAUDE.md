@@ -146,6 +146,27 @@ existed could not have helped — sequencing matters when the artifact is what i
 both build; `root.ssu.yaml` confirmed to carry all four utterances and the `xBill` synonym.
 **Device-verified by the user on all three surfaces — Shortcuts, Spotlight and Siri.**
 
+## Release status — v1.1 (2) APPROVED 2026-08-18
+
+v1.0 (1) approved 2026-08-11. **v1.1 (2) approved and Ready for Distribution 2026-08-18** — first
+pass, including the name/subtitle/keyword change, which was the part most likely to draw scrutiny.
+
+### Watch these now it is out
+- **Search re-indexing.** The metadata change is the point of this release. Give it **48–72h** from
+  going live before judging whether `xBill: Split Bills & Expenses` and the keyword set improved
+  discoverability. v1.0 was effectively unsearchable.
+- **The widget, from a public install.** `WIDGET-01/02` are verified in the archive and on a Debug
+  device build, but a store install is the only end-to-end proof.
+- **Crash reports for `CRASH-01`.** The trigger was never reproducible on demand, so absence of new
+  reports is the only signal available — it is weak evidence, not proof.
+- **Ratings.** At 0, both search ranking and conversion are suppressed. v1.1 adds two levers: the
+  StoreKit prompt after 3 settlements (Apple-capped at 3/user/year) and the uncapped "Rate xBill"
+  row in About.
+
+### Shipped in v1.1 but NOT yet exercised by real users
+`ASO-01` review prompt (needs 3 recorded settlements), and the App Intents work landed after
+submission — **App Intents ship in 1.2, not 1.1.**
+
 ## Release status — v1.1 (2) submitted for review 2026-08-17
 
 v1.0 (1) approved 2026-08-11 and live. **v1.1 (2) submitted 2026-08-17**, containing:
