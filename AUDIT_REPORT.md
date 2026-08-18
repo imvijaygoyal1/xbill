@@ -623,3 +623,25 @@ together, in that order.
 | **Status** | ✅ Fixed |
 | **Fix** | Attribution beside the live conversion and permanently in the Profile footer; URL centralised in `XBillURLs` and commented as a licence condition. Stale "1500 req/month" comment corrected — the endpoint has no quota, only IP rate limiting. |
 | **Verification** | Unit 329/329, UI 18/18. Wider licence audit found no other exposure: no bundled fonts, no third-party image assets, app icon is original art, all dependencies MIT/Apache-2.0. |
+
+## WIDGET-01 — Widget framework linked but never embedded (2026-08-17)
+
+| Field | Value |
+|---|---|
+| **ID** | WIDGET-01 |
+| **File** | `project.yml` |
+| **Issue** | `xBillWidgetCore.framework` was a dependency of the widget target only, so nothing embedded it. `xBill.app` shipped with no `Frameworks/` directory; the extension died in dyld on every launch and iOS drew a blank placeholder. Broken since 2026-07-15, shipped in v1.0. |
+| **Status** | ✅ Fixed |
+| **Fix** | The **app** target now embeds `xBillWidgetCore` — an extension resolves frameworks via the host app's `Frameworks/`. |
+| **Verification** | Framework present and signed in the built bundle; device-confirmed the widget now renders. |
+
+## WIDGET-02 — Named colours unresolvable inside the extension (2026-08-17)
+
+| Field | Value |
+|---|---|
+| **ID** | WIDGET-02 |
+| **File** | `xBillWidgetCore/xBillBalanceWidget.swift`, `xBillWidget/Assets.xcassets` (new) |
+| **Issue** | `Color("MoneyPositive")` resolves against `Bundle.main` = the `.appex`, which had no `Assets.car`. Unresolvable colours render as clear, so the balance amount and header icon were drawn invisible. Introduced by defect fix L-43. |
+| **Status** | ✅ Fixed |
+| **Fix** | Widget target given its own asset catalog with copies of both colours; bundle-boundary constraint documented at the call site. |
+| **Verification** | `assetutil` confirms both colours compiled into the `.appex`; device-confirmed the amount and icon now render. |

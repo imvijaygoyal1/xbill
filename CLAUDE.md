@@ -93,6 +93,52 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-17 — WIDGET-01/02: the balance widget had never worked
+
+The widget shipped broken in v1.0 and in every build since the 2026-07-15 widget-core split. Two
+independent bundle-layout defects, neither reachable by any test in this project.
+
+### WIDGET-01 — the framework was linked but never embedded
+`xBillWidget` links `@rpath/xBillWidgetCore.framework/xBillWidgetCore`, and `project.yml` declared
+`xBillWidgetCore` as a dependency of **the widget**. That links it without embedding it anywhere,
+so `xBill.app` shipped with **no `Frameworks/` directory at all**. dyld could not resolve the
+framework and the extension died on launch; iOS renders a blank placeholder for a crashed widget,
+which is why this presented as "no data" and then as a black box rather than as a crash.
+
+An extension resolves frameworks through `@executable_path/../../Frameworks` — the **host app's**
+Frameworks directory. So the *app* must embed it, even though the app itself never uses it. Fixed
+by adding `- target: xBillWidgetCore` / `embed: true` to the **app** target.
+
+### WIDGET-02 — asset catalogs do not cross a bundle boundary
+With the extension finally running, it drew "xBill" and "Owed to you" but no icon and no amount.
+`Color("MoneyPositive")` resolves against `Bundle.main`, which for an app extension is the
+**`.appex`** — and the `.appex` had no `Assets.car`. An unresolvable `Color(_:)` renders as
+**clear**, so the two elements that used it were drawn invisible. The widget was holding correct
+data and painting it in nothing.
+
+**This was introduced by defect fix `L-43`**, which replaced hardcoded RGB with named colours —
+correct in the app, silently broken in an extension. Fixed by giving the widget target its own
+`Assets.xcassets` containing copies of `MoneyPositive`/`MoneyNegative`. ⚠️ If the app's values
+change, update the widget's copy; there is no shared source across a bundle boundary.
+
+### Key Pattern — widget tests cannot see the bundle
+`xBillWidgetTests` passed **7/7 throughout both defects** and still does. It links
+`xBillWidgetCore` directly into a test host and injects a `UserDefaults`, so it exercises provider
+logic while testing neither framework embedding nor asset resolution — exactly what was broken.
+**A widget is only verified by adding it to a real home screen.** Add that to the release runbook.
+
+Diagnosis order matters here: the App Group, entitlements, provisioning profiles, code signatures
+and the shared snapshot were all checked first and were all **correct** — the extension was never
+running long enough to use any of them. What redirected the investigation was the user reporting a
+"black box" rather than the "No data yet" text; that distinguishes a crashed extension from a
+rendered empty state. The earlier "No data yet" was the *gallery placeholder*, which WidgetKit
+draws without launching the provider.
+
+**Verification:** `Frameworks/xBillWidgetCore.framework` present and signed in the built bundle;
+`assetutil` confirms `MoneyPositive` and `MoneyNegative` are compiled into the `.appex`'s
+`Assets.car`. Widget tests 7/7, unit 329/329. **Device-confirmed by the user:** the widget renders
+the icon, "Owed to you" and `$0.00`, matching the Home tab's settled state.
+
 ## Recent Fix Log — 2026-08-16 — LIC-01: shipping exchange rates without the required attribution
 
 ### v1.0 shipped in breach of ExchangeRate-API's terms

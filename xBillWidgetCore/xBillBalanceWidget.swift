@@ -136,6 +136,17 @@ struct BalanceProvider: TimelineProvider {
 struct BalanceWidgetView: View {
     var entry: BalanceEntry
 
+    // WIDGET-02. These resolve against `Bundle.main`, which for an app extension is the
+    // **`.appex`**, not the host app. The colours therefore have to exist in the widget target's
+    // own asset catalog (`xBillWidget/Assets.xcassets`) — a copy of the app's values.
+    //
+    // Defect fix L-43 replaced hardcoded RGB here with these named colours. That is correct in the
+    // app and silently wrong in an extension: an unresolvable `Color(_:)` renders as clear, so the
+    // balance amount and the header icon were drawn **invisible**. The widget looked like it had
+    // no data while actually holding the right numbers.
+    //
+    // ⚠️ If the app's MoneyPositive/MoneyNegative values change, update
+    // `xBillWidget/Assets.xcassets` to match — an asset catalog does not cross a bundle boundary.
     private let positive = Color("MoneyPositive")
     private let negative = Color("MoneyNegative")
 

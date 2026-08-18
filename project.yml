@@ -51,6 +51,16 @@ targets:
         product: Supabase
       - target: xBillWidget
         embed: true
+      # WIDGET-01. The **app** must embed this, even though the app does not use it.
+      # `xBillWidget` links `@rpath/xBillWidgetCore.framework/xBillWidgetCore`, and an app
+      # extension resolves frameworks through `@executable_path/../../Frameworks` — i.e. the
+      # *host app's* Frameworks directory. Declaring it only as a dependency of the widget
+      # links it without embedding it anywhere, so the bundle shipped with no Frameworks
+      # directory at all and the extension died in dyld on every launch. iOS renders a blank
+      # placeholder for a crashed widget, which is why this read as "no data" rather than as
+      # a crash. Broken since the 2026-07-15 widget-core split and shipped in v1.0.
+      - target: xBillWidgetCore
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vijaygoyal.xbill
