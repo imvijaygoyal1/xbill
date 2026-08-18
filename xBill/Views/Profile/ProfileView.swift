@@ -62,6 +62,7 @@ struct ProfileView: View {
     @State private var selectedAvatar: UIImage? = nil
     @State private var showAvatarPicker = false
     @State private var showPrivacy = false
+    @State private var showAbout = false
     @State private var showTerms = false
     @State private var showMyQR = false
 
@@ -116,6 +117,7 @@ struct ProfileView: View {
                 }
             }
             .safariSheet(isPresented: $showPrivacy, url: XBillURLs.privacyPolicy)
+            .sheet(isPresented: $showAbout) { AboutView() }
             .sheet(isPresented: $showTerms) {
                 TermsOfServiceView()
             }
@@ -474,35 +476,21 @@ struct ProfileView: View {
     }
 
     private var footer: some View {
+        // One row instead of four stacked lines. Terms, Privacy, the required ExchangeRate-API
+        // credit and the version all moved into `AboutView`, which is the surface that owns
+        // provenance and credits. The attribution is still shown beside a live conversion in
+        // Add Expense, so it remains reachable without opening About.
         VStack(spacing: AppSpacing.sm) {
-            HStack(spacing: AppSpacing.md) {
-                Button("Terms of Service") { showTerms = true }
+            Button { showAbout = true } label: {
+                Text("About xBill")
                     .font(.appCaption)
                     .foregroundStyle(AppColors.textTertiary)
                     .underline()
-
-                Button("Privacy Policy") { showPrivacy = true }
-                    .font(.appCaption)
-                    .foregroundStyle(AppColors.textTertiary)
-                    .underline()
+                    .frame(maxWidth: .infinity, minHeight: AppSpacing.tapTarget)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-
-            // Required attribution for ExchangeRate-API's Open Access tier. Also shown beside a
-            // live conversion in Add Expense, but that only appears for a foreign-currency
-            // expense — a user who never converts would otherwise never see the credit, so the
-            // permanent one lives here.
-            Link(destination: XBillURLs.exchangeRateAttribution) {
-                Text("Rates By Exchange Rate API")
-                    .font(.appCaption)
-                    .foregroundStyle(AppColors.textTertiary)
-                    .underline()
-            }
-            .accessibilityIdentifier("xBill.profile.rateAttribution")
-
-            Text("xBill v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")")
-                .font(.appCaption)
-                .foregroundStyle(AppColors.textTertiary)
+            .accessibilityIdentifier("xBill.profile.aboutButton")
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, AppSpacing.md)

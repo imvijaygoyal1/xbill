@@ -15,6 +15,7 @@
 		0382A3B05FD435103A7599E5 /* GroupDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA937D31A0181F43B8747D40 /* GroupDetailView.swift */; };
 		04202A90634E03B867F34843 /* ReviewPromptPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46B1654DF24F1A01DAC8F085 /* ReviewPromptPolicyTests.swift */; };
 		0710E36826856521B9A4EF86 /* FriendService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED55048DF249C5268DC42F8 /* FriendService.swift */; };
+		094AFE76BD9FC4A6975A0EE7 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04DC71E9B1B911AD04B9D6DA /* AboutView.swift */; };
 		0A726A1D819C6155645F4A2D /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395C4D39C71AAE22F3D2CAA4 /* EmptyStateView.swift */; };
 		0ADB22C3506F27AB43A4F2AF /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 089113BCA5CC5EBB34974DD9 /* HapticManager.swift */; };
 		0B31A0B6E60030BE1F57B63B /* GroupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22D97081A17583A65576DEE /* GroupService.swift */; };
@@ -291,6 +292,7 @@
 		023CBAFE1DFA06C72477422C /* NotificationItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationItem.swift; sourceTree = "<group>"; };
 		037EF3CAE589806117411DD2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		03B23885DCEF8D3A2862BDCF /* GroupFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupFlowUITests.swift; sourceTree = "<group>"; };
+		04DC71E9B1B911AD04B9D6DA /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		055BF8DC467A086CE7181803 /* ExportShareItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportShareItem.swift; sourceTree = "<group>"; };
 		05B3640249525E36A9F52772 /* AddExpenseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddExpenseView.swift; sourceTree = "<group>"; };
 		07FD702DF905B1648AC99BA8 /* Comment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Comment.swift; sourceTree = "<group>"; };
@@ -483,7 +485,7 @@
 		F684542CE9913F0736FC5EC2 /* XBillFloatingAddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFloatingAddButton.swift; sourceTree = "<group>"; };
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
 		FA59435ADAF303865175315B /* VisionParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionParsingTests.swift; sourceTree = "<group>"; };
-		"TEMP_38058BE4-EB8F-4988-A4A3-C1DC4015A6F0" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_00C298CB-ABFD-4829-A377-EBA11E8F16E3" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -771,6 +773,7 @@
 		A9156620D1F75FFFF78F2FF0 /* Profile */ = {
 			isa = PBXGroup;
 			children = (
+				04DC71E9B1B911AD04B9D6DA /* AboutView.swift */,
 				827B9F08DC590412C3B32BDA /* MyQRCodeView.swift */,
 				B15941156CC3FE45D87BA4FD /* ProfileView.swift */,
 			);
@@ -950,10 +953,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_B1CEE162-C616-4DE4-8734-B56B177D647A" /* xBill */ = {
+		"TEMP_EF531B47-B52E-4DD5-B264-7B73E716F25A" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_38058BE4-EB8F-4988-A4A3-C1DC4015A6F0" /* Secrets.xcconfig */,
+				"TEMP_00C298CB-ABFD-4829-A377-EBA11E8F16E3" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1210,6 +1213,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				094AFE76BD9FC4A6975A0EE7 /* AboutView.swift in Sources */,
 				00A2504533911F143F2C4F9F /* ActivityItem.swift in Sources */,
 				0E54B8314135AEB7A15A6732 /* ActivityService.swift in Sources */,
 				812CFAA3B9BAAA85161FA26E /* ActivityView.swift in Sources */,
@@ -1421,7 +1425,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_38058BE4-EB8F-4988-A4A3-C1DC4015A6F0" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_00C298CB-ABFD-4829-A377-EBA11E8F16E3" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1630,7 +1634,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_38058BE4-EB8F-4988-A4A3-C1DC4015A6F0" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_00C298CB-ABFD-4829-A377-EBA11E8F16E3" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

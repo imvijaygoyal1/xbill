@@ -93,6 +93,38 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-17 (later still) — About screen
+
+`xBill/Views/Profile/AboutView.swift` (new), reached from a single **About xBill** row at the
+bottom of Profile.
+
+Built for three reasons, only one of which was branding:
+
+1. **Provenance** — "Made by Vijay Goyal", the tagline, and `Version 1.1 (2)`. The **build number**
+   is shown alongside the marketing version deliberately: a report citing only "1.1" cannot be
+   matched to a submission, and the two diverge across resubmissions. Support mail is pre-filled
+   with both.
+2. **The Profile footer had become a dumping ground** — Terms, Privacy, the required
+   ExchangeRate-API credit and the version were four stacked lines of tertiary text. Now one row.
+3. **There was no acknowledgements surface anywhere.** The app ships supabase-swift (MIT), Apple's
+   swift-crypto/asn1/http-types (Apache-2.0) and two Point-Free packages (MIT). None compel an
+   in-app notice, but this is the conventional home for them — and for the ExchangeRate-API credit,
+   which is a **licence condition** rather than a courtesy.
+
+**"Rate xBill" is placed above Contact Support on purpose.** It opens the App Store review composer
+(`?action=write-review`). Unlike `ReviewPromptService`'s StoreKit prompt, which Apple caps at three
+per user per year and may silently suppress, a link the user taps has no limit — and at 0 ratings,
+which suppresses both search ranking and conversion, it is the cheaper of the two levers. New
+constants `XBillURLs.appStore` / `.appStoreReview`.
+
+The ExchangeRate-API attribution is **still also shown beside a live conversion** in Add Expense.
+Burying a licence obligation one screen deep was the wrong trade, so it appears in both places.
+
+**Verification:** unit **329/329**. Debug build clean; installed on the physical device.
+**Gap worth knowing:** `scripts/run-coverage.sh regression-ui` runs only `RegressionUITests`.
+`OnboardingUITests` — which asserts `isHittable` on the auth screen's Terms/Privacy links, touched
+by the `TAP-01` contentShape work — is **not** part of either routine suite and was not run.
+
 ## Recent Fix Log — 2026-08-17 (later) — senior scan follow-ups (TAP-01b, MINOR-01)
 
 A pattern scan over the codebase, aimed at the defect classes this project has actually produced.
