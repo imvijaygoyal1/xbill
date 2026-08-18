@@ -253,6 +253,7 @@ struct FriendsView: View {
                         .font(.appIcon)
                         .foregroundStyle(AppColors.textSecondary)
                         .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                    .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Decline request from \(requester.displayName)")
@@ -264,6 +265,7 @@ struct FriendsView: View {
                         .font(.appIcon)
                         .foregroundStyle(AppColors.success)
                         .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                    .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Accept request from \(requester.displayName)")
@@ -497,6 +499,7 @@ struct FriendDetailView: View {
                             .font(.title3)
                             .foregroundStyle(AppColors.primary)
                             .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
+                        .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Friend actions")

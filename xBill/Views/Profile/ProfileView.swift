@@ -435,7 +435,7 @@ struct ProfileView: View {
     private func refreshNotificationStatus() async {
         notificationStatus = await NotificationService.shared.authorizationStatus()
         if notificationStatus == .denied {
-            try? await AuthService.shared.deleteDeviceTokens()
+            await AuthService.shared.deleteDeviceTokensReportingFailure()
         }
     }
 
@@ -459,7 +459,7 @@ struct ProfileView: View {
             loadNotificationPreferences()
             UIApplication.shared.registerForRemoteNotifications()
         } else {
-            try? await AuthService.shared.deleteDeviceTokens()
+            await AuthService.shared.deleteDeviceTokensReportingFailure()
         }
     }
 

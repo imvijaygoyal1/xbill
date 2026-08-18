@@ -645,3 +645,25 @@ together, in that order.
 | **Status** | ✅ Fixed |
 | **Fix** | Widget target given its own asset catalog with copies of both colours; bundle-boundary constraint documented at the call site. |
 | **Verification** | `assetutil` confirms both colours compiled into the `.appex`; device-confirmed the amount and icon now render. |
+
+## TAP-01b — Four further dead tap targets (2026-08-17)
+
+| Field | Value |
+|---|---|
+| **ID** | TAP-01b |
+| **File** | `xBill/Views/Friends/FriendsView.swift`, `xBill/DesignSystem/Components/XBillIconPickerGrid.swift` |
+| **Issue** | Friend-request accept/decline, friend-actions, and the icon-picker cell had hit regions smaller than their painted areas — the deferred remainder of TAP-01. Ships in v1.0. |
+| **Status** | ✅ Fixed |
+| **Fix** | Explicit `.contentShape(...)` on each. The other four deferred files were classified and are unaffected. |
+| **Verification** | Unit 329/329, UI 18/18. |
+
+## MINOR-01 — Silent APNs token-deletion failure (2026-08-17)
+
+| Field | Value |
+|---|---|
+| **ID** | MINOR-01 |
+| **File** | `xBill/Services/AuthService.swift`, `xBill/Views/Profile/ProfileView.swift`, `xBill/Views/Main/MainTabView.swift` |
+| **Issue** | `try? await deleteDeviceTokens()` at 4 sites, including when notification permission is found revoked. A failed delete leaves the server holding a token for a user who denied notifications, who then keeps receiving pushes. |
+| **Status** | ✅ Fixed |
+| **Fix** | `deleteDeviceTokensReportingFailure()` catches and logs via `Logger`; all 4 call sites use it. |
+| **Verification** | Unit 329/329, UI 18/18. |

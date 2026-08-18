@@ -160,6 +160,22 @@ final class AuthService {
             .execute()
     }
 
+    /// Fire-and-forget token cleanup that **reports** failure instead of swallowing it.
+    ///
+    /// Every caller is a cleanup path with no user action to offer — sign-out, or discovering
+    /// that notification permission has been revoked — so the previous `try?` looked harmless.
+    /// It is not: if the delete fails, the server keeps an APNs token for someone who has
+    /// explicitly denied notifications, and they keep receiving pushes. Silent by construction,
+    /// and privacy-adjacent. Log it so it is at least observable.
+    func deleteDeviceTokensReportingFailure() async {
+        do {
+            try await deleteDeviceTokens()
+        } catch {
+            Logger(subsystem: "com.vijaygoyal.xbill", category: "Auth")
+                .error("deleteDeviceTokens failed; a revoked device may still receive pushes: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     func deleteDeviceTokens() async throws {
         guard let userID = currentUserID else { return }
         try await supabase.table("device_tokens")

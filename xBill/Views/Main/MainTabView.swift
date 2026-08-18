@@ -100,7 +100,7 @@ struct MainTabView: View {
                 NotificationService.shared.enableDefaultPreferencesAfterPermissionIfNeeded()
                 UIApplication.shared.registerForRemoteNotifications()
             } else if status == .denied {
-                try? await AuthService.shared.deleteDeviceTokens()
+                await AuthService.shared.deleteDeviceTokensReportingFailure()
             } else if status == .notDetermined && !hasPromptedNotification {
                 showNotificationPrompt = true
             }
@@ -114,7 +114,7 @@ struct MainTabView: View {
                     NotificationService.shared.enableDefaultPreferencesAfterPermissionIfNeeded()
                     UIApplication.shared.registerForRemoteNotifications()
                 } else {
-                    try? await AuthService.shared.deleteDeviceTokens()
+                    await AuthService.shared.deleteDeviceTokensReportingFailure()
                 }
             } onSkip: {
                 hasPromptedNotification = true

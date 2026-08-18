@@ -28,6 +28,7 @@ struct XBillIconPickerGrid: View {
                         RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
                             .stroke(selectedIcon == icon ? AppColors.primary : AppColors.border, lineWidth: selectedIcon == icon ? 2 : 1)
                     )
+                    .contentShape(RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .frame(minWidth: AppSpacing.tapTarget, minHeight: AppSpacing.tapTarget)

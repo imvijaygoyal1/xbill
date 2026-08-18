@@ -93,6 +93,46 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-17 (later) — senior scan follow-ups (TAP-01b, MINOR-01)
+
+A pattern scan over the codebase, aimed at the defect classes this project has actually produced.
+Two fixes, and a note on what the method is worth.
+
+### TAP-01b — four more dead tap targets
+The eight files deferred from `TAP-01` were classified properly rather than left as "probably fine".
+**Four** are genuinely affected:
+
+- `FriendsView` **accept** and **decline** on a friend request — icon-only, so only the glyph
+  strokes were live. These are one-shot actions on a request the user can only answer once.
+- `FriendsView` friend-actions (`ellipsis.circle`) — same shape.
+- `XBillIconPickerGrid` cell — a 36pt glyph inside a 56pt frame, so the border ring was dead.
+
+The other four were checked and are fine — their labels fill their frames.
+
+### MINOR-01 — silent APNs token-deletion failure
+`try? await deleteDeviceTokens()` at four call sites, including the path taken when notification
+permission is found **revoked**. Every caller is a cleanup path with no user action to offer, which
+is why the `try?` looked harmless. It is not: a failed delete leaves the server holding an APNs
+token for someone who explicitly denied notifications, and they keep receiving pushes. Replaced
+with `AuthService.deleteDeviceTokensReportingFailure()`, which catches and logs — one place to
+change, with the reasoning next to the code rather than repeated at four call sites.
+
+### Checked and cleared (recorded so the next scan does not redo it)
+Force-unwraps — the one candidate (`balances[currency]!` in `FriendsView`) is safe: local `let`,
+key drawn from that dictionary's own `keys`. Supabase writes — every `delete`/`update` is guarded
+by `.select("id")` + `AffectedRowID`; the grep was the false positive, not the code. No remaining
+`ForEach($…)`. No non-cancellable timers. Money stays in `Decimal` (the `Double` uses are a chart
+axis and a slider). `nonisolated(unsafe)` uses are documented and sound. The widget has no other
+bundle-boundary assumptions beyond the two colours already fixed.
+
+### Key Pattern — what a scan like this is and is not worth
+It pattern-matches against **known** defect classes and finds more of the same. Note what it did
+*not* find: `CRASH-01`, `TAP-01`, `WIDGET-01` and `WIDGET-02` all came from a crash report or from
+the user operating the app. No grep would have surfaced any of them. Read a clean scan as "no new
+instances of known patterns", never as "no bugs".
+
+**Verification:** unit **329/329**, UI regression **18/18**, 0 failures / 0 skips. Debug build clean.
+
 ## Recent Fix Log — 2026-08-17 — WIDGET-01/02: the balance widget had never worked
 
 The widget shipped broken in v1.0 and in every build since the 2026-07-15 widget-core split. Two
