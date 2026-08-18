@@ -279,6 +279,17 @@ For a faster UI-only pass:
 scripts/run-coverage.sh regression-ui
 ```
 
+> ⚠️ **`regression-ui` runs `RegressionUITests` only.** `OnboardingUITests` — which covers the
+> signed-out auth screen and asserts its Terms/Privacy links are `isHittable` — is **not** in that
+> mode, so a change to auth or to a shared button component can regress it invisibly. Before a
+> submission use `scripts/run-coverage.sh full`, or run it explicitly:
+>
+> ```bash
+> xcodebuild test -project xBill.xcodeproj -scheme xBill \
+>   -destination 'id=DA97985A-F7CC-44F6-8281-9DD24C22B978' \
+>   -only-testing:xBillUITests/OnboardingUITests
+> ```
+
 Current `RegressionUITests` coverage:
 
 - `testAuthValidationRegression` — verifies signed-out email-auth validation, forgot-password sheet, create-account mode, and password mismatch messaging.
@@ -482,6 +493,52 @@ the transparency served no purpose. Fixed by compositing each icon onto its own 
 sampled from the midpoint of its top edge — `rgb(60, 52, 137)` for every icon here — then saving
 without an alpha channel. Do not flatten onto white by reflex: if the baked radius were ever
 *larger* than Apple's mask, white would show through at the corners.
+
+### Widget — verify the bundle, then verify it on a real home screen
+
+The widget is an **app extension**, and two things that are correct in the app are wrong in an
+extension. Both shipped broken in v1.0, and neither was catchable by `xBillWidgetTests` — which
+passed 7/7 throughout, because it links the framework directly into a test host and injects a
+`UserDefaults`, exercising provider logic while touching neither bundle layout nor asset resolution.
+
+Check the **archive**, not a Debug build:
+
+```bash
+A=$(find ~/Library/Developer/Xcode/Archives -name "*.xcarchive" -mtime -1 | head -1)
+APP="$A/Products/Applications/xBill.app"
+ls "$APP/Frameworks/"                                   # expect xBillWidgetCore.framework
+ls "$APP/PlugIns/xBillWidget.appex/Assets.car"          # must exist
+xcrun assetutil --info "$APP/PlugIns/xBillWidget.appex/Assets.car" \
+  | grep -E "MoneyPositive|MoneyNegative"               # both must be present
+```
+
+- **No `Frameworks/` directory** → `WIDGET-01`. The extension dies in dyld on launch and iOS draws a
+  **blank placeholder**, so it reads as "no data" rather than as a crash. `xBillWidgetCore` must be
+  embedded by the **app** target — an extension resolves frameworks via the host app's `Frameworks/`.
+- **No `Assets.car` in the `.appex`** → `WIDGET-02`. `Color("MoneyPositive")` resolves against
+  `Bundle.main`, which for an extension is the `.appex`. An unresolvable colour renders **clear**, so
+  the balance amount and icon are drawn invisible.
+
+**Then add the widget to a real home screen and confirm it shows a figure.** This cannot be
+delegated to a test. Note that "No data yet" in the widget *gallery* proves nothing — that is
+`placeholder(in:)`, which WidgetKit renders without ever launching the extension.
+
+### Third-party licences
+
+Nothing in a build, a test, or App Store validation flags a missing attribution.
+
+```bash
+grep -rn "open.er-api.com" --include="*.swift" xBill/              # any call requires attribution
+grep -rn "Rates By Exchange Rate API" --include="*.swift" xBill/   # must appear in the UI
+```
+
+- **ExchangeRate-API Open Access** permits commercial use **only with** a `Rates By Exchange Rate
+  API` backlink. v1.0 shipped without it (`LIC-01`). It currently appears beside a live conversion
+  in Add Expense **and** in the About screen; both must survive.
+- Dependencies are MIT / Apache-2.0 and compel no in-app notice, but are credited in About.
+- **SF Symbols are licensed for UI only** — not for an app icon, a logo, or marketing material.
+- Keep third-party trademarks (Venmo, PayPal) out of the ASO **keyword** field; naming them as plain
+  text for interoperability is fine.
 
 ### Privacy
 
