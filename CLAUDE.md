@@ -93,6 +93,52 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-19 (later) — SCAN-06: the column split was a guess about layout
+
+### A constant standing in for a measurement
+`parseWithHeuristics` split every row into name and price at a hardcoded `midX < 0.55`. Nothing on
+a receipt corresponds to that number, and it fails in **both** directions:
+
+- **Prices left of 0.55** fall into the *name* column. `leftText` is then non-empty, so `stripPrice`
+  never runs, and the item is named `"Coffee 3.50"` — the amount rendered twice on the review
+  screen, once as text.
+- **A name reaching past 0.55** falls into the *price* column, truncating the item to whatever sat
+  left of the line: `"Chicken Sandwich"` becomes `"Chicken"`.
+
+Both turn a correct OCR pass into a wrong review screen.
+
+### What replaced it
+`detectPriceColumnBoundary(rows:)` measures the boundary from the receipt's own geometry. The
+signal it exploits: **prices are right-aligned**, so the rightmost element of a two-column row is
+the price, and the left edge of where those elements sit is the column boundary.
+
+Three guards, each with a test proving it fires:
+
+| Guard | Why it exists |
+|---|---|
+| ≥ 2 samples | One two-column row is a coincidence, not a column. |
+| spread ≤ `0.30` | Right-alignment makes prices cluster tightly; a wide spread means something other than a price column was measured, so the result is discarded. |
+| floor `0.35` | A boundary in the middle would classify most of every row as price — not a layout that exists. |
+
+Metadata rows are excluded before measuring: a card or reference number parses as a decimal and
+would otherwise drag the boundary left across the whole receipt. A `0.08` margin absorbs the centre
+shift between a narrow and a wide amount — right-alignment fixes an amount's *right* edge, so
+`1234.56` sits measurably left of `9.99`.
+
+### Key Pattern — land the measurement before the call site to get a real RED
+The detector was committed with `parseWithHeuristics` still on `0.55`, and the suite run in that
+state. **Exactly the 2 behavioural tests failed while all 5 measurement tests passed** — which
+proves in one step that the new tests catch the old behaviour and that the measurement itself was
+already correct. Cheaper and stronger than mutating the code afterwards to check.
+
+**Verification:** unit **369/369**, 0 failed / 0 skipped
+(`TestResults/Coverage/2026.08.19_19-45-20-unit.xcresult`; suite confirmed present by name, not
+inferred from exit status). Debug build clean, installed and launched on the simulator.
+**Not verified — and not verifiable here:** whether this improves accuracy on real receipts. There
+is no corpus, so the effect size is unknown; what is established is that two specific layouts which
+previously parsed wrongly now parse correctly. Collecting 15–20 photographed receipts with known
+totals is the outstanding work that would turn this into a measurement.
+
 ## Recent Fix Log — 2026-08-19 — SCAN-05: receipt item assignment was per-item only
 
 ### The friction

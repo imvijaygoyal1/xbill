@@ -331,3 +331,139 @@ struct ReceiptScanQualityTests {
         #expect(copy.confidence == 0.31)
     }
 }
+
+// MARK: - SCAN-06: the name/price column split was a hardcoded x-position
+//
+// `parseWithHeuristics` split every row at a fixed `midX < 0.55`. A receipt does not know about
+// that number, and two ordinary layouts break against it in opposite directions:
+//
+//   • prices sitting **left** of 0.55 (a narrow receipt, or a wide crop) land in the *name*
+//     column, so the item name keeps the price text inside it;
+//   • an item name extending **past** 0.55 lands in the *price* column, so the name is truncated
+//     to whatever fell left of the line.
+//
+// Both produce a wrong review screen from a perfectly good OCR pass. The boundary is now measured
+// from the receipt's own geometry, because prices are right-aligned and therefore announce where
+// their column begins.
+
+@Suite("Receipt scanning — price column detection")
+@MainActor
+struct ReceiptColumnDetectionTests {
+
+    private var vision: VisionService { VisionService.shared }
+
+    /// Builds one row per (name, price) pair at the given x-positions, plus a merchant row on top.
+    /// `parseWithHeuristics` skips the first row as the merchant, so callers get exactly the item
+    /// rows they asked for.
+    private func rows(_ entries: [(name: String, nameX: CGFloat, price: String, priceX: CGFloat)])
+    -> [[OCRLine]] {
+        var out: [[OCRLine]] = [[OCRLine(text: "Cafe Luna", midX: 0.5, midY: 0.02, confidence: 0.99)]]
+        for (i, e) in entries.enumerated() {
+            let y = 0.1 + CGFloat(i) * 0.1
+            out.append([
+                OCRLine(text: e.name,  midX: e.nameX,  midY: y, confidence: 0.95),
+                OCRLine(text: e.price, midX: e.priceX, midY: y, confidence: 0.95)
+            ])
+        }
+        return out
+    }
+
+    // MARK: - The two failing layouts
+
+    /// Prices left of the old 0.55 constant. Under the fixed split the price fell into the name
+    /// column, `leftText` was non-empty so `stripPrice` never ran, and the item was named
+    /// "Coffee 3.50" — the amount rendered twice on the review screen, once as text.
+    @Test("A price column left of the old constant does not contaminate the item name")
+    func priceColumnLeftOfDefaultKeepsNameClean() {
+        let parsed = vision.parseWithHeuristics(rows: rows([
+            ("Coffee", 0.12, "3.50", 0.45),
+            ("Muffin", 0.12, "2.25", 0.45),
+            ("Juice",  0.12, "4.00", 0.45)
+        ]))
+        let names = parsed.receipt.items.map(\.name)
+        #expect(names.contains("Coffee"))
+        #expect(!names.contains { $0.contains("3.50") },
+                "The price must not survive inside the item name: \(names)")
+    }
+
+    /// The opposite direction: a name whose second word sits right of 0.55. Under the fixed split
+    /// "Sandwich" was classified as price-column text and the item was named just "Chicken".
+    @Test("A long name crossing the old constant is not truncated")
+    func longNameCrossingDefaultIsNotTruncated() {
+        let threeCol: [[OCRLine]] = [
+            [OCRLine(text: "Cafe Luna", midX: 0.5, midY: 0.02, confidence: 0.99)],
+            [OCRLine(text: "Chicken",  midX: 0.10, midY: 0.10, confidence: 0.95),
+             OCRLine(text: "Sandwich", midX: 0.60, midY: 0.10, confidence: 0.95),
+             OCRLine(text: "9.99",     midX: 0.90, midY: 0.10, confidence: 0.95)],
+            [OCRLine(text: "Fries", midX: 0.10, midY: 0.20, confidence: 0.95),
+             OCRLine(text: "3.00",  midX: 0.90, midY: 0.20, confidence: 0.95)],
+            [OCRLine(text: "Water", midX: 0.10, midY: 0.30, confidence: 0.95),
+             OCRLine(text: "2.00",  midX: 0.90, midY: 0.30, confidence: 0.95)]
+        ]
+        let parsed = vision.parseWithHeuristics(rows: threeCol)
+        #expect(parsed.receipt.items.map(\.name).contains("Chicken Sandwich"),
+                "Got \(parsed.receipt.items.map(\.name))")
+    }
+
+    // MARK: - The measurement itself
+
+    @Test("A right-aligned price column is detected left of its own centre")
+    func detectsRightAlignedColumn() {
+        let b = vision.detectPriceColumnBoundary(rows: rows([
+            ("Coffee", 0.10, "3.50", 0.90),
+            ("Muffin", 0.10, "2.25", 0.90),
+            ("Juice",  0.10, "4.00", 0.90)
+        ]))
+        #expect(b < 0.90, "The boundary must sit left of the prices, else they classify as names")
+        #expect(b > 0.55, "A column at 0.90 must move the boundary right of the old constant")
+    }
+
+    /// One item row is not a column. With too little evidence the old constant is the safer answer
+    /// than a boundary inferred from a single sample.
+    @Test("Too few two-column rows falls back to the default boundary")
+    func fallsBackWhenEvidenceIsThin() {
+        let b = vision.detectPriceColumnBoundary(rows: rows([("Coffee", 0.10, "3.50", 0.90)]))
+        #expect(b == VisionService.defaultPriceColumnBoundary)
+    }
+
+    /// Prices are right-aligned, so their centres cluster within the width variation of an amount.
+    /// A wide spread means these rows are not one column and the measurement is not trustworthy.
+    @Test("A scattered set of candidates is rejected rather than averaged")
+    func wideSpreadIsRejected() {
+        let b = vision.detectPriceColumnBoundary(rows: rows([
+            ("Coffee", 0.10, "3.50", 0.40),
+            ("Muffin", 0.10, "2.25", 0.90),
+            ("Juice",  0.10, "4.00", 0.88)
+        ]))
+        #expect(b == VisionService.defaultPriceColumnBoundary)
+    }
+
+    /// A card line reads as a decimal and sits mid-width. Without the metadata filter it becomes
+    /// the leftmost "price" and drags the boundary left across the whole receipt.
+    @Test("A metadata row is not mistaken for the price column")
+    func metadataDoesNotMoveTheBoundary() {
+        let withCard: [[OCRLine]] = [
+            [OCRLine(text: "Cafe Luna", midX: 0.5, midY: 0.02, confidence: 0.99)],
+            [OCRLine(text: "VISA", midX: 0.10, midY: 0.10, confidence: 0.95),
+             OCRLine(text: "12.34", midX: 0.70, midY: 0.10, confidence: 0.95)],
+            [OCRLine(text: "Coffee", midX: 0.10, midY: 0.20, confidence: 0.95),
+             OCRLine(text: "3.50",   midX: 0.90, midY: 0.20, confidence: 0.95)],
+            [OCRLine(text: "Muffin", midX: 0.10, midY: 0.30, confidence: 0.95),
+             OCRLine(text: "2.25",   midX: 0.90, midY: 0.30, confidence: 0.95)]
+        ]
+        let b = vision.detectPriceColumnBoundary(rows: withCard)
+        #expect(b > 0.75, "The 0.70 card row must be excluded; got \(b)")
+    }
+
+    /// The floor. A detected column starting near the middle would classify most of the receipt as
+    /// price once the margin is applied, which is never a real layout.
+    @Test("The boundary never falls into the middle of the receipt")
+    func boundaryIsFloored() {
+        let b = vision.detectPriceColumnBoundary(rows: rows([
+            ("Coffee", 0.05, "3.50", 0.40),
+            ("Muffin", 0.05, "2.25", 0.40),
+            ("Juice",  0.05, "4.00", 0.40)
+        ]))
+        #expect(b == VisionService.priceColumnFloor)
+    }
+}

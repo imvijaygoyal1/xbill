@@ -372,6 +372,61 @@ final class VisionService {
 
     // MARK: - Spatial Grouping
 
+    // MARK: Price column detection (SCAN-06)
+    //
+    // The name/price split used to be a hardcoded `midX < 0.55`. A receipt knows nothing about
+    // that number, and it fails in both directions: a price column left of it contaminates the
+    // item name with the price text, and an item name reaching past it gets truncated.
+    //
+    // Prices are **right-aligned** on essentially every receipt, which is the signal exploited
+    // here: the rightmost element of a two-column row is the price, so the left edge of where
+    // those elements sit is the column boundary.
+
+    /// Used when the receipt's geometry gives no trustworthy measurement. This is the historical
+    /// constant, kept as the fallback rather than the rule.
+    static let defaultPriceColumnBoundary: CGFloat = 0.55
+
+    /// The boundary never moves further left than this. A price column beginning mid-receipt
+    /// would classify most of every row as price, which is not a layout that exists.
+    static let priceColumnFloor: CGFloat = 0.35
+
+    /// Right-alignment fixes the *right* edge of an amount, so its centre still shifts with the
+    /// number's width — `1234.56` sits measurably left of `9.99`. The boundary is pulled this far
+    /// left of the leftmost observed price so a long amount on one row is not misfiled as a name.
+    static let priceColumnMargin: CGFloat = 0.08
+
+    /// Above this spread the candidates are not one column, so the measurement is discarded.
+    /// Width variation between amounts is small; anything wider means something other than a
+    /// price column was measured.
+    static let priceColumnSpreadLimit: CGFloat = 0.30
+
+    /// Measures where the price column begins, in normalised image x.
+    ///
+    /// Only rows with at least two elements can teach anything — a single-element row has no
+    /// split to make. Metadata rows are excluded because a card or reference number parses as a
+    /// decimal and would drag the boundary left across the entire receipt.
+    func detectPriceColumnBoundary(rows: [[OCRLine]]) -> CGFloat {
+        let samples: [CGFloat] = rows.compactMap { row in
+            guard row.count >= 2 else { return nil }
+            let joined = row.map(\.text).joined(separator: " ").lowercased()
+            guard !isMetadata(joined) else { return nil }
+            // The rightmost element of a two-column row is the price — taking only that one is
+            // what keeps a number embedded in an item name from being read as a column position.
+            guard let rightmost = row.max(by: { $0.midX < $1.midX }),
+                  extractDecimal(from: rightmost.text) != nil else { return nil }
+            return rightmost.midX
+        }
+
+        // One sample is a coincidence, not a column.
+        guard samples.count >= 2, let low = samples.min(), let high = samples.max() else {
+            return Self.defaultPriceColumnBoundary
+        }
+        guard high - low <= Self.priceColumnSpreadLimit else {
+            return Self.defaultPriceColumnBoundary
+        }
+        return max(low - Self.priceColumnMargin, Self.priceColumnFloor)
+    }
+
     /// Groups OCR lines into visual rows by their Y coordinate.
     /// O(n log n) — sorts once then makes a single forward pass, assigning each line to an
     /// existing row whose anchor Y is within `threshold`, or opening a new row.
@@ -537,14 +592,18 @@ final class VisionService {
         else if allText.contains("¥") || allText.contains("￥") { currency = "JPY" }
         else if allText.contains("₩")                      { currency = "KRW" }
 
+        // SCAN-06: measured from this receipt's own geometry rather than assumed. Computed once
+        // for the whole receipt — the price column is a property of the layout, not of a row.
+        let columnBoundary = detectPriceColumnBoundary(rows: rows)
+
         for row in rows.dropFirst() {
             let fullText = row.map(\.text).joined(separator: " ")
             let lower    = fullText.lowercased()
 
             if isMetadata(lower) { continue }
 
-            let leftLines   = row.filter { $0.midX < 0.55 }
-            let rightLines  = row.filter { $0.midX >= 0.55 }
+            let leftLines   = row.filter { $0.midX < columnBoundary }
+            let rightLines  = row.filter { $0.midX >= columnBoundary }
             let leftText    = leftLines.map(\.text).joined(separator: " ")
             let rightText   = rightLines.map(\.text).joined(separator: " ")
             let priceSource = rightText.isEmpty ? fullText : rightText

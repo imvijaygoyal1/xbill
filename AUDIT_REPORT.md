@@ -690,6 +690,17 @@ together, in that order.
 | **Fix** | Magnitude cap removed. A substitution is applied only when **exactly one** closes the gap; ambiguity leaves the warning for the user. An interim `\|delta\| ≤ total` bound was tried, caught by a test as both wrong and unfireable, and removed. |
 | **Verification** | Unit 353/353 (6 new), UI 18/18. Mutation: reverting to first-match fails exactly `ambiguousCorrectionIsRefused`. |
 
+## SCAN-06 — The name/price column split was a hardcoded x-position (2026-08-19)
+
+| Field | Value |
+|---|---|
+| **ID** | SCAN-06 |
+| **File** | `xBill/Services/VisionService.swift` |
+| **Issue** | `parseWithHeuristics` split every row into name/price at a fixed `midX < 0.55`. A receipt knows nothing about that constant and it fails in both directions: prices sitting **left** of 0.55 land in the name column, so `leftText` is non-empty, `stripPrice` never runs, and the item is named `"Coffee 3.50"`; an item name reaching **past** 0.55 lands in the price column, so the name truncates to whatever fell left of it (`"Chicken Sandwich"` → `"Chicken"`). Both produce a wrong review screen from a correct OCR pass. |
+| **Status** | ✅ Fixed |
+| **Fix** | `detectPriceColumnBoundary(rows:)` measures the boundary from the receipt's own geometry, exploiting the fact that prices are **right-aligned**: the rightmost element of each multi-element, non-metadata row is the price, and the left edge of that cluster is the boundary. Three guards, each proven to fire by a test: fewer than 2 samples → fall back to the old constant; spread > 0.30 → the candidates are not one column, discard; result floored at 0.35. A 0.08 margin absorbs the centre shift between a narrow and a wide amount under right-alignment. |
+| **Verification** | Unit **369/369**, 0 failed / 0 skipped. Mutation-tested by construction: the detector was landed with the call site still on `0.55`, and **exactly** the 2 behavioural tests failed while all 5 measurement tests passed. **Not measured on real receipts** — no corpus exists, so the real-world effect is unquantified. |
+
 ## SCAN-05 — Receipt assignment was per-item only (2026-08-19)
 
 | Field | Value |
