@@ -137,9 +137,11 @@ contract, and a second writer of neighbouring state (`startManually` setting `me
 `currentUserID`) is how the two drift apart silently.
 
 **Verification:** unit **362/362** (9 new: 7 for the bulk actions, 2 regressions for the device
-defect), UI regression **18/18**. Device-confirmed by the user that "Just me" now appears.
-**Not yet judged:** whether the bar earns its position above Merchant on a small screen — a design
-call, deliberately left open.
+defect), UI regression **18/18**. **Fully device-verified** by the user on the shipping build:
+Just me replaces rather than merges, Clear resets, the active state clears when a single row is
+changed, per-item chips and per-person totals still follow, and the bulk chips respond on their
+edges. Placement above Merchant reviewed and **accepted** — the alternatives considered were
+folding it into the section header or showing it only while items remain unassigned.
 
 ## Recent Fix Log — 2026-08-18 (later still) — SCAN-04: reconciliation refused the cases it existed for
 
