@@ -615,42 +615,73 @@ final class VisionService {
 
     // MARK: - Gap 7: Constraint-Solving Reconciliation
 
-    /// Attempts to fix a math mismatch by substituting alternate OCR price candidates.
-    /// Only tries when `|delta| ≤ $2.00` — larger gaps indicate a structural parse failure,
-    /// not a single-digit OCR misread. Returns `true` and mutates `candidates` on success.
+    /// Attempts to fix a maths mismatch by substituting alternate OCR price candidates.
+    ///
+    /// **The old `|delta| ≤ $2.00` cap was backwards.** Its stated reasoning — that a larger gap
+    /// means a structural parse failure rather than a digit misread — is the opposite of how OCR
+    /// errors behave: a single misread digit produces a *large* delta. `18.99`→`78.99` is $60, and
+    /// even `4.99`→`1.99` is $3, already outside the cap. Small deltas come from rounding or a
+    /// missed penny item, which alternates rarely fix. So the cap excluded exactly the cases this
+    /// function exists to repair.
+    ///
+    /// The cap was also not protecting against cost: this is a **single-substitution** search,
+    /// `O(items × alternates)`.
+    ///
+    /// What genuinely needs bounding is a *wrong* correction, and the guard for that is **not** a
+    /// magnitude limit. A first attempt here used `|delta| ≤ total` and was wrong twice over: it
+    /// rejected the very case above (a `78.99` misread against a true total of `21.99` is a $60
+    /// gap that legitimately exceeds the bill), and since `delta = total − itemsSum` such a bound
+    /// can never exceed `max(total, itemsSum)` anyway — it would have been a guard that never
+    /// fires. A unit test caught it.
+    ///
+    /// The real protection is **uniqueness**: a substitution is applied only when exactly one
+    /// closes the gap. If several different ones do, there is no evidence for choosing among them
+    /// — the old code silently took the first it found, and guessing writes a wrong price into
+    /// someone's split. Ambiguity now leaves the warning for the user to resolve. Coincidental
+    /// closure on a structurally broken parse is what uniqueness screens out.
     @discardableResult
     func reconcile(candidates: inout [ParsedItem],
                            total: Decimal, tax: Decimal, tip: Decimal) -> Bool {
         let itemsSum = candidates.reduce(Decimal.zero) { $0 + $1.item.totalPrice }
         let delta    = total - (itemsSum + tax + tip)
 
-        // Skip if delta is trivially small (already passes) or too large to be a digit error.
         // Use literal Decimal values — Decimal(string:) depends on locale and may return nil.
         let smallThreshold: Decimal = Decimal(2) / Decimal(100)   // 0.02
-        let largeThreshold: Decimal = Decimal(2)                   // 2.00
         let absDelta = delta < 0 ? -delta : delta
-        guard absDelta > smallThreshold,
-              absDelta <= largeThreshold else { return false }
 
+        // Already balanced, or there is no meaningful total to reconcile against.
+        guard absDelta > smallThreshold, total > .zero else { return false }
+
+        // Collect *every* substitution that closes the gap rather than taking the first.
+        var fixes: [(index: Int, price: Decimal)] = []
         for i in candidates.indices {
             let original = candidates[i].item
             for altPrice in candidates[i].candidatePrices {
-                let altTotal  = altPrice * Decimal(original.quantity)
-                // New delta if we swap this item's price
-                let newDelta  = delta + original.totalPrice - altTotal
-                var absNew    = newDelta < 0 ? -newDelta : newDelta
-                var rounded   = Decimal()
+                let altTotal = altPrice * Decimal(original.quantity)
+                let newDelta = delta + original.totalPrice - altTotal
+                var absNew   = newDelta < 0 ? -newDelta : newDelta
+                var rounded  = Decimal()
                 NSDecimalRound(&rounded, &absNew, 2, .bankers)
                 if rounded <= smallThreshold {
-                    var corrected = ReceiptItem(id: original.id, name: original.name,
-                                               quantity: original.quantity, unitPrice: altPrice)
-                    corrected.assignedUserIDs = original.assignedUserIDs
-                    candidates[i].item = corrected
-                    return true
+                    fixes.append((i, altPrice))
                 }
             }
         }
-        return false
+
+        // Distinct proposals only: the same item offered the same price twice is still one answer.
+        var distinct: [(index: Int, price: Decimal)] = []
+        for fix in fixes where !distinct.contains(where: { $0.index == fix.index && $0.price == fix.price }) {
+            distinct.append(fix)
+        }
+        guard distinct.count == 1, let fix = distinct.first else { return false }
+
+        let original = candidates[fix.index].item
+        var corrected = ReceiptItem(id: original.id, name: original.name,
+                                    quantity: original.quantity, unitPrice: fix.price)
+        corrected.assignedUserIDs = original.assignedUserIDs
+        corrected.confidence      = original.confidence
+        candidates[fix.index].item = corrected
+        return true
     }
 
     // MARK: - Heuristic Helpers

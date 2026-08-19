@@ -678,3 +678,14 @@ together, in that order.
 | **Status** | ✅ Fixed |
 | **Fix** | Sign-aware extraction incl. trailing and Unicode minus, plus keyword detection; discounts flow through as negative items. `aggregateConfidence` uses the mean of the weakest half of line confidences. `ReceiptItem.confidence` drives a review-screen flag below 0.5. |
 | **Verification** | Unit 346/346, UI 18/18. Two mutants: discarding the sign fails 2 tests, restoring the constant fails 4. One test (`warningPenalises`) was found to pass against the constant and was strengthened. |
+
+## SCAN-04 — Reconciliation threshold excluded real OCR errors (2026-08-18)
+
+| Field | Value |
+|---|---|
+| **ID** | SCAN-04 |
+| **File** | `xBill/Services/VisionService.swift` |
+| **Issue** | `reconcile` only attempted a repair when `|delta| ≤ $2.00`. A single misread digit produces a *large* delta (`18.99`→`78.99` = $60), so the cap refused precisely the cases it existed to fix. It also took the **first** substitution that closed the gap, silently guessing when several were possible. |
+| **Status** | ✅ Fixed |
+| **Fix** | Magnitude cap removed. A substitution is applied only when **exactly one** closes the gap; ambiguity leaves the warning for the user. An interim `\|delta\| ≤ total` bound was tried, caught by a test as both wrong and unfireable, and removed. |
+| **Verification** | Unit 353/353 (6 new), UI 18/18. Mutation: reverting to first-match fails exactly `ambiguousCorrectionIsRefused`. |

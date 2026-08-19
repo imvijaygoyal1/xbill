@@ -120,6 +120,92 @@ struct ReceiptScanQualityTests {
         #expect(VisionService.aggregateConfidence([], hasWarning: false) == 0)
     }
 
+    // MARK: - SCAN-04: reconciliation bounds
+
+    private func parsed(_ name: String, _ price: String, alternates: [String] = []) -> ParsedItem {
+        ParsedItem(item: ReceiptItem(name: name, unitPrice: Decimal(string: price)!),
+                   candidatePrices: alternates.map { Decimal(string: $0)! })
+    }
+
+    /// The headline fix. A single misread digit — `18.99` read as `78.99` — is a **$60** gap, and
+    /// the old `|delta| ≤ $2.00` cap refused to look at exactly this case. It is the shape OCR
+    /// errors actually take.
+    @Test("A large delta from one misread digit is now corrected")
+    func largeDigitMisreadIsCorrected() {
+        var items = [parsed("Steak", "78.99", alternates: ["18.99"]),
+                     parsed("Water", "3.00")]
+        let fixed = vision.reconcile(candidates: &items,
+                                     total: Decimal(string: "21.99")!, tax: .zero, tip: .zero)
+
+        #expect(fixed, "A $60 delta from a digit misread must be repairable.")
+        #expect(items[0].item.unitPrice == Decimal(string: "18.99"))
+    }
+
+    /// The small-delta path must keep working — this is what the old cap did allow.
+    @Test("A small delta is still corrected")
+    func smallDeltaStillWorks() {
+        var items = [parsed("Coffee", "4.50", alternates: ["3.50"]),
+                     parsed("Cake", "5.00")]
+        #expect(vision.reconcile(candidates: &items,
+                                 total: Decimal(string: "8.50")!, tax: .zero, tip: .zero))
+        #expect(items[0].item.unitPrice == Decimal(string: "3.50"))
+    }
+
+    /// No alternate closes the gap, so nothing is applied. This replaced a test for a magnitude
+    /// bound that turned out to be both wrong and unfireable — see `reconcile`'s documentation.
+    @Test("When no alternate closes the gap, nothing is mutated")
+    func noViableAlternateLeavesItemsAlone() {
+        var items = [parsed("Item", "5.00", alternates: ["500.00"])]
+        let before = items[0].item.unitPrice
+        #expect(!vision.reconcile(candidates: &items,
+                                  total: Decimal(string: "10.00")!, tax: .zero, tip: .zero))
+        #expect(items[0].item.unitPrice == before, "Nothing may be mutated on refusal.")
+    }
+
+    /// A zero or unparsed total gives nothing to reconcile against.
+    @Test("A zero total is refused")
+    func zeroTotalRefused() {
+        var items = [parsed("Item", "5.00", alternates: ["4.00"])]
+        #expect(!vision.reconcile(candidates: &items, total: .zero, tax: .zero, tip: .zero))
+    }
+
+    /// The correctness guard the old code lacked: it took the **first** substitution that closed
+    /// the gap. When two different items could each explain it there is no evidence for choosing,
+    /// and guessing writes a wrong price into someone's split.
+    @Test("An ambiguous correction is refused rather than guessed")
+    func ambiguousCorrectionIsRefused() {
+        // Either item could drop by 1.00 to close a 1.00 gap — genuinely undecidable.
+        var items = [parsed("A", "5.00", alternates: ["4.00"]),
+                     parsed("B", "5.00", alternates: ["4.00"])]
+        let fixed = vision.reconcile(candidates: &items,
+                                     total: Decimal(string: "9.00")!, tax: .zero, tip: .zero)
+
+        #expect(!fixed, "Two equally valid corrections must not be guessed between.")
+        #expect(items[0].item.unitPrice == Decimal(string: "5.00"))
+        #expect(items[1].item.unitPrice == Decimal(string: "5.00"))
+    }
+
+    /// An already-balanced receipt must be left alone — otherwise reconciliation could "correct" a
+    /// correct receipt.
+    @Test("A balanced receipt is not touched")
+    func balancedReceiptUntouched() {
+        var items = [parsed("A", "5.00", alternates: ["4.00"])]
+        #expect(!vision.reconcile(candidates: &items,
+                                  total: Decimal(string: "5.00")!, tax: .zero, tip: .zero))
+        #expect(items[0].item.unitPrice == Decimal(string: "5.00"))
+    }
+
+    /// Tax and tip participate in the sum, so a correction has to account for them.
+    @Test("Tax and tip are included in the reconciliation maths")
+    func taxAndTipCounted() {
+        var items = [parsed("Meal", "40.00", alternates: ["20.00"])]
+        #expect(vision.reconcile(candidates: &items,
+                                 total: Decimal(string: "25.00")!,
+                                 tax: Decimal(string: "2.00")!,
+                                 tip: Decimal(string: "3.00")!))
+        #expect(items[0].item.unitPrice == Decimal(string: "20.00"))
+    }
+
     // MARK: - SCAN-03: per-item confidence
 
     /// Defaults to certain, so the Tier 1 (LLM) path and hand-added items are never flagged —

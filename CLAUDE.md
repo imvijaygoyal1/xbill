@@ -93,6 +93,42 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-18 (later still) — SCAN-04: reconciliation refused the cases it existed for
+
+### The threshold was inverted
+`reconcile` only attempted a repair when `|delta| ≤ $2.00`, on the stated reasoning that a larger
+gap meant a structural parse failure rather than a digit misread. That is the opposite of how OCR
+errors behave: **a single misread digit produces a large delta.** `18.99` read as `78.99` is a $60
+gap; even `4.99`→`1.99` is $3, already outside the cap. Small deltas come from rounding or a missed
+penny item, which alternate prices rarely fix. The cap excluded exactly the cases the function
+exists to repair, and admitted mostly the ones it cannot help.
+
+It was not protecting cost either — this is a **single-substitution** search, `O(items × alternates)`.
+
+### What replaced it, and a bound that was wrong twice over
+A first attempt used `|delta| ≤ total`. A test caught it failing the headline case: a `78.99`
+misread against a true total of `21.99` is a $60 gap that **legitimately exceeds the bill**.
+
+Worse on reflection: since `delta = total − itemsSum`, such a bound can never exceed
+`max(total, itemsSum)` — it would have been **a guard that never fires**, the same class of
+defect this codebase has repeatedly been bitten by. It was removed rather than adjusted.
+
+The real protection is **uniqueness**: a substitution is applied only when exactly one closes the
+gap. The old code took the **first** match it found, so with two plausible corrections it silently
+wrote one of them into the receipt — and a wrong price there flows straight into someone's split.
+Ambiguity now leaves the validation warning for the user to resolve. Uniqueness is also what
+screens out coincidental closure on a structurally broken parse, which is what the magnitude bound
+was reaching for and failing to achieve.
+
+### Key Pattern — prefer a guard that can fire
+Two guards were considered and rejected here for the same reason: they could not fail. Before
+adding a bound, ask what input makes it trigger; if none plausibly does, it is documentation
+wearing a conditional. Mutation testing is the cheap check — removing the uniqueness guard fails
+`ambiguousCorrectionIsRefused` **and nothing else**, which is what a load-bearing guard looks like.
+
+**Verification:** unit **353/353** (6 new reconciliation tests), UI regression **18/18**.
+Mutation-tested: reverting to first-match fails exactly the ambiguity test.
+
 ## Recent Fix Log — 2026-08-18 (later) — receipt scanning: SCAN-01/02/03
 
 Three defects in the pure text→receipt layer, found by reading the pipeline rather than by a
