@@ -29,9 +29,15 @@ struct ReceiptReviewView: View {
                 }
             }
 
+            if !vm.members.isEmpty && !vm.items.isEmpty {
+                Section("Assign everything") {
+                    bulkAssignBar
+                }
+            }
+
             if vm.hasUnassignedItems {
                 Section {
-                    Label("Some items have no one assigned — tap member chips below each item.",
+                    Label("Some items have no one assigned — use Assign everything above, or the member chips on each item.",
                           systemImage: "person.fill.questionmark")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -153,6 +159,63 @@ struct ReceiptReviewView: View {
                 newItemPrice = ""
             }
         }
+    }
+
+    // MARK: - Receipt-level assignment
+
+    /// Every item previously had to be touched individually, so the most common outcome — everyone
+    /// shares everything — cost one tap per line. That is where people abandon the review screen
+    /// and fall back to splitting the total evenly, discarding the itemisation the scan produced.
+    private var bulkAssignBar: some View {
+        let everyone = vm.members.map(\.id)
+        let meOnly   = vm.currentUserID.map { [$0] } ?? []
+        let meIsMember = vm.currentUserID.map { id in vm.members.contains { $0.id == id } } ?? false
+
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: XBillSpacing.sm) {
+                bulkChip("Everyone", systemImage: "person.3.fill",
+                         isActive: vm.allItemsAssigned(to: everyone)) {
+                    vm.assignEveryoneToAllItems()
+                }
+                .accessibilityIdentifier("xBill.receiptReview.assignEveryone")
+
+                // Hidden rather than disabled when the current user is unknown or not a member of
+                // this group: an inert control invites taps that do nothing.
+                if meIsMember {
+                    bulkChip("Just me", systemImage: "person.fill",
+                             isActive: vm.allItemsAssigned(to: meOnly)) {
+                        vm.assignOnlyMeToAllItems()
+                    }
+                    .accessibilityIdentifier("xBill.receiptReview.assignJustMe")
+                }
+
+                bulkChip("Clear", systemImage: "xmark.circle", isActive: false) {
+                    vm.clearAllAssignments()
+                }
+                .accessibilityIdentifier("xBill.receiptReview.clearAssignments")
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func bulkChip(_ title: String, systemImage: String,
+                          isActive: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            HapticManager.selection()
+            action()
+        } label: {
+            Label(title, systemImage: systemImage)
+                .font(.appCaptionMedium)
+                .padding(.horizontal, XBillSpacing.md)
+                .frame(minHeight: AppSpacing.tapTarget)
+                .background(isActive ? Color.brandPrimary : Color(.systemGray5))
+                .foregroundStyle(isActive ? Color.white : Color.primary)
+                .clipShape(Capsule())
+                // TAP-01: the label does not fill the capsule, so without this only the text and
+                // glyph would be tappable.
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Confidence Header

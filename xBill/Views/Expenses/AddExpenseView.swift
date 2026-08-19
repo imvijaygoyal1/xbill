@@ -317,6 +317,7 @@ struct AddExpenseView: View {
                 ReceiptScanView(
                     vm: receiptVM,
                     members: members,
+                    currentUserID: currentUserID,
                     onConfirmed: { splits in
                         applyReceiptSplits(splits: splits)
                     }

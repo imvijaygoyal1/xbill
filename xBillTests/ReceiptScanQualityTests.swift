@@ -206,6 +206,114 @@ struct ReceiptScanQualityTests {
         #expect(items[0].item.unitPrice == Decimal(string: "20.00"))
     }
 
+    // MARK: - SCAN-05: receipt-level assignment
+
+    @MainActor
+    private func vmWithItems(members: Int = 3, meIsMember: Bool = true) -> (ReceiptViewModel, [UUID]) {
+        let vm = ReceiptViewModel()
+        let users = (0..<members).map {
+            User(id: UUID(), email: "u\($0)@x.com", displayName: "User \($0)",
+                 avatarURL: nil, createdAt: Date())
+        }
+        vm.members = users
+        vm.currentUserID = meIsMember ? users.first?.id : UUID()
+        vm.items = [ReceiptItem(name: "A", unitPrice: 5),
+                    ReceiptItem(name: "B", unitPrice: 6),
+                    ReceiptItem(name: "C", unitPrice: 7)]
+        return (vm, users.map(\.id))
+    }
+
+    /// The point of the feature: one action instead of one tap per line.
+    @Test("Assigning everyone covers every item at once")
+    func everyoneCoversAllItems() {
+        let (vm, ids) = vmWithItems()
+        vm.assignEveryoneToAllItems()
+        #expect(vm.items.allSatisfy { Set($0.assignedUserIDs) == Set(ids) })
+        #expect(!vm.hasUnassignedItems)
+    }
+
+    @Test("Just me assigns only the current user, to every item")
+    func justMeAssignsOnlySelf() {
+        let (vm, ids) = vmWithItems()
+        vm.assignOnlyMeToAllItems()
+        #expect(vm.items.allSatisfy { $0.assignedUserIDs == [ids[0]] })
+    }
+
+    /// Silently assigning someone who is not in the group would build a split that cannot be
+    /// saved, so this must do nothing rather than half-work.
+    @Test("Just me is a no-op when the current user is not a member")
+    func justMeNoOpForNonMember() {
+        let (vm, _) = vmWithItems(meIsMember: false)
+        vm.assignOnlyMeToAllItems()
+        #expect(vm.items.allSatisfy { $0.assignedUserIDs.isEmpty },
+                "A non-member must not be assigned to anything.")
+    }
+
+    @Test("Clear removes every assignment")
+    func clearRemovesAll() {
+        let (vm, _) = vmWithItems()
+        vm.assignEveryoneToAllItems()
+        vm.clearAllAssignments()
+        #expect(vm.items.allSatisfy { $0.assignedUserIDs.isEmpty })
+        #expect(vm.hasUnassignedItems)
+    }
+
+    /// Drives the active state on the chips. It must be exact, not "contains" — a receipt where
+    /// everyone *plus* extra assignments exist is not "Everyone".
+    @Test("allItemsAssigned is exact, and false when any row differs")
+    func allItemsAssignedIsExact() {
+        let (vm, ids) = vmWithItems()
+        vm.assignEveryoneToAllItems()
+        #expect(vm.allItemsAssigned(to: ids))
+
+        vm.assign(userID: ids[0], to: vm.items[1].id)   // remove one person from one row
+        #expect(!vm.allItemsAssigned(to: ids),
+                "One differing row must clear the active state.")
+    }
+
+    /// A bulk action **replaces** rather than merges, so switching from Everyone to Just me does
+    /// not leave the others attached.
+    @Test("A later bulk action replaces the earlier one")
+    func bulkActionsReplace() {
+        let (vm, ids) = vmWithItems()
+        vm.assignEveryoneToAllItems()
+        vm.assignOnlyMeToAllItems()
+        #expect(vm.items.allSatisfy { $0.assignedUserIDs == [ids[0]] })
+    }
+
+    /// Regression for the device-found defect: the review screen reached the manual path with
+    /// `members` populated but `currentUserID` nil, so "Just me" was hidden. `startManually` now
+    /// carries the user rather than relying on the view's `.onAppear` having fired first.
+    @Test("startManually carries the current user, not just the members")
+    func startManuallyCarriesCurrentUser() {
+        let vm = ReceiptViewModel()
+        let me = User(id: UUID(), email: "me@x.com", displayName: "Me",
+                      avatarURL: nil, createdAt: Date())
+        vm.startManually(members: [me], currentUserID: me.id)
+
+        #expect(vm.currentUserID == me.id)
+        #expect(vm.members.map(\.id) == [me.id])
+    }
+
+    /// Omitting it must not wipe a value already set by the view's `.onAppear` — the two paths
+    /// coexist deliberately, and the later one must not undo the earlier.
+    @Test("startManually without a user preserves one already set")
+    func startManuallyPreservesExistingUser() {
+        let vm = ReceiptViewModel()
+        let existing = UUID()
+        vm.currentUserID = existing
+        vm.startManually(members: [])
+
+        #expect(vm.currentUserID == existing, "A nil argument must not clear a known user.")
+    }
+
+    @Test("With no items, nothing claims to be assigned")
+    func emptyReceiptIsNotAssigned() {
+        let vm = ReceiptViewModel()
+        vm.members = []
+        #expect(!vm.allItemsAssigned(to: []))
+    }
+
     // MARK: - SCAN-03: per-item confidence
 
     /// Defaults to certain, so the Tier 1 (LLM) path and hand-added items are never flagged —

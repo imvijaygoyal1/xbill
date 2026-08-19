@@ -689,3 +689,14 @@ together, in that order.
 | **Status** | ✅ Fixed |
 | **Fix** | Magnitude cap removed. A substitution is applied only when **exactly one** closes the gap; ambiguity leaves the warning for the user. An interim `\|delta\| ≤ total` bound was tried, caught by a test as both wrong and unfireable, and removed. |
 | **Verification** | Unit 353/353 (6 new), UI 18/18. Mutation: reverting to first-match fails exactly `ambiguousCorrectionIsRefused`. |
+
+## SCAN-05 — Receipt assignment was per-item only (2026-08-19)
+
+| Field | Value |
+|---|---|
+| **ID** | SCAN-05, SCAN-05b |
+| **File** | `xBill/ViewModels/ReceiptViewModel.swift`, `xBill/Views/Expenses/ReceiptReviewView.swift`, `xBill/Views/Expenses/ReceiptScanView.swift`, `xBill/Views/Expenses/AddExpenseView.swift` |
+| **Issue** | (05) No receipt-level assignment: "everyone shares everything" cost one tap per line, so users abandoned the review screen and split the total evenly. (05b) On device "Just me" never appeared — `currentUserID` was nil while `members` was populated, because `members` had two writers and `currentUserID` only one. |
+| **Status** | ✅ Fixed |
+| **Fix** | `Everyone` / `Just me` / `Clear` bulk actions that replace rather than merge; `allItemsAssigned` exact-matches; "Just me" hidden for non-members. `startManually` now carries `currentUserID` instead of relying on `.onAppear`. |
+| **Verification** | Unit 362/362, UI 18/18, device-confirmed. Root cause of the original nil not established — the instrumentation postdated the failing build. |

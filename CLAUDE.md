@@ -93,6 +93,54 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-19 — SCAN-05: receipt item assignment was per-item only
+
+### The friction
+Assignment had an "All" chip and one chip per member **on every row**, and nothing that operated on
+the receipt. The most common real outcome — everyone shares everything — therefore cost one tap per
+line. On a 20-item receipt that is 20 taps, and it is where people abandon the review screen and
+split the total evenly instead, discarding the itemisation the scan just produced.
+
+Added an **Assign everything** section above the items: `Everyone`, `Just me`, `Clear`. Per-item
+chips are unchanged, so precise assignment still works — the bulk actions are a starting point, not
+a replacement.
+
+Three deliberate details:
+- **Bulk actions replace rather than merge**, so Everyone → Just me does not leave the others attached.
+- **`allItemsAssigned` is exact, not "contains"** — a partly-matching receipt must not light the chip.
+- **"Just me" is hidden, not disabled,** when the user is unknown or not a member of this group. An
+  inert control invites taps that do nothing, and silently assigning a non-member would build a
+  split that cannot be saved.
+
+`currentUserID` had to be plumbed `AddExpenseView` → `ReceiptScanView` → `ReceiptViewModel`; the
+receipt flow never knew who the user was.
+
+### SCAN-05b — the device found what the tests could not
+On device, "Everyone" worked and **"Just me" never appeared**. Two hypotheses were formed and both
+killed by evidence: the `is_active` filter on `activeMembers` (all three seeded members are active)
+and the placement of `.onAppear` (it is on the outermost view). Instrumentation settled it —
+`currentUserID=nil` while `memberCount=3`, i.e. members arrived and the user did not.
+
+`members` was set in **two** places (`.onAppear` *and* `startManually`); `currentUserID` in only
+one. `startManually` now carries it too, so state the review screen depends on no longer relies on
+a lifecycle callback having fired first.
+
+**Honest limit:** the `.onAppear` instrumentation only existed in the build that also carried the
+fix, and that build shows `.onAppear` firing correctly with the right UUID. So *why* it was nil
+beforehand is **not established** — two changes landed together. What is established: the value is
+now set in two independent places, neither `startManually` nor `scan(pages:)` clears it, and the
+camera path uses the same `.onAppear` that is now proven to fire.
+
+### Key Pattern — state a screen depends on must not hinge on a lifecycle callback
+If a view needs a value, pass it or set it at the point of use. `.onAppear` ordering is not a
+contract, and a second writer of neighbouring state (`startManually` setting `members` but not
+`currentUserID`) is how the two drift apart silently.
+
+**Verification:** unit **362/362** (9 new: 7 for the bulk actions, 2 regressions for the device
+defect), UI regression **18/18**. Device-confirmed by the user that "Just me" now appears.
+**Not yet judged:** whether the bar earns its position above Merchant on a small screen — a design
+call, deliberately left open.
+
 ## Recent Fix Log — 2026-08-18 (later still) — SCAN-04: reconciliation refused the cases it existed for
 
 ### The threshold was inverted

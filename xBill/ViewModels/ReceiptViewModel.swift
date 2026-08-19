@@ -28,6 +28,9 @@ final class ReceiptViewModel {
 
     var items:        [ReceiptItem] = []
     var members:      [User]        = []
+    /// Needed for the "Just me" bulk action. Optional because the receipt flow can be reached
+    /// before a user is resolved; the action is hidden rather than guessed at when it is nil.
+    var currentUserID: UUID?
 
     // Editable scan fields — populated after scan, user can correct before confirming
     var merchantName: String = ""
@@ -122,6 +125,44 @@ final class ReceiptViewModel {
         items[index].assignedUserIDs = allAssigned ? [] : allIDs
     }
 
+    // MARK: - Receipt-level assignment
+    //
+    // Assignment was per-item only: every row had an "All" chip and one chip per member, and
+    // nothing operated on the receipt. A 20-line receipt shared by everyone — the single most
+    // common case — cost 20 taps, one row at a time, which is where people abandon the review
+    // screen and just split the total evenly instead. These make the common cases one tap and
+    // leave the per-item chips for refinement.
+
+    /// True when every item already has exactly this set assigned — lets the UI show the action as
+    /// active, and makes a second tap meaningful rather than a no-op.
+    func allItemsAssigned(to userIDs: [UUID]) -> Bool {
+        guard !items.isEmpty, !userIDs.isEmpty else { return false }
+        let wanted = Set(userIDs)
+        return items.allSatisfy { Set($0.assignedUserIDs) == wanted }
+    }
+
+    /// Applies one assignment set to **every** item, replacing what was there.
+    func assignAllItems(to userIDs: [UUID]) {
+        for index in items.indices {
+            items[index].assignedUserIDs = userIDs
+        }
+    }
+
+    func assignEveryoneToAllItems() {
+        assignAllItems(to: members.map(\.id))
+    }
+
+    /// No-op when the current user is unknown or is not a member of this group — silently
+    /// assigning a non-member would produce a split that cannot be saved.
+    func assignOnlyMeToAllItems() {
+        guard let me = currentUserID, members.contains(where: { $0.id == me }) else { return }
+        assignAllItems(to: [me])
+    }
+
+    func clearAllAssignments() {
+        assignAllItems(to: [])
+    }
+
     // MARK: - Per-User Total
     // Tax + tip are split only among members who have ≥1 item assigned,
     // not across all group members.
@@ -183,8 +224,12 @@ final class ReceiptViewModel {
 
     // MARK: - Manual Entry
 
-    func startManually(members: [User] = []) {
+    func startManually(members: [User] = [], currentUserID: UUID? = nil) {
         self.members      = members
+        // Set here as well as in the view's `.onAppear`: the manual path reached the review screen
+        // with `members` populated but `currentUserID` nil, which hid the "Just me" action. State
+        // the review screen depends on must not rely on a lifecycle callback having fired first.
+        if let currentUserID { self.currentUserID = currentUserID }
         capturedPages     = []
         scannedReceipt    = Receipt(
             id: UUID(), expenseID: nil, imageURL: nil,

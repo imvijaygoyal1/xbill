@@ -66,6 +66,7 @@ private struct DocumentCameraView: UIViewControllerRepresentable {
 struct ReceiptScanView: View {
     @Bindable var vm: ReceiptViewModel
     var members: [User] = []
+    var currentUserID: UUID?
     var onConfirmed: (([SplitInput]) -> Void)? = nil
 
     @State private var showCamera      = false
@@ -169,7 +170,7 @@ struct ReceiptScanView: View {
                         .accessibilityIdentifier("xBill.receiptScan.photoButton")
 
                         Button {
-                            vm.startManually(members: members)
+                            vm.startManually(members: members, currentUserID: currentUserID)
                             showReview = true
                         } label: {
                             Label("Enter Manually", systemImage: "pencil")
@@ -221,7 +222,10 @@ struct ReceiptScanView: View {
                 Task { await vm.scan(pages: pages) }
             }
         }
-        .onAppear { vm.members = members }
+        .onAppear {
+            vm.members = members
+            vm.currentUserID = currentUserID
+        }
         .errorAlert(item: $vm.errorAlert)
     }
 }
