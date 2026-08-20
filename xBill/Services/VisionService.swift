@@ -886,7 +886,18 @@ final class VisionService {
     /// with no visible cause. Both a leading minus and the trailing-minus form some tills print
     /// (`2.00-`) are recognised, as is the Unicode minus `−` that OCR frequently returns for `-`.
     func extractDecimal(from string: String) -> Decimal? {
-        let pattern = #"([-−])?\s*[\$£€₹¥￥₩]?\s*(\d{1,6}[.,]\d{2})\s*([-−])?"#
+        // SCAN-09: the integer part is optional. Tills print sub-unit amounts without a leading
+        // zero — CVS bottle deposits read `.05` — and requiring a digit before the separator made
+        // them invisible, so those lines vanished from the receipt entirely.
+        //
+        // SCAN-10: two lookaheads keep a **rate** from being read as an amount.
+        //   (?!\d)    a third decimal digit means this is not money in any currency xBill
+        //             supports. Without it `8.875` yields `8.87`, and on `NY 8.875% TAX  .89`
+        //             that was the *only* thing on the line the old pattern could match —
+        //             SCAN-09 hid the real amount and SCAN-10 supplied a wrong one.
+        //   (?!\s*%)  a rate printed to exactly two decimals is indistinguishable by digit count;
+        //             only the percent sign gives it away. `7.00%` and `8.00 %` both occur.
+        let pattern = #"([-−])?\s*[\$£€₹¥￥₩]?\s*((?:\d{1,6})?[.,]\d{2})(?!\d)(?!\s*%)\s*([-−])?"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
         let range = NSRange(string.startIndex..., in: string)
         // M-12: use lastMatch so that on lines like "2x BURGER 4.99 9.98" we
@@ -894,7 +905,10 @@ final class VisionService {
         let matches = regex.matches(in: string, range: range)
         guard let match = matches.last,
               let capRange = Range(match.range(at: 2), in: string) else { return nil }
-        let raw = string[capRange].replacingOccurrences(of: ",", with: ".")
+        var raw = string[capRange].replacingOccurrences(of: ",", with: ".")
+        // `Decimal(string:)` accepts ".05", but only because of a leading-zero convention that is
+        // not worth depending on across locales — normalise it here instead.
+        if raw.hasPrefix(".") { raw = "0" + raw }
         guard let value = Decimal(string: raw) else { return nil }
 
         let leading  = Range(match.range(at: 1), in: string).map { String(string[$0]) }

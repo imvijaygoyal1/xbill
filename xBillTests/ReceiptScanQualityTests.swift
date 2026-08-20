@@ -541,3 +541,77 @@ struct ExposureVerdictTests {
         #expect(VisionService.exposureVerdict(meanLuminance: 0.70, brightFraction: 0.65, darkFraction: 0.20) == .acceptable)
     }
 }
+
+// MARK: - SCAN-09 / SCAN-10: two ways the price pattern read the wrong number
+//
+// Both found by the benchmark corpus, both in `extractDecimal`, both corrupting money.
+//
+// SCAN-09  An amount under a unit printed WITHOUT a leading zero — ".05" on CVS bottle deposits —
+//          was invisible, because the pattern required a digit before the separator.
+// SCAN-10  A PERCENTAGE RATE matched the price pattern. "NY 8.875% TAX  .89" yielded 8.87 as the
+//          tax, because 8.875 contains 8.87 and the real amount had no leading digit. Compounding
+//          with SCAN-09: the only thing on the line that parsed was the thing that was not money.
+
+@Suite("Receipt scanning — amounts the price pattern misread")
+@MainActor
+struct PricePatternTests {
+
+    private var vision: VisionService { VisionService.shared }
+
+    // MARK: - SCAN-09: no leading zero
+
+    @Test("An amount with no leading zero is read, not skipped")
+    func leadingZeroOptional() {
+        #expect(vision.extractDecimal(from: "BOTTLE DEPOSIT      .05F") == Decimal(string: "0.05"))
+        #expect(vision.extractDecimal(from: ".99") == Decimal(string: "0.99"))
+        #expect(vision.extractDecimal(from: "DISCOUNT -.50") == Decimal(string: "-0.50"))
+    }
+
+    // MARK: - SCAN-10: rates are not prices
+
+    /// The headline case. Before the fix this returned 8.87 — a tax of eight dollars eighty-seven
+    /// on a $12.66 basket, which then flows straight into everyone's share.
+    @Test("A rate does not become the amount")
+    func rateIsNotAnAmount() {
+        #expect(vision.extractDecimal(from: "NY 8.875% TAX      .89") == Decimal(string: "0.89"))
+        #expect(vision.extractDecimal(from: "8.875%") == nil)
+        #expect(vision.extractDecimal(from: "Tax 8.875%   0.42") == Decimal(string: "0.42"))
+    }
+
+    /// A rate printed with exactly two decimals is not distinguishable by digit count — only the
+    /// percent sign gives it away, with or without a space before it.
+    @Test("A two-decimal rate is rejected by its percent sign")
+    func twoDecimalRateRejected() {
+        #expect(vision.extractDecimal(from: "SALES TAX 7.00%    1.26") == Decimal(string: "1.26"))
+        #expect(vision.extractDecimal(from: "Tax 1 - 8.00 %") == nil)
+        #expect(vision.extractDecimal(from: "C:Taxable @7.000%   0.28") == Decimal(string: "0.28"))
+    }
+
+    // MARK: - Regressions
+
+    /// Product sizes carry one decimal place and must stay invisible, as they already were.
+    @Test("Single-decimal sizes are still not prices")
+    func sizesIgnored() {
+        #expect(vision.extractDecimal(from: "SMARTWATER 50.7") == nil)
+        #expect(vision.extractDecimal(from: "SIMPLY RASP LMNADE 11.5") == nil)
+    }
+
+    /// Everything SCAN-01 established must survive: signs, symbols, and rightmost-wins.
+    @Test("Ordinary prices, signs and rightmost-wins are unaffected")
+    func existingBehaviourPreserved() {
+        #expect(vision.extractDecimal(from: "COFFEE 3.50") == Decimal(string: "3.50"))
+        #expect(vision.extractDecimal(from: "VOUCHER -2.00") == Decimal(string: "-2.00"))
+        #expect(vision.extractDecimal(from: "REFUND 3.00-") == Decimal(string: "-3.00"))
+        #expect(vision.extractDecimal(from: "PROMO −4.25") == Decimal(string: "-4.25"))
+        #expect(vision.extractDecimal(from: "1 @ 3.99   3.99") == Decimal(string: "3.99"))
+        #expect(vision.extractDecimal(from: "Ninja Blast 18oz. Portabl  T  $69.99") == Decimal(string: "69.99"))
+    }
+
+    /// A three-decimal number is not money in any currency this app supports, and must not be
+    /// truncated into one.
+    @Test("A three-decimal number is not truncated into a price")
+    func threeDecimalsRejected() {
+        #expect(vision.extractDecimal(from: "7.000") == nil)
+        #expect(vision.extractDecimal(from: "RATE 1.2345") == nil)
+    }
+}

@@ -76,6 +76,11 @@ private struct Score {
     let priceRecall: Double
     /// Fraction of ground-truth item names recognisably present in a parsed item name.
     let nameRecall: Double
+
+    /// What the parser actually produced. A score says a receipt failed; only this says how, and
+    /// without it every follow-up fix is a guess. Kept short — name and line total per item.
+    let parsedItems: [String]
+    let expectedItems: [String]
 }
 
 private func normalise(_ s: String) -> String {
@@ -124,7 +129,9 @@ private func score(id: String, label: Label, result: ScanResult) -> Score {
         itemsExpected: label.items.count,
         itemsParsed: result.receipt.items.count,
         priceRecall: emptyExpected ? (cleanEmpty ? 1 : 0) : Double(priceHits) / n,
-        nameRecall:  emptyExpected ? (cleanEmpty ? 1 : 0) : Double(nameHits) / n
+        nameRecall:  emptyExpected ? (cleanEmpty ? 1 : 0) : Double(nameHits) / n,
+        parsedItems: result.receipt.items.map { "\($0.name)=\($0.totalPrice)" },
+        expectedItems: label.items.map { "\($0.name)=\($0.total)" }
     )
 }
 
@@ -192,6 +199,11 @@ private func report(_ scores: [Score]) -> String {
         out += "  A gap at or below zero means the confidence shown to the user carries no\n"
         out += "  information — or, if negative, actively misleads.\n"
     }
+    out += "\n" + rule + "\nPARSED vs EXPECTED\n" + rule + "\n"
+    for s in scores where s.failure == nil {
+        out += "\(s.id)  parsed  : " + (s.parsedItems.isEmpty ? "(none)" : s.parsedItems.joined(separator: " | ")) + "\n"
+        out += "    expected: " + (s.expectedItems.isEmpty ? "(none)" : s.expectedItems.joined(separator: " | ")) + "\n"
+    }
     return out
 }
 
@@ -243,7 +255,7 @@ struct ReceiptBenchmark {
                     totalExpected: label.totalDecimal, totalParsed: nil,
                     taxExpected: label.taxDecimal, taxParsed: nil,
                     itemsExpected: label.items.count, itemsParsed: 0,
-                    priceRecall: 0, nameRecall: 0))
+                    priceRecall: 0, nameRecall: 0, parsedItems: [], expectedItems: []))
             }
         }
 

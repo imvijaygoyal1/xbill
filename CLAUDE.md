@@ -160,6 +160,58 @@ Found only because the corpus contained a receipt of that kind — the unit test
 Corpus effect of the pair, over 22 receipts: **refusals 4 → 0**, price recall 29% → 43%, name
 recall 33% → 48%, tax 4/22 → 10/22.
 
+### SCAN-09 / SCAN-10 — two ways the price pattern read the wrong number
+Both in `extractDecimal`, both found by the corpus, both fixed:
+
+- **SCAN-09** — an amount under a unit printed **without a leading zero** (`.05`, CVS bottle
+  deposits) was invisible: the pattern required a digit before the separator. The integer part is
+  now optional and a leading `.` is normalised before `Decimal(string:)`.
+- **SCAN-10** — a **percentage rate** matched as an amount. `NY 8.875% TAX  .89` yielded `8.87`,
+  because `8.875` contains `8.87` while the real amount had no leading digit — the two defects
+  compounded, hiding the money and supplying a wrong number in its place. Two lookaheads now
+  apply: `(?!\d)` rejects a third decimal digit (not money in any currency xBill supports), and
+  `(?!\s*%)` rejects a two-decimal rate, which digit count alone cannot distinguish. `7.00%` and
+  `8.00 %` both occur in the corpus.
+
+Mutation-tested: reverting the pattern fails exactly the four defect tests while both regression
+tests (`existingBehaviourPreserved`, `sizesIgnored`) correctly still pass.
+
+**Honest result: the corpus aggregate did not move at all.** Byte-identical before and after —
+TOTAL 5/22, price recall 43%, name recall 48%. The fixes are correct in isolation and proven so,
+but on real OCR output they are masked by a defect further upstream, below.
+
+### SCAN-11 (OPEN, and the biggest one) — row grouping merges separate lines into one
+Adding a parsed-vs-expected dump to the benchmark showed why nothing downstream matters yet:
+
+```
+19  parsed  : SHARTURIER 1 BOTTLE DEPOSIT SHARIWATER 1 BOTTLE DEPOSIT Helped by:
+              HUNTER 1 FROPICANS APPLEDE 12 APPLE 122 50.7 50.7 = 3.79
+    expected: SIMPLY RASP LMNADE=2.49 | TROPICANA APPLE=2.49 | SMARTWATER=3.79 | ...
+21  parsed  : TI Chai Tea L Banana Nut Loaf = 3.95
+    expected: Tl Chai Tea L=4.75 | Banana Nut Loaf=3.95
+01  parsed  : (none)
+```
+
+**Six visual rows are being collapsed into one item.** `groupIntoRows` uses a fixed threshold of
+`0.025` in **normalised** Y — but normalised Y depends on how tall the receipt is and how many
+lines it holds. On a 1000×3000 till receipt, 0.025 is ~75px while line spacing is ~40–60px, so
+adjacent lines merge. On the digital receipts, which have generous spacing, grouping is correct —
+and those are precisely the ones scoring 100%.
+
+This is upstream of the column split (`SCAN-06`), the price pattern (`SCAN-09/10`) and the
+discount keywords: **if the rows are wrong, nothing after them can be right.** It is the single
+largest contributor to the corpus failure and should be fixed before anything else in the parser.
+
+Likely shape of the fix: derive the threshold from the **observed** line spacing — sort the midY
+values, take the median non-zero consecutive delta, and use a fraction of it — rather than
+assuming a constant fraction of image height.
+
+### Key Pattern — a benchmark that reports only scores cannot tell you what to fix
+Three fixes (`SCAN-06`, `SCAN-09`, `SCAN-10`) were correct, unit-tested, mutation-tested and moved
+the corpus by **zero**, because a defect upstream of all three was destroying their input. That was
+invisible until the report printed **parsed vs expected items** alongside the score. Add the dump
+before the next round of parser work, not after.
+
 ### Still open, found by the corpus and not yet fixed
 - **`.05` with no leading zero** (CVS bottle deposits) is invisible to the price pattern, which
   requires a digit before the separator. Two of six items lost on that receipt.
