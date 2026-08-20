@@ -485,15 +485,15 @@ struct ExposureVerdictTests {
     /// White text on a black background: low mean, but a real bright population.
     @Test("A dark-mode screenshot is accepted, not called too dark")
     func darkModeScreenshotAccepted() {
-        #expect(VisionService.exposureVerdict(meanLuminance: 0.08, brightFraction: 0.06) == .acceptable)
-        #expect(VisionService.exposureVerdict(meanLuminance: 0.04, brightFraction: 0.12) == .acceptable)
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.08, brightFraction: 0.06, darkFraction: 0.80) == .acceptable)
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.04, brightFraction: 0.12, darkFraction: 0.85) == .acceptable)
     }
 
     /// The case the floor exists for: everything crushed dark, nothing bright anywhere.
     @Test("An underexposed photograph is still rejected")
     func underexposedPhotoRejected() {
-        #expect(VisionService.exposureVerdict(meanLuminance: 0.08, brightFraction: 0.001) == .tooDark)
-        #expect(VisionService.exposureVerdict(meanLuminance: 0.02, brightFraction: 0.0) == .tooDark)
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.08, brightFraction: 0.001, darkFraction: 0.99) == .tooDark)
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.02, brightFraction: 0.0, darkFraction: 1.0) == .tooDark)
     }
 
     /// The bright-population test must be able to fail, or it is decoration: just below the
@@ -502,19 +502,42 @@ struct ExposureVerdictTests {
     func brightGuardCanFire() {
         let below = VisionService.brightFractionFloor - 0.001
         let above = VisionService.brightFractionFloor + 0.001
-        #expect(VisionService.exposureVerdict(meanLuminance: 0.05, brightFraction: below) == .tooDark)
-        #expect(VisionService.exposureVerdict(meanLuminance: 0.05, brightFraction: above) == .acceptable)
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.05, brightFraction: below, darkFraction: 0.9) == .tooDark)
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.05, brightFraction: above, darkFraction: 0.9) == .acceptable)
     }
 
     /// Glare is unaffected by this work and must stay rejected — including the perverse case of a
     /// blown-out image, which trivially has a large bright population.
-    @Test("Overexposure is still rejected regardless of bright population")
+    /// A blown-out frame: nothing dark survives, so there is no text left to read.
+    @Test("A genuinely blown-out frame is still rejected")
     func overexposedRejected() {
-        #expect(VisionService.exposureVerdict(meanLuminance: 0.95, brightFraction: 0.99) == .tooBright)
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.95, brightFraction: 0.99,
+                                              darkFraction: 0.001) == .tooBright)
+    }
+
+    /// SCAN-08, the mirror of the dark case. White thermal paper filling the viewfinder has a very
+    /// high mean — that is what a GOOD receipt photo looks like — but its printed text survives as
+    /// a real dark population. The airport Starbucks receipt was refused as "too bright" for
+    /// exactly this reason.
+    @Test("A well-lit white receipt is accepted, not called too bright")
+    func whitePaperAccepted() {
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.94, brightFraction: 0.9,
+                                              darkFraction: 0.06) == .acceptable)
+    }
+
+    /// The dark-population test must be able to fail, or it is decoration.
+    @Test("The dark-pixel guard can fire")
+    func darkGuardCanFire() {
+        let below = VisionService.darkFractionFloor - 0.001
+        let above = VisionService.darkFractionFloor + 0.001
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.95, brightFraction: 0.9,
+                                              darkFraction: below) == .tooBright)
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.95, brightFraction: 0.9,
+                                              darkFraction: above) == .acceptable)
     }
 
     @Test("An ordinary receipt photo is accepted")
     func normalAccepted() {
-        #expect(VisionService.exposureVerdict(meanLuminance: 0.70, brightFraction: 0.65) == .acceptable)
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.70, brightFraction: 0.65, darkFraction: 0.20) == .acceptable)
     }
 }

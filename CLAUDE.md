@@ -143,6 +143,36 @@ Uber now parses **perfectly** (total, tax, 3/3 items, 100% price and name); Chuk
 Burger both reach 2/2 items at 100%/100%. Digital receipts parse far better than photographed
 paper once they are allowed through — which is itself worth knowing.
 
+### SCAN-08 — and then it refused a well-lit white receipt as "too bright"
+Fixing the dark end surfaced its mirror immediately: the airport Starbucks receipt (18) was
+refused with *"Image is too bright — reduce glare or avoid direct flash."* It is a white thermal
+receipt, evenly lit, fully legible — **what a good receipt photo looks like.** Its mean luminance
+is high because the paper is white and the print is sparse.
+
+Identical defect, opposite end, and the same fix: **a high mean is only a problem if the other
+tone has been destroyed.** A blown-out frame has no dark pixels left; white paper still has its
+text. `exposureVerdict` now takes `darkFraction` as well, and `toneFractions` returns both in one
+pass over the sampled bitmap.
+
+Found only because the corpus contained a receipt of that kind — the unit tests written for
+`SCAN-07` all passed throughout, because they encoded the same blind spot the code had.
+
+Corpus effect of the pair, over 22 receipts: **refusals 4 → 0**, price recall 29% → 43%, name
+recall 33% → 48%, tax 4/22 → 10/22.
+
+### Still open, found by the corpus and not yet fixed
+- **`.05` with no leading zero** (CVS bottle deposits) is invisible to the price pattern, which
+  requires a digit before the separator. Two of six items lost on that receipt.
+- **A percentage rate matches the price pattern**: `NY 8.875% TAX  .89` yields tax `8.87`, because
+  `8.875` contains `8.87` and the real amount has no leading digit.
+- **A receipt with no TOTAL line** (18, Starbucks/HMSHost: only SUBTOTAL and AMOUNT PAID).
+- **Card slips with a handwritten total** (20, 22). Vision *did* read the pen on 20 and the total
+  is correct; 22 takes the printed 36.91 over the handwritten 40.00. Both invent items that do not
+  exist — a card slip itemises nothing.
+- **`CREDIT CARD AUTH $36.91`** hits the `credit` discount keyword with an amount attached, which
+  is how 22 gets a phantom negative item. The keyword was added by `SCAN-01`.
+- **Tax read as `-8.7`** on 21 (Starbucks) — sign inversion, not yet diagnosed.
+
 ### The confidence score is inverted
 **Mean confidence 0.83 when the total is wrong, 0.57 when right — gap −0.26.** Five receipts
 report 0.90–1.00 while extracting nothing correctly (Michaels: 1.00, zero items, no total).

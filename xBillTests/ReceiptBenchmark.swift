@@ -104,7 +104,12 @@ private func score(id: String, label: Label, result: ScanResult) -> Score {
         }
     }
 
+    // A card slip itemises nothing. The correct parse produces no items, so recall is 1.0 when
+    // the parser also produced none and 0.0 when it invented some — scoring it 0 either way
+    // would punish the pipeline for being right.
     let n = Double(label.items.count)
+    let emptyExpected = label.items.isEmpty
+    let cleanEmpty = emptyExpected && result.receipt.items.isEmpty
     return Score(
         id: id,
         failure: nil,
@@ -118,8 +123,8 @@ private func score(id: String, label: Label, result: ScanResult) -> Score {
         taxParsed: result.receipt.tax,
         itemsExpected: label.items.count,
         itemsParsed: result.receipt.items.count,
-        priceRecall: n == 0 ? 0 : Double(priceHits) / n,
-        nameRecall:  n == 0 ? 0 : Double(nameHits) / n
+        priceRecall: emptyExpected ? (cleanEmpty ? 1 : 0) : Double(priceHits) / n,
+        nameRecall:  emptyExpected ? (cleanEmpty ? 1 : 0) : Double(nameHits) / n
     )
 }
 

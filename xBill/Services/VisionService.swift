@@ -194,9 +194,10 @@ final class VisionService {
 
         // Exposure. SCAN-07: the mean alone is not enough — see `exposureVerdict`.
         if let luminance = averageLuminance(ciImage, context: context) {
-            let bright = brightPixelFraction(ciImage, context: context) ?? 0
+            let tones = toneFractions(ciImage, context: context)
             switch Self.exposureVerdict(meanLuminance: Double(luminance),
-                                        brightFraction: Double(bright)) {
+                                        brightFraction: Double(tones?.bright ?? 0),
+                                        darkFraction:   Double(tones?.dark   ?? 0)) {
             case .tooDark:
                 throw AppError.validationFailed("Image is too dark — move to better lighting and try again.")
             case .tooBright:
@@ -231,29 +232,45 @@ final class VisionService {
     /// White text occupies a small fraction of a screen, so this is deliberately low; an
     /// underexposed photograph of paper has essentially none.
     nonisolated static let brightFractionFloor: Double = 0.01
+    /// A pixel at or below this luminance counts as "dark".
+    nonisolated static let darkPixelThreshold: Float = 0.35
+    /// SCAN-08, the mirror of the above: the share of dark pixels that distinguishes white paper
+    /// from a blown-out frame. Printed text is a small fraction of a receipt's area, so this is
+    /// low too; a genuinely overexposed photograph has almost no dark pixels left.
+    nonisolated static let darkFractionFloor: Double = 0.01
 
     /// Decides exposure from two measurements rather than one.
     ///
-    /// The mean alone conflates two situations that need opposite answers: an **underexposed
-    /// photograph**, where nothing is legible and the user must retake it, and a **correctly
-    /// exposed inverted image** — a dark-mode receipt screenshot — which is perfectly legible and
-    /// is a normal way to hold a receipt. Both have a low mean. Only the second has a real
-    /// population of bright pixels, because its text is white.
+    /// The mean alone conflates two situations that need opposite answers, at **both** ends.
+    ///
+    /// Dark end: an **underexposed photograph**, where nothing is legible and the user must
+    /// retake it, versus a **correctly exposed inverted image** — a dark-mode receipt screenshot,
+    /// perfectly legible and a normal way to hold a receipt. Both have a low mean; only the
+    /// second has a real population of bright pixels, because its text is white.
+    ///
+    /// Bright end (SCAN-08): a **blown-out frame** versus **white thermal paper filling the
+    /// viewfinder**, which is what a good receipt photo looks like. Both have a high mean; only
+    /// the second still has dark pixels, because its text survived.
+    ///
+    /// In both directions the rule is the same: a high mean is only a problem if the *other*
+    /// tone has been destroyed.
     ///
     /// Pure and `nonisolated` — it reads no state, so callers need not hop to the main actor to
     /// ask a question about two numbers. `checkImageQuality` supplies the measurements.
-    nonisolated static func exposureVerdict(meanLuminance: Double, brightFraction: Double) -> ExposureVerdict {
-        if meanLuminance > brightMeanCeiling { return .tooBright }
-        if meanLuminance < darkMeanFloor && brightFraction < brightFractionFloor { return .tooDark }
+    nonisolated static func exposureVerdict(meanLuminance: Double,
+                                            brightFraction: Double,
+                                            darkFraction: Double) -> ExposureVerdict {
+        if meanLuminance > brightMeanCeiling && darkFraction  < darkFractionFloor   { return .tooBright }
+        if meanLuminance < darkMeanFloor     && brightFraction < brightFractionFloor { return .tooDark }
         return .acceptable
     }
 
-    /// Fraction of pixels at or above `brightPixelThreshold`.
+    /// Fractions of pixels at or above `brightPixelThreshold` and at or below `darkPixelThreshold`.
     ///
     /// Sampled at 256px rather than smaller: downscaling averages thin white strokes toward the
     /// background, and at 64px a page of dark-mode text loses its bright population entirely —
     /// which would reintroduce the very defect this measurement exists to prevent.
-    private func brightPixelFraction(_ image: CIImage, context: CIContext) -> Float? {
+    private func toneFractions(_ image: CIImage, context: CIContext) -> (bright: Float, dark: Float)? {
         let longest = max(image.extent.width, image.extent.height)
         guard longest > 0 else { return nil }
         let scale  = min(256.0 / longest, 1.0)
@@ -269,12 +286,15 @@ final class VisionService {
                        format: .RGBA8, colorSpace: CGColorSpaceCreateDeviceRGB())
 
         var brightCount = 0
+        var darkCount   = 0
         for i in stride(from: 0, to: buffer.count, by: 4) {
             let luma = (Float(buffer[i]) * 0.299 + Float(buffer[i + 1]) * 0.587
                         + Float(buffer[i + 2]) * 0.114) / 255.0
             if luma >= Self.brightPixelThreshold { brightCount += 1 }
+            if luma <= Self.darkPixelThreshold   { darkCount   += 1 }
         }
-        return Float(brightCount) / Float(w * h)
+        let total = Float(w * h)
+        return (Float(brightCount) / total, Float(darkCount) / total)
     }
 
     private func averageLuminance(_ image: CIImage, context: CIContext) -> Float? {
