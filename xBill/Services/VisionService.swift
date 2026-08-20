@@ -192,13 +192,17 @@ final class VisionService {
         let ciImage = CIImage(cgImage: cgImage)
         let context = VisionService.ciContext
 
-        // Exposure: < 12% → too dark; > 92% → glare/overexposed
+        // Exposure. SCAN-07: the mean alone is not enough — see `exposureVerdict`.
         if let luminance = averageLuminance(ciImage, context: context) {
-            if luminance < 0.12 {
+            let bright = brightPixelFraction(ciImage, context: context) ?? 0
+            switch Self.exposureVerdict(meanLuminance: Double(luminance),
+                                        brightFraction: Double(bright)) {
+            case .tooDark:
                 throw AppError.validationFailed("Image is too dark — move to better lighting and try again.")
-            }
-            if luminance > 0.92 {
+            case .tooBright:
                 throw AppError.validationFailed("Image is too bright — reduce glare or avoid direct flash.")
+            case .acceptable:
+                break
             }
         }
 
@@ -211,6 +215,66 @@ final class VisionService {
         if !hasTextRegions(cgImage: cgImage) {
             throw AppError.validationFailed("No text detected — make sure the receipt is clearly visible.")
         }
+    }
+
+    // MARK: - Exposure (SCAN-07)
+
+    enum ExposureVerdict: Equatable, Sendable { case acceptable, tooDark, tooBright }
+
+    /// Below this mean the image is a candidate for rejection — but only a candidate.
+    nonisolated static let darkMeanFloor: Double = 0.12
+    /// Above this mean it is glare, and no bright-population argument rescues it.
+    nonisolated static let brightMeanCeiling: Double = 0.92
+    /// A pixel at or above this luminance counts as "bright".
+    nonisolated static let brightPixelThreshold: Float = 0.5
+    /// The share of bright pixels that distinguishes light-on-dark content from underexposure.
+    /// White text occupies a small fraction of a screen, so this is deliberately low; an
+    /// underexposed photograph of paper has essentially none.
+    nonisolated static let brightFractionFloor: Double = 0.01
+
+    /// Decides exposure from two measurements rather than one.
+    ///
+    /// The mean alone conflates two situations that need opposite answers: an **underexposed
+    /// photograph**, where nothing is legible and the user must retake it, and a **correctly
+    /// exposed inverted image** — a dark-mode receipt screenshot — which is perfectly legible and
+    /// is a normal way to hold a receipt. Both have a low mean. Only the second has a real
+    /// population of bright pixels, because its text is white.
+    ///
+    /// Pure and `nonisolated` — it reads no state, so callers need not hop to the main actor to
+    /// ask a question about two numbers. `checkImageQuality` supplies the measurements.
+    nonisolated static func exposureVerdict(meanLuminance: Double, brightFraction: Double) -> ExposureVerdict {
+        if meanLuminance > brightMeanCeiling { return .tooBright }
+        if meanLuminance < darkMeanFloor && brightFraction < brightFractionFloor { return .tooDark }
+        return .acceptable
+    }
+
+    /// Fraction of pixels at or above `brightPixelThreshold`.
+    ///
+    /// Sampled at 256px rather than smaller: downscaling averages thin white strokes toward the
+    /// background, and at 64px a page of dark-mode text loses its bright population entirely —
+    /// which would reintroduce the very defect this measurement exists to prevent.
+    private func brightPixelFraction(_ image: CIImage, context: CIContext) -> Float? {
+        let longest = max(image.extent.width, image.extent.height)
+        guard longest > 0 else { return nil }
+        let scale  = min(256.0 / longest, 1.0)
+        let scaled = scale < 1.0
+            ? image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            : image
+
+        let w = max(Int(scaled.extent.width), 1)
+        let h = max(Int(scaled.extent.height), 1)
+        var buffer = [UInt8](repeating: 0, count: w * h * 4)
+        context.render(scaled, toBitmap: &buffer, rowBytes: w * 4,
+                       bounds: CGRect(x: 0, y: 0, width: w, height: h),
+                       format: .RGBA8, colorSpace: CGColorSpaceCreateDeviceRGB())
+
+        var brightCount = 0
+        for i in stride(from: 0, to: buffer.count, by: 4) {
+            let luma = (Float(buffer[i]) * 0.299 + Float(buffer[i + 1]) * 0.587
+                        + Float(buffer[i + 2]) * 0.114) / 255.0
+            if luma >= Self.brightPixelThreshold { brightCount += 1 }
+        }
+        return Float(brightCount) / Float(w * h)
     }
 
     private func averageLuminance(_ image: CIImage, context: CIContext) -> Float? {

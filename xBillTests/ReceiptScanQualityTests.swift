@@ -467,3 +467,54 @@ struct ReceiptColumnDetectionTests {
         #expect(b == VisionService.priceColumnFloor)
     }
 }
+
+// MARK: - SCAN-07: the exposure gate refused every dark-mode digital receipt
+//
+// `checkImageQuality` rejected anything whose MEAN luminance fell below a floor, with
+// "Image is too dark — move to better lighting and try again." A dark-mode receipt screenshot is
+// mostly black by design, so all three in the benchmark corpus were refused before OCR ran — and
+// the advice offered is meaningless for a screenshot of an email.
+//
+// Mean luminance alone cannot separate the two cases. What separates them is whether any
+// meaningful population of BRIGHT pixels exists: white text on black has one, an underexposed
+// photograph of paper does not.
+
+@Suite("Receipt scanning — exposure verdict")
+struct ExposureVerdictTests {
+
+    /// White text on a black background: low mean, but a real bright population.
+    @Test("A dark-mode screenshot is accepted, not called too dark")
+    func darkModeScreenshotAccepted() {
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.08, brightFraction: 0.06) == .acceptable)
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.04, brightFraction: 0.12) == .acceptable)
+    }
+
+    /// The case the floor exists for: everything crushed dark, nothing bright anywhere.
+    @Test("An underexposed photograph is still rejected")
+    func underexposedPhotoRejected() {
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.08, brightFraction: 0.001) == .tooDark)
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.02, brightFraction: 0.0) == .tooDark)
+    }
+
+    /// The bright-population test must be able to fail, or it is decoration: just below the
+    /// threshold, a dark image is still refused.
+    @Test("The bright-pixel guard can fire")
+    func brightGuardCanFire() {
+        let below = VisionService.brightFractionFloor - 0.001
+        let above = VisionService.brightFractionFloor + 0.001
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.05, brightFraction: below) == .tooDark)
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.05, brightFraction: above) == .acceptable)
+    }
+
+    /// Glare is unaffected by this work and must stay rejected — including the perverse case of a
+    /// blown-out image, which trivially has a large bright population.
+    @Test("Overexposure is still rejected regardless of bright population")
+    func overexposedRejected() {
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.95, brightFraction: 0.99) == .tooBright)
+    }
+
+    @Test("An ordinary receipt photo is accepted")
+    func normalAccepted() {
+        #expect(VisionService.exposureVerdict(meanLuminance: 0.70, brightFraction: 0.65) == .acceptable)
+    }
+}

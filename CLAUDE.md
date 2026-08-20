@@ -113,15 +113,35 @@ screenshots. Every label's items + tax + tip reconciles to its printed total.
 Every scanned receipt ran **Tier 2 heuristics** — Apple Intelligence is unavailable on the
 simulator — so this measures exactly the code `SCAN-01`…`SCAN-06` changed.
 
-### SCAN-07 — the quality gate refuses every dark-mode digital receipt
-`checkImageQuality` rejects images below a mean-luminance floor with *"Image is too dark — move to
-better lighting and try again."* A dark-mode receipt screenshot is **mostly black by design**, so
-all three were refused before OCR ran, and the advice offered is nonsense for a screenshot.
+### SCAN-07 — the quality gate refused every dark-mode digital receipt — FIXED
+`checkImageQuality` rejected anything below a mean-luminance floor with *"Image is too dark — move
+to better lighting and try again."* A dark-mode receipt screenshot is **mostly black by design**,
+so all three in the corpus were refused before OCR ran, and the advice offered is meaningless for
+a screenshot of an email. The check assumed its input was a photograph of paper; screenshotting an
+emailed receipt is a normal way to hold one, and xBill accepts photo-library input, so this was
+one tap away.
 
-The check assumes its input is a photograph of paper. It is not: an emailed or in-app receipt
-screenshotted on a phone in dark mode is a normal way to hold a receipt, and xBill accepts photo
-library input, so this is reachable in one tap. **Mean luminance cannot distinguish an
-underexposed photo from a correctly-exposed inverted one** — contrast and edge sharpness can.
+**The mean cannot separate the two cases.** An underexposed photograph and a correctly-exposed
+inverted image both have a low mean. Only the second has a real population of **bright** pixels,
+because its text is white. `exposureVerdict(meanLuminance:brightFraction:)` is a pure,
+`nonisolated` rule over those two measurements; `brightPixelFraction` samples at 256px because
+downscaling further averages thin white strokes into the background and would reintroduce the
+very defect it exists to prevent.
+
+Measured on the same 17 receipts, before → after:
+
+| | before | after |
+|---|---|---|
+| REFUSED | **3** | **0** |
+| TOTAL correct | 3/17 | 4/17 |
+| TAX correct | 4/17 | 7/17 |
+| Item count exact | 4/17 | 7/17 |
+| Price recall | 29% | **46%** |
+| Name recall | 33% | **51%** |
+
+Uber now parses **perfectly** (total, tax, 3/3 items, 100% price and name); Chuko Ramen and Essex
+Burger both reach 2/2 items at 100%/100%. Digital receipts parse far better than photographed
+paper once they are allowed through — which is itself worth knowing.
 
 ### The confidence score is inverted
 **Mean confidence 0.83 when the total is wrong, 0.57 when right — gap −0.26.** Five receipts
