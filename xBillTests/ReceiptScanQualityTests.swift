@@ -707,3 +707,112 @@ struct RowGroupingTests {
         #expect(vision.groupIntoRows([]).isEmpty)
     }
 }
+
+// MARK: - SCAN-12: phantom items
+//
+// Once SCAN-11 stopped merging rows, the failure mode inverted: the parser began finding MORE
+// items than exist. Price recall reached 79% while item-count-exact sat at 36%, and the whole gap
+// was over-production — payment, loyalty and summary lines that used to be swallowed into a merged
+// row are now clean rows that parse as items.
+//
+// This is the failure that costs money. A missing item is visible; a phantom `AMOUNT PAID` line
+// gets assigned to somebody and silently charged.
+//
+// Every rule below was derived by dumping the 35 phantoms the corpus actually produced and
+// reading them — NOT by inventing plausible keywords, which is how "credit" came to match
+// "CREDIT CARD PURCHASE" and turn a $13.80 payment into a −$13.80 discount.
+
+@Suite("Receipt scanning — phantom item suppression")
+@MainActor
+struct PhantomItemTests {
+
+    private var vision: VisionService { VisionService.shared }
+
+    // MARK: - Payment and summary lines
+
+    /// Real lines from the corpus, each of which became an item with a real price attached.
+    @Test("Payment and summary lines are metadata, not items")
+    func paymentAndSummaryLinesSuppressed() {
+        for line in ["**** balance                39.25",
+                     "amount due                  28.35",
+                     "amount paid                  4.90",
+                     "amount:  $9.99",
+                     "debit card              $  28.35",
+                     "credit                    $13.80",
+                     "credit card purchase      $13.80",
+                     "credit card auth          $36.91",
+                     "$36.91 | method: emv",
+                     "balanco due                 13.07",   // OCR of "Balance Due"
+                     "kroger savings           $   3.00",
+                     "annual card savings $61.00",
+                     "total coupons            $   0.30"] {
+            #expect(vision.isMetadata(line), "Should be suppressed: \(line)")
+        }
+    }
+
+    /// The other direction, and the reason `charge` is NOT a metadata keyword. Suppressing it
+    /// would have saved one phantom (`CHARGE 13.55` on CVS) at the cost of Bhavani's total and a
+    /// real Uber fee — measured, not guessed.
+    @Test("Lines containing 'charge' are not suppressed")
+    func chargeLinesSurvive() {
+        #expect(!vision.isMetadata("total charge:               67.08"))
+        #expect(!vision.isMetadata("cmh airport surcharge        4.00"))
+        #expect(!vision.isMetadata("service charge               4.50"))
+    }
+
+    @Test("Ordinary items are never suppressed")
+    func ordinaryItemsSurvive() {
+        for line in ["spicy miso ramen           28.96",
+                     "banana nut loaf             3.95",
+                     "kro vitamin d milk          3.19",
+                     "bottle deposit               .05",
+                     "employee benefits & retention fee   0.87"] {
+            #expect(!vision.isMetadata(line), "Must survive: \(line)")
+        }
+    }
+
+    // MARK: - Measurement-only rows
+
+    /// Weight and multiplier sub-lines carry a price but are not items — the item is the row
+    /// above or below. All of these appeared as phantoms.
+    @Test("A row with no real name is not an item")
+    func measurementRowsSuppressed() {
+        for name in ["2.42 (2.43) 1b @ 1.29 /1b",
+                     "1.47 1b @ $3.99/1b",
+                     "2.16 lb @ $4.49/lb",
+                     "2.31 (2.32) @ 0.49",
+                     "2 x  0.79",
+                     "0.79",
+                     "$3.00",
+                     "$0.30"] {
+            #expect(vision.isMeasurementOnly(name), "Should be suppressed: \(name)")
+        }
+    }
+
+    /// Short real names must survive — the rule keys on letter content, and three letters is a
+    /// legitimate item.
+    @Test("Real item names survive the measurement rule")
+    func realNamesSurviveMeasurementRule() {
+        for name in ["Tea", "Coke", "SNACKS", "Okra", "GRAPEFRUIT RIO",
+                     "LX POHA THK4LB", "Swad Moong Dal 4LB", "1 CHAI LATTE T"] {
+            #expect(!vision.isMeasurementOnly(name), "Must survive: \(name)")
+        }
+    }
+
+    // MARK: - The assumption the corpus overturned
+
+    /// SCAN-01 asserted that "plenty of receipts print a discount as a positive number under a
+    /// label", and gave `savings` and `credit` as discount words. Across 22 real receipts that is
+    /// false for exactly those two: every positive line they matched was a **summary** (Kroger's
+    /// savings totals) or a **payment** (CREDIT CARD PURCHASE), and negating it invented money.
+    /// The genuinely item-level words — discount, voucher, promo, off, rebate — produced no
+    /// phantoms and are kept.
+    @Test("Summary and payment vocabulary are no longer treated as discounts")
+    func summaryWordsAreNotDiscounts() {
+        #expect(!vision.isDiscountLine("kroger savings"))
+        #expect(!vision.isDiscountLine("credit card purchase"))
+        #expect(vision.isDiscountLine("staff discount"))
+        #expect(vision.isDiscountLine("loyalty voucher"))
+        #expect(vision.isDiscountLine("10% off"))
+    }
+}

@@ -211,18 +211,57 @@ separate `0.025 / pageCount` adjustment in `processScan` is gone.
 `SCAN-06`, `SCAN-09` and `SCAN-10` had each moved the corpus by **zero** while this defect stood.
 They are not worthless — they are the reason the numbers move now.
 
+### SCAN-12 — phantom items — FIXED (35 → 5)
+Once `SCAN-11` stopped merging rows, the failure mode inverted: the parser found **more** items
+than exist. Payment, loyalty and summary lines that used to be swallowed into a merged row became
+clean rows that parsed as items. This is the failure that costs money — a missing item is visible,
+a phantom `AMOUNT PAID` gets assigned to somebody and silently charged.
+
+**Every rule was derived from the 35 phantoms the corpus actually produced**, extracted by diffing
+parsed against expected and read one by one. Not from imagination — which is how `credit` came to
+match `CREDIT CARD PURCHASE` and turn a $13.80 payment into a −$13.80 discount.
+
+Three groups:
+
+1. **Metadata additions** — `due`, `balance`, `amount`, `tend`, `credit`, `debit`, `emv`,
+   `method:`, `savings`, `coupons`, `you saved`, `items sold`. `due` rather than `balance due`
+   because OCR returned *"Balanco Due"*, and the short word survives that.
+2. **`isMeasurementOnly`** — a row with an amount but fewer than three letters once unit tokens are
+   stripped is a weight or multiplier sub-line (`1.47 lb @ $3.99/lb`, `2 x 0.79`) or a bare figure
+   (`$3.00`), not an item. Units are stripped as **whole tokens**: substring matching ate `Tea`,
+   which contains `ea`.
+3. **`savings` and `credit` removed from `discountKeywords`.** `SCAN-01` asserted that "plenty of
+   receipts print a discount as a positive under a label". Across 22 real receipts that is false
+   for exactly those two words — every positive line they matched was a summary (Kroger's savings
+   totals, already reflected in item prices) or a payment. The item-level words (`discount`,
+   `voucher`, `promo`, `off`, `rebate`) produced **zero** phantoms and stay.
+
+**`charge` was tried and removed.** It suppressed one phantom (`CHARGE 13.55`) while destroying
+Bhavani's `Total Charge:` and Uber's `CMH Airport Surcharge` — measured, reverted, and now covered
+by a test asserting those three lines survive.
+
+| | before | after |
+|---|---|---|
+| **Phantom items** | **35** | **5** |
+| **Item count exact** | 8/22 (36%) | **14/22 (64%)** |
+| Name recall | 55% | **64%** |
+| TOTAL correct | 15/22 | 15/22 |
+| Price recall | 79% | 75% |
+
+**The price-recall dip is a deliberate trade.** Suppressing rows whose only name is a barcode or a
+quantity prefix (`195882990040 10.47`, `1 @ 3.99  3.99`) loses their amounts until split-row
+association exists. That is the right way round: an item named `195882990040` cannot be assigned to
+a person, which is the whole purpose, and the loss surfaces as an items-vs-total mismatch the user
+can see — whereas a phantom charge is invisible. **Visible incompleteness beats invisible
+fabrication.**
+
+### Key Pattern — derive suppression rules from observed failures, never from plausibility
+`discountKeywords` was written by imagining what a discount line looks like. Two of its eleven
+words were wrong in a way that invented money, and it took a corpus to find out. The replacement
+rules were read off 35 real phantoms. When a rule must decide what to *ignore*, the cost of a wrong
+guess is silent, so the evidence has to come first.
+
 ### What the corpus says to fix next
-The failure mode has **inverted**: the parser now finds too many items rather than too few.
-Kroger 16/10, ALDI 14/9, Kroger-11 8/2 — payment, loyalty and summary lines that were previously
-swallowed into a merged row are now separate rows that parse as items. Price recall is 79% while
-item-count-exact is only 36%, and that gap is entirely phantom items.
-
-Name recall (55%) lags price recall (79%) by the split-row layouts — name on one line, price on
-the next — which remain unmodelled.
-
-Confidence is still **not informative** (gap −0.04, from −0.18). Better, but it still carries no
-signal, for the reason recorded above: it measures OCR legibility, not parse correctness.
-
 ### Key Pattern — a benchmark that reports only scores cannot tell you what to fix
 Three fixes (`SCAN-06`, `SCAN-09`, `SCAN-10`) were correct, unit-tested, mutation-tested and moved
 the corpus by **zero**, because a defect upstream of all three was destroying their input. That was

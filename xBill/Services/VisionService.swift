@@ -751,6 +751,8 @@ final class VisionService {
                 var name = leftText.isEmpty ? stripPrice(from: fullText) : leftText
                 name = name.trimmingCharacters(in: .whitespacesAndNewlines)
                 if name.isEmpty || name.count < 2 { continue }
+                // SCAN-12: a weight/multiplier sub-line or a bare figure is not an item.
+                if isMeasurementOnly(name) { continue }
 
                 // A discount is always a single line worth its face value. Routing it through
                 // `parseQuantity` would divide a negative by a parsed quantity for no benefit —
@@ -867,12 +869,55 @@ final class VisionService {
 
     // MARK: - Heuristic Helpers
 
-    private func isMetadata(_ lower: String) -> Bool {
+    /// Lines that carry an amount but are not items.
+    ///
+    /// SCAN-12. Every term added here was taken from the 35 phantom items the benchmark corpus
+    /// actually produced, not from imagination — which is how `credit` previously came to match
+    /// `CREDIT CARD PURCHASE` and turn a $13.80 payment into a −$13.80 discount. Three groups:
+    ///
+    /// - **payment lines** — the transaction restated (`credit`, `debit`, `emv`, `tend`)
+    /// - **totals restated under another name** (`due`, `balance`, `amount`, `charge`). `due`
+    ///   rather than `balance due` deliberately: OCR returned *"Balanco Due"*, and matching the
+    ///   short word survives that. `charge` was tried and **removed**: it suppressed
+    ///   `Total Charge:` (Bhavani's total) and `CMH Airport Surcharge` (a real Uber fee) to save
+    ///   one phantom, so it cost more than it bought.
+    /// - **loyalty summaries** (`savings`, `coupons`, `you saved`) — these report money already
+    ///   reflected in the item prices, so counting them again double-counts the receipt.
+    func isMetadata(_ lower: String) -> Bool {
         let metaKeywords = ["thank you", "receipt #", "order #", "table", "server",
                             "cashier", "store #", "phone:", "www.", ".com",
                             "cash tend", "change", "visa", "mastercard", "amex",
-                            "points", "earned", "redeemed", "balance due"]
+                            "points", "earned", "redeemed",
+                            // SCAN-12 additions, all corpus-derived
+                            "due", "balance", "amount", "tend",
+                            "credit", "debit", "emv", "method:",
+                            "savings", "coupons", "you saved", "items sold"]
         return metaKeywords.contains { lower.contains($0) }
+    }
+
+    /// True when a row has an amount but no real name — a weight or multiplier sub-line
+    /// (`1.47 lb @ $3.99/lb`, `2 x 0.79`) or a bare figure (`$3.00`). The item those belong to is
+    /// the row above or below; parsing them as items each invents a charge.
+    ///
+    /// Keys on **letter content**, because that is what separates a name from a measurement.
+    /// Unit tokens are stripped first: `lb` reaches OCR as `1b` often enough that leaving it in
+    /// would let `1.47 1b @ 3.99/1b` pass as a two-letter name.
+    func isMeasurementOnly(_ name: String) -> Bool {
+        // Units are stripped only as WHOLE TOKENS. Substring matching ate real names: "Tea"
+        // contains "ea", leaving one letter and suppressing a legitimate item.
+        let lower = name.lowercased()
+        let unitPattern = #"\b(lbs?|1bs?|kgs?|oz|ml|ea|gms?)\b"#
+        let stripped: String
+        if let regex = try? NSRegularExpression(pattern: unitPattern) {
+            stripped = regex.stringByReplacingMatches(
+                in: lower, range: NSRange(lower.startIndex..., in: lower), withTemplate: " ")
+        } else {
+            stripped = lower
+        }
+        let letters = stripped.filter { $0.isLetter }
+        // Three letters is the shortest plausible item name ("Tea", "Egg"); below that the row is
+        // measurement, punctuation and digits.
+        return letters.count < 3
     }
 
     func parseQuantity(from text: String, totalPrice: Decimal) -> (Int, Decimal) {
@@ -957,9 +1002,14 @@ final class VisionService {
 
     /// Lines that reduce the bill rather than adding to it. Checked in addition to a parsed
     /// negative, because plenty of receipts print a discount as a positive number under a label.
+    /// SCAN-12 removed `savings` and `credit`. Across 22 real receipts every positive line those
+    /// two matched was a **summary** (Kroger's savings totals, already reflected in item prices)
+    /// or a **payment** (`CREDIT CARD PURCHASE`), and negating it invented money that was never
+    /// discounted. The item-level words below produced no phantoms and stay. Both removed terms
+    /// are now handled as metadata instead, which suppresses the row rather than flipping it.
     static let discountKeywords = [
-        "discount", "coupon", "voucher", "promo", "savings", "saved",
-        "off", "rebate", "credit", "refund", "adjustment"
+        "discount", "coupon", "voucher", "promo", "saved",
+        "off", "rebate", "refund", "adjustment"
     ]
 
     func isDiscountLine(_ lower: String) -> Bool {
