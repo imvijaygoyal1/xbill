@@ -180,31 +180,48 @@ tests (`existingBehaviourPreserved`, `sizesIgnored`) correctly still pass.
 TOTAL 5/22, price recall 43%, name recall 48%. The fixes are correct in isolation and proven so,
 but on real OCR output they are masked by a defect further upstream, below.
 
-### SCAN-11 (OPEN, and the biggest one) — row grouping merges separate lines into one
-Adding a parsed-vs-expected dump to the benchmark showed why nothing downstream matters yet:
+### SCAN-11 — row grouping merged separate lines into one — FIXED, and it unblocked everything
+`groupIntoRows` used a fixed threshold of `0.025` in **normalised** Y. Normalised Y depends on how
+tall the receipt is and how many lines it holds, so one constant meant different things on
+different receipts. On a 1000×3000 till slip it is ~75px while line spacing is ~40–60px, and
+adjacent lines fused — the CVS receipt collapsed **six visual rows into one item** whose name was
+six lines of text concatenated. Everything downstream operates on rows, so the column split
+(`SCAN-06`), the price pattern (`SCAN-09/10`) and the discount keywords were all working on rubble.
 
-```
-19  parsed  : SHARTURIER 1 BOTTLE DEPOSIT SHARIWATER 1 BOTTLE DEPOSIT Helped by:
-              HUNTER 1 FROPICANS APPLEDE 12 APPLE 122 50.7 50.7 = 3.79
-    expected: SIMPLY RASP LMNADE=2.49 | TROPICANA APPLE=2.49 | SMARTWATER=3.79 | ...
-21  parsed  : TI Chai Tea L Banana Nut Loaf = 3.95
-    expected: Tl Chai Tea L=4.75 | Banana Nut Loaf=3.95
-01  parsed  : (none)
-```
+**The fix is to measure rather than assume.** `OCRLine` now carries `height` — the normalised
+bounding-box height Vision already reports — and the threshold is `median(height) × 0.6`. Text
+height is what determines line spacing, so it is the only sound basis for deciding whether two
+observations share a row. Line spacing is reliably above one text height and intra-row jitter well
+below one, so 0.4–0.8 separates them; 0.6 sits mid-band rather than on an edge. `0.025` survives
+only as the fallback when input carries no geometry (hand-built lines, cached rows).
 
-**Six visual rows are being collapsed into one item.** `groupIntoRows` uses a fixed threshold of
-`0.025` in **normalised** Y — but normalised Y depends on how tall the receipt is and how many
-lines it holds. On a 1000×3000 till receipt, 0.025 is ~75px while line spacing is ~40–60px, so
-adjacent lines merge. On the digital receipts, which have generous spacing, grouping is correct —
-and those are precisely the ones scoring 100%.
+Multi-page stacking compresses Y by the page count, so heights are compressed with it; the
+separate `0.025 / pageCount` adjustment in `processScan` is gone.
 
-This is upstream of the column split (`SCAN-06`), the price pattern (`SCAN-09/10`) and the
-discount keywords: **if the rows are wrong, nothing after them can be right.** It is the single
-largest contributor to the corpus failure and should be fixed before anything else in the parser.
+**Corpus effect, 22 receipts:**
 
-Likely shape of the fix: derive the threshold from the **observed** line spacing — sort the midY
-values, take the median non-zero consecutive delta, and use a fraction of it — rather than
-assuming a constant fraction of image height.
+| | before | after |
+|---|---|---|
+| **TOTAL correct** | 5/22 (23%) | **15/22 (68%)** |
+| **TAX correct** | 10/22 (45%) | **17/22 (77%)** |
+| **Price recall** | 43% | **79%** |
+| Name recall | 48% | 55% |
+| Confidence gap | −0.18 | −0.04 |
+
+`SCAN-06`, `SCAN-09` and `SCAN-10` had each moved the corpus by **zero** while this defect stood.
+They are not worthless — they are the reason the numbers move now.
+
+### What the corpus says to fix next
+The failure mode has **inverted**: the parser now finds too many items rather than too few.
+Kroger 16/10, ALDI 14/9, Kroger-11 8/2 — payment, loyalty and summary lines that were previously
+swallowed into a merged row are now separate rows that parse as items. Price recall is 79% while
+item-count-exact is only 36%, and that gap is entirely phantom items.
+
+Name recall (55%) lags price recall (79%) by the split-row layouts — name on one line, price on
+the next — which remain unmodelled.
+
+Confidence is still **not informative** (gap −0.04, from −0.18). Better, but it still carries no
+signal, for the reason recorded above: it measures OCR legibility, not parse correctness.
 
 ### Key Pattern — a benchmark that reports only scores cannot tell you what to fix
 Three fixes (`SCAN-06`, `SCAN-09`, `SCAN-10`) were correct, unit-tested, mutation-tested and moved

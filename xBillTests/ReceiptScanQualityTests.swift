@@ -615,3 +615,95 @@ struct PricePatternTests {
         #expect(vision.extractDecimal(from: "RATE 1.2345") == nil)
     }
 }
+
+// MARK: - SCAN-11: row grouping merged separate lines into one
+//
+// `groupIntoRows` used a fixed threshold of 0.025 in NORMALISED Y. Normalised Y depends on how
+// tall the receipt is and how many lines it holds, so the constant means different things on
+// different receipts. On a 1000×3000 till slip it is ~75px while line spacing is ~40–60px, and
+// adjacent lines fused: the CVS receipt collapsed six visual rows into a single item whose name
+// was six lines of text concatenated. Everything downstream — column split, price pattern,
+// discount keywords — operates on rows, so all of it was working on rubble.
+//
+// The threshold now derives from the **text height** Vision reports, which is the thing that
+// actually determines line spacing.
+
+@Suite("Receipt scanning — adaptive row grouping")
+@MainActor
+struct RowGroupingTests {
+
+    private var vision: VisionService { VisionService.shared }
+
+    private func line(_ text: String, x: CGFloat, y: CGFloat, h: CGFloat) -> OCRLine {
+        OCRLine(text: text, midX: x, midY: y, height: h, confidence: 0.9)
+    }
+
+    /// The headline case. Rows 0.015 apart — closer than the old 0.025 constant — must stay
+    /// separate. Under the constant all three fused into one row.
+    @Test("Tightly spaced rows on a long receipt stay separate")
+    func tightRowsStaySeparate() {
+        let rows = vision.groupIntoRows([
+            line("SIMPLY RASP LMNADE", x: 0.2, y: 0.100, h: 0.006),
+            line("2.49",               x: 0.9, y: 0.100, h: 0.006),
+            line("TROPICANA APPLE",    x: 0.2, y: 0.115, h: 0.006),
+            line("2.49",               x: 0.9, y: 0.115, h: 0.006),
+            line("SMARTWATER",         x: 0.2, y: 0.130, h: 0.006),
+            line("3.79",               x: 0.9, y: 0.130, h: 0.006)
+        ])
+        #expect(rows.count == 3, "Expected 3 rows, got \(rows.count): \(rows.map { $0.map(\.text) })")
+        #expect(rows.allSatisfy { $0.count == 2 })
+    }
+
+    /// The other direction: elements of one row must not be split apart by an over-tight
+    /// threshold. Baseline jitter within a row is a fraction of the text height.
+    @Test("Elements of one row are still grouped together")
+    func oneRowStaysTogether() {
+        let rows = vision.groupIntoRows([
+            line("Karaage", x: 0.2, y: 0.2000, h: 0.010),
+            line("$14.00",  x: 0.9, y: 0.2012, h: 0.010)
+        ])
+        #expect(rows.count == 1)
+        #expect(rows.first?.count == 2)
+    }
+
+    /// Generously spaced digital receipts must keep working — they were the only ones scoring
+    /// 100% before this change and must not regress.
+    @Test("Widely spaced rows are unaffected")
+    func wideRowsUnaffected() {
+        let rows = vision.groupIntoRows([
+            line("Coke",         x: 0.2, y: 0.30, h: 0.02),
+            line("$4.99",        x: 0.9, y: 0.30, h: 0.02),
+            line("Veggie Royale",x: 0.2, y: 0.40, h: 0.02),
+            line("$14.99",       x: 0.9, y: 0.40, h: 0.02)
+        ])
+        #expect(rows.count == 2)
+    }
+
+    /// Heights are absent when a caller constructs lines without them, and from any cached or
+    /// synthesised input. The constant remains the fallback rather than a crash or a zero
+    /// threshold that would put every element in its own row.
+    @Test("Missing heights fall back to the fixed threshold")
+    func missingHeightsFallBack() {
+        let rows = vision.groupIntoRows([
+            OCRLine(text: "A", midX: 0.2, midY: 0.100, confidence: 0.9),
+            OCRLine(text: "B", midX: 0.9, midY: 0.100, confidence: 0.9),
+            OCRLine(text: "C", midX: 0.2, midY: 0.200, confidence: 0.9)
+        ])
+        #expect(rows.count == 2)
+    }
+
+    /// An explicit threshold still wins, so multi-page stacking can keep overriding it.
+    @Test("An explicit threshold overrides the derived one")
+    func explicitThresholdWins() {
+        let rows = vision.groupIntoRows([
+            line("A", x: 0.2, y: 0.100, h: 0.006),
+            line("B", x: 0.2, y: 0.115, h: 0.006)
+        ], threshold: 0.05)
+        #expect(rows.count == 1, "A deliberately loose threshold must still merge them")
+    }
+
+    @Test("Empty input is still empty")
+    func emptyInput() {
+        #expect(vision.groupIntoRows([]).isEmpty)
+    }
+}

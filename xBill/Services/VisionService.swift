@@ -17,13 +17,21 @@ struct OCRLine: Sendable {
     let text:       String
     let midX:       CGFloat   // 0 = left edge, 1 = right edge
     let midY:       CGFloat   // 0 = top of image, 1 = bottom (Y-flipped from Vision)
+    /// Normalised height of the observation's bounding box (SCAN-11).
+    ///
+    /// This is what determines line spacing, and therefore the only sound basis for deciding
+    /// whether two observations belong to the same visual row. `0` means unknown — lines built
+    /// by hand or restored from a cache carry no geometry — and callers fall back accordingly.
+    let height:     CGFloat
     let confidence: Float
     let alternates: [String]  // other OCR candidate strings for this observation (Gap 7)
 
-    init(text: String, midX: CGFloat, midY: CGFloat, confidence: Float, alternates: [String] = []) {
+    init(text: String, midX: CGFloat, midY: CGFloat, height: CGFloat = 0,
+         confidence: Float, alternates: [String] = []) {
         self.text       = text
         self.midX       = midX
         self.midY       = midY
+        self.height     = height
         self.confidence = confidence
         self.alternates = alternates
     }
@@ -112,14 +120,19 @@ final class VisionService {
                 OCRLine(text:       line.text,
                         midX:       line.midX,
                         midY:       (line.midY + offset) / pageCount,
+                        // Y is compressed by pageCount, so height must be too — otherwise the
+                        // threshold derived from it would be pageCount times too loose.
+                        height:     line.height / pageCount,
                         confidence: line.confidence,
                         alternates: line.alternates)   // preserve alternates for Gap 7
             }
         }
 
-        // Adjust spatial threshold proportionally to number of pages
-        let rowThreshold = CGFloat(0.025 / pageCount)
-        let rows         = groupIntoRows(allLines, threshold: rowThreshold)
+        // SCAN-11: no explicit threshold — `groupIntoRows` derives it from the observed text
+        // height, which is the thing that actually determines line spacing. Heights were already
+        // compressed by `pageCount` above, so multi-page stacking is handled without a separate
+        // adjustment here.
+        let rows    = groupIntoRows(allLines)
         let ocrText      = rows.map { $0.map(\.text).joined(separator: " ") }.joined(separator: "\n")
 
         let txDate       = extractTransactionDate(from: ocrText)
@@ -417,6 +430,7 @@ final class VisionService {
                         text:       best.string,
                         midX:       obs.boundingBox.midX,
                         midY:       1 - obs.boundingBox.midY,
+                        height:     obs.boundingBox.height,
                         confidence: best.confidence,
                         alternates: Array(alts)
                     )
@@ -516,7 +530,31 @@ final class VisionService {
     /// existing row whose anchor Y is within `threshold`, or opening a new row.
     /// This replaces the previous O(n²) implementation that re-scanned remaining lines for
     /// every anchor element.
-    func groupIntoRows(_ lines: [OCRLine], threshold: CGFloat = 0.025) -> [[OCRLine]] {
+    /// Fallback when the input carries no usable geometry. Historically this was the only
+    /// threshold, applied to every receipt regardless of shape — which is the SCAN-11 defect.
+    static let fixedRowThreshold: CGFloat = 0.025
+
+    /// Fraction of the median text height within which two observations count as the same row.
+    ///
+    /// Line spacing is reliably above one text height, and vertical jitter within a row is well
+    /// below one, so anything in roughly 0.4–0.8 separates them. 0.6 sits in the middle of that
+    /// band rather than on either edge.
+    static let rowHeightFactor: CGFloat = 0.6
+
+    /// Derives the row threshold from the observed text height, or returns `nil` when the input
+    /// carries none — lines built by hand, or restored from a cache, have no geometry.
+    func derivedRowThreshold(_ lines: [OCRLine]) -> CGFloat? {
+        let heights = lines.map(\.height).filter { $0 > 0 }.sorted()
+        guard !heights.isEmpty else { return nil }
+        let median = heights[heights.count / 2]
+        guard median > 0 else { return nil }
+        return median * Self.rowHeightFactor
+    }
+
+    /// - Parameter threshold: pass `nil` (the default) to derive it from the text height. An
+    ///   explicit value still wins, so callers that know better can say so.
+    func groupIntoRows(_ lines: [OCRLine], threshold: CGFloat? = nil) -> [[OCRLine]] {
+        let threshold = threshold ?? derivedRowThreshold(lines) ?? Self.fixedRowThreshold
         let sorted = lines.sorted { $0.midY < $1.midY }
         // `rowAnchors` holds the representative midY for each open row; index matches `rows`.
         var rowAnchors: [CGFloat] = []
