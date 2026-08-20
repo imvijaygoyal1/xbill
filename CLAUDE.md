@@ -93,6 +93,58 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-19 (latest) — the receipt scanner was measured for the first time
+
+### 25%
+`scripts/receipt-benchmark.sh` runs the shipped pipeline over a corpus of **12 photographed
+receipts with hand-written ground truth** (`xBillTests/ReceiptCorpus/`, git-ignored — real
+receipts carry card digits and addresses). First run:
+
+| Metric | Result |
+|---|---|
+| **TOTAL correct** | **3/12 (25%)** — 8 of the 12 return `nil`, i.e. no total found at all |
+| TAX correct | 3/12 (25%) |
+| Item count exact | 4/12 (33%) |
+| Price recall | 28% of ground-truth line amounts found |
+| Name recall | 39% of ground-truth item names survive |
+
+Every receipt ran **Tier 2 heuristics** — Apple Intelligence is unavailable on the simulator — so
+this measures exactly the code `SCAN-01`…`SCAN-06` changed.
+
+### The confidence score is inverted
+**Mean confidence is 0.85 when the total is wrong and 0.57 when it is right — a gap of −0.28.**
+Five receipts report 0.90–1.00 while extracting nothing correctly.
+
+`SCAN-02` replaced a constant with a number derived from `OCRLine.confidence`. The measurement
+says that number is **anti-correlated with being right**, which makes it worse than the constant it
+replaced: a constant is uninformative, this actively misleads. The cause is a design error, not a
+tuning problem — Vision's confidence measures **how legible the text was**, while every failure
+here is in **parsing the layout afterwards**. A crisp, well-lit receipt with a two-row item format
+scores 1.00 and yields nothing; a faded one with a simple format scores 0.57 and parses correctly.
+
+**Do not tune the weighting.** A quantity derived only from OCR legibility cannot express parse
+correctness. Either derive confidence from parse outcomes (does the arithmetic close, did every
+row yield a name and a price) or do not show a number at all.
+
+### The dominant structural failure
+**Four of twelve receipts put the item name on one row and its price on another** — Michaels,
+Bhavani (14 of 14 items), Burlington, and every weighted line on Patel Brothers. The parser has no
+concept of this, so it names the item after the price row's left text (`"1 @ 3.99"`) and discards
+the real name. That is most of the 61% name-recall shortfall.
+
+### Key Pattern — a benchmark is a gate on claims, not on builds
+The suite asserts **nothing** about accuracy: no threshold has been earned yet. It is excluded
+from `run-coverage.sh unit` with `-skip-testing`, and gated on the corpus being present rather
+than on an environment variable — env vars do not reliably reach a test process through
+`xcodebuild`, and the first attempt failed **closed and silent**, reporting a pass in 0.024s while
+measuring nothing. A gate that fails closed and green is worse than no gate.
+
+**Verification:** benchmark run 2026-08-20, report retained under
+`xBillTests/ReceiptCorpus/reports/`. Unit suite unaffected (benchmark excluded).
+**What this does not say:** nothing about Tier 1 (Apple Intelligence), which no simulator can
+exercise, and nothing about restaurant receipts — the corpus is 8 grocery + 4 retail, all USD,
+with no tip line anywhere.
+
 ## Recent Fix Log — 2026-08-19 (later) — SCAN-06: the column split was a guess about layout
 
 ### A constant standing in for a measurement

@@ -164,6 +164,9 @@ cleanup_on_exit() {
 case "${MODE}" in
   unit)
     XCODEBUILD_ARGS+=(-only-testing:xBillTests)
+    # The receipt benchmark is a measurement over the whole image corpus, not a gate.
+    # Excluded here explicitly so a routine unit run never pays for a Vision pass.
+    XCODEBUILD_ARGS+=(-skip-testing:xBillTests/ReceiptBenchmark)
     ;;
   widget)
     XCODEBUILD_ARGS+=(-only-testing:xBillWidgetTests)

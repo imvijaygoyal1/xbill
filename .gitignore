@@ -20,3 +20,7 @@ Pods/
 
 # Local tool state
 .wrangler/
+
+# Receipt benchmark corpus — real receipts carry card digits, loyalty IDs and
+# addresses. Local only; never committed. See CLAUDE.md, receipt corpus section.
+xBillTests/ReceiptCorpus/
