@@ -95,55 +95,69 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 
 ## Recent Fix Log — 2026-08-19 (latest) — the receipt scanner was measured for the first time
 
-### 25%
-`scripts/receipt-benchmark.sh` runs the shipped pipeline over a corpus of **12 photographed
-receipts with hand-written ground truth** (`xBillTests/ReceiptCorpus/`, git-ignored — real
-receipts carry card digits and addresses). First run:
+### 18%
+`scripts/receipt-benchmark.sh` runs the shipped pipeline over **17 receipts with hand-written
+ground truth** (`xBillTests/ReceiptCorpus/`, git-ignored — real receipts carry card digits and
+addresses). 12 photographed paper receipts, 5 restaurant/rideshare including 3 dark-mode digital
+screenshots. Every label's items + tax + tip reconciles to its printed total.
 
 | Metric | Result |
 |---|---|
-| **TOTAL correct** | **3/12 (25%)** — 8 of the 12 return `nil`, i.e. no total found at all |
-| TAX correct | 3/12 (25%) |
-| Item count exact | 4/12 (33%) |
-| Price recall | 28% of ground-truth line amounts found |
-| Name recall | 39% of ground-truth item names survive |
+| **TOTAL correct** | **3/17 (18%)** |
+| **REFUSED outright** | **3/17** — all three dark-mode screenshots |
+| TAX correct | 4/17 (24%) |
+| Item count exact | 4/17 (24%) |
+| Price recall | 29% |
+| Name recall | 33% |
 
-Every receipt ran **Tier 2 heuristics** — Apple Intelligence is unavailable on the simulator — so
-this measures exactly the code `SCAN-01`…`SCAN-06` changed.
+Every scanned receipt ran **Tier 2 heuristics** — Apple Intelligence is unavailable on the
+simulator — so this measures exactly the code `SCAN-01`…`SCAN-06` changed.
+
+### SCAN-07 — the quality gate refuses every dark-mode digital receipt
+`checkImageQuality` rejects images below a mean-luminance floor with *"Image is too dark — move to
+better lighting and try again."* A dark-mode receipt screenshot is **mostly black by design**, so
+all three were refused before OCR ran, and the advice offered is nonsense for a screenshot.
+
+The check assumes its input is a photograph of paper. It is not: an emailed or in-app receipt
+screenshotted on a phone in dark mode is a normal way to hold a receipt, and xBill accepts photo
+library input, so this is reachable in one tap. **Mean luminance cannot distinguish an
+underexposed photo from a correctly-exposed inverted one** — contrast and edge sharpness can.
 
 ### The confidence score is inverted
-**Mean confidence is 0.85 when the total is wrong and 0.57 when it is right — a gap of −0.28.**
-Five receipts report 0.90–1.00 while extracting nothing correctly.
+**Mean confidence 0.83 when the total is wrong, 0.57 when right — gap −0.26.** Five receipts
+report 0.90–1.00 while extracting nothing correctly (Michaels: 1.00, zero items, no total).
 
 `SCAN-02` replaced a constant with a number derived from `OCRLine.confidence`. The measurement
-says that number is **anti-correlated with being right**, which makes it worse than the constant it
-replaced: a constant is uninformative, this actively misleads. The cause is a design error, not a
-tuning problem — Vision's confidence measures **how legible the text was**, while every failure
-here is in **parsing the layout afterwards**. A crisp, well-lit receipt with a two-row item format
-scores 1.00 and yields nothing; a faded one with a simple format scores 0.57 and parses correctly.
+says it is **anti-correlated with being right**, making it worse than the constant it replaced: a
+constant is uninformative, this actively misleads. The cause is a design error, not tuning —
+Vision's confidence measures **how legible the text was**, while every failure here is in
+**parsing the layout afterwards**. Crisp receipt, unusual format → 1.00 and nothing. Faded
+receipt, simple format → 0.57 and correct.
 
-**Do not tune the weighting.** A quantity derived only from OCR legibility cannot express parse
-correctness. Either derive confidence from parse outcomes (does the arithmetic close, did every
-row yield a name and a price) or do not show a number at all.
+**Do not reweight it.** A quantity derived only from OCR legibility cannot express parse
+correctness. Derive it from parse outcomes (does the arithmetic close, did every row yield both a
+name and a price) or show no number at all.
 
 ### The dominant structural failure
-**Four of twelve receipts put the item name on one row and its price on another** — Michaels,
-Bhavani (14 of 14 items), Burlington, and every weighted line on Patel Brothers. The parser has no
-concept of this, so it names the item after the price row's left text (`"1 @ 3.99"`) and discards
-the real name. That is most of the 61% name-recall shortfall.
+**Item name on one row, price on another** — Michaels, Bhavani (14/14 items), Burlington, every
+weighted line on Patel Brothers, and `GO by Citizens` where a long name simply wrapped. The parser
+names the item after the price row's left text (`"1 @ 3.99"`) and discards the real name. That is
+most of the 67% name-recall shortfall, and it is a missing capability rather than a bug.
+
+### Key Pattern — a benchmark that drops what it cannot process reports a lie
+The first version `print`ed scan failures and omitted them from the table, so the three refusals
+vanished and the headline read 21% over 14 receipts instead of 18% over 17. A refused receipt is a
+**failure of the pipeline** and must occupy a row. Same shape as the gate below.
 
 ### Key Pattern — a benchmark is a gate on claims, not on builds
-The suite asserts **nothing** about accuracy: no threshold has been earned yet. It is excluded
-from `run-coverage.sh unit` with `-skip-testing`, and gated on the corpus being present rather
-than on an environment variable — env vars do not reliably reach a test process through
-`xcodebuild`, and the first attempt failed **closed and silent**, reporting a pass in 0.024s while
-measuring nothing. A gate that fails closed and green is worse than no gate.
+The suite asserts **nothing** about accuracy: no threshold has been earned. It is excluded from
+`run-coverage.sh unit` via `-skip-testing`, and gated on the corpus being present rather than on
+an environment variable — env vars do not reliably reach a test process through `xcodebuild`, and
+the first attempt failed **closed and green**, reporting a pass in 0.024s having measured nothing.
 
-**Verification:** benchmark run 2026-08-20, report retained under
-`xBillTests/ReceiptCorpus/reports/`. Unit suite unaffected (benchmark excluded).
-**What this does not say:** nothing about Tier 1 (Apple Intelligence), which no simulator can
-exercise, and nothing about restaurant receipts — the corpus is 8 grocery + 4 retail, all USD,
-with no tip line anywhere.
+**Verification:** benchmark run 2026-08-20, reports under `xBillTests/ReceiptCorpus/reports/`.
+Unit suite unaffected. **What this does not say:** nothing about Tier 1 (Apple Intelligence),
+which no simulator can exercise.
 
 ## Recent Fix Log — 2026-08-19 (later) — SCAN-06: the column split was a guess about layout
 

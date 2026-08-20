@@ -52,6 +52,9 @@ private struct Label: Decodable {
 
 private struct Score {
     let id: String
+    /// Non-nil when the scan threw. A receipt the pipeline REFUSES is a failure of the pipeline,
+    /// so it must occupy a row in the table — dropping it silently inflates every average.
+    var failure: String? = nil
     let merchant: String
     let tier: String
     let confidence: Double
@@ -104,6 +107,7 @@ private func score(id: String, label: Label, result: ScanResult) -> Score {
     let n = Double(label.items.count)
     return Score(
         id: id,
+        failure: nil,
         merchant: label.merchant ?? "—",
         tier: result.tier,
         confidence: result.confidence,
@@ -140,6 +144,10 @@ private func report(_ scores: [Score]) -> String {
     out += rule + "\n"
 
     for s in scores {
+        if let f = s.failure {
+            out += pad(s.id, 4) + pad(s.merchant, 22) + "REFUSED  " + f + "\n"
+            continue
+        }
         out += pad(s.id, 4)
              + pad(s.merchant, 22)
              + pad(s.tier, 12)
@@ -165,8 +173,13 @@ private func report(_ scores: [Score]) -> String {
     out += "Price recall      \(Int((avgPrice*100).rounded()))%   (ground-truth line amounts found)\n"
     out += "Name recall       \(Int((avgName*100).rounded()))%   (ground-truth item names surviving)\n"
 
-    let right = scores.filter(\.totalOK).map(\.confidence)
-    let wrong = scores.filter { !$0.totalOK }.map(\.confidence)
+    let scanned = scores.filter { $0.failure == nil }
+    let refused = scores.count - scanned.count
+    if refused > 0 {
+        out += "\nREFUSED           \(refused)/\(scores.count)   the pipeline threw and produced nothing\n"
+    }
+    let right = scanned.filter(\.totalOK).map(\.confidence)
+    let wrong = scanned.filter { !$0.totalOK }.map(\.confidence)
     if !right.isEmpty && !wrong.isEmpty {
         let r = right.reduce(0,+)/Double(right.count)
         let w = wrong.reduce(0,+)/Double(wrong.count)
@@ -219,7 +232,13 @@ struct ReceiptBenchmark {
                 let result = try await VisionService.shared.scanReceipt(from: image)
                 scores.append(score(id: id, label: label, result: result))
             } catch {
-                print("[benchmark] \(id): scan threw — \(error.localizedDescription)")
+                scores.append(Score(
+                    id: id, failure: error.localizedDescription,
+                    merchant: label.merchant ?? "—", tier: "—", confidence: 0, warning: nil,
+                    totalExpected: label.totalDecimal, totalParsed: nil,
+                    taxExpected: label.taxDecimal, taxParsed: nil,
+                    itemsExpected: label.items.count, itemsParsed: 0,
+                    priceRecall: 0, nameRecall: 0))
             }
         }
 
