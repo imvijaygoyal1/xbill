@@ -670,6 +670,31 @@ not.
 straight in the group: AASA file at `web/.well-known/`, the `associated-domains` entitlement, and a
 provisioning refresh. Worth doing, not done here.
 
+### Device confirmation of INV-01, on the shipped build
+The owner opened the emailed link on a phone: the web page rendered, its button opened xBill, and
+the app immediately raised **"Cannot coerce the result to a single JSON object."**
+
+That is **PGRST116** — `.single()` against a zero-row result — and it is INV-01 reproducing
+exactly. The phone runs **v1.1 from the App Store**, which still calls the removed `fetchInvite`:
+direct select on `group_invites`, RLS returns nothing, `.single()` raises, and
+`JoinGroupView.errorAlert` shows the raw message as the alert title.
+
+Positive signal in the same report: **every hop before the app now works** — Resend delivers, the
+Cloudflare page renders and hands off, the custom scheme launches xBill, and `xbill://join/<token>`
+is parsed. Only the final client call is old code.
+
+The fixed path contains **no `.single()`**: `fetchInvitePreview` and `joinGroupViaInvite` both go
+through `.rpc(...).execute().value`.
+
+### Key Pattern — a silent fallback needs a test on the real wire format
+`JoinGroupView` degrades to a generic card when the preview fails, which is right for a network
+error and is **also what a decoding failure looks like**. So `InvitePreview` drifting from the RPC's
+column names, or choking on `expires_at`'s six-digit fractional seconds, would not surface as a bug
+— invites would keep working and quietly stop naming the group. `InvitePreviewTests` pins the
+payload captured verbatim from production and decodes it with `SupabaseManager.postgrestDecoder`,
+the decoder PostgREST actually uses — not a hand-rolled one, which would prove nothing about the
+app.
+
 ### Deployment state (2026-08-22)
 | Piece | State |
 |---|---|
