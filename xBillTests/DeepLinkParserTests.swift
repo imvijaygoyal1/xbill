@@ -1,0 +1,88 @@
+//
+//  DeepLinkParserTests.swift
+//  xBillTests
+//
+//  Copyright © 2026 Vijay Goyal. All rights reserved.
+//
+//  xBill accepts an invite by two routes — the custom scheme and a universal link — and they must
+//  resolve identically. Four invite defects (INV-01…04) each came from two paths that were meant
+//  to agree and had drifted, so the equivalence is asserted directly rather than assumed.
+//
+
+import Testing
+import Foundation
+@testable import xBill
+
+@Suite("Deep link parsing")
+struct DeepLinkParserTests {
+
+    private func url(_ s: String) -> URL { URL(string: s)! }
+
+    // MARK: - The equivalence that matters
+
+    /// The headline property: both forms of an invite produce the same intent.
+    @Test("A custom-scheme and a universal-link invite parse identically")
+    func bothInviteFormsAgree() {
+        let scheme    = DeepLinkParser.parse(url("xbill://join/abc123"))
+        let universal = DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/invite?token=abc123"))
+        #expect(scheme == .joinGroup(token: "abc123"))
+        #expect(scheme == universal, "The two routes must not drift: \(String(describing: scheme)) vs \(String(describing: universal))")
+    }
+
+    // MARK: - Universal links
+
+    @Test("Trailing slash and extra query parameters are tolerated")
+    func universalLinkVariants() {
+        #expect(DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/invite/?token=t1"))
+                == .joinGroup(token: "t1"))
+        #expect(DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/invite?utm=email&token=t2"))
+                == .joinGroup(token: "t2"))
+    }
+
+    /// A universal link is only delivered for a declared domain, but `openURL` can hand us
+    /// anything, so the host is checked rather than trusted.
+    @Test("Another host is not honoured")
+    func foreignHostRejected() {
+        #expect(DeepLinkParser.parse(url("https://evil.example.com/invite?token=abc")) == nil)
+        #expect(DeepLinkParser.parse(url("https://xbill.pages.dev/invite?token=abc")) == nil)
+    }
+
+    @Test("An invite without a token is not a join")
+    func missingTokenRejected() {
+        #expect(DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/invite")) == nil)
+        #expect(DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/invite?token=")) == nil)
+    }
+
+    /// Only `/invite` is claimed. The AASA file lists the same paths; if either side gains a path
+    /// the other must too, and a link to a page we do not claim must not be swallowed.
+    @Test("Unclaimed paths are ignored")
+    func unclaimedPathsIgnored() {
+        #expect(DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/privacy")) == nil)
+        #expect(DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/")) == nil)
+    }
+
+    // MARK: - Custom scheme, unchanged behaviour
+
+    @Test("Add-friend links still resolve")
+    func addFriend() {
+        let id = UUID()
+        #expect(DeepLinkParser.parse(url("xbill://add/\(id.uuidString)")) == .addFriend(userID: id))
+        #expect(DeepLinkParser.parse(url("xbill://add/not-a-uuid")) == nil)
+    }
+
+    @Test("An auth redirect is routed to the SDK, not treated as an invite")
+    func authCallback() {
+        #expect(DeepLinkParser.parse(url("xbill://auth/callback#access_token=x")) == .authCallback)
+    }
+
+    @Test("An empty join token is rejected")
+    func emptySchemeToken() {
+        #expect(DeepLinkParser.parse(url("xbill://join/")) == nil)
+    }
+
+    /// The parser and the hosted AASA file must name the same host.
+    @Test("The declared host matches the entitlement domain")
+    func hostConstantMatchesEntitlement() {
+        #expect(DeepLinkParser.universalLinkHost == "xbill.vijaygoyal.org")
+    }
+}

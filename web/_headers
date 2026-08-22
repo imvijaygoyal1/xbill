@@ -1,0 +1,5 @@
+# The AASA file has no extension, so Pages cannot infer its type. Apple's CDN requires
+# application/json and silently ignores the file otherwise — which presents as universal links
+# simply not working, with no error anywhere.
+/.well-known/apple-app-site-association
+  Content-Type: application/json

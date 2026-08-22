@@ -174,24 +174,12 @@ struct xBillApp: App {
                 // that one — if it throws first, it clears currentUser while the listener
                 // is still setting it, causing the landing-page ↔ welcome-screen loop.
                 .task { await authVM.startListeningToAuthChanges() }
-                .onOpenURL { url in
-                    guard url.scheme == "xbill" else { return }
-                    switch url.host {
-                    case "join":
-                        let token = url.lastPathComponent
-                        if !token.isEmpty {
-                            authVM.pendingJoinRequest = InviteJoinRequest(token: token)
-                        }
-                    case "add":
-                        let idString = url.lastPathComponent
-                        if let uuid = UUID(uuidString: idString) {
-                            AppState.shared.pendingAddFriendUserID = uuid
-                        }
-                    default:
-                        Task {
-                            try? await SupabaseManager.shared.auth.session(from: url)
-                        }
-                    }
+                .onOpenURL { url in handle(deepLink: url) }
+                // Universal links arrive as a browsing-web activity, NOT through onOpenURL. Both
+                // routes go through the same parser so they cannot drift apart.
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                    guard let url = activity.webpageURL else { return }
+                    handle(deepLink: url)
                 }
                 .onContinueUserActivity(CSSearchableItemActionType) { activity in
                     guard let identifier = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String else { return }
@@ -202,6 +190,20 @@ struct xBillApp: App {
                     }
                 }
                 .tint(Color.brandPrimary)
+        }
+    }
+
+    /// Single entry point for every inbound URL, whatever delivered it.
+    private func handle(deepLink url: URL) {
+        switch DeepLinkParser.parse(url) {
+        case .joinGroup(let token):
+            authVM.pendingJoinRequest = InviteJoinRequest(token: token)
+        case .addFriend(let userID):
+            AppState.shared.pendingAddFriendUserID = userID
+        case .authCallback:
+            Task { try? await SupabaseManager.shared.auth.session(from: url) }
+        case .none:
+            break
         }
     }
 }

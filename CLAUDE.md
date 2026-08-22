@@ -791,6 +791,46 @@ Nobody has ever successfully joined by link or QR. Worth noting separately: `Gro
 mints a **new** invite on every appear, which is why there are four; now that tokens live until
 expiry it should reuse an unexpired one instead. Minor, not fixed here.
 
+## Recent Fix Log — 2026-08-22 (later) — INV-05: universal links
+
+Closes the last gap in the invite flow. Tapping an invite link previously landed on the web page,
+which offered a button that fired `xbill://join/<token>`; the link now opens the app **directly**,
+and the page remains only as the fallback for someone without xBill installed.
+
+### Four parts, all verified
+| Part | State |
+|---|---|
+| `web/.well-known/apple-app-site-association` | ✅ deployed. Serves `content-type: application/json` — Cloudflare Pages cannot infer a type for an extensionless file, so `web/_headers` sets it. Apple **silently ignores** an AASA with the wrong type, which presents as universal links just not working, with no error anywhere. |
+| Apple's CDN | ✅ `app-site-association.cdn-apple.com/a/v1/xbill.vijaygoyal.org` returns **200** with our JSON. This, not our own server, is what devices consult. |
+| `associated-domains` entitlement | ✅ present in the **signed** binary (`applinks:xbill.vijaygoyal.org`) |
+| App ID capability | ✅ registered. The first signed build failed — *"Provisioning profile … doesn't include the Associated Domains capability"* — and `xcodebuild -allowProvisioningUpdates` registered it and regenerated the profile. |
+
+### `DeepLinkParser` — one parser for both routes
+Universal links arrive as an `NSUserActivityTypeBrowsingWeb` activity, **not** through `onOpenURL`,
+so they need a second handler. Both now call one pure `DeepLinkParser.parse(_:)`.
+
+That is deliberate. `INV-01`…`INV-04` were four defects that each existed because two things meant
+to agree had drifted — a join screen reading a table its user could not see, an email builder whose
+token the caller never sent. Two URL handlers is the same trap, so there is one function and a test
+asserting the two forms produce an identical result.
+
+The parser checks the **host** rather than trusting delivery: a universal link is only delivered
+for a declared domain, but `openURL` can hand the app anything.
+
+### Pre-existing bug found by writing the test
+`xbill://join/` produced `joinGroup(token: "/")`, because `lastPathComponent` returns `"/"` — not
+`""` — for a trailing-slash URL, and the original handler only checked `isEmpty`. That token
+reached the server, was rejected, and showed the user an error for a link that was simply empty.
+Both routes now share one `sanitisedToken`.
+
+### What still needs a device
+The AASA, the CDN, the entitlement and the parser are all verified. **Nobody has yet tapped a real
+link on a phone running a build with the entitlement** — that needs 1.3 on a device. Until then the
+existing web-page button path continues to work, so nothing regresses.
+
+**Verification:** unit **419/419** (9 new), 0 failed, 0 skipped. Debug and signed Release builds
+clean.
+
 ## Release status — v1.2 (3) APPROVED 2026-08-22
 
 Everything in this release at the owner's explicit direction, after I twice recommended splitting
