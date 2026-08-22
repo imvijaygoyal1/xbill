@@ -608,6 +608,55 @@ existed could not have helped — sequencing matters when the artifact is what i
 both build; `root.ssu.yaml` confirmed to carry all four utterances and the `xBill` synonym.
 **Device-verified by the user on all three surfaces — Shortcuts, Spotlight and Siri.**
 
+## Recent Fix Log — 2026-08-22 — INV-01/02: link and QR group invites never worked
+
+### Reported live: "Invalid Invite. This invite link is invalid or has expired."
+Two independent defects, and the first means **an invite has never been usable by the person it
+was sent to.**
+
+### INV-01 — the invitee cannot read the invite
+`JoinGroupView.loadInvite()` previewed an invite with two direct table selects:
+`group_invites` (RLS: creator **or existing member**, 027 CRIT-06) then `groups` (RLS: member or
+creator, 007). **An invitee is neither, by definition** — that is what an invite is for. Both
+return zero rows, `.single()` raises PGRST116, and the screen renders "Invalid Invite" before the
+Join button exists. `join_group_via_invite` is SECURITY DEFINER and would have worked; the preview
+fails first, so it is never reached.
+
+Why it survived: whoever tested it was already the creator or a member, for whom both selects
+succeed. **The one account that cannot test this flow is the only account that uses it.**
+
+- New `get_invite_preview(p_token)` SECURITY DEFINER returns just the group's public face (name,
+  emoji, currency, member count, expiry). Possession of the token is the capability; no RLS policy
+  moves. Identical error for "no such token" and "expired", so it is not a token-existence oracle.
+- New `InvitePreview` model — deliberately **not** `BillGroup`, which would imply access the
+  caller does not have.
+- **`GroupService.fetchInvite` deleted.** It could not succeed for its only real caller, and
+  leaving it invites the same bug back.
+- `JoinGroupView` treats a failed preview as **"cannot show the name"**, not "invalid invite": it
+  renders a generic card and keeps the Join action live, letting the server adjudicate. That alone
+  unblocks invites **without any database change**, which matters because the migration needs
+  approval and an App Store release takes days regardless.
+
+### INV-02 — a single-use token behind a QR code
+027 (M-20) added `DELETE FROM group_invites` after a successful join. A QR code is shown to a table
+of people or posted into a chat: the **first** scanner consumed it and everyone after saw
+"expired". `expires_at` (7 days) is the intended lifetime and is now the only one.
+
+### Key Pattern — a capability check cannot be an RLS policy on the thing being granted
+An invite exists to give access to someone who does not have it. Any policy of the form "you may
+read this if you already belong" is therefore unsatisfiable for the only caller that matters. Route
+these through a SECURITY DEFINER function keyed on the token, and never widen the table policy.
+
+### Key Pattern — never render a local read failure as a verdict about the server's data
+"Invalid Invite" was shown because *we* could not read the row. The app is not entitled to that
+conclusion; only the join RPC can reach it. A failed preview means the name is unknown, nothing
+more.
+
+**Verification:** unit **407/407**, 0 failed, 0 skipped. Debug build clean.
+**NOT deployed:** migration `042_invite_preview_and_multi_use.sql` is written and awaiting explicit
+approval. Until it lands, `fetchInvitePreview` fails and the app shows the unnamed-invite card —
+which still joins correctly, single-use caveat aside.
+
 ## Release status — v1.1 (2) APPROVED 2026-08-18
 
 v1.0 (1) approved 2026-08-11. **v1.1 (2) approved and Ready for Distribution 2026-08-18** — first

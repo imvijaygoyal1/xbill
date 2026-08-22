@@ -727,7 +727,11 @@ final class VisionService {
             let fullText = row.map(\.text).joined(separator: " ")
             let lower    = fullText.lowercased()
 
-            if isMetadata(lower) { continue }
+            // SCAN-14: a total labelled with a payment method — "Total (Mastercard *0844):" —
+            // matches a metadata keyword. Classification must win over suppression, or the
+            // receipt loses the one number it certainly has.
+            let isTotal = isTotalLine(lower)
+            if !isTotal, isMetadata(lower) { continue }
 
             let leftLines   = row.filter { $0.midX < columnBoundary }
             let rightLines  = row.filter { $0.midX >= columnBoundary }
@@ -751,7 +755,7 @@ final class VisionService {
             let isDiscount = rawAmount < .zero || isDiscountLine(lower)
             let amount     = isDiscount ? -abs(rawAmount) : rawAmount
 
-            if lower.contains("total") && !lower.contains("sub") && !lower.contains("subtotal") {
+            if isTotal {
                 if let existing = total { total = max(existing, amount) } else { total = amount }
             } else if lower.contains("tax") || lower.contains("gst")
                         || lower.contains("hst") || lower.contains("vat") {
@@ -886,6 +890,33 @@ final class VisionService {
     }
 
     // MARK: - Heuristic Helpers
+
+    // MARK: - The total line (SCAN-14)
+
+    /// Labels that mean "the amount actually charged" on receipts that never print the word
+    /// TOTAL. Compared against space-stripped text, hence no spaces here.
+    nonisolated static let totalSynonyms = ["amountdue", "amountpaid", "balancedue", "totaldue"]
+
+    /// True when a row is the receipt's total.
+    ///
+    /// Two things make this more than `contains("total")`:
+    ///
+    /// - **Spaces are stripped first.** ALDI prints `T O T A L`, Bhavani prints `Sub Total:`, and
+    ///   stripping resolves both correctly — the first becomes a total, the second does not.
+    /// - **`sub` is excluded by position, not by presence.** The old guard rejected any row
+    ///   containing `sub`, so when row grouping put `Subtotal` and `GRAND TOTAL` in one row the
+    ///   real total was thrown away with it. A lookbehind rejects only the `total` that `sub`
+    ///   actually prefixes.
+    func isTotalLine(_ lower: String) -> Bool {
+        let dense = lower.filter { !$0.isWhitespace }
+        // `change due` is a different number and must not be read as the amount charged.
+        if dense.contains("change") { return false }
+        if Self.totalSynonyms.contains(where: { dense.contains($0) }) { return true }
+        guard let regex = Self.nonSubTotalRegex else { return false }
+        return regex.firstMatch(in: dense, range: NSRange(dense.startIndex..., in: dense)) != nil
+    }
+
+    nonisolated(unsafe) static let nonSubTotalRegex = try? NSRegularExpression(pattern: #"(?<!sub)total"#)
 
     /// Lines that carry an amount but are not items.
     ///

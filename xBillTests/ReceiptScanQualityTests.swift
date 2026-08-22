@@ -923,3 +923,85 @@ struct SplitRowTests {
         #expect(parsed.receipt.items.first?.name == "Widget")
     }
 }
+
+// MARK: - SCAN-14: the total line, lost four different ways
+//
+// TOTAL sat at 15/22 through three consecutive fixes. The failures were not one bug:
+//
+//   13 Chuko      "Total (Mastercard *0844):  $33.93"  — swallowed by the `mastercard` metadata
+//                                                         keyword before it could be classified
+//   06 Trinetra   "Subtotal … GRAND TOTAL"             — the `!contains("sub")` guard rejects the
+//                                                         whole row when both labels land in it
+//   07 ALDI       "T O T A L" (OCR: "то T A L")        — letter-spaced, and partly Cyrillic
+//   18 Starbucks  no TOTAL line at all                 — only SUBTOTAL and AMOUNT PAID
+//
+// Two rules cover all four: recognise the total BEFORE metadata can suppress it, and match on
+// space-stripped text so "SUB TOTAL", "T O T A L" and "GRAND TOTAL" all resolve correctly.
+
+@Suite("Receipt scanning — total line recognition")
+@MainActor
+struct TotalLineTests {
+
+    private var vision: VisionService { VisionService.shared }
+
+    @Test("Ordinary total labels are recognised")
+    func ordinaryTotals() {
+        #expect(vision.isTotalLine("total                    9.12"))
+        #expect(vision.isTotalLine("grand total             26.86"))
+        #expect(vision.isTotalLine("total charge:           67.08"))
+        #expect(vision.isTotalLine("t o t a l               28.35"))
+    }
+
+    /// A subtotal is not a total, however it is spelled or spaced.
+    @Test("Subtotals are never totals")
+    func subtotalsExcluded() {
+        #expect(!vision.isTotalLine("subtotal                8.70"))
+        #expect(!vision.isTotalLine("sub total:             66.60"))
+        #expect(!vision.isTotalLine("item subtotal:         28.96"))
+    }
+
+    /// When row grouping puts both labels in one row, the row still carries a real total — the
+    /// old `!contains("sub")` guard threw the whole thing away.
+    @Test("A row holding both labels is still a total")
+    func mergedSubtotalAndTotalRow() {
+        #expect(vision.isTotalLine("subtotal  26.86  grand total  26.86"))
+    }
+
+    /// Receipts that never print the word. The amount actually charged is the total.
+    @Test("Total synonyms are recognised")
+    func synonymsRecognised() {
+        #expect(vision.isTotalLine("amount due              28.35"))
+        #expect(vision.isTotalLine("amount paid              4.90"))
+        #expect(vision.isTotalLine("balance due             13.07"))
+    }
+
+    /// The synonym rule must not swallow the change line, which is a different number entirely.
+    @Test("Change due is not a total")
+    func changeDueIsNotATotal() {
+        #expect(!vision.isTotalLine("change due               0.00"))
+        #expect(!vision.isTotalLine("change                   0.00"))
+    }
+
+    /// The precedence fix. `mastercard` is a metadata keyword, and it sits inside the label of a
+    /// perfectly ordinary total.
+    @Test("A total labelled with a payment method survives metadata suppression")
+    func totalLabelledWithCardIsNotSuppressed() {
+        let lower = "total (mastercard *0844) :        $33.93"
+        #expect(vision.isMetadata(lower), "the metadata keyword genuinely matches…")
+        #expect(vision.isTotalLine(lower), "…so the total rule has to win")
+    }
+
+    /// End to end, through the parser: the total must come out even though the row would
+    /// otherwise be suppressed.
+    @Test("A card-labelled total is parsed")
+    func cardLabelledTotalIsParsed() {
+        let rows: [[OCRLine]] = [
+            [OCRLine(text: "Chuko Ramen", midX: 0.5, midY: 0.02, height: 0.01, confidence: 0.9)],
+            [OCRLine(text: "Spicy Miso Ramen", midX: 0.2, midY: 0.10, height: 0.01, confidence: 0.9),
+             OCRLine(text: "$28.96", midX: 0.9, midY: 0.10, height: 0.01, confidence: 0.9)],
+            [OCRLine(text: "Total (Mastercard *0844) :", midX: 0.25, midY: 0.20, height: 0.01, confidence: 0.9),
+             OCRLine(text: "$33.93", midX: 0.9, midY: 0.20, height: 0.01, confidence: 0.9)]
+        ]
+        #expect(vision.parseWithHeuristics(rows: rows).receipt.total == Decimal(string: "33.93"))
+    }
+}

@@ -249,13 +249,28 @@ final class GroupService {
             .value
     }
 
-    func fetchInvite(token: String) async throws -> GroupInvite {
-        try await supabase.table("group_invites")
-            .select()
-            .eq("token", value: token)
-            .single()
+    // `fetchInvite(token:)` was REMOVED (INV-01). It selected `group_invites` directly, which RLS
+    // restricts to a group's creator or its existing members — so it could never succeed for the
+    // one caller that needed it, an invitee. Use `fetchInvitePreview(token:)`. Do not reinstate a
+    // direct select here; the same policy will silently return zero rows again.
+
+    /// What the join screen needs to show, fetched WITHOUT reading `group_invites` or `groups`.
+    ///
+    /// INV-01: both of those tables are RLS-restricted to a group's creator or its existing
+    /// members, and an invitee is neither — which is the entire point of an invite. Selecting
+    /// them directly returned zero rows and rendered "Invalid Invite" before the user could press
+    /// Join. Possession of the token is the capability; `get_invite_preview` is SECURITY DEFINER
+    /// and returns only the group's public face.
+    func fetchInvitePreview(token: String) async throws -> InvitePreview {
+        struct Params: Encodable { let p_token: String }
+        let rows: [InvitePreview] = try await supabase.client
+            .rpc("get_invite_preview", params: Params(p_token: token))
             .execute()
             .value
+        guard let preview = rows.first else {
+            throw AppError.validationFailed("This invite link is invalid or has expired.")
+        }
+        return preview
     }
 
     /// Validates the token and adds the current user to the group atomically (SECURITY DEFINER RPC).

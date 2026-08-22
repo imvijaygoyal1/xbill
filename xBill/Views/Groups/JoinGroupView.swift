@@ -11,10 +11,16 @@ struct JoinGroupView: View {
     let token: String
     var onJoined: () async -> Void
 
-    @State private var group: BillGroup?
+    @State private var preview: InvitePreview?
     @State private var isLoading = true
     @State private var isJoining = false
     @State private var error: AppError?
+    /// INV-01: a preview that fails to load is NOT a dead end. The join itself runs through a
+    /// SECURITY DEFINER RPC that validates the token server-side, so the only honest thing the
+    /// preview failing tells us is that we cannot show the group's name — not that the invite is
+    /// bad. Presenting "Invalid Invite" on a preview failure is what made every invite look
+    /// broken. The server decides validity, on join.
+    @State private var previewUnavailable = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -24,9 +30,12 @@ struct JoinGroupView: View {
 
                 if isLoading {
                     ProgressView("Loading invite…")
-                } else if let group {
-                    groupCard(group)
-                    joinButton(group)
+                } else if let preview {
+                    groupCard(preview)
+                    joinButton(title: "Join \(preview.name)")
+                } else if previewUnavailable {
+                    unnamedInviteCard
+                    joinButton(title: "Join Group")
                 } else {
                     EmptyStateView(
                         icon: "link.badge.xmark",
@@ -52,21 +61,21 @@ struct JoinGroupView: View {
 
     // MARK: - Subviews
 
-    private func groupCard(_ group: BillGroup) -> some View {
+    private func groupCard(_ preview: InvitePreview) -> some View {
         VStack(spacing: XBillSpacing.md) {
-            Text(group.emoji)
+            Text(preview.displayEmoji)
                 .font(.system(size: 64))
 
             Text("You've been invited to join")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Text(group.name)
+            Text(preview.name)
                 .font(.title.bold())
                 .foregroundStyle(Color.textPrimary)
                 .multilineTextAlignment(.center)
 
-            Text(group.currency)
+            Text("\(preview.memberSummary) · \(preview.currency)")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, XBillSpacing.sm)
@@ -84,11 +93,32 @@ struct JoinGroupView: View {
         )
     }
 
-    private func joinButton(_ group: BillGroup) -> some View {
-        XBillButton(title: isJoining ? "Joining…" : "Join \(group.name)", style: .primary) {
+    /// Shown when the preview could not be fetched — on an older backend, or offline. The invite
+    /// may be perfectly good, so the action stays available and the server adjudicates.
+    private var unnamedInviteCard: some View {
+        VStack(spacing: XBillSpacing.md) {
+            Text("👥").font(.system(size: 64))
+            Text("You've been invited to join a group")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(XBillSpacing.xl)
+        .frame(maxWidth: .infinity)
+        .background(Color.bgCard)
+        .clipShape(RoundedRectangle(cornerRadius: XBillRadius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: XBillRadius.lg)
+                .stroke(Color.separator, lineWidth: 0.5)
+        )
+    }
+
+    private func joinButton(title: String) -> some View {
+        XBillButton(title: isJoining ? "Joining…" : title, style: .primary) {
             Task { await joinGroup() }
         }
         .disabled(isJoining)
+        .accessibilityIdentifier("xBill.joinGroup.joinButton")
     }
 
     // MARK: - Actions
@@ -97,10 +127,11 @@ struct JoinGroupView: View {
         isLoading = true
         defer { isLoading = false }
         do {
-            let invite = try await GroupService.shared.fetchInvite(token: token)
-            group = try await GroupService.shared.fetchGroup(id: invite.groupID)
+            preview = try await GroupService.shared.fetchInvitePreview(token: token)
         } catch {
-            self.error = AppError.from(error)
+            // Deliberately not surfaced as an error: see `previewUnavailable`. The token is
+            // validated on join, by the server, which is the only place that can judge it.
+            previewUnavailable = true
         }
     }
 
