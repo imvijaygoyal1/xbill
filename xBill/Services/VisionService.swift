@@ -718,6 +718,11 @@ final class VisionService {
         // for the whole receipt — the price column is a property of the layout, not of a row.
         let columnBoundary = detectPriceColumnBoundary(rows: rows)
 
+        // SCAN-13: a name-only row held for the next price row that has no usable name of its own.
+        // Cleared by ANY row carrying an amount, so it can only ever reach the row immediately
+        // following it — a name must not drift down the receipt attaching itself to later prices.
+        var heldName: String?
+
         for row in rows.dropFirst() {
             let fullText = row.map(\.text).joined(separator: " ")
             let lower    = fullText.lowercased()
@@ -730,7 +735,16 @@ final class VisionService {
             let rightText   = rightLines.map(\.text).joined(separator: " ")
             let priceSource = rightText.isEmpty ? fullText : rightText
 
-            guard let rawAmount = extractDecimal(from: priceSource), rawAmount != .zero else { continue }
+            guard let rawAmount = extractDecimal(from: priceSource), rawAmount != .zero else {
+                // No amount here. If the row reads as a name, hold it for the row below — this is
+                // the top half of a split item.
+                let candidate = fullText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !candidate.isEmpty, !isMeasurementOnly(candidate) { heldName = candidate }
+                continue
+            }
+            // Any row with an amount consumes the held name, whether or not it needs it.
+            let carriedName = heldName
+            heldName = nil
             // A discount is a real line on the receipt and must survive to the review screen; if it
             // is dropped, items no longer sum to the total and the user sees an unexplained
             // mismatch. Normalised to a negative so the arithmetic works without special cases.
@@ -750,9 +764,13 @@ final class VisionService {
             } else {
                 var name = leftText.isEmpty ? stripPrice(from: fullText) : leftText
                 name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                if name.isEmpty || name.count < 2 { continue }
-                // SCAN-12: a weight/multiplier sub-line or a bare figure is not an item.
-                if isMeasurementOnly(name) { continue }
+                // SCAN-12/13: a row whose own text is measurement, a bare figure or a quantity
+                // prefix is not an item — unless the row above supplied the name, in which case
+                // the two halves are one item.
+                if name.isEmpty || name.count < 2 || isMeasurementOnly(name) {
+                    guard let carriedName else { continue }
+                    name = carriedName
+                }
 
                 // A discount is always a single line worth its face value. Routing it through
                 // `parseQuantity` would divide a negative by a parsed quantity for no benefit —
@@ -884,16 +902,41 @@ final class VisionService {
     /// - **loyalty summaries** (`savings`, `coupons`, `you saved`) — these report money already
     ///   reflected in the item prices, so counting them again double-counts the receipt.
     func isMetadata(_ lower: String) -> Bool {
-        let metaKeywords = ["thank you", "receipt #", "order #", "table", "server",
-                            "cashier", "store #", "phone:", "www.", ".com",
-                            "cash tend", "change", "visa", "mastercard", "amex",
-                            "points", "earned", "redeemed",
-                            // SCAN-12 additions, all corpus-derived
-                            "due", "balance", "amount", "tend",
-                            "credit", "debit", "emv", "method:",
-                            "savings", "coupons", "you saved", "items sold"]
-        return metaKeywords.contains { lower.contains($0) }
+        return Self.metadataRegex?.firstMatch(
+            in: lower, range: NSRange(lower.startIndex..., in: lower)) != nil
     }
+
+    nonisolated static let metaKeywords = ["thank you", "receipt #", "order #", "table", "server",
+                               "cashier", "store #", "phone:", "www.", ".com",
+                               "cash tend", "change", "visa", "mastercard", "amex",
+                               "points", "earned", "redeemed",
+                               // SCAN-12 additions, all corpus-derived
+                               "due", "balance", "amount", "tend",
+                               "credit", "debit", "emv", "method:",
+                               "savings", "coupons", "you saved", "items sold"]
+
+    /// Keywords matched on **word boundaries**, not as substrings.
+    ///
+    /// SCAN-13. Substring matching on short words has now produced three separate defects in this
+    /// file: `credit` matched `CREDIT CARD PURCHASE` and negated a payment; the unit token `ea`
+    /// matched inside `Tea` and suppressed a real item; and `table` matched inside **`Vegetable`**,
+    /// suppressing `Vegetable Spring Rolls` as furniture so its wrapped price could never find it.
+    /// The mechanism is the defect, not any individual word.
+    ///
+    /// A boundary is only asserted where the keyword's own edge is a word character, so
+    /// `www.`, `.com` and `method:` keep matching.
+    ///
+    /// `nonisolated(unsafe)` because `NSRegularExpression` is not `Sendable`, though Apple
+    /// documents it as thread-safe for matching; this instance is immutable after construction.
+    nonisolated(unsafe) static let metadataRegex: NSRegularExpression? = {
+        let alternatives = metaKeywords.map { keyword -> String in
+            let escaped = NSRegularExpression.escapedPattern(for: keyword)
+            let leading  = keyword.first.map { $0.isLetter || $0.isNumber } == true ? #"\b"# : ""
+            let trailing = keyword.last.map  { $0.isLetter || $0.isNumber } == true ? #"\b"# : ""
+            return leading + escaped + trailing
+        }
+        return try? NSRegularExpression(pattern: alternatives.joined(separator: "|"))
+    }()
 
     /// True when a row has an amount but no real name — a weight or multiplier sub-line
     /// (`1.47 lb @ $3.99/lb`, `2 x 0.79`) or a bare figure (`$3.00`). The item those belong to is
@@ -917,7 +960,13 @@ final class VisionService {
         let letters = stripped.filter { $0.isLetter }
         // Three letters is the shortest plausible item name ("Tea", "Egg"); below that the row is
         // measurement, punctuation and digits.
-        return letters.count < 3
+        if letters.count < 3 { return true }
+        // SCAN-13: letter COUNT alone is not enough. "Reg 8.00  1.0 @ 8.00" clears three letters
+        // and is still a price row, not a name. A real name is mostly letters; a price row is
+        // mostly digits, so the ratio separates them where the count cannot.
+        let dense = stripped.filter { !$0.isWhitespace }
+        guard !dense.isEmpty else { return true }
+        return Double(letters.count) / Double(dense.count) < 0.3
     }
 
     func parseQuantity(from text: String, totalPrice: Decimal) -> (Int, Decimal) {

@@ -255,6 +255,53 @@ a person, which is the whole purpose, and the loss surfaces as an items-vs-total
 can see — whereas a phantom charge is invisible. **Visible incompleteness beats invisible
 fabrication.**
 
+### SCAN-13 — item name on one row, price on the next — FIXED
+The largest remaining parsing loss, and the reason name recall trailed price recall. Four corpus
+layouts split an item across two rows — Bhavani does it for all 14 items:
+
+```
+LAXMI GINGER POWDER 200 Gms          ← name, no price
+     1 @    3.99          3.99       ← price, no usable name
+```
+
+It also happens on ordinary receipts when a long name simply **wraps**: GO by Citizens' "Vegetable
+Spring Rolls" had its `$12.00` on the following line.
+
+A row with no amount that reads as a name is **held**, and the next row carrying an amount but no
+usable name of its own adopts it. The held name is cleared by **any** row with an amount, so it can
+only ever reach the row immediately below — a name must not drift down the receipt attaching
+itself to later prices (`heldNameUsedOnce` pins that).
+
+**`isMeasurementOnly` needed a ratio, not just a count.** `"Reg 8.00  1.0 @ 8.00"` (Michaels)
+clears the three-letter bar and is still a price row. A real name is mostly letters; a price row is
+mostly digits, so letters ÷ non-space characters < 0.3 separates them where the count cannot.
+
+| | before | after |
+|---|---|---|
+| **Price recall** | 75% | **90%** |
+| **Item count exact** | 14/22 (64%) | **16/22 (73%)** |
+| **Name recall** | 64% | **72%** |
+| Bhavani (08) | 0/14, 0% | **12/14, 86%** |
+| Michaels (03) name recall | 0% | **100%** |
+| GO by Citizens (16) | 1/2 | **2/2, 100%** |
+
+Confidence calibration crossed zero for the first time (**+0.02**) — still no real signal, but no
+longer inverted.
+
+### Key Pattern — substring keyword matching is the recurring defect in this file
+Three separate bugs, one mechanism:
+
+| Keyword | Matched inside | Damage |
+|---|---|---|
+| `credit` | `CREDIT CARD PURCHASE` | a $13.80 payment became a −$13.80 discount |
+| `ea` (unit) | `Tea` | a real item suppressed as a measurement row |
+| `table` | **`Vegetable`** | `Vegetable Spring Rolls` suppressed as furniture, so its wrapped price could never find it |
+
+The third was found only because a split-row test failed for a reason that made no sense on
+inspection. `isMetadata` now matches on **word boundaries**, asserted only where the keyword's own
+edge is a word character so `www.`, `.com` and `method:` keep working. **Never add a short word to
+a substring-matched keyword list** — and prefer boundary matching for all of them.
+
 ### Key Pattern — derive suppression rules from observed failures, never from plausibility
 `discountKeywords` was written by imagining what a discount line looks like. Two of its eleven
 words were wrong in a way that invented money, and it took a corpus to find out. The replacement

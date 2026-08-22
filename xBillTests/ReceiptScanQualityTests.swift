@@ -760,6 +760,19 @@ struct PhantomItemTests {
         #expect(!vision.isMetadata("service charge               4.50"))
     }
 
+    /// Substring matching on short keywords has produced three defects in this file. These are
+    /// the words that bit, each inside an ordinary item name.
+    @Test("A keyword inside a longer word does not suppress the line")
+    func keywordsMatchOnWordBoundaries() {
+        #expect(!vision.isMetadata("vegetable spring rolls      12.00"),   "table ⊂ vegetable")
+        #expect(!vision.isMetadata("portable charger            19.99"),   "table ⊂ portable")
+        #expect(!vision.isMetadata("amexican breakfast           8.50"),   "amex ⊂ amexican")
+        #expect(!vision.isMetadata("duet chocolate bar           3.20"),   "due ⊂ duet")
+        // …while the words themselves still match.
+        #expect(vision.isMetadata("table                           25"))
+        #expect(vision.isMetadata("amount due                   28.35"))
+    }
+
     @Test("Ordinary items are never suppressed")
     func ordinaryItemsSurvive() {
         for line in ["spicy miso ramen           28.96",
@@ -814,5 +827,99 @@ struct PhantomItemTests {
         #expect(vision.isDiscountLine("staff discount"))
         #expect(vision.isDiscountLine("loyalty voucher"))
         #expect(vision.isDiscountLine("10% off"))
+    }
+}
+
+// MARK: - SCAN-13: item name on one row, price on the next
+//
+// The largest remaining parsing loss, and the reason name recall (64%) trailed price recall (75%).
+// Four corpus layouts put the two on separate rows, and Bhavani does it for all 14 items:
+//
+//     LAXMI GINGER POWDER 200 Gms          ← name, no price
+//          1 @    3.99          3.99       ← price, no usable name
+//
+// It also happens on ordinary receipts when a long name simply WRAPS (GO by Citizens' "Vegetable
+// Spring Rolls", whose $12.00 landed on the following line).
+//
+// A price row with no usable name of its own now takes the name held from the row above.
+
+@Suite("Receipt scanning — split-row items")
+@MainActor
+struct SplitRowTests {
+
+    private var vision: VisionService { VisionService.shared }
+
+    private func row(_ parts: [(String, CGFloat)], y: CGFloat) -> [OCRLine] {
+        parts.map { OCRLine(text: $0.0, midX: $0.1, midY: y, height: 0.01, confidence: 0.9) }
+    }
+
+    /// A name is not usable when it is mostly digits, even if it clears the three-letter bar.
+    /// "Reg 8.00  1.0 @ 8.00" has three letters and is still not an item name.
+    @Test("A mostly-numeric string is not a usable item name")
+    func numericStringsAreNotNames() {
+        #expect(vision.isMeasurementOnly("Reg 8.00  1.0 @ 8.00"))
+        #expect(vision.isMeasurementOnly("MB27238208    1    8.99"))
+        #expect(vision.isMeasurementOnly("195882990040"))
+        #expect(!vision.isMeasurementOnly("THERMACARE 195882990040"))
+        #expect(!vision.isMeasurementOnly("Swad Andhra Peanuts 3.5LB"))
+        #expect(!vision.isMeasurementOnly("LX POHA THK4LB"))
+    }
+
+    /// The Bhavani layout: every item is two rows.
+    @Test("A price row takes the name from the row above")
+    func priceRowInheritsNameAbove() {
+        let parsed = vision.parseWithHeuristics(rows: [
+            row([("Bhavani Cash & Carry", 0.5)], y: 0.02),
+            row([("LAXMI GINGER POWDER 200 Gms", 0.3)], y: 0.10),
+            row([("1 @   3.99", 0.3), ("3.99", 0.9)],  y: 0.12),
+            row([("KARELA / LB", 0.3)],                 y: 0.14),
+            row([("0.8 @  2.49", 0.3), ("1.99", 0.9)],  y: 0.16)
+        ])
+        let names = parsed.receipt.items.map(\.name)
+        #expect(names.contains("LAXMI GINGER POWDER 200 Gms"), "Got \(names)")
+        #expect(names.contains("KARELA / LB"), "Got \(names)")
+        #expect(parsed.receipt.items.count == 2)
+    }
+
+    /// The wrapped-name case, where the price row carries nothing at all on the left.
+    @Test("A wrapped name is reunited with its price")
+    func wrappedNameReunited() {
+        let parsed = vision.parseWithHeuristics(rows: [
+            row([("GO by Citizens", 0.5)], y: 0.02),
+            row([("Karaage", 0.2), ("$14.00", 0.9)],   y: 0.10),
+            row([("Vegetable Spring Rolls", 0.2)],      y: 0.12),
+            row([("$12.00", 0.9)],                      y: 0.14)
+        ])
+        let names = parsed.receipt.items.map(\.name)
+        #expect(names.contains("Karaage"))
+        #expect(names.contains("Vegetable Spring Rolls"), "Got \(names)")
+    }
+
+    /// A held name must not be reused. A measurement row following a COMPLETE item row has no
+    /// name to inherit and must stay suppressed — otherwise every weight line would duplicate the
+    /// item above it, which is the phantom problem all over again.
+    @Test("A measurement row after a complete item is still suppressed")
+    func measurementAfterCompleteRowStaysSuppressed() {
+        let parsed = vision.parseWithHeuristics(rows: [
+            row([("Trinetra Supermarket", 0.5)], y: 0.02),
+            row([("SCL VALOR PAPDI FLAT /LB", 0.3), ("$3.99", 0.9)], y: 0.10),
+            row([("0.80 lb @ $4.99/lb", 0.35)],                       y: 0.12),
+            row([("SCL OKRA INDIA /LB", 0.3), ("$3.67", 0.9)],        y: 0.14)
+        ])
+        #expect(parsed.receipt.items.count == 2, "Got \(parsed.receipt.items.map(\.name))")
+        #expect(parsed.receipt.items.allSatisfy { $0.name.hasPrefix("SCL") })
+    }
+
+    /// A name is consumed once. Two price rows after one name row must not both claim it.
+    @Test("A held name is used at most once")
+    func heldNameUsedOnce() {
+        let parsed = vision.parseWithHeuristics(rows: [
+            row([("Shop", 0.5)], y: 0.02),
+            row([("Widget", 0.3)],                    y: 0.10),
+            row([("1 @ 5.00", 0.3), ("5.00", 0.9)],   y: 0.12),
+            row([("2 @ 3.00", 0.3), ("6.00", 0.9)],   y: 0.14)
+        ])
+        #expect(parsed.receipt.items.count == 1, "Got \(parsed.receipt.items.map(\.name))")
+        #expect(parsed.receipt.items.first?.name == "Widget")
     }
 }
