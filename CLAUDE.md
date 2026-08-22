@@ -791,7 +791,7 @@ Nobody has ever successfully joined by link or QR. Worth noting separately: `Gro
 mints a **new** invite on every appear, which is why there are four; now that tokens live until
 expiry it should reuse an unexpired one instead. Minor, not fixed here.
 
-## Release status — v1.2 (3) ARCHIVED 2026-08-22, awaiting upload
+## Release status — v1.2 (3) SUBMITTED FOR REVIEW 2026-08-22
 
 Everything in this release at the owner's explicit direction, after I twice recommended splitting
 the invite fixes out: the full scanner rewrite (`SCAN-01`…`SCAN-14`), App Intents phase 1, the
@@ -809,8 +809,17 @@ About screen, and the invite fixes (`INV-01`…`INV-04`).
 | Licence | 4 ExchangeRate-API attribution sites, 0 bundled third-party fonts |
 | Archive | `1.2 (3)`, `UIDeviceFamily [1]`, `CFBundleDevelopmentRegion en`, `ITSAppUsesNonExemptEncryption false`, 3 dSYMs, framework embedded, `Assets.car` in the `.appex` with 4 money colours, Siri `nlu/` compiled and non-empty, **zero receipt-corpus paths** |
 
-Archive installed at `~/Library/Developer/Xcode/Archives/2026-08-22/` so Organizer can upload it.
-**I hold no App Store Connect credentials**, so the upload is the owner's step.
+Uploaded and **submitted for review by the owner on 2026-08-22**.
+
+### Watch after approval
+- **Invites end to end, with a second person.** Everything server-side is verified and the client
+  fix is unit-tested, but the full path — invitee taps link, joins, appears in the group — has
+  **never once completed successfully in this product's history**. It is the single most important
+  thing to confirm, and it needs someone who is not already a member.
+- **Receipt scanning is the likeliest review flag.** 77% of totals on device. The review notes
+  should say the scan produces a draft the user confirms.
+- **`SCAN-14` shipped without its own commit** — `git add -A` swept it into `f2010d4`. It is in the
+  archive (`isTotalLine` present in source), but the history does not say so.
 
 ### What running the runbook cost and caught
 Three process defects, all recorded in `RELEASE_VERIFICATION.md`: `plutil -extract … json FILE`
