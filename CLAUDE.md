@@ -315,6 +315,57 @@ the corpus by **zero**, because a defect upstream of all three was destroying th
 invisible until the report printed **parsed vs expected items** alongside the score. Add the dump
 before the next round of parser work, not after.
 
+### Tier 1 measured at last — on a physical iPhone 16 Pro (2026-08-22)
+Every previous number in this file described **Tier 2 heuristics alone**, because Apple
+Intelligence does not exist on the simulator. The benchmark now runs on device: the corpus is
+copied into the test bundle by a build phase, since a sandboxed device cannot read the Mac's
+filesystem. 22 receipts, 40 seconds.
+
+**Apple Intelligence is available on the device and handled only 4 of 22 receipts (18%).**
+The other 18 fell through to heuristics — `parseReceipt` throws and the `catch` drops to Tier 2.
+
+| | simulator (all Tier 2) | device (mixed) |
+|---|---|---|
+| TOTAL correct | 15/22 | **17/22 (77%)** |
+| TAX correct | 17/22 | **18/22 (82%)** |
+| Item count exact | 16/22 | 14/22 |
+| Price recall | 90% | 85% |
+| Name recall | 72% | 70% |
+| Confidence gap | +0.02 | **+0.19** |
+
+**This settles the question that has hung over all the scanner work: the heuristic path is not
+dead code.** It handles **82% of real receipts even on an Apple-Intelligence-capable device**, so
+`SCAN-01`…`SCAN-14` reach the great majority of scans.
+
+**And Tier 1 is not uniformly better.** On the four receipts it took:
+
+| Receipt | Tier 1 (device) | Tier 2 (simulator) |
+|---|---|---|
+| 01 Kroger | ✗ total **21.12**, price 50% | ✓ total, price 80% |
+| 03 Michaels | ✓ 2/2, 100% | ✓ 2/2, 100% |
+| 04 Wayfair | ✓ but **1/2** items, 50% | ✓ 2/2, 100% |
+| 13 Chuko | ✓ total | ✗ total nil |
+
+It is **worse on two, equal on one, better on one**. Tier 1 running first is therefore not
+self-evidently right, and "improve the LLM prompt" is not obviously the highest-value work —
+the heuristics carry the load.
+
+### ⚠️ Unresolved: device vs simulator delta
+Receipts **06, 07 and 18** — exactly `SCAN-14`'s target set — return a correct total on device
+while the last simulator report shows `nil`. That is either **SCAN-14 working** (and the simulator
+report being stale) or **device Vision differing from simulator Vision**. Both are plausible and
+they have opposite implications. A clean simulator re-run on the current build separates them, and
+must happen before anyone concludes SCAN-14 landed.
+
+Device report retained at `xBillTests/ReceiptCorpus/reports/DEVICE-receipt-benchmark-2026-08-22.txt`.
+
+### Key Pattern — TARGET_BUILD_DIR, not BUILT_PRODUCTS_DIR, for a host-embedded test bundle
+The first device run reported "no corpus" in 0.001s while the build log said it had bundled 22
+images. Both were true: the script wrote to `$BUILT_PRODUCTS_DIR/xBillTests.xctest`, but the bundle
+that actually runs is the copy embedded at `$TARGET_BUILD_DIR` (`xBill.app/PlugIns/`). A build
+phase that reports success into a directory nothing loads is indistinguishable from one that did
+nothing.
+
 ### Still open, found by the corpus and not yet fixed
 - **`.05` with no leading zero** (CVS bottle deposits) is invisible to the price pattern, which
   requires a digit before the separator. Two of six items lost on that receipt.

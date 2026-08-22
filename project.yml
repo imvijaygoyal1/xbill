@@ -152,8 +152,34 @@ targets:
     platform: iOS
     sources:
       - path: xBillTests
+        excludes:
+          - "ReceiptCorpus/**"
     dependencies:
       - target: xBill
+    postCompileScripts:
+      # The receipt benchmark corpus travels INSIDE the test bundle so the suite can run on a
+      # physical device, which cannot read the Mac's filesystem. Copied rather than declared as a
+      # resource because the folder is git-ignored (real receipts carry card digits) and a missing
+      # declared resource fails the build for anyone who does not have it.
+      - name: Copy receipt corpus (optional)
+        script: |
+          SRC="$SRCROOT/xBillTests/ReceiptCorpus"
+          if [ ! -d "$SRC" ]; then
+            echo "note: no receipt corpus present; benchmark will report nothing to measure"
+            exit 0
+          fi
+          # TARGET_BUILD_DIR, not BUILT_PRODUCTS_DIR. For a test bundle with a host app the two
+          # differ: BUILT_PRODUCTS_DIR is the standalone .xctest, while the bundle that actually
+          # runs is the copy embedded at $TARGET_BUILD_DIR (xBill.app/PlugIns/). Writing to the
+          # former put 22 images somewhere nothing ever loaded, and the benchmark reported "no
+          # corpus" while the build log said it had bundled one.
+          for BASE in "$TARGET_BUILD_DIR" "$BUILT_PRODUCTS_DIR"; do
+            DEST="$BASE/$UNLOCALIZED_RESOURCES_FOLDER_PATH/ReceiptCorpus"
+            rm -rf "$DEST"; mkdir -p "$DEST"
+            cp -R "$SRC/images" "$SRC/labels" "$DEST/"
+          done
+          echo "note: bundled receipt corpus ($(ls "$SRC/images" | wc -l | tr -d ' ') images) into $TARGET_BUILD_DIR"
+        basedOnDependencyAnalysis: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vijaygoyal.xbill.tests

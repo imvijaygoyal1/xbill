@@ -213,10 +213,22 @@ private func report(_ scores: [Score]) -> String {
 @MainActor
 struct ReceiptBenchmark {
 
-    /// Repo-relative, derived from this file's own location so it needs no configuration.
+    /// Bundle first, then the source tree.
+    ///
+    /// `#filePath` points into the developer's checkout, which exists on a simulator run and
+    /// **does not exist on a physical device** — the sandbox cannot see the Mac's filesystem. The
+    /// corpus is copied into the test bundle by a build phase so the same suite runs in both
+    /// places, which matters because **Tier 1 (Apple Intelligence) only exists on device**: every
+    /// number this benchmark has produced so far describes Tier 2 heuristics alone.
     private var corpusDir: URL {
         if let override = ProcessInfo.processInfo.environment["XBILL_RECEIPT_CORPUS"] {
             return URL(fileURLWithPath: override)
+        }
+        final class Marker {}
+        if let bundled = Bundle(for: Marker.self).resourceURL?
+            .appendingPathComponent("ReceiptCorpus"),
+           FileManager.default.fileExists(atPath: bundled.appendingPathComponent("labels").path) {
+            return bundled
         }
         return URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -267,7 +279,13 @@ struct ReceiptBenchmark {
         let text = report(scores)
         print("\n" + text)
 
-        let outDir = corpusDir.appendingPathComponent("reports")
+        var outDir = corpusDir.appendingPathComponent("reports")
+        if !fm.isWritableFile(atPath: corpusDir.path) {
+            // Device run: the bundle is read-only. Write into the test process's own Documents so
+            // the report can be pulled off afterwards.
+            outDir = URL(fileURLWithPath: NSSearchPathForDirectoriesInDomains(
+                .documentDirectory, .userDomainMask, true)[0]).appendingPathComponent("reports")
+        }
         try? fm.createDirectory(at: outDir, withIntermediateDirectories: true)
         let stamp = ISO8601DateFormatter().string(from: Date())
             .replacingOccurrences(of: ":", with: "-")
