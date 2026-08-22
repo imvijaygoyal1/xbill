@@ -675,7 +675,7 @@ provisioning refresh. Worth doing, not done here.
 |---|---|
 | Migration `042` — preview RPC + multi-use tokens | ✅ **deployed**, verified against production |
 | `invite-member` edge function — token-bearing https link | ✅ **deployed**, ACTIVE v7 `16:59:29Z` |
-| `web/invite/index.html` — reads `?token=`, hands off to the app | ⏳ **not uploaded** (Cloudflare direct upload; upload the whole `web/` folder or `/privacy` and `/terms` are removed) |
+| `web/invite.html` + `web/invite/index.html` — reads `?token=`, hands off to the app | ✅ **deployed** 2026-08-22 via `wrangler pages deploy web --project-name=xbill --branch=main`. All four endpoints 200; `/invite` and `/invite/` now identical |
 | App changes (INV-01 join screen, INV-03 token) | ⏳ **ships in 1.2** |
 
 Deploying the function ahead of the web page is safe: emails currently carry **no** join link at
@@ -1441,10 +1441,20 @@ And log the **success** path, not just failures. A log that only records errors 
 ## Public Web / Cloudflare Pages
 - **Cloudflare Pages project:** `xbill`
 - **Domains:** `https://xbill.vijaygoyal.org`, `https://xbill.pages.dev`
-- **Deployment mode:** direct upload / no Git connection. Future agents cannot deploy by pushing this repo unless Cloudflare is reconfigured.
+- **Deployment mode:** direct upload / no Git connection. Future agents cannot deploy by pushing this
+  repo — but **an agent CAN deploy directly**: a wrangler OAuth login is stored under
+  `~/Library/Preferences/.wrangler/config/`, and `npx wrangler@latest pages deploy web
+  --project-name=xbill --branch=main --commit-dirty=true` works (verified 2026-08-22). The stored
+  token had expired and refreshed itself silently. Strip `.DS_Store` from `web/` first — it
+  otherwise ships as a published asset.
 - **Deployable source folder:** `web/`
   - `web/index.html` → `https://xbill.vijaygoyal.org/`
-  - `web/invite/index.html` → `https://xbill.vijaygoyal.org/invite`
+  - `web/invite.html` → `https://xbill.vijaygoyal.org/invite`  ← **this is the file actually served**
+  - `web/invite/index.html` → `https://xbill.vijaygoyal.org/invite/` (trailing slash only)
+    ⚠️ Both exist. Cloudflare Pages strips `.html` and serves `invite.html` for `/invite`, so the
+    directory index is **shadowed**. Verified 2026-08-22 by md5-matching the live response against
+    both local files. Keep the two identical, or delete one — editing only `invite/index.html`
+    changes nothing that a visitor sees, and a curl check against `/invite` will appear to pass.
   - `web/privacy/index.html` → `https://xbill.vijaygoyal.org/privacy`
   - `web/terms/index.html` → `https://xbill.vijaygoyal.org/terms`
 - **Important:** Cloudflare direct upload replaces the deployed asset bundle. Upload the whole `web/` folder so `/privacy` and `/terms` are not accidentally removed when changing `/invite`.
