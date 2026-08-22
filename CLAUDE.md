@@ -811,11 +811,22 @@ About screen, and the invite fixes (`INV-01`…`INV-04`).
 
 Uploaded and **submitted for review by the owner on 2026-08-22**.
 
+### ✅ Invites CONFIRMED END TO END 2026-08-22
+The owner tested with a second person on a 1.2 build: an invite link shared by **SMS and by email**
+was opened by a non-member, who joined the group successfully. **This is the first time that path
+has ever completed in this product's history.**
+
+Confirmed by observation, not inference:
+- `INV-01` — a non-member can preview and join (the RLS dead end is gone)
+- `INV-03` — invite emails now carry a working token
+- `INV-04` — the https link opens from email **and SMS**, and hands off to the app
+
+**Still unconfirmed: `INV-02`, multi-use tokens.** One person joined, so a single-use token would
+have behaved identically. Proving it needs a **second** person joining with the **same** link —
+worth doing, because reverting to single-use is precisely what made QR codes fail for everyone
+after the first scanner.
+
 ### Watch after approval
-- **Invites end to end, with a second person.** Everything server-side is verified and the client
-  fix is unit-tested, but the full path — invitee taps link, joins, appears in the group — has
-  **never once completed successfully in this product's history**. It is the single most important
-  thing to confirm, and it needs someone who is not already a member.
 - **Receipt scanning is the likeliest review flag.** 77% of totals on device. The review notes
   should say the scan produces a draft the user confirms.
 - **`SCAN-14` shipped without its own commit** — `git add -A` swept it into `f2010d4`. It is in the
