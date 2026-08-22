@@ -670,6 +670,18 @@ not.
 straight in the group: AASA file at `web/.well-known/`, the `associated-domains` entitlement, and a
 provisioning refresh. Worth doing, not done here.
 
+### Deployment state (2026-08-22)
+| Piece | State |
+|---|---|
+| Migration `042` — preview RPC + multi-use tokens | ✅ **deployed**, verified against production |
+| `invite-member` edge function — token-bearing https link | ✅ **deployed**, ACTIVE v7 `16:59:29Z` |
+| `web/invite/index.html` — reads `?token=`, hands off to the app | ⏳ **not uploaded** (Cloudflare direct upload; upload the whole `web/` folder or `/privacy` and `/terms` are removed) |
+| App changes (INV-01 join screen, INV-03 token) | ⏳ **ships in 1.2** |
+
+Deploying the function ahead of the web page is safe: emails currently carry **no** join link at
+all, so a link to a page that ignores its token is not a regression — and no client can join by any
+route until 1.2 ships regardless.
+
 ### Key Pattern — a capability check cannot be an RLS policy on the thing being granted
 An invite exists to give access to someone who does not have it. Any policy of the form "you may
 read this if you already belong" is therefore unsatisfiable for the only caller that matters. Route
