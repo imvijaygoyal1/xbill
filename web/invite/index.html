@@ -1,79 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>xBill - Split Bills Effortlessly</title>
-  <meta name="description" content="xBill helps you split shared expenses, track IOUs, and settle up with friends.">
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      min-height: 100vh;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #0f0e1a;
-      color: #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 40px 24px;
-    }
-    main { width: min(100%, 680px); text-align: center; }
-    .logo { font-size: clamp(44px, 10vw, 72px); line-height: 1; font-weight: 800; margin-bottom: 16px; }
-    .logo span { color: #7f77dd; }
-    h1 { font-size: clamp(30px, 6vw, 52px); line-height: 1.05; margin-bottom: 18px; }
-    .tagline { font-size: 18px; line-height: 1.55; color: #d8d5ff; max-width: 560px; margin: 0 auto 34px; }
-    .features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 34px; }
-    .feature {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 16px;
-      padding: 18px 14px;
-      min-height: 112px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 8px;
-    }
-    .feature strong { font-size: 15px; }
-    .feature span { color: #c8c3ff; font-size: 14px; line-height: 1.35; }
-    .status {
-      display: inline-block;
-      color: #ffffff;
-      background: #7f77dd;
-      border-radius: 999px;
-      padding: 12px 18px;
-      font-size: 15px;
-      font-weight: 700;
-      margin-bottom: 22px;
-    }
-    .links { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; }
-    .links a { color: #d8d5ff; text-decoration: none; font-size: 14px; }
-    .links a:hover { text-decoration: underline; }
-    @media (max-width: 640px) {
-      body { padding: 32px 18px; }
-      .features { grid-template-columns: 1fr; }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join a group on xBill</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:#faf9f7; color:#1c1b1a; display:flex; min-height:100vh;
+         align-items:center; justify-content:center; padding:24px; }
+  @media (prefers-color-scheme: dark) { body { background:#141312; color:#f5f3f0; } }
+  .card { max-width:420px; width:100%; text-align:center; background:#fff; border:1px solid #dad4c8;
+          border-radius:24px; padding:40px 28px; }
+  @media (prefers-color-scheme: dark) { .card { background:#1f1e1c; border-color:#33302c; } }
+  h1 { font-size:24px; margin:0 0 8px; }
+  p  { color:#6b6660; line-height:1.5; margin:0 0 20px; }
+  .btn { display:inline-block; background:#43089f; color:#fff; text-decoration:none;
+         padding:14px 28px; border-radius:12px; font-weight:600; }
+  .secondary { display:block; margin-top:16px; color:#43089f; text-decoration:none; font-size:15px; }
+  .muted { font-size:13px; color:#9f9b93; margin-top:24px; }
+  code { background:rgba(0,0,0,.06); padding:3px 8px; border-radius:6px; font-size:13px; }
+</style>
 </head>
 <body>
-  <main>
-    <div class="logo">x<span>Bill</span></div>
-    <h1>Split shared expenses without the spreadsheet.</h1>
-    <p class="tagline">
-      xBill helps friends and groups track bills, scan receipts, manage IOUs,
-      and settle balances clearly.
-    </p>
-    <section class="features" aria-label="xBill features">
-      <div class="feature"><strong>Groups</strong><span>Track shared trips, homes, and events.</span></div>
-      <div class="feature"><strong>Receipts</strong><span>Scan and split itemized expenses.</span></div>
-      <div class="feature"><strong>Balances</strong><span>See who owes whom at a glance.</span></div>
-    </section>
-    <p class="status">xBill for iPhone</p>
-    <nav class="links" aria-label="Legal links">
-      <a href="https://xbill.vijaygoyal.org/privacy">Privacy Policy</a>
-      <a href="https://xbill.vijaygoyal.org/terms">Terms of Service</a>
-      <a href="https://xbill.vijaygoyal.org">Home</a>
-    </nav>
-  </main>
+  <div class="card">
+    <div style="font-size:56px; line-height:1">👥</div>
+    <h1>You've been invited</h1>
+    <p id="lead">Open this invite in xBill to join the group.</p>
+    <a class="btn" id="open" href="#">Open in xBill</a>
+    <a class="secondary" href="https://apps.apple.com/us/app/xbill/id6780284715">Don't have xBill? Get it free</a>
+    <p class="muted" id="code"></p>
+  </div>
+<script>
+  // The email links here rather than to xbill://join/<token> because a custom scheme has no
+  // handler on a device without the app, and most mail clients will not linkify it. This page is
+  // an ordinary https URL that always opens, then hands off to the app when it exists.
+  var token = new URLSearchParams(location.search).get("token");
+  var open  = document.getElementById("open");
+  if (token) {
+    open.href = "xbill://join/" + token;
+    document.getElementById("code").innerHTML =
+      "If the button does nothing, install xBill and open this link again.<br>Invite code: <code>" + token + "</code>";
+  } else {
+    open.style.display = "none";
+    document.getElementById("lead").textContent =
+      "This invite link is missing its code. Ask whoever invited you to send it again.";
+  }
+</script>
 </body>
 </html>

@@ -198,22 +198,37 @@ final class GroupService {
 
     // MARK: - Invites
 
+    /// Emails an invite that the recipient can actually act on.
+    ///
+    /// INV-03: this used to send only the group's name and the recipients' addresses. The
+    /// `invite-member` function builds a join link **only when `joinToken` is present**, so every
+    /// invite email ever sent fell to its fallback branch — a "Download xBill" link and nothing to
+    /// join with. Its copy then told the recipient to "sign in with this email address to join the
+    /// group", which nothing in the system does.
+    ///
+    /// One token serves the whole batch: tokens are reusable until they expire (INV-02), so a
+    /// group invited five people at once shares one link rather than minting five.
     func inviteMembers(
         emails: [String],
+        groupID: UUID,
         groupName: String,
         groupEmoji: String,
-        inviterName: String
+        inviterName: String,
+        createdBy: UUID
     ) async throws {
+        let invite = try await createInvite(groupID: groupID, createdBy: createdBy)
         struct InvitePayload: Encodable {
             let groupName: String
             let groupEmoji: String
             let inviterName: String
             let emails: [String]
+            let joinToken: String
             enum CodingKeys: String, CodingKey {
                 case groupName   = "groupName"
                 case groupEmoji  = "groupEmoji"
                 case inviterName = "inviterName"
                 case emails
+                case joinToken   = "joinToken"
             }
         }
         struct InviteResponse: Decodable {
@@ -224,7 +239,8 @@ final class GroupService {
             groupName: groupName,
             groupEmoji: groupEmoji,
             inviterName: inviterName,
-            emails: emails
+            emails: emails,
+            joinToken: invite.token
         )
         let _: InviteResponse = try await supabase.client.functions
             .invoke("invite-member", options: .init(body: payload))

@@ -143,9 +143,11 @@ struct InviteMembersView: View {
             let currentUser = try await AuthService.shared.currentUser()
             try await GroupService.shared.inviteMembers(
                 emails: pendingInvites,
+                groupID: group.id,
                 groupName: group.name,
                 groupEmoji: group.emoji,
-                inviterName: currentUser.displayName
+                inviterName: currentUser.displayName,
+                createdBy: currentUser.id
             )
             await onDone()
             dismiss()

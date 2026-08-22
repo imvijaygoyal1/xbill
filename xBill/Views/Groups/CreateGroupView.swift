@@ -140,9 +140,11 @@ struct CreateGroupView: View {
             if !trimmedEmail.isEmpty {
                 try? await GroupService.shared.inviteMembers(
                     emails: [trimmedEmail],
+                    groupID: group.id,
                     groupName: group.name,
                     groupEmoji: group.emoji,
-                    inviterName: inviterName
+                    inviterName: inviterName,
+                    createdBy: userID
                 )
             }
             await onCreated(group)

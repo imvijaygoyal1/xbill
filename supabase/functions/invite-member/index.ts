@@ -78,27 +78,33 @@ async function sendInvite({
   joinToken?: string;
 }) {
   const appStoreUrl = "https://xbill.vijaygoyal.org";
+  // INV-04: the join button must be an ordinary https link, NOT `xbill://join/<token>`.
+  // A custom scheme has no handler on a device without xBill — which is exactly who receives an
+  // emailed invite — and many mail clients will not render it as a link at all. The web page
+  // hands off to the app when it is installed and offers the App Store when it is not.
+  const joinUrl = `https://xbill.vijaygoyal.org/invite?token=${joinToken}`;
   const deepLinkSection = joinToken
     ? `
           <p style="margin-top: 24px;">
             <strong>Tap the link below to join:</strong>
           </p>
           <p style="margin-top: 8px;">
-            <a href="xbill://join/${joinToken}"
+            <a href="${joinUrl}"
                style="display: inline-block; background: #43089f; color: #fff; text-decoration: none;
                       padding: 12px 24px; border-radius: 8px; font-weight: 600;">
-              Open in xBill
+              Join ${groupName}
             </a>
           </p>
           <p style="margin-top: 12px; color: #888; font-size: 13px;">
-            Don't have the app yet?
-            <a href="${appStoreUrl}" style="color: #43089f;">Download xBill</a>
-            and sign in with this email address.
+            The link opens xBill if you have it, or helps you install it first.
           </p>`
+    // Unreachable now that the app always sends a token, but kept honest: the previous copy told
+    // the recipient to "sign in with this email address to join the group", and nothing in xBill
+    // joins anyone by email address.
     : `
           <p style="margin-top: 24px; color: #888; font-size: 13px;">
-            <a href="${appStoreUrl}" style="color: #43089f;">Download xBill</a>
-            and sign in with this email address to join the group.
+            Ask ${inviterName} to resend the invite — this one arrived without a join link.
+            <a href="${appStoreUrl}" style="color: #43089f;">Get xBill</a>
           </p>`;
 
   const res = await fetch("https://api.resend.com/emails", {

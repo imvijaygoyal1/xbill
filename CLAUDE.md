@@ -642,6 +642,34 @@ succeed. **The one account that cannot test this flow is the only account that u
 of people or posted into a chat: the **first** scanner consumed it and everyone after saw
 "expired". `expires_at` (7 days) is the intended lifetime and is now the only one.
 
+### INV-03 — every invite email ever sent contained no way to join
+`invite-member` builds a join link **only when `joinToken` is present**. `GroupService.inviteMembers`
+sent `groupName`, `groupEmoji`, `inviterName` and `emails` — and **never a token**. So every invite
+email in the product's history took the function's fallback branch: a "Download xBill" link and
+nothing to join with. Its copy then said *"sign in with this email address to join the group"*,
+which **nothing in xBill does** — there is no email-based auto-join anywhere in the system.
+
+This is separate from INV-01. Fixing the join screen does not help an email that carries no token.
+
+`inviteMembers` now takes `groupID` and `createdBy`, mints an invite, and sends `joinToken`. **One
+token serves the whole batch** — reusable tokens (INV-02) mean inviting five people shares one link
+instead of minting five.
+
+### INV-04 — the emailed link was a custom URL scheme
+Even with a token, the email linked to `xbill://join/<token>`. A custom scheme has **no handler on
+a device without xBill** — which is exactly who receives an emailed invite — and many mail clients
+will not linkify it at all. There is **no `associated-domains` entitlement and no AASA file**, so
+universal links are not available either.
+
+The email now links to `https://xbill.vijaygoyal.org/invite?token=…`, an ordinary https URL that
+always opens. `web/invite/index.html` reads the token, hands off to `xbill://join/<token>` for
+anyone who has the app, and offers the App Store plus the visible invite code for anyone who does
+not.
+
+**Proper universal links remain unbuilt** and are the only way to make a fresh install land
+straight in the group: AASA file at `web/.well-known/`, the `associated-domains` entitlement, and a
+provisioning refresh. Worth doing, not done here.
+
 ### Key Pattern — a capability check cannot be an RLS policy on the thing being granted
 An invite exists to give access to someone who does not have it. Any policy of the form "you may
 read this if you already belong" is therefore unsatisfiable for the only caller that matters. Route
