@@ -577,3 +577,46 @@ Review any findings before submission.
 - `SUPABASE_AUTH_EXTERNAL_APPLE_SECRET is unset` can appear from local Supabase CLI config. It is not a hosted-backend failure if Apple provider settings are configured in the Supabase dashboard.
 - Older `GroupFlowUITests` notes mention iOS 26 simulator/XCTest tab-bar issues. The current preferred path is `scripts/run-coverage.sh full` or `scripts/run-coverage.sh regression-ui`; the latest full baseline passed on 2026-07-15 with `168` executed tests and `0` skips.
 - Supabase free-tier pause prevention is not guaranteed by GitHub keep-alive traffic. Keep the project active before review.
+
+## Archive verification — commands that must be read-only
+
+Run these against the built archive. **Every command here reads; none writes.**
+
+```bash
+APP="<archive>/Products/Applications/xBill.app"
+
+# Info.plist — use plistlib or `plutil -p`.
+python3 -c "import plistlib,sys; d=plistlib.load(open(sys.argv[1],'rb')); \
+  [print(f'{k:<32}', d.get(k,'*** MISSING ***')) for k in \
+   ['CFBundleShortVersionString','CFBundleVersion','CFBundleDevelopmentRegion', \
+    'ITSAppUsesNonExemptEncryption','UIDeviceFamily','CFBundleIdentifier']]" "$APP/Info.plist"
+
+ls "$APP/Frameworks/xBillWidgetCore.framework"        # WIDGET-01
+ls "$APP/PlugIns/xBillWidget.appex/Assets.car"        # WIDGET-02
+ls "$APP/Metadata.appintents/nlu"                     # Siri, compiled
+ls "<archive>/dSYMs"                                  # expect 3
+find "<archive>" -iname "*ReceiptCorpus*" | wc -l     # expect 0
+```
+
+### ☠️ `plutil -extract KEY json FILE` OVERWRITES FILE
+Without `-o -`, `plutil -extract` in any format other than `raw` writes the extracted value **back
+over the source file**. Checking `UIDeviceFamily` this way on 2026-08-22 replaced a 2,199-byte
+`Info.plist` with the 3 bytes `[1]`, and every check after it read a destroyed plist and reported
+keys as missing. The archive was fine; the verification destroyed it, and had that gone unnoticed
+an unusable build could have been uploaded. **Use `plutil -p`, or `plistlib`.**
+
+### Siri: check `Metadata.appintents/nlu`, not `root.ssu.yaml`
+`root.ssu.yaml` is the **intermediate** and appears in `Build/Products` but **not** in a successful
+archive — the archive carries the compiled `nlu/nlu.lzfse` instead. Its absence is what a failed
+"Archiving all locales" looks like, so assert on `nlu/` being present and non-empty. Asserting on
+`root.ssu.yaml` reports a false failure on a good archive.
+
+### "Executed 0 test" does not mean nothing ran
+`xBillWidgetTests` and most of `xBillTests` are **Swift Testing**, whose cases are not counted by
+XCTest's `Executed N tests` line. Read the `.xcresult` summary, or grep for `Test run with N tests`.
+
+### A UI run killed mid-flight dirties the next one
+`testArchiveUnarchiveRegression` failed once immediately after a `regression-ui` run was killed by
+a timeout, then passed twice in isolation (7 passes, 1 failure overall). The suite creates and
+archives real groups; interrupting it leaves that state half-applied. **Let the suite finish**, and
+if you must kill it, treat the next run's failures as suspect until re-run in isolation.

@@ -791,6 +791,38 @@ Nobody has ever successfully joined by link or QR. Worth noting separately: `Gro
 mints a **new** invite on every appear, which is why there are four; now that tokens live until
 expiry it should reuse an unexpired one instead. Minor, not fixed here.
 
+## Release status — v1.2 (3) ARCHIVED 2026-08-22, awaiting upload
+
+Everything in this release at the owner's explicit direction, after I twice recommended splitting
+the invite fixes out: the full scanner rewrite (`SCAN-01`…`SCAN-14`), App Intents phase 1, the
+About screen, and the invite fixes (`INV-01`…`INV-04`).
+
+| Check | Result |
+|---|---|
+| Unit | **410 passed**, 0 failed, 0 skipped |
+| UI regression | **17/18** — `testArchiveUnarchiveRegression` failed once, then passed 2/2 in isolation (7 passes, 1 failure) |
+| `OnboardingUITests` | **6/6** — the suite the v1.1 post-mortem flagged as never run before a release |
+| Widget | **7/7** |
+| Release build | clean (DEBUG-only code compiles out) |
+| Payment handles NULL | ✅ `profiles_with_handles = 0` |
+| Migrations local = remote | ✅ through 042 |
+| Licence | 4 ExchangeRate-API attribution sites, 0 bundled third-party fonts |
+| Archive | `1.2 (3)`, `UIDeviceFamily [1]`, `CFBundleDevelopmentRegion en`, `ITSAppUsesNonExemptEncryption false`, 3 dSYMs, framework embedded, `Assets.car` in the `.appex` with 4 money colours, Siri `nlu/` compiled and non-empty, **zero receipt-corpus paths** |
+
+Archive installed at `~/Library/Developer/Xcode/Archives/2026-08-22/` so Organizer can upload it.
+**I hold no App Store Connect credentials**, so the upload is the owner's step.
+
+### What running the runbook cost and caught
+Three process defects, all recorded in `RELEASE_VERIFICATION.md`: `plutil -extract … json FILE`
+**destroyed the first archive's Info.plist** during verification; a Siri check asserting on
+`root.ssu.yaml` reports a false failure because a successful archive carries compiled `nlu/`
+instead; and "Executed 0 test" is XCTest's counter, which does not see Swift Testing cases — the
+widget suite had in fact run 7/7.
+
+### Still true and unshipped
+`splits.is_settled` remains unread and undropped. The receipt corpus is git-ignored and local-only,
+so no other machine can run the benchmark.
+
 ## Release status — v1.1 (2) APPROVED 2026-08-18
 
 v1.0 (1) approved 2026-08-11. **v1.1 (2) approved and Ready for Distribution 2026-08-18** — first
