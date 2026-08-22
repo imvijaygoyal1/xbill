@@ -791,7 +791,7 @@ Nobody has ever successfully joined by link or QR. Worth noting separately: `Gro
 mints a **new** invite on every appear, which is why there are four; now that tokens live until
 expiry it should reuse an unexpired one instead. Minor, not fixed here.
 
-## Release status — v1.2 (3) SUBMITTED FOR REVIEW 2026-08-22
+## Release status — v1.2 (3) APPROVED 2026-08-22
 
 Everything in this release at the owner's explicit direction, after I twice recommended splitting
 the invite fixes out: the full scanner rewrite (`SCAN-01`…`SCAN-14`), App Intents phase 1, the
@@ -809,7 +809,17 @@ About screen, and the invite fixes (`INV-01`…`INV-04`).
 | Licence | 4 ExchangeRate-API attribution sites, 0 bundled third-party fonts |
 | Archive | `1.2 (3)`, `UIDeviceFamily [1]`, `CFBundleDevelopmentRegion en`, `ITSAppUsesNonExemptEncryption false`, 3 dSYMs, framework embedded, `Assets.car` in the `.appex` with 4 money colours, Siri `nlu/` compiled and non-empty, **zero receipt-corpus paths** |
 
-Uploaded and **submitted for review by the owner on 2026-08-22**.
+Submitted 2026-08-22 and **approved 2026-08-22** — first pass, despite carrying the entire scanner rewrite alongside the invite fixes.
+
+### Now unblocked by approval
+- **`splits.is_settled` drop** — held during review, safe to do now.
+- **Universal links** — both halves can proceed (AASA file + entitlement).
+- Any further migration or Edge Function work.
+
+### Watch now it is live
+- **Invites in real use.** The fix is finally in users' hands. Four defects had made the flow impossible; only one owner-run test has ever exercised it.
+- **Receipt scanning under real load** — 77% of totals on device, measured against 22 receipts. Real users will feed it things the corpus does not contain.
+- **Crash reports**, particularly around the receipt review screen, which changed most.
 
 ### ✅ Invites CONFIRMED END TO END 2026-08-22
 The owner tested with a second person on a 1.2 build: an invite link shared by **SMS and by email**
