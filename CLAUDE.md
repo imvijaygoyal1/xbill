@@ -653,9 +653,27 @@ conclusion; only the join RPC can reach it. A failed preview means the name is u
 more.
 
 **Verification:** unit **407/407**, 0 failed, 0 skipped. Debug build clean.
-**NOT deployed:** migration `042_invite_preview_and_multi_use.sql` is written and awaiting explicit
-approval. Until it lands, `fetchInvitePreview` fails and the app shows the unnamed-invite card —
-which still joins correctly, single-use caveat aside.
+
+**Migration 042 DEPLOYED 2026-08-22** with explicit approval; multi-use tokens approved by the
+owner. `supabase migration list --linked` reads `042 | 042 | 042`. Verified against production,
+read-only: `get_invite_preview` is `SECURITY DEFINER`, executable by `authenticated`, and returns
+real rows for live tokens; a nonexistent token **raises** `Invalid or expired invite token` rather
+than returning empty, so it is not a token-existence oracle; `join_group_via_invite` no longer
+contains the `DELETE`; `member_count` matches the active-member count.
+
+### ⚠️ The server fix does NOT reach users on the shipped app
+v1.1 calls the deleted `fetchInvite` — a direct select still blocked by RLS — and then
+`fetchGroup`, blocked by policy 007. **Every install in the wild still shows "Invalid Invite"
+until 1.2 ships.** The server side cannot rescue it: making the old path work would require
+widening the `groups` SELECT policy to non-members, which is a real security regression and must
+not be done. There is also **no in-app workaround** — email invites land in the same
+`JoinGroupView`, so they fail identically.
+
+### Corroboration found while verifying
+Four live invite tokens exist, all for one group, whose active membership is **1** — the creator.
+Nobody has ever successfully joined by link or QR. Worth noting separately: `GroupInviteView`
+mints a **new** invite on every appear, which is why there are four; now that tokens live until
+expiry it should reuse an unexpired one instead. Minor, not fixed here.
 
 ## Release status — v1.1 (2) APPROVED 2026-08-18
 
