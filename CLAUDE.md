@@ -1068,7 +1068,7 @@ caught a real defect in a refactor whose own new tests all passed.**
 **Not yet device-verified:** adding a late joiner to a real expense and watching both balances move
 needs a build in hand — that is the check this whole change exists to satisfy.
 
-## Release status — v1.3 (4) ARCHIVED 2026-08-23, ready to upload
+## Release status — v1.3 (4) SUBMITTED FOR REVIEW 2026-08-23
 
 Cut specifically because three fixes could not be verified until they were on a device.
 
@@ -1096,7 +1096,8 @@ Verified with `plistlib` throughout — `plutil -extract KEY json FILE` destroye
 `Info.plist` during verification.
 
 ### The three checks this release exists to enable
-None can be done before it is installed:
+Submitted 2026-08-23. None can be done before the build is installed — so they are the first
+things to do the moment it clears review, not afterwards:
 1. **Tap an invite link from Messages** — universal links have never been exercised on a device.
 2. **Add a late joiner to a real expense** and watch both balances move (`SPLIT-01`).
 3. **Edit an expense amount** and confirm the other person's balance moves (`SPLIT-02` would fail).
