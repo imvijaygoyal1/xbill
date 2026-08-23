@@ -334,6 +334,53 @@ enum SplitCalculator {
     ///
     /// Two passes. Every split is debt — `is_settled` is deliberately not consulted, because
     /// repayment is recorded in `settlements`, not on the share.
+    // MARK: - Rescaling an existing split set (SPLIT-02)
+
+    /// Scales an existing set of splits to a new total, preserving the ratio between them.
+    ///
+    /// Editing an expense's amount used to leave its splits untouched. Balances derive from
+    /// splits, so a correction from 100 to 120 displayed 120 while everyone still owed based on
+    /// 100 — it saved successfully and moved nothing.
+    ///
+    /// **Proportional, not an equal re-split.** The split strategy is *not persisted*: `splits`
+    /// stores amounts only, and nothing records whether the user chose equal, exact, percentage or
+    /// shares. Re-splitting equally would silently flatten a deliberate 70/30 into 50/50. Scaling
+    /// by the ratio preserves whatever the original intent was without needing to know it.
+    ///
+    /// Returns `nil` when there is no ratio to preserve — an empty set, or an original total of
+    /// zero. The caller must then decide how to split afresh; dividing by zero here would invent
+    /// an answer.
+    ///
+    /// - Parameter payerID: receives the rounding remainder, so the parts always sum exactly to
+    ///   `newTotal`. The payer fronted the money, so a stray penny belongs with them rather than
+    ///   spread invisibly across the others.
+    static func rescale(splits: [Split],
+                        from oldTotal: Decimal,
+                        to newTotal: Decimal,
+                        payerID: UUID?) -> [Split]? {
+        guard !splits.isEmpty, oldTotal != .zero else { return nil }
+
+        let ratio = newTotal / oldTotal
+        var scaled = splits.map { split -> Split in
+            var amount = split.amount * ratio
+            var rounded = Decimal()
+            NSDecimalRound(&rounded, &amount, 2, .bankers)
+            var copy = split
+            copy.amount = rounded
+            return copy
+        }
+
+        // Rounding each part independently cannot be trusted to reproduce the whole; the residue
+        // is assigned rather than left to chance.
+        let residue = newTotal - scaled.reduce(Decimal.zero) { $0 + $1.amount }
+        if residue != .zero {
+            let index = payerID.flatMap { id in scaled.firstIndex { $0.userID == id } }
+                ?? scaled.indices.last!
+            scaled[index].amount += residue
+        }
+        return scaled
+    }
+
     static func netBalances(
         expenses: [Expense],
         splits: [UUID: [Split]],

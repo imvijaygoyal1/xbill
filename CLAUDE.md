@@ -959,6 +959,56 @@ Patel and CVS were not worth chasing.
 **Verification:** unit **426/426**, 0 failed. Corpus above, reproduced twice — once with the
 experiment patch and once with the clean removal, identical results.
 
+## Recent Fix Log — 2026-08-23 (later) — SPLIT-02: editing an amount moved no balances
+
+### The defect
+`saveEdit` wrote a new `amount` to `expenses` and left `splits` untouched. Balances derive from
+splits, so correcting a £100 dinner to £120 displayed £120 while every balance still reflected
+£100. The edit reported success and changed nothing. **Live in 1.2.**
+
+### Proportional rescaling, because the strategy is not persisted
+`splits` stores amounts only — nothing records whether the user chose equal, exact, percentage or
+shares. A changed amount therefore cannot be re-split "the way they originally chose", and
+re-splitting equally would silently flatten a deliberate 70/30 into 50/50.
+
+`SplitCalculator.rescale(splits:from:to:payerID:)` scales by the ratio, which preserves whatever
+the intent was without needing to know it. The rounding residue goes to the **payer** — they
+fronted the money — so the parts sum exactly to the new total rather than leaking a penny.
+
+It returns `nil` where there is no ratio to preserve (empty set, or a zero original). Since
+`add_expense_with_splits` requires at least one split, an empty array can only mean *not loaded
+yet*, and the message says so instead of claiming the expense has no shares.
+
+### Migration 043 — one transaction, not three writes
+`update_expense_with_splits` updates the expense, deletes its splits and inserts the new set
+atomically, mirroring `add_expense_with_splits`. Doing it client-side would leave a window where an
+expense's splits do not sum to it, and a crash inside that window would persist the mismatch.
+
+**Not `SECURITY DEFINER`** — `splits` already carries group-member-scoped INSERT/DELETE/SELECT
+policies and `expenses` an UPDATE policy (022), so RLS is the authorisation exactly as for a direct
+write. The function adds atomicity, not privilege. It also **rejects a split set that does not sum
+to the amount**, making that mismatch unrepresentable rather than a balance nobody can explain.
+
+`expenses.updated_at` was added but is **not yet read**: it exists so optimistic concurrency can
+be introduced without a second migration. Two people editing the same expense currently overwrite
+each other silently.
+
+### SPLIT-03 was withdrawn before any code was written
+The scope claimed that changing "Paid by" without rewriting splits corrupts two balances. **That
+was wrong.** `netBalances` skips the payer's own split, so the split set is payer-independent and
+changing the payer inverts the credit correctly by itself — verified by test rather than argument,
+because it was about to be built on.
+
+### Key Pattern — money must not travel through a float literal, in tests either
+`SplitRescaleTests.singleParticipant` failed against a correct implementation because the test
+wrote `to: 73.29`. A `Decimal` from a float literal routes through `Double` and carries its error.
+Production is safe (amounts are parsed from strings); the *test* was the unsafe path. Use
+`Decimal(string:)` in assertions too.
+
+**Verification:** unit **434/434**, 0 failed (8 new). Debug build clean.
+**NOT deployed:** migration `043` is written and awaiting approval. Until it lands the edit path
+would fail at runtime — the RPC does not exist — so this must not ship before the migration.
+
 ## Release status — v1.2 (3) APPROVED 2026-08-22
 
 Everything in this release at the owner's explicit direction, after I twice recommended splitting

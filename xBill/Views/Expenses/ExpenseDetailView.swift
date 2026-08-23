@@ -412,7 +412,34 @@ struct ExpenseDetailView: View {
             createdAt:            expense.createdAt
         )
         do {
-            let saved = try await ExpenseService.shared.updateExpense(updated)
+            // SPLIT-02: the amount and the splits must move together. `updateExpense` writes only
+            // the `expenses` row, and balances derive from splits — so editing an amount through
+            // it displayed the new figure while everyone still owed the old one.
+            //
+            // Rescaling is proportional, not an equal re-split: the split strategy is not
+            // persisted, so flattening to equal would silently destroy a deliberate 70/30.
+            let rescaled = SplitCalculator.rescale(splits: splits,
+                                                   from: expense.amount,
+                                                   to: amount,
+                                                   payerID: payerID)
+            guard let rescaled else {
+                // `add_expense_with_splits` requires at least one split, so an expense can never
+                // legitimately have none — an empty array here means they have not finished
+                // loading. Saving anyway would write a split set built from nothing.
+                self.error = AppError.validationFailed(
+                    "This expense's shares haven't finished loading. Close it, reopen it, and try again.")
+                return
+            }
+            // `SplitInput` carries display fields the RPC does not use; only userID and amount
+            // cross the wire.
+            let inputs = rescaled.map { split -> SplitInput in
+                var input = SplitInput(userID: split.userID,
+                                       displayName: members.first { $0.id == split.userID }?.displayName ?? "")
+                input.amount = split.amount
+                return input
+            }
+            let saved = try await ExpenseService.shared.updateExpenseWithSplits(updated, splits: inputs)
+            splits = rescaled
             onUpdated?(saved)
             isEditing = false
         } catch {

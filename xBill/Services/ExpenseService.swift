@@ -175,6 +175,54 @@ final class ExpenseService {
             .value
     }
 
+    /// Updates an expense **and replaces its splits** in one transaction (SPLIT-02).
+    ///
+    /// `updateExpense` writes only the `expenses` row. Balances derive from splits, so using it
+    /// after an amount change produced an expense that displayed the new figure while everyone
+    /// still owed the old one. Every edit now goes through here so there is a single write path
+    /// and no way to change an amount without its splits following.
+    ///
+    /// The RPC rejects a split set that does not sum to the amount, so a rounding mistake fails
+    /// loudly here rather than becoming a balance nobody can explain.
+    func updateExpenseWithSplits(_ expense: Expense, splits: [SplitInput]) async throws -> Expense {
+        // Mirrors `RPCCreateParams` below: amounts travel as `Decimal` through the configured
+        // PostgREST encoder, not as interpolated strings.
+        struct Params: Encodable {
+            let expenseID: UUID
+            let title:     String
+            let amount:    Decimal
+            let currency:  String
+            let category:  String
+            let notes:     String?
+            let paidBy:    UUID?
+            let splits:    [RPCSplitParam]
+            enum CodingKeys: String, CodingKey {
+                case expenseID = "p_expense_id"
+                case title     = "p_title"
+                case amount    = "p_amount"
+                case currency  = "p_currency"
+                case category  = "p_category"
+                case notes     = "p_notes"
+                case paidBy    = "p_paid_by"
+                case splits    = "p_splits"
+            }
+        }
+        let params = Params(
+            expenseID: expense.id,
+            title:     expense.title,
+            amount:    expense.amount,
+            currency:  expense.currency,
+            category:  expense.category.rawValue,
+            notes:     expense.notes,
+            paidBy:    expense.payerID,
+            splits:    splits.map { RPCSplitParam(userID: $0.userID, amount: $0.amount) }
+        )
+        return try await supabase.client
+            .rpc("update_expense_with_splits", params: params)
+            .execute()
+            .value
+    }
+
     // MARK: - Notify
 
     func notifyExpenseAdded(
