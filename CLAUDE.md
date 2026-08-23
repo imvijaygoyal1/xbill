@@ -908,6 +908,57 @@ unit test would have, because each fix's tests only covered its own case.
 
 **Verification:** unit **426/426**, 0 failed (3 new). Corpus above.
 
+## Recent Fix Log — 2026-08-23 (later still) — SCAN-17: our own preprocessing was destroying digits
+
+### The experiment that had been outstanding since day one
+`preprocessForOCR` applied grayscale → contrast ×1.4 → sharpen ×0.4 before OCR. It was flagged on
+day one as a possible **double-up**: `VNDocumentCameraViewController` already applies perspective
+correction and enhancement, and stacking sharpening on enhanced output can create artefacts. It was
+explicitly recorded as "an experiment — run the same receipts with and without and compare — not a
+change to make on a hunch." The benchmark finally made that runnable.
+
+**The enhancement was making OCR worse.** Same corpus, same code, identical in every other respect:
+
+| | with enhancement | without |
+|---|---|---|
+| **TOTAL correct** | 18/22 (82%) | **21/22 (95%)** |
+| **Name recall** | 72% | **80%** |
+| TAX correct | 20/22 | 20/22 |
+| Item count exact | 16/22 | 16/22 |
+| Price recall | 90% | 90% |
+
+Three receipts flipped from wrong to right, and they are **exactly the three previously written off
+as unfixable**:
+
+```
+06 Trinetra   ✗ nil       →  ✓
+12 Patel      ✗ 136.15    →  ✓      (truth 136.13 — a two-cent digit misread)
+19 CVS        ✗ 13.65     →  ✓      (truth 13.55)
+```
+
+Those had been recorded as "genuinely degraded OCR on the two worst-quality receipts… a tuning
+experiment, not a defect", and the advice given was **not to chase them**. The degradation was
+ours. The receipts were fine.
+
+Only 22 ZOOB still fails, and for an unrelated reason: a handwritten total losing to the printed one.
+
+The resize to 1200px is **kept** — it bounds memory and is not part of the enhancement. Removing
+the three filters also drops three GPU passes per page.
+
+### Key Pattern — plausible image "enhancement" needs measuring, not reasoning
+The comment justifying the filters read *"darkens ink, lightens paper"* and *"reinforces text edges
+for higher-confidence character recognition"*. Both are plausible, both were wrong, and neither was
+ever tested against a receipt. Vision's recogniser is trained on photographs, not on images
+pre-sharpened by us — an operation that looks like help to a human eye is not necessarily help to
+it.
+
+More uncomfortable: this survived **seventeen scanner fixes**. Every one of `SCAN-01`…`SCAN-16`
+was parsing text that our own filter had already damaged, and I twice advised the owner that
+Patel and CVS were not worth chasing.
+
+**Verification:** unit **426/426**, 0 failed. Corpus above, reproduced twice — once with the
+experiment patch and once with the clean removal, identical results.
+
 ## Release status — v1.2 (3) APPROVED 2026-08-22
 
 Everything in this release at the owner's explicit direction, after I twice recommended splitting

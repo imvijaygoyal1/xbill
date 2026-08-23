@@ -378,26 +378,22 @@ final class VisionService {
             current = current.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         }
 
-        // 2. Grayscale — receipt text is monochrome; colour channels add noise
-        if let f = CIFilter(name: "CIPhotoEffectNoir") {
-            f.setValue(current, forKey: kCIInputImageKey)
-            if let out = f.outputImage { current = out }
-        }
-
-        // 3. Contrast 1.4× + brightness +0.05 — darkens ink, lightens paper background
-        if let f = CIFilter(name: "CIColorControls") {
-            f.setValue(current, forKey: kCIInputImageKey)
-            f.setValue(1.4 as CGFloat, forKey: kCIInputContrastKey)
-            f.setValue(0.05 as CGFloat, forKey: kCIInputBrightnessKey)
-            if let out = f.outputImage { current = out }
-        }
-
-        // 4. Sharpness 0.4 — reinforces text edges for higher-confidence character recognition
-        if let f = CIFilter(name: "CISharpenLuminance") {
-            f.setValue(current, forKey: kCIInputImageKey)
-            f.setValue(0.4 as CGFloat, forKey: kCIInputSharpnessKey)
-            if let out = f.outputImage { current = out }
-        }
+        // Grayscale, contrast and sharpening were REMOVED (2026-08-23), measured, not assumed.
+        //
+        // `VNDocumentCameraViewController` already applies perspective correction and enhancement,
+        // and stacking contrast ×1.4 + sharpen ×0.4 on top of that was **destroying digits**.
+        // Benchmarked over the 22-receipt corpus, identical in every other respect:
+        //
+        //     with enhancement   TOTAL 18/22 (82%)   name recall 72%
+        //     without            TOTAL 21/22 (95%)   name recall 80%
+        //
+        // Three receipts flipped from wrong to right — Trinetra (no total at all), Patel
+        // (136.15 for 136.13) and CVS (13.65 for 13.55). Those had been written off as "degraded
+        // thermal paper"; the degradation was ours. Removing the filters also drops three GPU
+        // passes per page.
+        //
+        // ⚠️ Do not reinstate without re-running `scripts/receipt-benchmark.sh`. The reasoning
+        // that put them here — "darkens ink, lightens paper" — is plausible and was wrong.
 
         guard let outputCG = Self.ciContext.createCGImage(current, from: current.extent) else { return image }
         return UIImage(cgImage: outputCG)
