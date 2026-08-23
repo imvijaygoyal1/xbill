@@ -16,8 +16,8 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     ENABLE_STRICT_CONCURRENCY: complete
-    MARKETING_VERSION: "1.2"
-    CURRENT_PROJECT_VERSION: "3"
+    MARKETING_VERSION: "1.3"
+    CURRENT_PROJECT_VERSION: "4"
     TARGETED_DEVICE_FAMILY: "1"        # iPhone only
     # Kept here so `xcodegen generate` does not wipe physical-device signing
     # out of project.pbxproj on every regeneration.
@@ -136,8 +136,8 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         SWIFT_VERSION: "6.0"
         ENABLE_STRICT_CONCURRENCY: complete
-        MARKETING_VERSION: "1.2"
-        CURRENT_PROJECT_VERSION: "3"
+        MARKETING_VERSION: "1.3"
+        CURRENT_PROJECT_VERSION: "4"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_ENTITLEMENTS: xBillWidget/xBillWidget.entitlements
       configs:

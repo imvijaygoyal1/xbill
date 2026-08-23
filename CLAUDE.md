@@ -1068,6 +1068,42 @@ caught a real defect in a refactor whose own new tests all passed.**
 **Not yet device-verified:** adding a late joiner to a real expense and watching both balances move
 needs a build in hand — that is the check this whole change exists to satisfy.
 
+## Release status — v1.3 (4) ARCHIVED 2026-08-23, ready to upload
+
+Cut specifically because three fixes could not be verified until they were on a device.
+
+| Contents | |
+|---|---|
+| `INV-05` | universal links — an invite link opens the app directly |
+| `SPLIT-01` | an expense can be re-split, including to a member who joined later |
+| `SPLIT-02` | editing an amount now moves balances (it moved nothing) |
+| `SCAN-15/16/17` | zero tax recorded, tax lines accumulate, and image enhancement removed |
+| deep-link fix | `xbill://join/` no longer yields the token `"/"` |
+
+| Check | Result |
+|---|---|
+| Unit | **441 passed**, 0 failed |
+| UI regression | **18/18** — the archive test that flaked before 1.2 passed cleanly |
+| `OnboardingUITests` | **6/6** |
+| Widget | **7 tests** |
+| Release build | clean |
+| Payment handles NULL | ✅ `0` |
+| Migrations local = remote | ✅ through 043 |
+| Web endpoints | `/`, `/invite`, `/privacy`, `/terms`, **AASA** all 200 |
+| Archive | `1.3 (4)`, `UIDeviceFamily [1]`, `CFBundleDevelopmentRegion en`, encryption `false`, **`associated-domains` in the signed binary**, 3 dSYMs, widget framework + `Assets.car`, Siri `nlu/` compiled, **0 receipt-corpus paths** |
+
+Verified with `plistlib` throughout — `plutil -extract KEY json FILE` destroyed the 1.2 archive's
+`Info.plist` during verification.
+
+### The three checks this release exists to enable
+None can be done before it is installed:
+1. **Tap an invite link from Messages** — universal links have never been exercised on a device.
+2. **Add a late joiner to a real expense** and watch both balances move (`SPLIT-01`).
+3. **Edit an expense amount** and confirm the other person's balance moves (`SPLIT-02` would fail).
+
+Plus, needing no build: get a **second** person onto the **same** invite link, which is the last
+unproven piece of `INV-02`.
+
 ## Release status — v1.2 (3) APPROVED 2026-08-22
 
 Everything in this release at the owner's explicit direction, after I twice recommended splitting
