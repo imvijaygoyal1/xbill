@@ -831,6 +831,35 @@ existing web-page button path continues to work, so nothing regresses.
 **Verification:** unit **419/419** (9 new), 0 failed, 0 skipped. Debug and signed Release builds
 clean.
 
+## Recent Fix Log — 2026-08-23 — SCAN-15: a printed tax of zero was discarded
+
+The parse loop guarded `rawAmount != .zero` **before** classifying the row, so a line reading
+`TAX  0.00` was dropped as if it carried no amount at all. Three corpus receipts print exactly that
+(Kroger ×2, Costco) and all three reported tax as `nil`.
+
+**Nil and zero are different claims.** Nil means "this receipt did not tell us"; zero means "this
+receipt told us there is none". The second is information, and it is the difference between a total
+that reconciles and one that raises an unexplained mismatch. The guard now sits on the **item**
+branch, where a zero-priced line genuinely is noise — a blank row, or a header mistaken for one.
+
+### The other "leftover" was my mischaracterisation
+I had recorded *"reconcile not firing"* on receipts 12 (Patel) and 19 (CVS). Reading what they
+actually parse:
+
+```
+19  parsed  : CHARGE=13.55                    ← one item, and it is a phantom
+    expected: 6 items
+12  parsed  : SPINACH=1.99 | Sidata Gold 2008=21.99 | Drunsticks=2.45 | …
+```
+
+`reconcile` substitutes a **single alternate price** to close a **small** gap. With most items
+missing the gap is not a misread digit, it is absent data — so there is nothing to fix in
+`reconcile`. The real cause is residual row-merging plus genuinely degraded OCR on the two
+worst-quality receipts in the corpus. That is a tuning experiment, not a defect, and it should not
+be filed as one.
+
+**Verification:** unit **423/423**, 0 failed (4 new). Corpus effect measured separately.
+
 ## Release status — v1.2 (3) APPROVED 2026-08-22
 
 Everything in this release at the owner's explicit direction, after I twice recommended splitting

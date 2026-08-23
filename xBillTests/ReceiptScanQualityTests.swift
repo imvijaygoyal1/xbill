@@ -1005,3 +1005,83 @@ struct TotalLineTests {
         #expect(vision.parseWithHeuristics(rows: rows).receipt.total == Decimal(string: "33.93"))
     }
 }
+
+// MARK: - SCAN-15: a tax of zero was discarded as "no amount"
+//
+// The parse loop guarded `rawAmount != .zero` before classifying the row, so a line reading
+// `TAX  0.00` was dropped as if it carried no amount at all. Three corpus receipts (Kroger ×2,
+// Costco) print exactly that, and all three reported tax as **nil** where the truth is 0.00.
+//
+// Nil and zero are different claims. Nil means "this receipt did not tell us"; 0.00 means "this
+// receipt told us there is no tax". The second is information, and it is the difference between a
+// total that reconciles and one that raises an unexplained mismatch.
+//
+// The guard belongs on the ITEM branch, where a zero-priced line really is noise, not on the row.
+
+@Suite("Receipt scanning — zero amounts")
+@MainActor
+struct ZeroAmountTests {
+
+    private var vision: VisionService { VisionService.shared }
+
+    private func rows(_ spec: [(String, String)]) -> [[OCRLine]] {
+        var out: [[OCRLine]] = [[OCRLine(text: "Kroger", midX: 0.5, midY: 0.02,
+                                         height: 0.01, confidence: 0.9)]]
+        for (i, (label, amount)) in spec.enumerated() {
+            let y = 0.10 + CGFloat(i) * 0.05
+            out.append([
+                OCRLine(text: label,  midX: 0.2, midY: y, height: 0.01, confidence: 0.9),
+                OCRLine(text: amount, midX: 0.9, midY: y, height: 0.01, confidence: 0.9)
+            ])
+        }
+        return out
+    }
+
+    @Test("A printed tax of zero is recorded as zero, not as missing")
+    func zeroTaxIsRecorded() {
+        let parsed = vision.parseWithHeuristics(rows: rows([
+            ("DRIS STRAWBERRY PC", "2.99"),
+            ("BANANAS",            "1.13"),
+            ("TAX",                "0.00"),
+            ("GRAND TOTAL",        "4.12")
+        ]))
+        #expect(parsed.receipt.tax == Decimal.zero,
+                "Expected 0, got \(String(describing: parsed.receipt.tax))")
+        #expect(parsed.receipt.total == Decimal(string: "4.12"))
+    }
+
+    @Test("A zero tip is likewise recorded")
+    func zeroTipIsRecorded() {
+        let parsed = vision.parseWithHeuristics(rows: rows([
+            ("Buffalo Flower", "12.00"),
+            ("TIP",            "0.00"),
+            ("Total",          "12.00")
+        ]))
+        #expect(parsed.receipt.tip == Decimal.zero)
+    }
+
+    /// The other direction, and the reason the guard existed. A zero-priced ITEM is noise — a
+    /// blank line on the receipt, or a header the parser mistook for a row — and must stay out.
+    @Test("A zero-priced item is still discarded")
+    func zeroPricedItemStillDropped() {
+        let parsed = vision.parseWithHeuristics(rows: rows([
+            ("REAL ITEM",   "3.50"),
+            ("SOMETHING",   "0.00"),
+            ("Total",       "3.50")
+        ]))
+        #expect(parsed.receipt.items.count == 1, "Got \(parsed.receipt.items.map(\.name))")
+        #expect(parsed.receipt.items.first?.name == "REAL ITEM")
+    }
+
+    /// A zero total is meaningless and must not overwrite a real one — `max` already handles it,
+    /// but the ordering only works if zero rows reach the classifier at all.
+    @Test("A zero total does not displace a real one")
+    func zeroTotalDoesNotWin() {
+        let parsed = vision.parseWithHeuristics(rows: rows([
+            ("ITEM",           "5.00"),
+            ("Total",          "5.00"),
+            ("Balance Due",    "0.00")
+        ]))
+        #expect(parsed.receipt.total == Decimal(string: "5.00"))
+    }
+}

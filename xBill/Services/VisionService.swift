@@ -739,7 +739,12 @@ final class VisionService {
             let rightText   = rightLines.map(\.text).joined(separator: " ")
             let priceSource = rightText.isEmpty ? fullText : rightText
 
-            guard let rawAmount = extractDecimal(from: priceSource), rawAmount != .zero else {
+            // SCAN-15: the non-zero test is NOT applied here. A row reading `TAX 0.00` carries a
+            // real amount, and dropping it made the receipt claim "no tax told to us" when it had
+            // been told there is none — a different statement, and the difference between a total
+            // that reconciles and an unexplained mismatch. The guard now sits on the item branch,
+            // where a zero-priced line genuinely is noise.
+            guard let rawAmount = extractDecimal(from: priceSource) else {
                 // No amount here. If the row reads as a name, hold it for the row below — this is
                 // the top half of a split item.
                 let candidate = fullText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -768,6 +773,10 @@ final class VisionService {
             } else {
                 var name = leftText.isEmpty ? stripPrice(from: fullText) : leftText
                 name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                // SCAN-15: a zero-priced item is noise — a blank line, or a header mistaken for
+                // a row. Totals, tax and tip have already been classified above, so this only
+                // discards things that would have become items.
+                if amount == .zero { continue }
                 // SCAN-12/13: a row whose own text is measurement, a bare figure or a quantity
                 // prefix is not an item — unless the row above supplied the name, in which case
                 // the two halves are one item.
