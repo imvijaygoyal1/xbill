@@ -1068,6 +1068,57 @@ caught a real defect in a refactor whose own new tests all passed.**
 **Not yet device-verified:** adding a late joiner to a real expense and watching both balances move
 needs a build in hand — that is the check this whole change exists to satisfy.
 
+## Recent Fix Log — 2026-08-23 (later) — INV-06: scanning a QR from a cold start joined nothing
+
+### Reported
+App killed. Native Camera scans the group QR. xBill launches and shows *"Join Smoky Mountains
+Trip"* — the real group name. Tap Join. No group appears. Twice.
+
+### What the data said before any theorising
+**No `group_members` row was written at all.** Only the two successful joins from earlier that day
+and one UI-test artifact. So the join failed, rather than succeeding-but-not-displaying.
+
+### Root cause
+`get_invite_preview` is callable **without a session** — verified by calling it with the anon key
+and getting the full group back. So the screen naming the group correctly proves **nothing** about
+whether the caller can act.
+
+On a cold launch the Supabase SDK restores and refreshes the session **asynchronously**. Tapping
+Join inside that window sent `auth.uid() = NULL`, and `join_group_via_invite` inserted it blindly:
+
+```
+23502  null value in column "user_id" of relation "group_members"
+```
+
+`AppError.from` has no mapping for a PostgREST constraint code, so it reached the user as nothing
+at all. **A screen that can render before it can act must not offer the action.**
+
+### Fixed in two layers
+- **Client (`JoinGroupView`)** — awaits `auth.session` before joining, which forces the SDK to
+  finish restoring or refreshing. On failure: *"Your session has expired. Sign in again, then
+  reopen this invite."* **This is where the user-facing message comes from.**
+- **Migration 044** — `join_group_via_invite` checks `auth.uid()` first, and `anon`'s EXECUTE is
+  revoked (Supabase grants it by default; `REVOKE … FROM PUBLIC` does not remove it).
+
+### ⚠️ The revoke made the RPC's own message unreachable
+An expired JWT is treated as **`anon`** by PostgREST, so it now gets `42501 permission denied`
+before reaching the function — meaning the `RAISE … 'You need to be signed in'` can only fire for a
+non-anon role with no identity, such as `service_role`. **It is close to a guard that cannot fire**,
+the pattern this codebase has been bitten by twice. It is kept as a backstop, but the layer that
+actually helps a user is the client await. Do not add copy to the RPC believing users will see it.
+
+### Still open on this path
+`GroupInviteView` encodes **`xbill://join/<token>`** into the QR — a custom scheme. The universal
+link work (`INV-05`) converted the *email* link and left the QR, so scanning still takes the old
+path even in 1.3. It should become `https://xbill.vijaygoyal.org/invite?token=…`, which the native
+Camera handles as an ordinary link.
+
+**Verification:** unit **441/441**. Migration 044 verified against production: anon → `42501`,
+authenticated with a bogus token → `Invalid or expired invite token` (so the identity check passes
+and the token check rejects). `anon_exec: false`, `auth_exec: true`.
+**Not verified:** the original cold-launch sequence on a real device. The mechanism is reproduced;
+the exact user sequence is not, and the client fix ships in the next build.
+
 ## Release status — v1.3 (4) SUBMITTED FOR REVIEW 2026-08-23
 
 Cut specifically because three fixes could not be verified until they were on a device.

@@ -139,6 +139,21 @@ struct JoinGroupView: View {
         isJoining = true
         defer { isJoining = false }
         do {
+            // INV-06. On a cold launch from a scanned QR the Supabase SDK restores and refreshes
+            // the session **asynchronously**, and `get_invite_preview` is callable without one —
+            // so this screen can name the group correctly while the app still has no identity to
+            // join with. Tapping through in that window sent `auth.uid() = NULL` and the insert
+            // died on a NOT NULL constraint, which reached the user as "nothing happened".
+            //
+            // Awaiting the session forces the SDK to restore or refresh first, so the join either
+            // runs with a real identity or fails with something the user can act on.
+            do {
+                _ = try await SupabaseManager.shared.auth.session
+            } catch {
+                self.error = AppError.validationFailed(
+                    "Your session has expired. Sign in again, then reopen this invite.")
+                return
+            }
             _ = try await GroupService.shared.joinGroupViaInvite(token: token)
             HapticManager.success()
             await onJoined()
