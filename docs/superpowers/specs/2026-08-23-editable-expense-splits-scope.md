@@ -30,13 +30,20 @@ for split in splits[expense.id] ?? [] {
 Correct a £100 dinner to £120 and the row displays £120 while every balance still reflects £100.
 The user watches the correction save successfully and it does nothing.
 
-### SPLIT-03 — editing "Paid by" corrupts balances in both directions
-`payerID` decides whose split is skipped and who is credited. Change it without rewriting splits
-and the new payer's own share becomes a debt they owe themselves, while the former payer keeps
-none. Two people's balances go wrong at once, in opposite directions, with no warning.
+### ~~SPLIT-03 — editing "Paid by" corrupts balances~~ — WITHDRAWN, this was wrong
+The first draft claimed that changing the payer without rewriting splits makes the new payer owe
+their own share. **That is false**, and it was reasoning rather than measurement.
 
-**SPLIT-02 and SPLIT-03 are live in production today** — they are reachable from the edit sheet in
-1.2, which is approved and live.
+`netBalances` skips the payer's own split (`guard split.userID != payerID else { continue }`), so
+the split set describes **who consumed what** and is payer-independent. Changing the payer inverts
+the credit correctly by itself. Verified empirically before building on it: splits `[A:50, B:50]`
+with payer A give `A +50 / B −50`; the same splits with payer B give `B +50 / A −50`. Both correct.
+
+A claim that money is being corrupted deserves a test, not an argument. This one got the test only
+because it was about to be acted on.
+
+**SPLIT-02 is live in production today** — reachable from the edit sheet in 1.2, which is approved
+and live. SPLIT-01 is a missing feature, not a defect.
 
 ## Verified constraints
 
@@ -102,9 +109,10 @@ is a trust problem in a shared ledger.
 
 ## Phasing
 
-**Phase 1 — correctness (no new UI).** The RPC, plus proportional rescaling on amount change and a
-full split rewrite on payer change. Fixes SPLIT-02 and SPLIT-03, which are live defects. Ships without
-any new screen.
+**Phase 1 — correctness (no new UI).** The RPC, plus proportional rescaling on amount change.
+Fixes SPLIT-02, the one live defect. A payer change needs no split rewrite (see the withdrawal
+above), but goes through the same RPC so there is a single write path. Ships without any new
+screen.
 
 **Phase 2 — the feature.** Participant selection and strategy control in the edit sheet. Fixes
 SPLIT-01, the original question.
