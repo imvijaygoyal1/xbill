@@ -36,6 +36,13 @@ struct ExpenseDetailView: View {
     @State private var editCategory: Expense.Category = .other
     @State private var editNotes: String = ""
     @State private var editPayerID: UUID? = nil
+    /// SPLIT-01. Seeded from the existing splits when the sheet opens, so a member who joined the
+    /// group after this expense was created can be ticked onto it.
+    @State private var splitEditor: SplitEditor? = nil
+    /// Whether the user touched the split section. If they did not, an amount change is rescaled
+    /// proportionally (SPLIT-02) rather than re-derived — which preserves a deliberate 70/30 that
+    /// the stored data cannot otherwise describe.
+    @State private var splitsEdited = false
     @State private var isSaving = false
 
     // Delete state
@@ -333,6 +340,53 @@ struct ExpenseDetailView: View {
                     }
                 }
 
+                if let editor = splitEditor {
+                    Section("Split Between") {
+                        Picker("How to split", selection: Binding(
+                            get: { editor.strategy },
+                            set: { editor.strategy = $0; splitsEdited = true; editor.recompute() }
+                        )) {
+                            ForEach(SplitStrategy.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .accessibilityIdentifier("xBill.editExpense.splitStrategyPicker")
+
+                        // CRASH-01: iterate values, never `ForEach($editor.inputs)`. Element
+                        // bindings are index-backed and UIKit reads them back during a deferred
+                        // update pass; every edit below resolves its row by id instead.
+                        ForEach(editor.inputs) { input in
+                            HStack {
+                                Toggle(isOn: Binding(
+                                    get: { input.isIncluded },
+                                    set: { _ in editor.toggle(participantID: input.userID); splitsEdited = true }
+                                )) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(input.displayName)
+                                        if !members.contains(where: { $0.id == input.userID }) {
+                                            // Kept, not dropped: an expense may legitimately be
+                                            // split with someone who has since left the group.
+                                            Text("No longer in this group")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                                if input.isIncluded {
+                                    Text(input.amount.formatted(currencyCode: currency))
+                                        .monospacedDigit()
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+
+                        if splitsEdited, let problem = editor.validationError {
+                            Text(problem)
+                                .font(.caption)
+                                .foregroundStyle(Color.moneyNegative)
+                        }
+                    }
+                }
+
                 Section("Notes (optional)") {
                     TextField("Add a note…", text: $editNotes, axis: .vertical)
                         .lineLimit(2...4)
@@ -360,6 +414,13 @@ struct ExpenseDetailView: View {
 
     // MARK: - Helpers
 
+    /// Seeded fresh each time so a cancelled edit leaves nothing behind.
+    private func seedSplitEditor() {
+        let total = Decimal(string: editAmountText.replacingOccurrences(of: ",", with: ".")) ?? expense.amount
+        splitEditor  = SplitEditor.forEditing(existingSplits: splits, members: members, total: total)
+        splitsEdited = false
+    }
+
     private func openEditSheet() {
         editTitle      = expense.title
         var amountCopy = expense.amount
@@ -369,6 +430,7 @@ struct ExpenseDetailView: View {
         editCategory   = expense.category
         editNotes      = expense.notes ?? ""
         editPayerID    = expense.payerID
+        seedSplitEditor()
         isEditing      = true
     }
 
@@ -412,12 +474,35 @@ struct ExpenseDetailView: View {
             createdAt:            expense.createdAt
         )
         do {
-            // SPLIT-02: the amount and the splits must move together. `updateExpense` writes only
-            // the `expenses` row, and balances derive from splits — so editing an amount through
-            // it displayed the new figure while everyone still owed the old one.
+            // Two paths, deliberately.
             //
-            // Rescaling is proportional, not an equal re-split: the split strategy is not
-            // persisted, so flattening to equal would silently destroy a deliberate 70/30.
+            // If the user TOUCHED the split section (SPLIT-01), their choice is authoritative —
+            // they picked participants and a strategy, so use exactly that.
+            //
+            // If they did not, the split is rescaled PROPORTIONALLY (SPLIT-02) rather than
+            // re-derived. The strategy is not persisted, so re-deriving would have to guess, and
+            // guessing "equal" would silently flatten a deliberate 70/30 that the user never
+            // opened the section to change.
+            if splitsEdited, let editor = splitEditor {
+                if let problem = editor.validationError {
+                    self.error = AppError.validationFailed(problem)
+                    return
+                }
+                let chosen = editor.includedInputs
+                guard !chosen.isEmpty else {
+                    self.error = AppError.validationFailed("Choose at least one person to split this with.")
+                    return
+                }
+                let saved = try await ExpenseService.shared.updateExpenseWithSplits(updated, splits: chosen)
+                splits = chosen.map {
+                    Split(id: UUID(), expenseID: expense.id, userID: $0.userID,
+                          amount: $0.amount, isSettled: false)
+                }
+                onUpdated?(saved)
+                isEditing = false
+                return
+            }
+
             let rescaled = SplitCalculator.rescale(splits: splits,
                                                    from: expense.amount,
                                                    to: amount,

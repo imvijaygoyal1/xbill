@@ -677,9 +677,9 @@ together, in that order.
 | **ID** | SPLIT-01, SPLIT-02 (SPLIT-03 **withdrawn**) |
 | **File** | `xBill/Views/Expenses/ExpenseDetailView.swift` (`saveEdit`), `xBill/Services/ExpenseService.swift` (`updateExpense`) |
 | **Issue** | The only two `splits` operations in the app are `SELECT`; nothing rewrites them after `add_expense_with_splits`. (01) A member who joins later cannot be added to an existing expense. (02) Editing the amount updates `expenses.amount` but no splits, and balances derive from splits — so the correction appears to save and moves nothing. (03) **WITHDRAWN — this claim was wrong.** `netBalances` skips the payer's own split, so the split set is payer-independent and changing the payer inverts the credit correctly on its own. Verified by test before acting on it. |
-| **Status** | 🔍 Scoped, not built — `docs/superpowers/specs/2026-08-23-editable-expense-splits-scope.md` |
+| **Status** | ✅ Fixed — SPLIT-02 (Phase 1) and SPLIT-01 (Phase 2) both built; migration 043 deployed 2026-08-23 |
 | **Fix** | One `update_expense_with_splits` RPC updating the expense and replacing splits in a single transaction. Amount changes **rescale proportionally** rather than re-splitting equally: the split strategy is not persisted, so equal re-splitting would silently destroy a deliberate 70/30. |
-| **Verification** | Pending. SPLIT-02 is live in production 1.2; SPLIT-01 is a missing feature. |
+| **Verification** | Unit 441/441. Migration 043 verified against production (all three guards fail before any write; 0 rows touched). **Ships in 1.3** — 1.2 users still have SPLIT-02. Device check outstanding: add a late joiner to a real expense and watch both balances move. |
 
 ## SCAN-01/02/03 — Receipt scanning: sign, confidence, per-item flags (2026-08-18)
 

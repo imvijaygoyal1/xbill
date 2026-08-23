@@ -1033,6 +1033,48 @@ and **do not**. Nothing is exposed — these functions are `SECURITY INVOKER`, s
 anonymous caller (verified above), and the two `SECURITY DEFINER` ones fail on a null `auth.uid()`.
 But the ceremony is misleading: to actually restrict, revoke from `anon` by name.
 
+## Recent Fix Log — 2026-08-23 (Phase 2) — SPLIT-01: an expense can be re-split
+
+The original question: *create a group, add an expense, a member joins later — can the expense be
+split to them?* It could not. It can now.
+
+### One split implementation, not two
+The split rules lived inside `AddExpenseViewModel`. Reimplementing them for the edit sheet would
+have been the fifth instance this session of two code paths meant to agree and drifting
+(`INV-01`…`INV-04`). They were extracted into **`SplitEditor`**, which `AddExpenseViewModel` now
+owns and forwards to — its public API is unchanged, so the view and 27 existing test references
+were untouched.
+
+The rules are too easy to get subtly wrong to duplicate: percentage validation exists because a
+40/30/20 entry once saved silently with the missing 10% dumped on one participant, and the shares
+clamp exists because that rule used to live in a button and only held while every caller
+remembered it.
+
+### `SplitEditor.forEditing` and the two rules that are not obvious
+- **A departed member keeps their split.** An expense may legitimately be split with someone who
+  has since left the group; dropping them would rewrite history and move their debt onto everyone
+  else. They appear as "No longer in this group" and are preserved.
+- **Seeded as `.exact`, never `.equal`.** The strategy is **not persisted** — `splits` stores
+  amounts only. Presenting `.equal` would assert something about the user's original intent the
+  data cannot support, and would flatten a deliberate 70/30 the moment they opened the sheet.
+
+### Two save paths, deliberately
+If the user **touched** the split section their choice is authoritative. If they did not, an amount
+change is **rescaled proportionally** (SPLIT-02) rather than re-derived — re-deriving would have to
+guess a strategy, and guessing "equal" would silently flatten a split they never opened the section
+to change.
+
+### The extraction regressed a test, and that is the point
+`exactSplitValidationControlsSave` failed the moment `SplitEditor` was introduced: validation read
+the editor's **stored** total, which only refreshes on recompute, so the form reported *"amounts
+must add up to 0.00"* while showing a real amount. `validationError(for:)` now takes the total
+explicitly — a pure function of (strategy, inputs, total) cannot go stale. **The existing suite
+caught a real defect in a refactor whose own new tests all passed.**
+
+**Verification:** unit **441/441**, 0 failed (7 new). Debug build clean, installed on the simulator.
+**Not yet device-verified:** adding a late joiner to a real expense and watching both balances move
+needs a build in hand — that is the check this whole change exists to satisfy.
+
 ## Release status — v1.2 (3) APPROVED 2026-08-22
 
 Everything in this release at the owner's explicit direction, after I twice recommended splitting

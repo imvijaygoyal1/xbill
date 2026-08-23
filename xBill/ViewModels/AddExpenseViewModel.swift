@@ -20,8 +20,18 @@ final class AddExpenseViewModel {
     var expenseCurrency: String   // currency the expense was paid in
     var category: Expense.Category = .other
     var notes: String = ""
-    var splitStrategy: SplitStrategy = .equal
-    var splitInputs: [SplitInput] = []
+    /// SPLIT-01: the split half of this form now lives in `SplitEditor`, shared with the edit
+    /// sheet so the two cannot drift. These forward so this type's API is unchanged.
+    let splitEditor = SplitEditor()
+
+    var splitStrategy: SplitStrategy {
+        get { splitEditor.strategy }
+        set { splitEditor.strategy = newValue }
+    }
+    var splitInputs: [SplitInput] {
+        get { splitEditor.inputs }
+        set { splitEditor.inputs = newValue }
+    }
     var payerID: UUID?
 
     // Multi-currency
@@ -90,37 +100,17 @@ final class AddExpenseViewModel {
         && splitValidationError == nil
     }
 
-    var splitValidationError: String? {
-        switch splitStrategy {
-        case .exact:
-            return SplitCalculator.validateExact(total: finalAmount, inputs: splitInputs)
-        case .percentage:
-            // REV-10: without this a 40/30/20 entry saved silently, with the missing 10%
-            // of the bill dumped on one participant by the remainder assignment.
-            return SplitCalculator.validatePercentages(inputs: splitInputs)
-        case .equal, .shares:
-            return nil
-        }
-    }
+    /// Passes `finalAmount` explicitly: the editor's stored total only refreshes on recompute,
+    /// and `canSave` is read on every keystroke.
+    var splitValidationError: String? { splitEditor.validationError(for: finalAmount) }
 
     // MARK: - Split Recompute
 
     func recomputeSplits() {
-        let total = finalAmount
-        guard total > .zero else {
-            for i in splitInputs.indices { splitInputs[i].amount = .zero }
-            return
-        }
-        switch splitStrategy {
-        case .equal:
-            SplitCalculator.splitEqually(total: total, inputs: &splitInputs)
-        case .percentage:
-            SplitCalculator.splitByPercentage(total: total, inputs: &splitInputs)
-        case .shares:
-            SplitCalculator.splitByShares(total: total, inputs: &splitInputs)
-        case .exact:
-            break
-        }
+        // The editor is the single source of truth for the split; this is where the form's
+        // (possibly currency-converted) total is handed to it. `total`'s `didSet` recomputes.
+        splitEditor.total = finalAmount
+        splitEditor.recompute()
     }
 
     // MARK: - Participant edits
@@ -137,26 +127,21 @@ final class AddExpenseViewModel {
     // than merely unlikely.
 
     func input(for participantID: UUID) -> SplitInput? {
-        splitInputs.first { $0.userID == participantID }
+        splitEditor.input(for: participantID)
     }
 
     func toggle(participantID: UUID) {
-        guard let index = splitInputs.firstIndex(where: { $0.userID == participantID }) else { return }
-        splitInputs[index].isIncluded.toggle()
-        recomputeSplits()
+        splitEditor.total = finalAmount
+        splitEditor.toggle(participantID: participantID)
     }
 
     func setAmount(_ amount: Decimal, participantID: UUID) {
-        guard let index = splitInputs.firstIndex(where: { $0.userID == participantID }) else { return }
-        splitInputs[index].amount = amount
+        splitEditor.setAmount(amount, participantID: participantID)
     }
 
-    /// Clamped at 1: a participant cannot hold zero shares, and the old `-` button enforced that
-    /// at the call site — a rule that only held as long as every caller remembered it.
     func adjustShares(by delta: Int, participantID: UUID) {
-        guard let index = splitInputs.firstIndex(where: { $0.userID == participantID }) else { return }
-        splitInputs[index].shares = max(1, splitInputs[index].shares + delta)
-        recomputeSplits()
+        splitEditor.total = finalAmount
+        splitEditor.adjustShares(by: delta, participantID: participantID)
     }
 
     // MARK: - Currency Conversion
