@@ -1,5 +1,8 @@
 # Editable expense splits — scope
 
+> **IDs are `SPLIT-01/02/03`.** `EXP-01/02/03` were already taken by the CSV-export findings in
+> `AUDIT_REPORT.md`; an earlier draft of this document used them by mistake.
+
 **Status:** scope only, nothing built. Raised by the owner asking whether an expense can be split
 to a member who joined the group after it was created.
 
@@ -8,11 +11,11 @@ to a member who joined the group after it was created.
 Splits are written once, by `add_expense_with_splits`, and never touched again. The only two
 `splits` operations in the app are `SELECT`. That produces three distinct defects, all silent.
 
-### EXP-01 — a late-joining member cannot be added to an existing expense
+### SPLIT-01 — a late-joining member cannot be added to an existing expense
 The original question. There is no path to change who an expense is split between. The workaround
 is to delete and re-create it, which loses the created-at ordering and any comments on it.
 
-### EXP-02 — editing the amount changes no balances
+### SPLIT-02 — editing the amount changes no balances
 `saveEdit` writes a new `amount` to `expenses` and leaves splits alone. Balances derive from
 splits:
 
@@ -27,12 +30,12 @@ for split in splits[expense.id] ?? [] {
 Correct a £100 dinner to £120 and the row displays £120 while every balance still reflects £100.
 The user watches the correction save successfully and it does nothing.
 
-### EXP-03 — editing "Paid by" corrupts balances in both directions
+### SPLIT-03 — editing "Paid by" corrupts balances in both directions
 `payerID` decides whose split is skipped and who is credited. Change it without rewriting splits
 and the new payer's own share becomes a debt they owe themselves, while the former payer keeps
 none. Two people's balances go wrong at once, in opposite directions, with no warning.
 
-**EXP-02 and EXP-03 are live in production today** — they are reachable from the edit sheet in
+**SPLIT-02 and SPLIT-03 are live in production today** — they are reachable from the edit sheet in
 1.2, which is approved and live.
 
 ## Verified constraints
@@ -100,11 +103,11 @@ is a trust problem in a shared ledger.
 ## Phasing
 
 **Phase 1 — correctness (no new UI).** The RPC, plus proportional rescaling on amount change and a
-full split rewrite on payer change. Fixes EXP-02 and EXP-03, which are live defects. Ships without
+full split rewrite on payer change. Fixes SPLIT-02 and SPLIT-03, which are live defects. Ships without
 any new screen.
 
 **Phase 2 — the feature.** Participant selection and strategy control in the edit sheet. Fixes
-EXP-01, the original question.
+SPLIT-01, the original question.
 
 Phase 1 is smaller, is a bug fix rather than a feature, and could ship on its own.
 
@@ -124,7 +127,7 @@ Phase 1 is smaller, is a bug fix rather than a feature, and could ship on its ow
 - Unit: proportional rescale preserves ratios and sums exactly, for equal / exact / percentage /
   shares; payer change moves credit correctly; a removed participant's debt disappears.
 - Regression: an expense edited to the same values produces byte-identical splits.
-- Device: edit an amount and confirm the other member's balance moves — the check EXP-02 would
+- Device: edit an amount and confirm the other member's balance moves — the check SPLIT-02 would
   have failed.
 - Read-only production query confirming no expense has splits that fail to sum to its amount,
   before and after.
