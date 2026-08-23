@@ -860,6 +860,54 @@ be filed as one.
 
 **Verification:** unit **423/423**, 0 failed (4 new). Corpus effect measured separately.
 
+## Recent Fix Log — 2026-08-23 (later) — SCAN-16, and a broken benchmark that hid two answers
+
+### SCAN-16 — a second tax line overwrote the first
+`tax` was **assigned** on each matching row, so the last tax line won. ALDI prints two:
+
+```
+C:Taxable @7.000%     0.28
+A:Taxable @0.00%      0.00
+```
+
+The zero used to be discarded by the non-zero guard that `SCAN-15` removed, which had been masking
+the overwrite. With the guard gone ALDI's tax became `0` — **a receipt that had been right for the
+wrong reason started being wrong.** Multiple tax lines are different rates on different subtotals,
+so tax now **accumulates**. Tip is deliberately left assigning: there is corpus evidence for
+multiple tax bands and none for multiple tips.
+
+### The benchmark had been unrunnable on the simulator for a day
+The corpus copy phase added for the Tier 1 device run writes into
+`xBill.app/PlugIns/xBillTests.xctest/` **after the app is signed**, invalidating the signature. The
+simulator then refuses to launch the app at all (`RequestDenied by SBMainWorkspace`). Device runs
+were unaffected, so it went unnoticed — and it silently made every simulator benchmark since
+2026-08-22 10:24 impossible. The phase is now **device-only**: a simulator test reads the corpus
+from the source tree via `#filePath` and never needed the copy.
+
+**That broken benchmark had hidden two conclusions**, both now settled:
+
+- **`SCAN-14` did land.** It looked unverified because the only runs after it were broken. Totals
+  on 07 ALDI, 13 Chuko and 18 Starbucks are now correct; 06 Trinetra is still `nil`.
+- The device-vs-simulator delta flagged after the Tier 1 run was **the signing bug**, not a
+  difference between device and simulator Vision.
+
+### Corpus, simulator (Tier 2 only), across SCAN-14/15/16
+| | before | after |
+|---|---|---|
+| TOTAL correct | 15/22 (68%) | **18/22 (82%)** |
+| TAX correct | 17/22 (77%) | **20/22 (91%)** |
+| Item count exact | 16/22 | 16/22 (73%) |
+| Price recall | 90% | 90% |
+| Name recall | 72% | 72% |
+
+### Key Pattern — a fix can make a latent bug reachable
+`SCAN-15` was correct and its own tests passed, and it still broke ALDI: removing a guard exposed
+an overwrite that guard had been accidentally suppressing. **After removing a filter, re-measure
+the things that were passing** — not only the ones that were failing. The corpus caught this; no
+unit test would have, because each fix's tests only covered its own case.
+
+**Verification:** unit **426/426**, 0 failed (3 new). Corpus above.
+
 ## Release status — v1.2 (3) APPROVED 2026-08-22
 
 Everything in this release at the owner's explicit direction, after I twice recommended splitting

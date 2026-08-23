@@ -505,7 +505,7 @@
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
 		FA59435ADAF303865175315B /* VisionParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionParsingTests.swift; sourceTree = "<group>"; };
 		FFA8CD2E5A8CA2C7892BB8A8 /* CheckBalanceIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckBalanceIntent.swift; sourceTree = "<group>"; };
-		"TEMP_CABBEB25-7AAC-42F7-A9C4-F3FD753E2A8E" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_6E63FC66-029E-40D1-A62E-CF3A936EDCDB" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -991,10 +991,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_BFA87F11-5B7D-4043-913B-0033C6CD7221" /* xBill */ = {
+		"TEMP_A52AF207-0BE2-429B-857F-7D37813F3649" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_CABBEB25-7AAC-42F7-A9C4-F3FD753E2A8E" /* Secrets.xcconfig */,
+				"TEMP_6E63FC66-029E-40D1-A62E-CF3A936EDCDB" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1216,7 +1216,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "SRC=\"$SRCROOT/xBillTests/ReceiptCorpus\"\nif [ ! -d \"$SRC\" ]; then\n  echo \"note: no receipt corpus present; benchmark will report nothing to measure\"\n  exit 0\nfi\n# TARGET_BUILD_DIR, not BUILT_PRODUCTS_DIR. For a test bundle with a host app the two\n# differ: BUILT_PRODUCTS_DIR is the standalone .xctest, while the bundle that actually\n# runs is the copy embedded at $TARGET_BUILD_DIR (xBill.app/PlugIns/). Writing to the\n# former put 22 images somewhere nothing ever loaded, and the benchmark reported \"no\n# corpus\" while the build log said it had bundled one.\nfor BASE in \"$TARGET_BUILD_DIR\" \"$BUILT_PRODUCTS_DIR\"; do\n  DEST=\"$BASE/$UNLOCALIZED_RESOURCES_FOLDER_PATH/ReceiptCorpus\"\n  rm -rf \"$DEST\"; mkdir -p \"$DEST\"\n  cp -R \"$SRC/images\" \"$SRC/labels\" \"$DEST/\"\ndone\necho \"note: bundled receipt corpus ($(ls \"$SRC/images\" | wc -l | tr -d ' ') images) into $TARGET_BUILD_DIR\"\n";
+			shellScript = "# Only a DEVICE needs the corpus inside the bundle. A simulator test can read the\n# source tree directly via #filePath, and copying into the .xctest here runs AFTER the\n# app is signed — which invalidates the signature and makes the simulator refuse to\n# launch the app at all (\"RequestDenied by SBMainWorkspace\"). That broke every\n# simulator benchmark run until it was traced back here.\nif [ \"$PLATFORM_NAME\" != \"iphoneos\" ]; then\n  echo \"note: $PLATFORM_NAME build — benchmark reads the corpus from the source tree\"\n  exit 0\nfi\nSRC=\"$SRCROOT/xBillTests/ReceiptCorpus\"\nif [ ! -d \"$SRC\" ]; then\n  echo \"note: no receipt corpus present; benchmark will report nothing to measure\"\n  exit 0\nfi\n# TARGET_BUILD_DIR, not BUILT_PRODUCTS_DIR. For a test bundle with a host app the two\n# differ: BUILT_PRODUCTS_DIR is the standalone .xctest, while the bundle that actually\n# runs is the copy embedded at $TARGET_BUILD_DIR (xBill.app/PlugIns/). Writing to the\n# former put 22 images somewhere nothing ever loaded, and the benchmark reported \"no\n# corpus\" while the build log said it had bundled one.\nfor BASE in \"$TARGET_BUILD_DIR\" \"$BUILT_PRODUCTS_DIR\"; do\n  DEST=\"$BASE/$UNLOCALIZED_RESOURCES_FOLDER_PATH/ReceiptCorpus\"\n  rm -rf \"$DEST\"; mkdir -p \"$DEST\"\n  cp -R \"$SRC/images\" \"$SRC/labels\" \"$DEST/\"\ndone\necho \"note: bundled receipt corpus ($(ls \"$SRC/images\" | wc -l | tr -d ' ') images) into $TARGET_BUILD_DIR\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1496,7 +1496,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_CABBEB25-7AAC-42F7-A9C4-F3FD753E2A8E" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_6E63FC66-029E-40D1-A62E-CF3A936EDCDB" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1705,7 +1705,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_CABBEB25-7AAC-42F7-A9C4-F3FD753E2A8E" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_6E63FC66-029E-40D1-A62E-CF3A936EDCDB" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

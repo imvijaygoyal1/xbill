@@ -163,6 +163,15 @@ targets:
       # declared resource fails the build for anyone who does not have it.
       - name: Copy receipt corpus (optional)
         script: |
+          # Only a DEVICE needs the corpus inside the bundle. A simulator test can read the
+          # source tree directly via #filePath, and copying into the .xctest here runs AFTER the
+          # app is signed — which invalidates the signature and makes the simulator refuse to
+          # launch the app at all ("RequestDenied by SBMainWorkspace"). That broke every
+          # simulator benchmark run until it was traced back here.
+          if [ "$PLATFORM_NAME" != "iphoneos" ]; then
+            echo "note: $PLATFORM_NAME build — benchmark reads the corpus from the source tree"
+            exit 0
+          fi
           SRC="$SRCROOT/xBillTests/ReceiptCorpus"
           if [ ! -d "$SRC" ]; then
             echo "note: no receipt corpus present; benchmark will report nothing to measure"

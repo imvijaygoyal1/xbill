@@ -764,7 +764,11 @@ final class VisionService {
                 if let existing = total { total = max(existing, amount) } else { total = amount }
             } else if lower.contains("tax") || lower.contains("gst")
                         || lower.contains("hst") || lower.contains("vat") {
-                tax = amount
+                // SCAN-16: ACCUMULATE, do not assign. Multiple tax lines are different rates applied
+                // to different subtotals, and their sum is the tax. Assigning let the last line
+                // win, so ALDI's `A:Taxable @0.00%  0.00` erased the 0.28 above it — a bug masked
+                // until SCAN-15 stopped discarding zero amounts.
+                tax = (tax ?? .zero) + amount
             } else if lower.contains("tip") || lower.contains("gratuity")
                         || lower.contains("service charge") || lower.contains("svchrg") {
                 tip = amount

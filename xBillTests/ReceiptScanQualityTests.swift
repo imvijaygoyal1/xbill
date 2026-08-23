@@ -1085,3 +1085,73 @@ struct ZeroAmountTests {
         #expect(parsed.receipt.total == Decimal(string: "5.00"))
     }
 }
+
+// MARK: - SCAN-16: a second tax line overwrote the first
+//
+// Found by SCAN-15, and caused by it becoming reachable. `tax` was ASSIGNED on each matching row,
+// so the last tax line on the receipt won. ALDI prints two:
+//
+//     C:Taxable @7.000%     0.28
+//     A:Taxable @0.00%      0.00
+//
+// The zero used to be discarded by the non-zero guard SCAN-15 removed, which had been masking the
+// overwrite. With the guard gone, ALDI's tax became 0 — a receipt that had been right for the
+// wrong reason started being wrong.
+//
+// Multiple tax lines are different RATES applied to different subtotals. Their sum is the tax.
+
+@Suite("Receipt scanning — multiple tax lines")
+@MainActor
+struct MultipleTaxLineTests {
+
+    private var vision: VisionService { VisionService.shared }
+
+    private func rows(_ spec: [(String, String)]) -> [[OCRLine]] {
+        var out: [[OCRLine]] = [[OCRLine(text: "ALDI", midX: 0.5, midY: 0.02,
+                                         height: 0.01, confidence: 0.9)]]
+        for (i, (label, amount)) in spec.enumerated() {
+            let y = 0.10 + CGFloat(i) * 0.05
+            out.append([
+                OCRLine(text: label,  midX: 0.2, midY: y, height: 0.01, confidence: 0.9),
+                OCRLine(text: amount, midX: 0.9, midY: y, height: 0.01, confidence: 0.9)
+            ])
+        }
+        return out
+    }
+
+    /// The exact ALDI shape. A zero-rate band must not erase the band that charged something.
+    @Test("A zero-rate tax line does not erase a real one")
+    func zeroRateDoesNotEraseRealTax() {
+        let parsed = vision.parseWithHeuristics(rows: rows([
+            ("Tortilla Chips",    "2.29"),
+            ("C:Taxable @7.000%", "0.28"),
+            ("A:Taxable @0.00%",  "0.00"),
+            ("AMOUNT DUE",       "28.35")
+        ]))
+        #expect(parsed.receipt.tax == Decimal(string: "0.28"),
+                "Got \(String(describing: parsed.receipt.tax))")
+    }
+
+    /// Two genuine bands sum. This is what multiple tax lines mean.
+    @Test("Two real tax bands are summed")
+    func twoRealBandsSum() {
+        let parsed = vision.parseWithHeuristics(rows: rows([
+            ("Item",          "10.00"),
+            ("State Tax",      "0.70"),
+            ("City Tax",       "0.25"),
+            ("Total",         "10.95")
+        ]))
+        #expect(parsed.receipt.tax == Decimal(string: "0.95"))
+    }
+
+    /// A single tax line is unchanged — the common case must not shift.
+    @Test("A single tax line is unaffected")
+    func singleTaxUnchanged() {
+        let parsed = vision.parseWithHeuristics(rows: rows([
+            ("Item",  "8.70"),
+            ("Tax",   "0.42"),
+            ("Total", "9.12")
+        ]))
+        #expect(parsed.receipt.tax == Decimal(string: "0.42"))
+    }
+}
