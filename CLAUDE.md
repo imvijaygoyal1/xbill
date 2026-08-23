@@ -350,12 +350,11 @@ It is **worse on two, equal on one, better on one**. Tier 1 running first is the
 self-evidently right, and "improve the LLM prompt" is not obviously the highest-value work —
 the heuristics carry the load.
 
-### ⚠️ Unresolved: device vs simulator delta
-Receipts **06, 07 and 18** — exactly `SCAN-14`'s target set — return a correct total on device
-while the last simulator report shows `nil`. That is either **SCAN-14 working** (and the simulator
-report being stale) or **device Vision differing from simulator Vision**. Both are plausible and
-they have opposite implications. A clean simulator re-run on the current build separates them, and
-must happen before anyone concludes SCAN-14 landed.
+### ~~Unresolved: device vs simulator delta~~ — RESOLVED 2026-08-23
+Receipts 06, 07 and 18 returned correct totals on device while the simulator showed `nil`. The
+cause was neither SCAN-14 nor a Vision difference: the corpus copy phase added for this device run
+writes into the `.xctest` **after signing**, so the simulator refused to launch the app and every
+simulator benchmark after that point was measuring nothing. `SCAN-14` did land.
 
 Device report retained at `xBillTests/ReceiptCorpus/reports/DEVICE-receipt-benchmark-2026-08-22.txt`.
 
@@ -366,33 +365,27 @@ that actually runs is the copy embedded at `$TARGET_BUILD_DIR` (`xBill.app/PlugI
 phase that reports success into a directory nothing loads is indistinguishable from one that did
 nothing.
 
-### Still open, found by the corpus and not yet fixed
-- **`.05` with no leading zero** (CVS bottle deposits) is invisible to the price pattern, which
-  requires a digit before the separator. Two of six items lost on that receipt.
-- **A percentage rate matches the price pattern**: `NY 8.875% TAX  .89` yields tax `8.87`, because
-  `8.875` contains `8.87` and the real amount has no leading digit.
-- **A receipt with no TOTAL line** (18, Starbucks/HMSHost: only SUBTOTAL and AMOUNT PAID).
-- **Card slips with a handwritten total** (20, 22). Vision *did* read the pen on 20 and the total
-  is correct; 22 takes the printed 36.91 over the handwritten 40.00. Both invent items that do not
-  exist — a card slip itemises nothing.
-- **`CREDIT CARD AUTH $36.91`** hits the `credit` discount keyword with an amount attached, which
-  is how 22 gets a phantom negative item. The keyword was added by `SCAN-01`.
-- **Tax read as `-8.7`** on 21 (Starbucks) — sign inversion, not yet diagnosed.
+### ~~Still open, found by the corpus~~ — five of six since fixed (reviewed 2026-08-23)
+Kept as a record of what the corpus surfaced, with what actually happened:
 
-### The confidence score is inverted
-**Mean confidence 0.83 when the total is wrong, 0.57 when right — gap −0.26.** Five receipts
-report 0.90–1.00 while extracting nothing correctly (Michaels: 1.00, zero items, no total).
+| Item | Outcome |
+|---|---|
+| `.05` with no leading zero (CVS) | ✅ `SCAN-09` |
+| a percentage rate matching the price pattern | ✅ `SCAN-10` |
+| a receipt with no TOTAL line (18 Starbucks/HMSHost) | ✅ `SCAN-14` — total now correct |
+| `CREDIT CARD AUTH` hitting the `credit` discount keyword | ✅ `SCAN-12` — 22 now produces 0 items, correctly |
+| tax read as `-8.7` on 21 Starbucks | ✅ resolved by `SCAN-10`/`SCAN-16`; tax now correct |
+| **22 ZOOB — printed 36.91 beats the handwritten 40.00** | ❌ **still open**, the only remaining scanner failure |
 
-`SCAN-02` replaced a constant with a number derived from `OCRLine.confidence`. The measurement
-says it is **anti-correlated with being right**, making it worse than the constant it replaced: a
-constant is uninformative, this actively misleads. The cause is a design error, not tuning —
-Vision's confidence measures **how legible the text was**, while every failure here is in
-**parsing the layout afterwards**. Crisp receipt, unusual format → 1.00 and nothing. Faded
-receipt, simple format → 0.57 and correct.
+**A "still open" list that is not re-checked becomes a lie.** Five of these were fixed and the
+section still claimed otherwise; anyone reading it would have re-investigated solved problems.
 
-**Do not reweight it.** A quantity derived only from OCR legibility cannot express parse
-correctness. Derive it from parse outcomes (does the arithmetic close, did every row yield both a
-name and a price) or show no number at all.
+### The confidence score is no longer inverted, but still carries no signal
+It was **−0.26** (higher confidence when *wrong*). After `SCAN-07`…`SCAN-17` it is **+0.02** on the
+simulator and **+0.19** on device. No longer actively misleading — but a gap that small is noise,
+not information. It still measures **OCR legibility**, not whether the parse worked, and no
+reweighting changes that. Deriving it from parse outcomes (does the arithmetic close, did every row
+yield both a name and a price) or removing the number remain the two honest options.
 
 ### The dominant structural failure
 **Item name on one row, price on another** — Michaels, Bhavani (14/14 items), Burlington, every
