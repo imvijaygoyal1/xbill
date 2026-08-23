@@ -1006,8 +1006,32 @@ Production is safe (amounts are parsed from strings); the *test* was the unsafe 
 `Decimal(string:)` in assertions too.
 
 **Verification:** unit **434/434**, 0 failed (8 new). Debug build clean.
-**NOT deployed:** migration `043` is written and awaiting approval. Until it lands the edit path
-would fail at runtime — the RPC does not exist — so this must not ship before the migration.
+**Migration 043 DEPLOYED 2026-08-23** with approval. `supabase migration list --linked` reads
+`043 | 043 | 043`. Pre-flight first: all **46** live expenses already satisfied the invariant the
+RPC enforces (0 mismatched), so nothing existing could be rejected by it. After deploy, still 0
+mismatched and 0 rows touched.
+
+All three guards verified against production **without writing anything** — each fails before any
+UPDATE:
+
+| Guard | Response |
+|---|---|
+| splits that do not sum | `Splits sum to 40.00 but the expense is 100` |
+| an expense the caller cannot edit | `Expense not found, or you do not have permission to edit it` |
+| empty split set | `An expense must have at least one split` |
+| **anon**, calling with the anon key | `Expense not found, or you do not have permission to edit it` |
+
+### ⚠️ `REVOKE … FROM PUBLIC` does not lock a function down on Supabase
+`update_expense_with_splits`, `add_expense_with_splits`, `get_invite_preview` and
+`join_group_via_invite` all carry the **identical** ACL: EXECUTE granted to `anon`, `authenticated`
+and `service_role`. Supabase sets `ALTER DEFAULT PRIVILEGES` so every new function in `public`
+gets an **explicit** grant to `anon` at creation, and revoking from `PUBLIC` does not remove an
+explicit grant.
+
+So the `REVOKE ALL … FROM PUBLIC` lines in migrations 042 and 043 read as if they restrict access
+and **do not**. Nothing is exposed — these functions are `SECURITY INVOKER`, so RLS refuses an
+anonymous caller (verified above), and the two `SECURITY DEFINER` ones fail on a null `auth.uid()`.
+But the ceremony is misleading: to actually restrict, revoke from `anon` by name.
 
 ## Release status — v1.2 (3) APPROVED 2026-08-22
 
