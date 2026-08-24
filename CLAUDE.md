@@ -1139,7 +1139,7 @@ and the token check rejects). `anon_exec: false`, `auth_exec: true`.
 **Not verified:** the original cold-launch sequence on a real device. The mechanism is reproduced;
 the exact user sequence is not, and the client fix ships in the next build.
 
-## Release status — v1.3 (5) SUBMITTED FOR REVIEW 2026-08-23 — replaces the pulled build 4
+## Release status — v1.3 (5) APPROVED 2026-08-24 — replaces the pulled build 4
 
 Build 4 was **pulled from review by the owner** so the QR and cold-launch join fixes could go in
 the same release rather than trailing a few days behind. The version stays **1.3**; only the build
@@ -1158,6 +1158,20 @@ increments, so the release notes already written still apply.
 | Release build | clean |
 | Backend | handles NULL · migrations through **044** · all web endpoints incl. AASA 200 |
 | Archive | `1.3 (5)`, `UIDeviceFamily [1]`, region `en`, encryption `false`, `associated-domains` in the **signed** binary, 3 dSYMs, widget framework + `Assets.car`, Siri `nlu/` compiled, **0 corpus paths** |
+
+### Approved 2026-08-24, first pass. Now do the device checks.
+Four things in this release have **never been exercised on a device**, and each is the reason a
+particular piece of work exists. In priority order:
+
+1. **Scan the group QR with the native Camera from a killed app** — the exact reported sequence
+   (`INV-06`). If this still silently fails, the diagnosis was wrong: the mechanism was reproduced,
+   the device sequence was not.
+2. **Tap an invite link from Messages** — universal links (`INV-05`) have never run on hardware.
+3. **Add a late joiner to a real expense**; watch both balances move (`SPLIT-01`).
+4. **Edit an expense amount**; confirm the other person's balance moves (`SPLIT-02` would fail).
+
+Needing no build: a **second** person on the **same** invite link — the last unproven piece of
+`INV-02`, and the failure mode that once made a QR work for exactly one scanner.
 
 ### `testArchiveUnarchiveRegression` — the pattern is now clear
 It has failed only ever on runs that follow heavy simulator use, and passed **2/2 immediately after
