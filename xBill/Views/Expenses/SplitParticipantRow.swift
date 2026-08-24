@@ -26,6 +26,12 @@ struct SplitParticipantRow: View {
     /// be split with someone who has left, and they must stay visible rather than silently vanish.
     var subtitle: String? = nil
     /// Prefix for accessibility identifiers, so the two forms stay individually addressable.
+    ///
+    /// ⚠️ The suffixes below (`includeToggle`, `exactAmountField`, `decreaseShares`,
+    /// `increaseShares`) are the names `AddExpenseView` shipped and `RegressionUITests` matches on.
+    /// Extracting this row initially renamed them, and `testSplitModeControlsRegression` failed —
+    /// an accessibility identifier is a **contract with the test suite**, not an implementation
+    /// detail. Do not rename one without updating every predicate that matches it.
     var idPrefix: String
 
     let onToggle: () -> Void
@@ -43,7 +49,7 @@ struct SplitParticipantRow: View {
                     }
                 }
             }
-            .accessibilityIdentifier("\(idPrefix).toggle.\(input.userID.uuidString)")
+            .accessibilityIdentifier("\(idPrefix).includeToggle.\(input.userID.uuidString)")
 
             if input.isIncluded { trailingControl }
         }
@@ -58,7 +64,7 @@ struct SplitParticipantRow: View {
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
                 .frame(width: 88)
-                .accessibilityIdentifier("\(idPrefix).exactField.\(input.userID.uuidString)")
+                .accessibilityIdentifier("\(idPrefix).exactAmountField.\(input.userID.uuidString)")
 
         case .percentage:
             HStack(spacing: 2) {
@@ -80,7 +86,7 @@ struct SplitParticipantRow: View {
                 .buttonStyle(.plain)
                 .contentShape(Circle())          // TAP-01: the glyph is not the hit region
                 .disabled(input.shares <= 1)
-                .accessibilityIdentifier("\(idPrefix).sharesMinus.\(input.userID.uuidString)")
+                .accessibilityIdentifier("\(idPrefix).decreaseShares.\(input.userID.uuidString)")
 
                 Text("\(input.shares)×").monospacedDigit().frame(minWidth: 28)
 
@@ -89,7 +95,7 @@ struct SplitParticipantRow: View {
                 }
                 .buttonStyle(.plain)
                 .contentShape(Circle())
-                .accessibilityIdentifier("\(idPrefix).sharesPlus.\(input.userID.uuidString)")
+                .accessibilityIdentifier("\(idPrefix).increaseShares.\(input.userID.uuidString)")
             }
 
         case .equal:

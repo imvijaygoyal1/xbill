@@ -356,6 +356,50 @@ final class RegressionUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Group actions"].waitForExistence(timeout: 4), "Back should dismiss Add Expense after split-mode validation.")
     }
 
+    /// "Manage Group scrolls endlessly." The screen holds three short sections and a 10-icon
+    /// grid — about one screenful — yet it keeps scrolling.
+    ///
+    /// This **measures** rather than reasons: swipe well past the end and record where a known
+    /// element lands each time. A scroll view sized to its content settles and the position stops
+    /// changing; one that believes its content is taller keeps travelling.
+    func testManageGroupStopsScrollingAtItsContentHeight() throws {
+        try signInIfNeeded()
+
+        let groupName = uniqueName(prefix: "ScrollProbe")
+        try createGroup(named: groupName)
+        try openGroup(named: groupName)
+
+        let manage = app.buttons["xBill.group.manageButton"]
+        XCTAssertTrue(manage.waitForExistence(timeout: 6), "Manage action should be visible.")
+        manage.tap()
+
+        let nameField = app.textFields["xBill.groupSettings.nameField"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 6), "Manage Group should open.")
+
+        let scroll = app.scrollViews.firstMatch
+        XCTAssertTrue(scroll.waitForExistence(timeout: 4), "Manage Group should present a scroll view.")
+
+        // Content on this screen is roughly one screenful, so two or three swipes reach the end.
+        // Swipe far past that: a correctly-sized scroll view refuses to travel further and its
+        // bottom content stays on screen. One that over-reports its height scrolls into blank
+        // space, which is exactly what "scrolls endlessly" looks like.
+        for _ in 0..<8 { app.scrollViews.firstMatch.swipeUp(velocity: .fast) }
+
+        let anchors = ["xBill.groupSettings.inviteLinkButton",
+                       "xBill.groupSettings.inviteEmailButton",
+                       "xBill.groupSettings.nameField"]
+        let stillVisible = anchors.contains { id in
+            app.buttons[id].exists || app.textFields[id].exists || app.staticTexts[id].exists
+        }
+        let membersVisible = app.staticTexts["Members"].exists
+
+        XCTAssertTrue(stillVisible || membersVisible, """
+            After scrolling past the end of Manage Group, none of its content is on screen —
+            the view scrolled into blank space. Content is three short sections and a 10-icon
+            grid, so the scroll view is reporting a height far larger than it has.
+            """)
+    }
+
     func testGroupSettingsInviteAndCurrencyLockRegression() throws {
         try signInIfNeeded()
 
