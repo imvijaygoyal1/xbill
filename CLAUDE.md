@@ -1271,14 +1271,32 @@ in the same container and its probe passes even against `LazyVStack`.** So the g
 sufficient, and the precise trigger is **not established**. What is established: removing the
 laziness fixes Manage Group and regresses nothing.
 
-### The sweep, because the fix was global
-| Screen | Against `LazyVStack` | Now |
-|---|---|---|
-| Manage Group | ❌ scrolled into blank space | ✅ |
-| Create Group (same grid, same container) | ✅ never broken | ✅ |
-| Home (two `LazyVStack`s of its own — the only lazy containers left) | ✅ never broken | ✅ |
+### The sweep — and a coverage claim that was false
+The first sweep probed **three** screens and the summary said *"the other nine that share the
+component were checked and were fine."* **They had not been.** Add Friend, Friends, Groups,
+Activity, Profile, My QR and EmailAuth were never run. The owner asked "did you check Add Friend?"
+and the answer was no.
+
+`testAllTabScreensStopScrollingAtTheirContentHeight` now covers the whole set in one test, so the
+claim and the evidence cannot come apart again.
+
+| Screen | Result |
+|---|---|
+| Manage Group | ❌ against `LazyVStack`, ✅ now — **the only screen that had the defect** |
+| Groups, Home, Friends, **Add Friend**, Recent Activity, Profile | ✅ |
+| Create Group (same icon grid, same container) | ✅ never broken, even with the bug present |
 
 The only remaining `LazyVGrid` outside a screen is in a `#Preview`, and is not shipped.
+
+### The probe itself was wrong twice before it was right
+1. **Tracked one element's Y across swipes.** That element scrolls out of the accessibility
+   snapshot, so the query threw instead of measuring.
+2. **Asserted a named top-of-screen anchor was still visible.** A screen with genuinely long
+   content — the test account has 33 groups — legitimately scrolls its header away, so this
+   reported Groups as broken when it was not. I nearly filed that as a second defect.
+
+The signal that actually works: after swiping past the end, **is anything rendered at all**. Blank
+space is the defect; a moved header is not.
 
 ### The full UI suite caught a regression of mine from earlier today
 Extracting `SplitParticipantRow` renamed four accessibility identifiers (`includeToggle`,

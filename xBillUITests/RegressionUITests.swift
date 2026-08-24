@@ -356,32 +356,81 @@ final class RegressionUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Group actions"].waitForExistence(timeout: 4), "Back should dismiss Add Expense after split-mode validation.")
     }
 
-    /// Swipes well past the end of a scroll view and reports whether any of the named content is
-    /// still on screen. A correctly-sized scroll view refuses to travel past its content; one that
-    /// over-reports its height scrolls into blank space.
+    /// Swipes well past the end of a scroll view and asserts that **something is still rendered**.
     ///
-    /// Shared by every screen probed for UI-01, so the check cannot drift between them.
-    private func assertScrollSettles(anchors: [String], screen: String,
+    /// Deliberately not "a named anchor is still visible". A screen with genuinely long content —
+    /// the test account has 33 groups — legitimately scrolls its header away, and an anchor check
+    /// reports that as a failure. Two earlier versions of this probe made exactly that mistake:
+    /// one tracked a single element's Y (it leaves the accessibility snapshot), one matched
+    /// top-of-screen identifiers (they leave the screen).
+    ///
+    /// The signal that separates the defect: a correctly-sized scroll view stops at its content
+    /// and something remains on screen; one that over-reports its height scrolls into **blank
+    /// space**, where nothing is rendered at all.
+    private func assertScrollSettles(screen: String,
                                      file: StaticString = #filePath, line: UInt = #line) {
         for _ in 0..<8 { app.scrollViews.firstMatch.swipeUp(velocity: .fast) }
-        let visible = anchors.contains { id in
-            app.buttons[id].exists || app.textFields[id].exists
-                || app.staticTexts[id].exists || app.otherElements[id].exists
+
+        let window = app.windows.element(boundBy: 0).frame
+        func visible(_ q: XCUIElementQuery) -> Int {
+            q.allElementsBoundByIndex.filter {
+                $0.exists && $0.frame.height > 0 && $0.frame.width > 0 && $0.frame.intersects(window)
+            }.count
         }
-        XCTAssertTrue(visible, """
-            \(screen) scrolled into blank space: after swiping past the end, none of
-            \(anchors) is on screen. The scroll view is reporting more height than it has.
+        let rendered = visible(app.staticTexts) + visible(app.buttons)
+                     + visible(app.textFields) + visible(app.images)
+
+        XCTAssertGreaterThan(rendered, 0, """
+            \(screen) scrolled into blank space: after swiping past the end, nothing is rendered.
+            The scroll view is reporting more height than its content has.
             """, file: file, line: line)
     }
 
-    /// `HomeView` keeps two `LazyVStack`s of its own, nested inside the container. They are the
-    /// last lazy containers on any shipping screen, so this is the remaining UI-01 exposure.
-    func testHomeStopsScrollingAtItsContentHeight() throws {
+    /// UI-01 across **every** screen on the shared scroll container.
+    ///
+    /// The first sweep probed three screens and the summary claimed "the other nine were checked".
+    /// They were not — Add Friend, Friends, Groups, Activity and Profile had never been run. One
+    /// test now covers the set, so a coverage claim and its evidence cannot come apart again.
+    func testAllTabScreensStopScrollingAtTheirContentHeight() throws {
+        // `xBill.uitest.tab.*` does not exist (UIT-02); the real ids are `xBill.tab.*`, and the
+        // Activity tab's label is "Recent".
+        launchMainApp(initialTab: "groups")
         try signInIfNeeded()
-        XCTAssertTrue(app.buttons["xBill.groups.createButton"].waitForExistence(timeout: 8)
-                      || app.staticTexts["My Groups"].waitForExistence(timeout: 4),
-                      "Home should load.")
-        assertScrollSettles(anchors: ["xBill.groups.createButton", "My Groups"], screen: "Home")
+        dismissNotificationPromptIfNeeded()
+
+        XCTAssertTrue(groupSurfaceExists(timeout: 8), "Groups tab should load.")
+        assertScrollSettles(screen: "Groups")
+
+        tapTab(identifier: "xBill.tab.home", label: "Home")
+        dismissNotificationPromptIfNeeded()
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Home"].waitForExistence(timeout: 8))
+        assertScrollSettles(screen: "Home")
+
+        tapTab(identifier: "xBill.tab.friends", label: "Friends")
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Friends"].waitForExistence(timeout: 8))
+        assertScrollSettles(screen: "Friends")
+
+        tapTab(identifier: "xBill.tab.activity", label: "Recent")
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Recent Activity"].waitForExistence(timeout: 8))
+        assertScrollSettles(screen: "Recent Activity")
+
+        tapTab(identifier: "xBill.tab.profile", label: "Profile")
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Profile"].waitForExistence(timeout: 8))
+        assertScrollSettles(screen: "Profile")
+
+        // Add Friend last: it is a sheet, and a dismissal that does not fully settle stranded the
+        // remaining tab navigation when this ran earlier in the sequence.
+        tapTab(identifier: "xBill.tab.friends", label: "Friends")
+        for candidate in [app.buttons["xBill.friends.addButton"],
+                          app.buttons["person.badge.plus"]]
+        where candidate.waitForExistence(timeout: 3) && candidate.isHittable {
+            candidate.tap()
+            if app.buttons["xBill.addFriend.importContactsButton"].waitForExistence(timeout: 6) {
+                assertScrollSettles(screen: "Add Friend")
+            }
+            dismissSheetIfPossible()
+            break
+        }
     }
 
     /// UI-01 swept to the other screen carrying the same icon grid inside the same container.
@@ -397,7 +446,7 @@ final class RegressionUITests: XCTestCase {
         let submit = app.buttons["xBill.createGroup.submitButton"]
         XCTAssertTrue(submit.waitForExistence(timeout: 6), "Create Group should open.")
 
-        assertScrollSettles(anchors: ["xBill.createGroup.submitButton"], screen: "Create Group")
+        assertScrollSettles(screen: "Create Group")
     }
 
     /// "Manage Group scrolls endlessly." The screen holds three short sections and a 10-icon
