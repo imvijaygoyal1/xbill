@@ -1243,6 +1243,12 @@ function upserts (`ON CONFLICT` present, old `IF NOT EXISTS` gone), `authenticat
 fix takes effect the next time that person joins rather than by rewriting history.
 **Server-side only: this takes effect immediately on 1.3, with no app update.**
 
+### ✅ CONFIRMED FIXED on a real device 2026-08-24
+The reporting user rescanned the QR and joined successfully. Verified in the data, not only on
+screen: `sonthalia2sweta@gmail.com` on Smoky Mountains Trip is now **`is_active: true`**, having
+been `false` before the deploy. The reactivation path worked end to end with **no client change** —
+every user on 1.3 is fixed.
+
 ## Release status — v1.3 (5) APPROVED 2026-08-24 — replaces the pulled build 4
 
 Build 4 was **pulled from review by the owner** so the QR and cold-launch join fixes could go in
