@@ -86,3 +86,46 @@ struct DeepLinkParserTests {
         #expect(DeepLinkParser.universalLinkHost == "xbill.vijaygoyal.org")
     }
 }
+
+// MARK: - The QR code's own URL
+//
+// INV-06 follow-up. `INV-05` converted the emailed invite link to an https universal link and left
+// the QR encoding `xbill://join/<token>` — the custom scheme the native Camera handles worst, and
+// the very path a QR is scanned by. These pin the QR's URL to the form the parser accepts.
+
+@Suite("Invite QR URL")
+struct InviteQRURLTests {
+
+    private func invite(_ token: String) -> GroupInvite {
+        GroupInvite(token: token, groupID: UUID(), createdBy: UUID(),
+                    expiresAt: Date().addingTimeInterval(604_800))
+    }
+
+    @Test("The QR encodes an https universal link, not a custom scheme")
+    func qrUsesUniversalLink() throws {
+        let url = try #require(invite("abc123").inviteURL)
+        #expect(url.scheme == "https")
+        #expect(url.host == DeepLinkParser.universalLinkHost)
+        #expect(url.absoluteString == "https://xbill.vijaygoyal.org/invite?token=abc123")
+    }
+
+    /// The round trip that matters: whatever the QR encodes, the app must resolve it to a join.
+    @Test("The app parses its own QR link back to the same token")
+    func qrRoundTrips() throws {
+        let url = try #require(invite("tok-987").inviteURL)
+        #expect(DeepLinkParser.parse(url) == .joinGroup(token: "tok-987"))
+    }
+
+    /// QR codes printed or shared before this change still exist in the world.
+    @Test("Legacy custom-scheme QR codes still resolve")
+    func legacySchemeStillWorks() {
+        #expect(DeepLinkParser.parse(URL(string: "xbill://join/tok-987")!) == .joinGroup(token: "tok-987"))
+    }
+
+    /// A token with URL-significant characters must survive encoding.
+    @Test("Tokens are percent-encoded into the query")
+    func tokensAreEncoded() throws {
+        let url = try #require(invite("a b&c=d").inviteURL)
+        #expect(DeepLinkParser.parse(url) == .joinGroup(token: "a b&c=d"))
+    }
+}

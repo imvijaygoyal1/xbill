@@ -1107,11 +1107,31 @@ non-anon role with no identity, such as `service_role`. **It is close to a guard
 the pattern this codebase has been bitten by twice. It is kept as a backstop, but the layer that
 actually helps a user is the client await. Do not add copy to the RPC believing users will see it.
 
-### Still open on this path
-`GroupInviteView` encodes **`xbill://join/<token>`** into the QR — a custom scheme. The universal
-link work (`INV-05`) converted the *email* link and left the QR, so scanning still takes the old
-path even in 1.3. It should become `https://xbill.vijaygoyal.org/invite?token=…`, which the native
-Camera handles as an ordinary link.
+### The group QR is now a universal link — FIXED
+`GroupInvite.inviteURL` built `xbill://join/<token>`, the custom scheme the native Camera handles
+worst, on the one surface that is *only* reached by scanning. `INV-05` converted the emailed link
+and left this behind. It is now `https://xbill.vijaygoyal.org/invite?token=…`, which works on every
+version:
+
+| Recipient | What happens |
+|---|---|
+| app + `applinks` entitlement (1.3+) | iOS opens xBill directly |
+| app, no entitlement (1.0–1.2) | the web page opens and hands off via `xbill://join/<token>` — exactly what those builds already understand |
+| no app | the web page offers the App Store and shows the invite code |
+
+Old QR codes already printed or shared keep working: `DeepLinkParser` resolves both forms to the
+same intent, and a test asserts they agree.
+
+### ⚠️ The SAME defect remains on the add-friend QR
+`MyQRCodeView` and `AddFriendView` both build **`xbill://add/<userID>`** — a custom scheme, in a QR
+code and a share link, with exactly the same consequences: the native Camera may not offer to open
+it, and it does nothing at all for someone without the app, who is precisely who you share an
+add-friend link with.
+
+Fixing it is more than a one-line change and was **not** done here: it needs a path added to the
+AASA file (`/add`), a web page to receive it, and a `DeepLinkParser` case. Filed rather than
+half-done. `xbill://reset` in `AuthService` is a Supabase auth redirect configured in the dashboard
+and should stay as it is.
 
 **Verification:** unit **441/441**. Migration 044 verified against production: anon → `42501`,
 authenticated with a bogus token → `Invalid or expired invite token` (so the identity check passes
