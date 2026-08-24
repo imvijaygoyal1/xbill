@@ -2,10 +2,26 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["7B5U5LACV3.com.vijaygoyal.xbill"],
+        "appIDs": [
+          "7B5U5LACV3.com.vijaygoyal.xbill"
+        ],
         "components": [
-          { "/": "/invite",    "comment": "Group invite, token carried as ?token=" },
-          { "/": "/invite/*",  "comment": "Trailing-slash and any future sub-paths" }
+          {
+            "/": "/invite",
+            "comment": "Group invite, token carried as ?token="
+          },
+          {
+            "/": "/invite/*",
+            "comment": "Trailing-slash and any future sub-paths"
+          },
+          {
+            "/": "/add",
+            "comment": "Add friend, user id carried as ?user="
+          },
+          {
+            "/": "/add/*",
+            "comment": "Trailing-slash and any future sub-paths"
+          }
         ]
       }
     ]

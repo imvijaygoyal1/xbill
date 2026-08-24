@@ -1122,16 +1122,36 @@ version:
 Old QR codes already printed or shared keep working: `DeepLinkParser` resolves both forms to the
 same intent, and a test asserts they agree.
 
-### ⚠️ The SAME defect remains on the add-friend QR
-`MyQRCodeView` and `AddFriendView` both build **`xbill://add/<userID>`** — a custom scheme, in a QR
-code and a share link, with exactly the same consequences: the native Camera may not offer to open
-it, and it does nothing at all for someone without the app, who is precisely who you share an
-add-friend link with.
+### The add-friend QR is now a universal link too — FIXED 2026-08-24
+`MyQRCodeView` and `AddFriendView` each built their own `xbill://add/<userID>` — a custom scheme,
+in a QR code and a share link, with the same consequences as the group QR: the native Camera treats
+it inconsistently, and it does nothing at all for someone without the app, who is precisely who you
+send an add-friend link to.
 
-Fixing it is more than a one-line change and was **not** done here: it needs a path added to the
-AASA file (`/add`), a web page to receive it, and a `DeepLinkParser` case. Filed rather than
-half-done. `xbill://reset` in `AuthService` is a Supabase auth redirect configured in the dashboard
-and should stay as it is.
+All three pieces, because any two of them leave a link that resolves to nothing:
+
+| Piece | State |
+|---|---|
+| `DeepLinkParser` case for `/add?user=<uuid>` | ✅ both forms resolve identically, asserted by test |
+| AASA path `/add` + `/add/*` | ✅ deployed; **Apple's CDN already serves it** |
+| `web/add.html` + `web/add/index.html` | ✅ deployed, 200 |
+| Both generation sites → `XBillURLs.addFriend(userID:)` | ✅ one builder, not two |
+
+**The generation now lives in one place on purpose.** Two copies is exactly how the *group* QR was
+left on the old scheme when the emailed invite was converted in `INV-05`.
+
+⚠️ **The web page was nearly shipped broken.** It was first produced by `sed`-transforming the
+invite page, which rewrote `/invite` → `/add` but left `xbill://join/` untouched — it would have
+handed a user id to the group-join handler. Caught by reading the generated file rather than
+trusting the transform. It is now written out in full, with a comment recording the near-miss.
+
+`xbill://reset` in `AuthService` stays as it is — a Supabase auth redirect configured in the
+dashboard.
+
+**Verification:** unit **459/459** (5 new). All six web endpoints 200; origin and Apple's CDN both
+list `/invite`, `/invite/*`, `/add`, `/add/*`; the live `/add` page's only executable handoff is
+`xbill://add/`.
+**Not device-verified:** scanning an add-friend QR needs the next build.
 
 **Verification:** unit **441/441**. Migration 044 verified against production: anon → `42501`,
 authenticated with a bogus token → `Invalid or expired invite token` (so the identity check passes

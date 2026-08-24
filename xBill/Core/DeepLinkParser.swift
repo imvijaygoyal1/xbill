@@ -70,10 +70,25 @@ enum DeepLinkParser {
         let path = components.path.hasSuffix("/") && components.path.count > 1
             ? String(components.path.dropLast())
             : components.path
-        guard path == "/invite" else { return nil }
 
-        let raw = components.queryItems?.first { $0.name == "token" }?.value
-        return sanitisedToken(raw).map(XBillDeepLink.joinGroup)
+        switch path {
+        case "/invite":
+            let raw = components.queryItems?.first { $0.name == "token" }?.value
+            return sanitisedToken(raw).map(XBillDeepLink.joinGroup)
+
+        case "/add":
+            // The add-friend equivalent of the invite link. The QR previously encoded
+            // `xbill://add/<uuid>` — a custom scheme with no handler on a device without xBill,
+            // which is exactly who you share an add-friend link with, and which the native Camera
+            // treats inconsistently.
+            let raw = components.queryItems?.first { $0.name == "user" }?.value
+            guard let raw, let uuid = UUID(uuidString: raw.trimmingCharacters(in: .whitespaces))
+            else { return nil }
+            return .addFriend(userID: uuid)
+
+        default:
+            return nil
+        }
     }
 
     /// A token is whatever survives trimming and is not a path separator. Shared so the two routes

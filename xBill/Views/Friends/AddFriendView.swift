@@ -31,7 +31,7 @@ struct AddFriendView: View {
     private let service = FriendService.shared
 
     private var addFriendURL: URL? {
-        URL(string: "xbill://add/\(currentUserID.uuidString)")
+        XBillURLs.addFriend(userID: currentUserID)
     }
 
     var body: some View {

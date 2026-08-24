@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Add a friend on xBill</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:#faf9f7; color:#1c1b1a; display:flex; min-height:100vh;
+         align-items:center; justify-content:center; padding:24px; }
+  @media (prefers-color-scheme: dark) { body { background:#141312; color:#f5f3f0; } }
+  .card { max-width:420px; width:100%; text-align:center; background:#fff; border:1px solid #dad4c8;
+          border-radius:24px; padding:40px 28px; }
+  @media (prefers-color-scheme: dark) { .card { background:#1f1e1c; border-color:#33302c; } }
+  h1 { font-size:24px; margin:0 0 8px; }
+  p  { color:#6b6660; line-height:1.5; margin:0 0 20px; }
+  .btn { display:inline-block; background:#43089f; color:#fff; text-decoration:none;
+         padding:14px 28px; border-radius:12px; font-weight:600; }
+  .secondary { display:block; margin-top:16px; color:#43089f; text-decoration:none; font-size:15px; }
+  .muted { font-size:13px; color:#9f9b93; margin-top:24px; }
+  code { background:rgba(0,0,0,.06); padding:3px 8px; border-radius:6px; font-size:13px;
+         word-break:break-all; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div style="font-size:56px; line-height:1">🤝</div>
+    <h1>Add a friend on xBill</h1>
+    <p id="lead">Open this link in xBill to send them a friend request.</p>
+    <a class="btn" id="open" href="#">Open in xBill</a>
+    <a class="secondary" href="https://apps.apple.com/us/app/xbill/id6780284715">Don't have xBill? Get it free</a>
+    <p class="muted" id="code"></p>
+  </div>
+<script>
+  // The QR and share sheet link here rather than to xbill://add/<id> because a custom scheme has
+  // no handler on a device without the app — which is exactly who you send an add-friend link
+  // to — and the native Camera treats custom schemes inconsistently. This page always opens, then
+  // hands off to the app when it exists.
+  //
+  // NOTE the scheme below is `add`, not `join`. The first draft of this file was produced by
+  // transforming the invite page and left `xbill://join/`, which would have handed a user id to
+  // the group-join handler.
+  var user = new URLSearchParams(location.search).get("user");
+  var open = document.getElementById("open");
+  if (user) {
+    open.href = "xbill://add/" + encodeURIComponent(user);
+    document.getElementById("code").innerHTML =
+      "If the button does nothing, install xBill and open this link again.<br>Friend code: <code>" + user + "</code>";
+  } else {
+    open.style.display = "none";
+    document.getElementById("lead").textContent =
+      "This link is missing its code. Ask whoever shared it to send it again.";
+  }
+</script>
+</body>
+</html>

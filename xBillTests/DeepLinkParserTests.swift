@@ -129,3 +129,58 @@ struct InviteQRURLTests {
         #expect(DeepLinkParser.parse(url) == .joinGroup(token: "a b&c=d"))
     }
 }
+
+// MARK: - Add-friend links
+//
+// The add-friend QR carried the same defect the group QR did: `xbill://add/<uuid>`, a custom
+// scheme with no handler on a device without xBill — which is precisely who you send an add-friend
+// link to — and one the native Camera app treats inconsistently.
+//
+// Both forms must resolve identically, because QR codes and links already shared in the world
+// still carry the old scheme.
+
+@Suite("Add-friend links")
+struct AddFriendLinkTests {
+
+    private func url(_ s: String) -> URL { URL(string: s)! }
+
+    @Test("The two forms of an add-friend link agree")
+    func bothFormsAgree() {
+        let id = UUID()
+        let scheme    = DeepLinkParser.parse(url("xbill://add/\(id.uuidString)"))
+        let universal = DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/add?user=\(id.uuidString)"))
+        #expect(scheme == .addFriend(userID: id))
+        #expect(scheme == universal, "The routes must not drift: \(String(describing: scheme)) vs \(String(describing: universal))")
+    }
+
+    @Test("Trailing slash and extra query parameters are tolerated")
+    func variants() {
+        let id = UUID()
+        #expect(DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/add/?user=\(id.uuidString)"))
+                == .addFriend(userID: id))
+        #expect(DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/add?utm=qr&user=\(id.uuidString)"))
+                == .addFriend(userID: id))
+    }
+
+    @Test("A malformed or missing user id is not an add-friend")
+    func malformedRejected() {
+        #expect(DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/add")) == nil)
+        #expect(DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/add?user=")) == nil)
+        #expect(DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/add?user=not-a-uuid")) == nil)
+    }
+
+    /// Only our own host is honoured — `openURL` can hand the app anything.
+    @Test("Another host is not honoured")
+    func foreignHostRejected() {
+        let id = UUID()
+        #expect(DeepLinkParser.parse(url("https://evil.example.com/add?user=\(id.uuidString)")) == nil)
+    }
+
+    /// The invite path must not start swallowing add links, or vice versa.
+    @Test("The two paths stay distinct")
+    func pathsStayDistinct() {
+        let id = UUID()
+        #expect(DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/invite?user=\(id.uuidString)")) == nil)
+        #expect(DeepLinkParser.parse(url("https://xbill.vijaygoyal.org/add?token=abc")) == nil)
+    }
+}

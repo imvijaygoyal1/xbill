@@ -18,7 +18,7 @@ struct MyQRCodeView: View {
     @State private var qrImage: UIImage? = nil
 
     private var deepLinkURL: URL? {
-        URL(string: "xbill://add/\(userID.uuidString)")
+        XBillURLs.addFriend(userID: userID)
     }
 
     var body: some View {
