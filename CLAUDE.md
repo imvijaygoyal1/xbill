@@ -1139,7 +1139,7 @@ and the token check rejects). `anon_exec: false`, `auth_exec: true`.
 **Not verified:** the original cold-launch sequence on a real device. The mechanism is reproduced;
 the exact user sequence is not, and the client fix ships in the next build.
 
-## Release status — v1.3 (5) ARCHIVED 2026-08-23 — replaces build 4
+## Release status — v1.3 (5) SUBMITTED FOR REVIEW 2026-08-23 — replaces the pulled build 4
 
 Build 4 was **pulled from review by the owner** so the QR and cold-launch join fixes could go in
 the same release rather than trailing a few days behind. The version stays **1.3**; only the build
