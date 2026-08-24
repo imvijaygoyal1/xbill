@@ -103,6 +103,13 @@ final class SplitEditor {
         recompute()
     }
 
+    /// SPLIT-05: percentages had no input anywhere in the app, so this had no setter either.
+    func setPercentage(_ percentage: Decimal, participantID: UUID) {
+        guard let index = inputs.firstIndex(where: { $0.userID == participantID }) else { return }
+        inputs[index].percentage = max(0, percentage)
+        recompute()
+    }
+
     func setAmount(_ amount: Decimal, participantID: UUID) {
         guard let index = inputs.firstIndex(where: { $0.userID == participantID }) else { return }
         inputs[index].amount = amount

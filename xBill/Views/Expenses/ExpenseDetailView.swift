@@ -353,33 +353,23 @@ struct ExpenseDetailView: View {
 
                         // CRASH-01: iterate values, never `ForEach($editor.inputs)`. Element
                         // bindings are index-backed and UIKit reads them back during a deferred
-                        // update pass; every edit below resolves its row by id instead.
+                        // update pass; every edit resolves its row by id instead.
                         ForEach(editor.inputs) { input in
-                            HStack {
-                                Toggle(isOn: Binding(
-                                    get: { input.isIncluded },
-                                    set: { _ in editor.toggle(participantID: input.userID); splitsEdited = true }
-                                )) {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(input.displayName)
-                                        if !members.contains(where: { $0.id == input.userID }) {
-                                            // Kept, not dropped: an expense may legitimately be
-                                            // split with someone who has since left the group.
-                                            Text("No longer in this group")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
-                                }
-                                if input.isIncluded {
-                                    Text(input.amount.formatted(currencyCode: currency))
-                                        .monospacedDigit()
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
+                            SplitParticipantRow(
+                                input: input,
+                                strategy: editor.strategy,
+                                currency: currency,
+                                // An expense may legitimately be split with someone who has left.
+                                subtitle: departedSubtitle(for: input.userID),
+                                idPrefix: "xBill.editExpense",
+                                onToggle: { editor.toggle(participantID: input.userID); splitsEdited = true },
+                                onAmount: { editor.setAmount($0, participantID: input.userID); splitsEdited = true },
+                                onPercentage: { editor.setPercentage($0, participantID: input.userID); splitsEdited = true },
+                                onShares: { editor.adjustShares(by: $0, participantID: input.userID); splitsEdited = true }
+                            )
                         }
 
-                        if splitsEdited, let problem = editor.validationError {
+                        if splitsEdited, let problem = editor.validationError(for: editedAmount) {
                             Text(problem)
                                 .font(.caption)
                                 .foregroundStyle(Color.moneyNegative)
@@ -415,6 +405,17 @@ struct ExpenseDetailView: View {
     // MARK: - Helpers
 
     /// Seeded fresh each time so a cancelled edit leaves nothing behind.
+    /// The amount currently typed into the sheet, for validating against as it changes.
+    private var editedAmount: Decimal {
+        Decimal(string: editAmountText.replacingOccurrences(of: ",", with: ".")) ?? expense.amount
+    }
+
+    /// Hoisted out of the row's argument list: an inline ternary there exceeded the
+    /// type-checker's budget for the enclosing expression.
+    private func departedSubtitle(for userID: UUID) -> String? {
+        members.contains { $0.id == userID } ? nil : "No longer in this group"
+    }
+
     private func seedSplitEditor() {
         let total = Decimal(string: editAmountText.replacingOccurrences(of: ",", with: ".")) ?? expense.amount
         splitEditor  = SplitEditor.forEditing(existingSplits: splits, members: members, total: total)
@@ -484,7 +485,7 @@ struct ExpenseDetailView: View {
             // guessing "equal" would silently flatten a deliberate 70/30 that the user never
             // opened the section to change.
             if splitsEdited, let editor = splitEditor {
-                if let problem = editor.validationError {
+                if let problem = editor.validationError(for: amount) {
                     self.error = AppError.validationFailed(problem)
                     return
                 }

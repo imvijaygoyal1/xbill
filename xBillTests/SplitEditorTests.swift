@@ -126,3 +126,80 @@ struct SplitEditorTests {
         #expect(editor.input(for: a.id)?.shares == 1)
     }
 }
+
+// MARK: - SPLIT-05: percentage had no input anywhere in the app
+//
+// "By %" has been in the strategy picker since 1.0. Neither Add Expense nor the edit sheet ever
+// rendered a percentage field, so every value stayed at 0, `validatePercentages` reported
+// "Percentages must add up to 100. Currently: 0.00", and Save was disabled with no way out.
+// A picker offering an option that cannot be completed is worse than not offering it.
+
+@Suite("Percentage splits")
+@MainActor
+struct PercentageSplitTests {
+
+    private func user(_ n: String) -> User {
+        User(id: UUID(), email: "\(n)@x.test", displayName: n, avatarURL: nil, createdAt: Date())
+    }
+    private func split(_ id: UUID, _ amt: String) -> Split {
+        Split(id: UUID(), expenseID: UUID(), userID: id,
+              amount: Decimal(string: amt)!, isSettled: false)
+    }
+
+    /// The state a user is dropped into the moment they pick "By %".
+    @Test("Percentages start invalid, which is why an input is required")
+    func startsInvalid() {
+        let a = user("A"), b = user("B")
+        let e = SplitEditor.forEditing(existingSplits: [split(a.id, "50"), split(b.id, "50")],
+                                       members: [a, b], total: 100)
+        e.strategy = .percentage
+        #expect(e.validationError != nil, "0% + 0% is not 100 — without a field the user is stuck")
+    }
+
+    @Test("Entering percentages divides the total and validates")
+    func percentagesApply() {
+        let a = user("A"), b = user("B")
+        let e = SplitEditor.forEditing(existingSplits: [split(a.id, "50"), split(b.id, "50")],
+                                       members: [a, b], total: 100)
+        e.strategy = .percentage
+        e.setPercentage(70, participantID: a.id)
+        e.setPercentage(30, participantID: b.id)
+
+        #expect(e.validationError == nil)
+        #expect(e.input(for: a.id)?.amount == Decimal(70))
+        #expect(e.input(for: b.id)?.amount == Decimal(30))
+    }
+
+    @Test("Percentages that do not reach 100 are rejected")
+    func mustSumTo100() {
+        let a = user("A"), b = user("B")
+        let e = SplitEditor.forEditing(existingSplits: [split(a.id, "50"), split(b.id, "50")],
+                                       members: [a, b], total: 100)
+        e.strategy = .percentage
+        e.setPercentage(40, participantID: a.id)
+        e.setPercentage(30, participantID: b.id)
+        #expect(e.validationError?.contains("70") == true)
+    }
+
+    /// Typing a leading minus must not produce a negative share.
+    @Test("A negative percentage is clamped to zero")
+    func negativeClamped() {
+        let a = user("A")
+        let e = SplitEditor.forEditing(existingSplits: [split(a.id, "10")], members: [a], total: 10)
+        e.strategy = .percentage
+        e.setPercentage(-25, participantID: a.id)
+        #expect(e.input(for: a.id)?.percentage == 0)
+    }
+
+    /// Only included participants count toward the 100.
+    @Test("An excluded participant does not consume percentage")
+    func excludedIgnored() {
+        let a = user("A"), b = user("B"), c = user("C")
+        let e = SplitEditor.forEditing(existingSplits: [split(a.id, "50"), split(b.id, "50")],
+                                       members: [a, b, c], total: 100)
+        e.strategy = .percentage
+        e.setPercentage(60, participantID: a.id)
+        e.setPercentage(40, participantID: b.id)
+        #expect(e.validationError == nil, "C is not included and must not be required to hold a %")
+    }
+}

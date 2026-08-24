@@ -184,39 +184,20 @@ final class ExpenseService {
     ///
     /// The RPC rejects a split set that does not sum to the amount, so a rounding mistake fails
     /// loudly here rather than becoming a balance nobody can explain.
+    /// The exact body sent to `update_expense_with_splits`.
+    ///
+    /// Extracted so a test can assert the **wire format** without a network call. The defect this
+    /// prevents was invisible to every server-side check: the RPC was verified with a hand-written
+    /// payload that included `p_notes`, while the app omitted it whenever notes were empty.
+    /// Verifying the contract is not the same as verifying what the client sends.
+    nonisolated static func updateParamsJSON(_ expense: Expense, splits: [SplitInput]) throws -> [String: Any] {
+        let data = try SupabaseManager.postgrestEncoder.encode(
+            makeUpdateParams(expense, splits: splits))
+        return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+    }
+
     func updateExpenseWithSplits(_ expense: Expense, splits: [SplitInput]) async throws -> Expense {
-        // Mirrors `RPCCreateParams` below: amounts travel as `Decimal` through the configured
-        // PostgREST encoder, not as interpolated strings.
-        struct Params: Encodable {
-            let expenseID: UUID
-            let title:     String
-            let amount:    Decimal
-            let currency:  String
-            let category:  String
-            let notes:     String?
-            let paidBy:    UUID?
-            let splits:    [RPCSplitParam]
-            enum CodingKeys: String, CodingKey {
-                case expenseID = "p_expense_id"
-                case title     = "p_title"
-                case amount    = "p_amount"
-                case currency  = "p_currency"
-                case category  = "p_category"
-                case notes     = "p_notes"
-                case paidBy    = "p_paid_by"
-                case splits    = "p_splits"
-            }
-        }
-        let params = Params(
-            expenseID: expense.id,
-            title:     expense.title,
-            amount:    expense.amount,
-            currency:  expense.currency,
-            category:  expense.category.rawValue,
-            notes:     expense.notes,
-            paidBy:    expense.payerID,
-            splits:    splits.map { RPCSplitParam(userID: $0.userID, amount: $0.amount) }
-        )
+        let params = Self.makeUpdateParams(expense, splits: splits)
         return try await supabase.client
             .rpc("update_expense_with_splits", params: params)
             .execute()
@@ -293,7 +274,7 @@ final class ExpenseService {
 
 // MARK: - RPC Payloads
 
-private struct RPCSplitParam: Encodable {
+struct RPCSplitParam: Encodable {
     let userID: UUID
     let amount: Decimal
     enum CodingKeys: String, CodingKey {
@@ -330,5 +311,66 @@ private struct AddExpenseRPCParams: Encodable {
         case originalCurrency    = "p_original_currency"
         case recurrence          = "p_recurrence"
         case nextOccurrenceDate  = "p_next_occurrence_date"
+    }
+}
+
+// MARK: - Update RPC payload
+
+// Mirrors `RPCCreateParams` below: amounts travel as `Decimal` through the configured
+// PostgREST encoder, not as interpolated strings.
+struct UpdateExpenseParams: Encodable {
+    let expenseID: UUID
+    let title:     String
+    let amount:    Decimal
+    let currency:  String
+    let category:  String
+    let notes:     String?
+    let paidBy:    UUID?
+    let splits:    [RPCSplitParam]
+    enum CodingKeys: String, CodingKey {
+        case expenseID = "p_expense_id"
+        case title     = "p_title"
+        case amount    = "p_amount"
+        case currency  = "p_currency"
+        case category  = "p_category"
+        case notes     = "p_notes"
+        case paidBy    = "p_paid_by"
+        case splits    = "p_splits"
+    }
+
+    /// Hand-written because **Swift's synthesized `Encodable` omits a nil**, and PostgREST
+    /// resolves an RPC by the exact set of keys it receives. An expense with no notes sent
+    /// 7 keys, so PostgREST looked for a 7-argument function, found none, and returned
+    /// `PGRST202 Could not find the function …` — which reached the user as a raw error
+    /// the moment they tried to re-split an expense.
+    ///
+    /// `encode` rather than `encodeIfPresent` on every optional: the key must be present
+    /// and explicitly null. This trap is already recorded in `HANDOFF_PAYMENT_HANDLES.md`
+    /// for the payment-handle payload; it is the same one.
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(expenseID, forKey: .expenseID)
+        try c.encode(title,     forKey: .title)
+        try c.encode(amount,    forKey: .amount)
+        try c.encode(currency,  forKey: .currency)
+        try c.encode(category,  forKey: .category)
+        try c.encode(notes,     forKey: .notes)     // explicit null, never omitted
+        try c.encode(paidBy,    forKey: .paidBy)    // explicit null, never omitted
+        try c.encode(splits,    forKey: .splits)
+    }
+}
+
+extension ExpenseService {
+    nonisolated static func makeUpdateParams(_ expense: Expense, splits: [SplitInput]) -> UpdateExpenseParams {
+        UpdateExpenseParams(
+            expenseID: expense.id,
+            title:     expense.title,
+            amount:    expense.amount,
+            currency:  expense.currency,
+            category:  expense.category.rawValue,
+            notes:     expense.notes,
+            paidBy:    expense.payerID,
+            splits:    splits.map { RPCSplitParam(userID: $0.userID, amount: $0.amount) }
+        )
     }
 }

@@ -1139,6 +1139,55 @@ and the token check rejects). `anon_exec: false`, `auth_exec: true`.
 **Not verified:** the original cold-launch sequence on a real device. The mechanism is reproduced;
 the exact user sequence is not, and the client fix ships in the next build.
 
+## Recent Fix Log — 2026-08-24 — SPLIT-04/05: two defects shipped in 1.3, both mine
+
+Reported by the owner within hours of 1.3 going live. Both were avoidable, and both were missed by
+verification that looked thorough.
+
+### SPLIT-04 — re-splitting an expense failed with a raw PostgREST error
+> *"Could not find the function public.update_expense_with_splits(p_amount…"*
+
+**Swift's synthesized `Encodable` omits a nil.** An expense with no notes sent **7 keys**, and
+PostgREST resolves an RPC by the exact key set it receives — so it searched for a 7-argument
+function, found none, and returned `PGRST202`. `update_expense_with_splits` had **0 default
+arguments** while `add_expense_with_splits` has **8**, which is why creation never showed this.
+
+**This trap is already documented in this repository** (`HANDOFF_PAYMENT_HANDLES.md`, for the
+payment-handle payload). I hit the same one.
+
+- `UpdateExpenseParams` now has a hand-written `encode(to:)` using `encode` — never
+  `encodeIfPresent` — so every key is present and explicitly null.
+- Migration **045** gives the optional arguments defaults, matching the create RPC. The client fix
+  alone would suffice; depending solely on the client to serialise perfectly is the arrangement
+  that just failed.
+
+### SPLIT-05 — "By %" has never had an input, anywhere, since 1.0
+Selecting *By %* left every percentage at `0`, so `validatePercentages` reported *"Percentages must
+add up to 100. Currently: 0.00"* and **Save stayed disabled with no way out**. `AddExpenseView`
+contained **zero** occurrences of "percentage" — the create form never had a field either. I then
+built an edit sheet with the same four-option picker and only one working input.
+
+New `SplitParticipantRow`, shared by **both** forms, renders the input each strategy needs: a
+`TextField` for exact, a **percentage field**, a stepper for shares, read-only for equal. One row
+for both forms, because two copies is precisely how the edit sheet came to be missing three of the
+four inputs.
+
+### Key Pattern — verifying the contract is not verifying the payload
+`update_expense_with_splits` was tested against production with a hand-written body containing
+`"p_notes": null`, and it passed. **The app sent something different.** A server-side check cannot
+see how the client serialises, and every one of the three verification passes I ran was blind to it.
+`UpdateExpensePayloadTests` now asserts the **encoded wire payload** — that the key set is
+identical whatever is nil — using the encoder PostgREST actually uses.
+
+### Key Pattern — an option that cannot be completed is worse than an absent option
+A picker with four choices, one of which traps the user with a permanently disabled Save, is worse
+than a picker with three. When adding a control with modes, check every mode has a way to finish —
+not just the one being demonstrated.
+
+**Verification:** unit **454/454**, 0 failed (9 new). Migration 045 deployed; the exact payload that
+failed for the user now resolves to the function. Debug build clean.
+**Not device-verified:** both fixes ship in the next build.
+
 ## Release status — v1.3 (5) APPROVED 2026-08-24 — replaces the pulled build 4
 
 Build 4 was **pulled from review by the owner** so the QR and cold-launch join fixes could go in

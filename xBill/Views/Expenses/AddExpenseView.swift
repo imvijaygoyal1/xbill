@@ -198,77 +198,27 @@ struct AddExpenseView: View {
                                     // Every edit below resolves the row by `userID` instead, so a
                                     // row that is gone is a no-op rather than a crash.
                                     ForEach(vm.splitInputs) { input in
-                                        HStack(spacing: XBillSpacing.md) {
-                                            AvatarView(name: input.displayName, url: input.avatarURL, size: XBillIcon.avatarSm)
-                                            Text(input.displayName)
-                                                .font(.xbillBodyMedium)
-                                                .foregroundStyle(Color.textPrimary)
-                                            Spacer()
-                                            if vm.splitStrategy == .exact {
-                                                TextField("0.00", value: Binding(
-                                                    get: { vm.input(for: input.userID)?.amount ?? .zero },
-                                                    set: { vm.setAmount($0, participantID: input.userID) }
-                                                ), format: .number)
-                                                    .font(.xbillSmallAmount)
-                                                    .keyboardType(.decimalPad)
-                                                    .multilineTextAlignment(.trailing)
-                                                    .frame(width: 70)
-                                                    .foregroundStyle(Color.textPrimary)
-                                                    .accessibilityIdentifier("xBill.addExpense.exactAmountField.\(input.userID.uuidString)")
-                                            } else if vm.splitStrategy == .shares {
-                                                HStack(spacing: XBillSpacing.xs) {
-                                                    Button {
-                                                        vm.adjustShares(by: -1, participantID: input.userID)
-                                                    } label: {
-                                                        Image(systemName: "minus.circle")
-                                                            .foregroundStyle(input.shares > 1 ? Color.brandPrimary : Color.textTertiary)
-                                                            .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
-                                                            .contentShape(Rectangle())
-                                                    }
-                                                    .buttonStyle(.plain)
-                                                    .disabled(input.shares <= 1)
-                                                    .accessibilityIdentifier("xBill.addExpense.decreaseShares.\(input.userID.uuidString)")
-                                                    Text("\(input.shares)×")
-                                                        .font(.xbillLabel)
-                                                        .foregroundStyle(Color.textPrimary)
-                                                        .frame(minWidth: 26)
-                                                    Button {
-                                                        vm.adjustShares(by: 1, participantID: input.userID)
-                                                    } label: {
-                                                        Image(systemName: "plus.circle")
-                                                            .foregroundStyle(Color.brandPrimary)
-                                                            .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
-                                                            .contentShape(Rectangle())
-                                                    }
-                                                    .buttonStyle(.plain)
-                                                    .accessibilityIdentifier("xBill.addExpense.increaseShares.\(input.userID.uuidString)")
-                                                }
-                                                Text(input.amount.formatted(currencyCode: vm.currency))
-                                                    .font(.xbillSmallAmount)
-                                                    .foregroundStyle(Color.textSecondary)
-                                            } else {
-                                                Text(input.amount.formatted(currencyCode: vm.currency))
-                                                    .font(.xbillSmallAmount)
-                                                    .foregroundStyle(Color.textSecondary)
-                                            }
-                                            // `toggle(participantID:)` already recomputes, so the
-                                            // old `.onChange(of:)` recompute is gone with it.
-                                            Toggle("", isOn: Binding(
-                                                get: { vm.input(for: input.userID)?.isIncluded ?? false },
-                                                set: { _ in vm.toggle(participantID: input.userID) }
-                                            ))
-                                                .labelsHidden()
-                                                .tint(Color.brandPrimary)
-                                                .accessibilityIdentifier("xBill.addExpense.includeToggle.\(input.userID.uuidString)")
-                                        }
+                                        // SPLIT-05: one shared row for both forms. "By %" was offered in the
+                                        // picker here with no percentage field anywhere, so choosing it left
+                                        // every value at 0 and Save disabled with no way out.
+                                        SplitParticipantRow(
+                                            input: input,
+                                            strategy: vm.splitStrategy,
+                                            currency: vm.currency,
+                                            idPrefix: "xBill.addExpense",
+                                            onToggle: { vm.toggle(participantID: input.userID) },
+                                            onAmount: { vm.setAmount($0, participantID: input.userID) },
+                                            onPercentage: { vm.setPercentage($0, participantID: input.userID) },
+                                            onShares: { vm.adjustShares(by: $0, participantID: input.userID) }
+                                        )
                                         .padding(.horizontal, XBillSpacing.base)
                                         .padding(.vertical, XBillSpacing.sm)
-
+                                    
                                         if input.userID != vm.splitInputs.last?.userID {
                                             Divider().padding(.leading, XBillSpacing.base)
                                         }
                                     }
-
+                                    
                                     if let validationError = vm.splitValidationError {
                                         Text(validationError)
                                             .font(.xbillCaption)

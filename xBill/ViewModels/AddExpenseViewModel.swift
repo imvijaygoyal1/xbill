@@ -139,6 +139,11 @@ final class AddExpenseViewModel {
         splitEditor.setAmount(amount, participantID: participantID)
     }
 
+    func setPercentage(_ percentage: Decimal, participantID: UUID) {
+        splitEditor.total = finalAmount
+        splitEditor.setPercentage(percentage, participantID: participantID)
+    }
+
     func adjustShares(by delta: Int, participantID: UUID) {
         splitEditor.total = finalAmount
         splitEditor.adjustShares(by: delta, participantID: participantID)
