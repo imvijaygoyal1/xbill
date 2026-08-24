@@ -1249,6 +1249,52 @@ screen: `sonthalia2sweta@gmail.com` on Smoky Mountains Trip is now **`is_active:
 been `false` before the deploy. The reactivation path worked end to end with **no client change** —
 every user on 1.3 is fixed.
 
+## Recent Fix Log — 2026-08-24 (later still) — UI-01: Manage Group scrolled endlessly
+
+`XBillScrollView` used a `LazyVStack`. On Manage Group — three short sections and a 10-icon grid —
+the scroll view reported far more height than it had, so swiping ran off into blank space.
+`LazyVStack` → `VStack` fixes it.
+
+### Measured, not reasoned
+A UI probe (`testManageGroupStopsScrollingAtItsContentHeight`) swipes past the end and asserts some
+content is still on screen. It **fails against `LazyVStack`, passes against `VStack`**, nothing else
+changed. It stays as a regression test.
+
+The first probe attempt was itself wrong: it tracked one element's Y position, and that element
+scrolls out of the accessibility snapshot, so the query failed rather than measuring anything. The
+working signal — *is anything on screen after scrolling past the end* — is a direct encoding of the
+complaint.
+
+### ⚠️ The cause I first wrote down was wrong
+I recorded it as "a `LazyVGrid` inside a `LazyVStack`". **`CreateGroupView` has the same icon grid
+in the same container and its probe passes even against `LazyVStack`.** So the grid is not
+sufficient, and the precise trigger is **not established**. What is established: removing the
+laziness fixes Manage Group and regresses nothing.
+
+### The sweep, because the fix was global
+| Screen | Against `LazyVStack` | Now |
+|---|---|---|
+| Manage Group | ❌ scrolled into blank space | ✅ |
+| Create Group (same grid, same container) | ✅ never broken | ✅ |
+| Home (two `LazyVStack`s of its own — the only lazy containers left) | ✅ never broken | ✅ |
+
+The only remaining `LazyVGrid` outside a screen is in a `#Preview`, and is not shipped.
+
+### The full UI suite caught a regression of mine from earlier today
+Extracting `SplitParticipantRow` renamed four accessibility identifiers (`includeToggle`,
+`exactAmountField`, `decreaseShares`, `increaseShares`), and `testSplitModeControlsRegression`
+failed. **An accessibility identifier is a contract with the test suite, not an implementation
+detail.** Restored, and noted in the file.
+
+### Key Pattern — a sweep means running the probe elsewhere, not assuming the fix generalises
+The fix was global, so it was tempting to call the other screens covered. Mutation-testing the
+sibling probe is what showed Create Group was never affected — which is what disproved the causal
+story I had already committed.
+
+**Verification:** unit **454/454**. Manage Group, Create Group and Home probes all pass; the Manage
+Group probe fails against the reverted component. All three previously-failing UI tests pass on a
+clean simulator.
+
 ## Release status — v1.3 (5) APPROVED 2026-08-24 — replaces the pulled build 4
 
 Build 4 was **pulled from review by the owner** so the QR and cold-launch join fixes could go in

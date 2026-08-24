@@ -356,6 +356,50 @@ final class RegressionUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Group actions"].waitForExistence(timeout: 4), "Back should dismiss Add Expense after split-mode validation.")
     }
 
+    /// Swipes well past the end of a scroll view and reports whether any of the named content is
+    /// still on screen. A correctly-sized scroll view refuses to travel past its content; one that
+    /// over-reports its height scrolls into blank space.
+    ///
+    /// Shared by every screen probed for UI-01, so the check cannot drift between them.
+    private func assertScrollSettles(anchors: [String], screen: String,
+                                     file: StaticString = #filePath, line: UInt = #line) {
+        for _ in 0..<8 { app.scrollViews.firstMatch.swipeUp(velocity: .fast) }
+        let visible = anchors.contains { id in
+            app.buttons[id].exists || app.textFields[id].exists
+                || app.staticTexts[id].exists || app.otherElements[id].exists
+        }
+        XCTAssertTrue(visible, """
+            \(screen) scrolled into blank space: after swiping past the end, none of
+            \(anchors) is on screen. The scroll view is reporting more height than it has.
+            """, file: file, line: line)
+    }
+
+    /// `HomeView` keeps two `LazyVStack`s of its own, nested inside the container. They are the
+    /// last lazy containers on any shipping screen, so this is the remaining UI-01 exposure.
+    func testHomeStopsScrollingAtItsContentHeight() throws {
+        try signInIfNeeded()
+        XCTAssertTrue(app.buttons["xBill.groups.createButton"].waitForExistence(timeout: 8)
+                      || app.staticTexts["My Groups"].waitForExistence(timeout: 4),
+                      "Home should load.")
+        assertScrollSettles(anchors: ["xBill.groups.createButton", "My Groups"], screen: "Home")
+    }
+
+    /// UI-01 swept to the other screen carrying the same icon grid inside the same container.
+    /// Manage Group was the one reported; this asserts the sibling is not quietly doing it too.
+    func testCreateGroupStopsScrollingAtItsContentHeight() throws {
+        try signInIfNeeded()
+
+        let create = app.buttons["xBill.groups.createButton"]
+        XCTAssertTrue(create.waitForExistence(timeout: 8), "Create Group action should be visible.")
+        create.tap()
+        // `submitButton` is the only identifier this screen actually carries; the name field is
+        // matched by placeholder, as the existing create-group tests do.
+        let submit = app.buttons["xBill.createGroup.submitButton"]
+        XCTAssertTrue(submit.waitForExistence(timeout: 6), "Create Group should open.")
+
+        assertScrollSettles(anchors: ["xBill.createGroup.submitButton"], screen: "Create Group")
+    }
+
     /// "Manage Group scrolls endlessly." The screen holds three short sections and a 10-icon
     /// grid — about one screenful — yet it keeps scrolling.
     ///
