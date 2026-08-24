@@ -1188,6 +1188,61 @@ not just the one being demonstrated.
 failed for the user now resolves to the function. Debug build clean.
 **Not device-verified:** both fixes ship in the next build.
 
+## Recent Fix Log — 2026-08-24 (later) — INV-07: a removed member could never rejoin
+
+### Reported
+Scan the group QR → the sheet names the group correctly → tap Join → land in xBill with no group.
+Twice, identically.
+
+### Evidence before theorising
+**No `group_members` row was written**, so the join failed rather than succeeding-and-not-showing.
+And the group's membership listed `sonthalia2sweta@gmail.com` with **`is_active = false`**.
+
+### Root cause
+Migration 036 introduced historical membership: removing someone sets `is_active = false` and
+**keeps the row**, so old expenses can still name them. `memberGroupIDs` reads only
+`is_active = true`.
+
+`join_group_via_invite` guarded its insert with:
+
+```sql
+IF NOT EXISTS (SELECT 1 FROM group_members WHERE group_id = … AND user_id = …)
+```
+
+which does **not** consider `is_active`. A removed member's row still exists → the insert is
+skipped → the function returns the group id → the client treats that as success → the sheet
+dismisses → they are still inactive → no group. Deterministic, silent, identical on every retry.
+
+**A function that reports success while doing nothing is the worst possible failure**: there is no
+error to show, nothing to log, and the user's only evidence is an absence.
+
+### It was already solved, and I missed it twice
+Migration **036 shipped `add_or_reactivate_group_member` for exactly this case**, documented as
+"invite acceptance reactivates existing inactive memberships instead of failing on conflict".
+`join_group_via_invite` never used it — and **042 and 044 both rewrote that function and preserved
+the bug**. I was editing the identity check and the token lifetime and never questioned the
+existence check three lines below.
+
+Migration **046** replaces it with an UPSERT that reactivates, covering all three cases in one
+statement that cannot drift: never a member → insert; already a member → no observable change;
+**removed member → reactivated**.
+
+### Key Pattern — when rewriting a function, re-derive every guard in it, not just the one you came for
+Two rewrites carried this defect through untouched because the surrounding lines looked like
+context rather than logic. A guard that predates your change is still yours the moment you
+re-emit the function.
+
+### Key Pattern — `EXISTS` on a soft-deleted table is almost always wrong
+Once a table keeps rows for history (`is_active`, `removed_at`, `deleted_at`), every `EXISTS`
+against it must say which state it means. `NOT EXISTS(…)` silently reads "no row of any state",
+which is rarely the question being asked.
+
+**Verification:** deployed 2026-08-24; `migration list` reads `046 | 046 | 046`. The deployed
+function upserts (`ON CONFLICT` present, old `IF NOT EXISTS` gone), `authenticated` may execute,
+`anon` may not, and **no data changed** — the one inactive membership is still inactive, so the
+fix takes effect the next time that person joins rather than by rewriting history.
+**Server-side only: this takes effect immediately on 1.3, with no app update.**
+
 ## Release status — v1.3 (5) APPROVED 2026-08-24 — replaces the pulled build 4
 
 Build 4 was **pulled from review by the owner** so the QR and cold-launch join fixes could go in
