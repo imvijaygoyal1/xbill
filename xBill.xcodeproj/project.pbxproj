@@ -511,7 +511,7 @@
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
 		FA59435ADAF303865175315B /* VisionParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionParsingTests.swift; sourceTree = "<group>"; };
 		FFA8CD2E5A8CA2C7892BB8A8 /* CheckBalanceIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckBalanceIntent.swift; sourceTree = "<group>"; };
-		"TEMP_8510A851-03DD-4D01-A629-0C2AE6C13DA9" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_6AA62E4C-3D36-48A5-A594-4BF557AF2E45" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1000,10 +1000,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_D6E7BD55-8EB4-4B99-9D85-29519218381B" /* xBill */ = {
+		"TEMP_E099DB55-04DC-4972-A156-2FA25B55F515" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_8510A851-03DD-4D01-A629-0C2AE6C13DA9" /* Secrets.xcconfig */,
+				"TEMP_6AA62E4C-3D36-48A5-A594-4BF557AF2E45" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1508,7 +1508,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_8510A851-03DD-4D01-A629-0C2AE6C13DA9" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_6AA62E4C-3D36-48A5-A594-4BF557AF2E45" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1541,7 +1541,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 7B5U5LACV3;
 				ENABLE_STRICT_CONCURRENCY = complete;
@@ -1620,7 +1620,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = xBillWidget/xBillWidget.entitlements;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				ENABLE_STRICT_CONCURRENCY = complete;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = xBillWidget/Info.plist;
@@ -1642,7 +1642,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = xBillWidget/xBillWidget.entitlements;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				ENABLE_STRICT_CONCURRENCY = complete;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = xBillWidget/Info.plist;
@@ -1717,7 +1717,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_8510A851-03DD-4D01-A629-0C2AE6C13DA9" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_6AA62E4C-3D36-48A5-A594-4BF557AF2E45" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1750,7 +1750,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 7B5U5LACV3;
 				ENABLE_NS_ASSERTIONS = NO;

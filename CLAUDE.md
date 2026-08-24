@@ -1139,7 +1139,34 @@ and the token check rejects). `anon_exec: false`, `auth_exec: true`.
 **Not verified:** the original cold-launch sequence on a real device. The mechanism is reproduced;
 the exact user sequence is not, and the client fix ships in the next build.
 
-## Release status — v1.3 (4) SUBMITTED FOR REVIEW 2026-08-23
+## Release status — v1.3 (5) ARCHIVED 2026-08-23 — replaces build 4
+
+Build 4 was **pulled from review by the owner** so the QR and cold-launch join fixes could go in
+the same release rather than trailing a few days behind. The version stays **1.3**; only the build
+increments, so the release notes already written still apply.
+
+**Added over build 4** (two files):
+- `xBill/Models/GroupInvite.swift` — the QR encodes an **https universal link**, not `xbill://`
+- `xBill/Views/Groups/JoinGroupView.swift` — awaits a valid session before joining (`INV-06`)
+
+| Check | Result |
+|---|---|
+| Unit | **445 passed**, 0 failed |
+| `OnboardingUITests` | **6/6** |
+| Widget | **7 tests** |
+| UI regression | 17/18 — `testArchiveUnarchiveRegression`, then **2/2 in isolation** after a simulator erase |
+| Release build | clean |
+| Backend | handles NULL · migrations through **044** · all web endpoints incl. AASA 200 |
+| Archive | `1.3 (5)`, `UIDeviceFamily [1]`, region `en`, encryption `false`, `associated-domains` in the **signed** binary, 3 dSYMs, widget framework + `Assets.car`, Siri `nlu/` compiled, **0 corpus paths** |
+
+### `testArchiveUnarchiveRegression` — the pattern is now clear
+It has failed only ever on runs that follow heavy simulator use, and passed **2/2 immediately after
+an erase**, alongside `OnboardingUITests` recovering from an *"Early unexpected exit… never
+finished bootstrapping"* in the same run. Cumulative record: many passes, failures only from a
+degraded simulator. **Erase the simulator before a release UI run** rather than re-running and
+hoping.
+
+
 
 Cut specifically because three fixes could not be verified until they were on a device.
 
