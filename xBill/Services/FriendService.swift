@@ -72,19 +72,12 @@ final class FriendService {
     private func notifyFriendRequest(toUserID: UUID) async {
         struct Payload: Encodable {
             let toUserID, fromUserID, fromName: String
-            let isDevelopment: Bool
         }
-        #if DEBUG
-        let dev = true
-        #else
-        let dev = false
-        #endif
         guard let sender = try? await AuthService.shared.currentUser() else { return }
         let payload = Payload(
             toUserID:      toUserID.uuidString,
             fromUserID:    sender.id.uuidString,
             fromName:      sender.displayName,
-            isDevelopment: dev
         )
         do {
             _ = try await supabase.client.functions

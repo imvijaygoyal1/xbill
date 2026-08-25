@@ -211,16 +211,9 @@ final class ExpenseService {
     ) async {
         struct Payload: Encodable {
             let expenseId: String
-            let isDevelopment: Bool
         }
-        #if DEBUG
-        let dev = true
-        #else
-        let dev = false
-        #endif
         let payload = Payload(
             expenseId:     expenseID.uuidString,
-            isDevelopment: dev
         )
         do {
             _ = try await supabase.client.functions
@@ -239,16 +232,9 @@ final class ExpenseService {
     func notifySettlementRecorded(settlementID: UUID) async {
         struct Payload: Encodable {
             let settlementId: String
-            let isDevelopment: Bool
         }
-        #if DEBUG
-        let dev = true
-        #else
-        let dev = false
-        #endif
         let payload = Payload(
             settlementId:  settlementID.uuidString,
-            isDevelopment: dev
         )
         do {
             _ = try await supabase.client.functions

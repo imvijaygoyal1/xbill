@@ -688,9 +688,19 @@ together, in that order.
 | **ID** | PUSH-01, PUSH-02 |
 | **File** | `xBill/ViewModels/AddExpenseViewModel.swift:232`, `xBill/ViewModels/GroupViewModel.swift:789`, `xBill/Services/CommentService.swift:59`, all four `supabase/functions/notify-*/index.ts`, `public.device_tokens` |
 | **Issue** | (01) The Profile toggle titled "New Expenses" gates whether **other people** are notified when **you** add an expense, not whether you are notified — and it defaults to `false`. The recipient's own preference is never consulted, and there is no server-side preference table to consult it in. Same for settlements and comments; friend requests are ungated. (02) `apnsHost` is chosen from `isDevelopment`, which is `#if DEBUG` on the **sender's** build, but sandbox-vs-production must match the **recipient's token**. `device_tokens` records no environment, so correct routing is impossible in principle. An App Store sender notifying a debug-build recipient gets `BadDeviceToken` silently — the normal case during testing. |
-| **Status** | 🔍 Scoped, not built — `docs/superpowers/specs/2026-08-25-push-notification-delivery-scope.md` |
-| **Fix** | Phase 1: `device_tokens.environment`, written at registration where `#if DEBUG` is correct, and each function routes per recipient token. Phase 2: a server-side `notification_preferences` table filtered by the function, with the sender-side gates deleted. |
-| **Verification** | Pending. **No simulator can verify this** — APNs does not deliver to one. Needs two real devices on opposite builds. |
+| **Status** | PUSH-02 ✅ **built, not yet deployed** (Phase 1). PUSH-01 🔍 scoped, not built (Phase 2) — `docs/superpowers/specs/2026-08-25-push-notification-delivery-scope.md` |
+| **Fix** | Phase 1 (done): migration 048 adds `device_tokens.environment` (CHECK sandbox/production, existing rows default production); `AuthService.apnsEnvironment` writes it at registration, the one place `#if DEBUG` describes the binary whose entitlement is in question; new `supabase/functions/_shared/apns.ts` holds the routing rule once and all four functions send through it; `isDevelopment` deleted from every payload and every function. Phase 2 (not built): a server-side `notification_preferences` table filtered by the function, with the sender-side gates deleted. |
+| **Verification** | Unit **473/473** (4 new), mutation-tested: renaming the `environment` key fails exactly the two payload tests and neither build-constant test. `scripts/check-apns-routing.sh` asserts the structural rule across all four functions and fires on three separate regressions. Debug + Release both build; installed and launched. **Nothing about delivery is verified** — APNs does not deliver to a simulator, and no test in this project can reach it. That needs two real devices on opposite builds, after deploy. |
+
+## PUSH-03 — a second device silently unregisters the first (2026-08-25, found not fixed)
+
+| Field | Value |
+|---|---|
+| **ID** | PUSH-03 |
+| **File** | `xBill/Services/AuthService.swift:updateDeviceToken` |
+| **Issue** | After upserting the current token, the method runs `DELETE FROM device_tokens WHERE user_id = ? AND token <> ?` — **every other token for that user**. A person with an iPhone and an iPad can only ever be reached on whichever they opened most recently, and nothing tells them. The comment justifies the ordering (insert before delete) but not the deletion itself. Production currently holds exactly one token for each of four users, which is consistent with this but does not prove it, since no user is known to have two devices. |
+| **Status** | 🔍 **Found while building PUSH-02, not fixed.** Out of the scope the owner approved, and the fix is a judgement call: dropping the delete leaves genuinely stale tokens to accumulate until APNs reports `Unregistered`. |
+| **Fix** | Not written. The sound version is to delete on age or on `Unregistered` only, not on "is not the token I just registered". |
 
 ## SCAN-01/02/03 — Receipt scanning: sign, confidence, per-item flags (2026-08-18)
 

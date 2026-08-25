@@ -93,6 +93,86 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-08-25 (latest) — PUSH-02: the APNs host was chosen by the wrong device
+
+Reported: *"why push notifications are not triggered when an expense is added"*. Two independent
+defects, either of which alone stops delivery. **Phase 1 fixes the second; the first is scoped and
+unbuilt.**
+
+### The sender decided where the recipient's notification went
+```javascript
+const apnsHost = isDevelopment                    // ← all four notify functions
+  ? 'https://api.sandbox.push.apple.com'
+  : 'https://api.push.apple.com'
+```
+`isDevelopment` is `#if DEBUG` **on the sender's build**. Sandbox-vs-production is a property of
+the **recipient's token** — of how *their* copy was signed. An App Store sender notifying a
+debug-build recipient posted a sandbox token to the production host; a debug sender did the
+reverse. **During testing that mismatch is the normal case**, which is why the owner's own device
+received nothing.
+
+`device_tokens` was `(id, user_id, token, platform, created_at)` — **no environment column**, so
+the function could not have routed correctly even if it had wanted to.
+
+### And it was deleting good tokens the whole time
+The cleanup ran on `res.status === 410 || 400` and matched `Unregistered` **or `BadDeviceToken`**.
+`BadDeviceToken` is exactly what a perfectly valid token returns when posted to the wrong host —
+so every mismatched send **destroyed a working registration**, and the recipient had to reopen the
+app before anyone could reach them again. Nothing recorded that it had happened.
+`isDeadToken()` now matches `Unregistered` only.
+
+### The fix
+| Piece | |
+|---|---|
+| Migration **048** | `device_tokens.environment text not null default 'production'`, CHECK `('sandbox','production')` |
+| `AuthService.apnsEnvironment` | the **only** place `#if DEBUG` legitimately answers this, because there it describes the local binary: Debug signs with `xBill.Debug.entitlements` (`aps-environment: development`), Release with `xBill.entitlements` (`production`) |
+| `supabase/functions/_shared/apns.ts` | **new.** `apnsHost()`, `sendToToken()`, `isDeadToken()`, and the send report — the rule stated once |
+| all four notify functions | select `environment`, send through `sendToToken`, return `{sent, failed, reasons}` |
+| `isDevelopment` | **deleted** from all four client payloads and all four functions |
+
+The shared module is deliberate. Four copies of one rule is how `INV-05` converted the emailed
+invite link to https and **left the group QR on the custom scheme** for two more days.
+
+### Silence used to look identical to success
+Every function returned `{ sent: N }` counted from *tokens found*, not from APNs accepting them,
+and the `catch` swallowed network errors entirely. The report now separates `sent` from `failed`
+and names the reasons (`{"BadDeviceToken": 2}`) — never the tokens.
+
+### What Phase 1 actually fixes, and for whom
+Deploying the server half **without** an app update still helps: every row defaults to
+`production`, so every user on the App Store build is now routed correctly **no matter who sends**.
+The debug-build recipient — the owner's test device — stays wrong until it re-registers on 1.5.
+That is the honest split: **production users are fixed by the deploy; the test device is fixed by
+the release.**
+
+### PUSH-01 is NOT fixed
+The Profile toggle titled "New Expenses" still gates whether **other people** are notified when
+**you** add an expense, and still defaults to `false`. The recipient's own preference is never
+consulted and there is no server-side table to consult it in. That is Phase 2.
+
+### Key Pattern — a routing decision belongs to whoever owns the thing being routed to
+The sender cannot know how the recipient's app was signed, what their preferences are, or whether
+their token is still live. Every one of those was being answered from the wrong side of the wire.
+Ask, for any flag crossing a boundary: **whose property is this?** If the answer is "the other
+end's", it must not come from the request body.
+
+### Key Pattern — a cleanup rule needs the failure it fires on to mean what you think
+`BadDeviceToken` was read as "this token is dead". It means "this token is not valid **here**" —
+which is also what a correct token says on the wrong host. Deleting on it turned a routing bug
+into data loss. Before acting destructively on an error code, write down what else could produce it.
+
+**Verification:** unit **473/473**, 0 failed (4 new). Mutation-tested: renaming the `environment`
+key fails exactly the two payload tests and neither build-constant test.
+`scripts/check-apns-routing.sh` (new) asserts the rule across all four functions and was itself
+mutation-tested three times — the first two versions **could not fire**, because they grepped for
+words that appear in the explanatory comments. Debug and Release both build; installed and
+launched on the simulator.
+
+**Not verified, and not verifiable here:** that any notification arrives. **APNs does not deliver
+to a simulator.** Proving this needs two real devices on opposite builds — precisely the case that
+fails today. ⏳ **Migration 048 and the four functions are built and NOT deployed**; both need
+approval.
+
 ## Recent Fix Log — 2026-08-19 (latest) — the receipt scanner was measured for the first time
 
 ### 18%

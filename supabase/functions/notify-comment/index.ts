@@ -1,5 +1,9 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import {
+  isDeadToken, newReport, record, sendToToken,
+  type DeviceTokenRow,
+} from '../_shared/apns.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const ALLOWED_ORIGIN = SUPABASE_URL  // M4: restrict CORS to project origin
@@ -58,7 +62,6 @@ serve(async (req) => {
   try {
     const {
       commentId,
-      isDevelopment,
     } = await req.json()
 
     const supabase = createClient(
@@ -128,7 +131,7 @@ serve(async (req) => {
       .eq('expense_id', expenseId)
 
     if (!splits?.length) {
-      return new Response(JSON.stringify({ sent: 0 }), { headers: corsHeaders })
+      return new Response(JSON.stringify({ sent: 0, failed: 0, reasons: {} }), { headers: corsHeaders })
     }
 
     // Also include the expense payer (they may not have their own split row)
@@ -143,7 +146,7 @@ serve(async (req) => {
     participantSet.delete(commenterID)  // Don't notify the commenter
 
     if (!participantSet.size) {
-      return new Response(JSON.stringify({ sent: 0 }), { headers: corsHeaders })
+      return new Response(JSON.stringify({ sent: 0, failed: 0, reasons: {} }), { headers: corsHeaders })
     }
 
     const preview = commentText.length > 60
@@ -169,31 +172,28 @@ serve(async (req) => {
     // Fetch device tokens for all participants
     const { data: tokenRows } = await supabase
       .from('device_tokens')
-      .select('token, user_id')
+      .select('token, user_id, environment')
       .in('user_id', [...participantSet])
 
     if (!tokenRows?.length) {
-      return new Response(JSON.stringify({ sent: 0 }), { headers: corsHeaders })
+      return new Response(JSON.stringify({ sent: 0, failed: 0, reasons: {} }), { headers: corsHeaders })
     }
 
     const teamId   = Deno.env.get('APNS_TEAM_ID')!
     const keyId    = Deno.env.get('APNS_KEY_ID')!
     const pem      = Deno.env.get('APNS_PRIVATE_KEY')!
     const bundleId = 'com.vijaygoyal.xbill'
-    const apnsHost = isDevelopment
-      ? 'https://api.sandbox.push.apple.com'
-      : 'https://api.push.apple.com'
     // M-23: 24 h expiration so notifications survive an offline device (was 1 h)
     const expiration = String(Math.floor(Date.now() / 1000) + 86400)
 
     const jwt = await getAPNsJWT(teamId, keyId, pem)
 
     // Batch unread in-app notification counts before the send loop.
-    const recipientIDs = (tokenRows as { token: string; user_id: string }[]).map(r => r.user_id)
+    const recipientIDs = (tokenRows as DeviceTokenRow[]).map(r => r.user_id)
     const badgeMap = await batchUnreadCounts(supabase, recipientIDs)
 
-    let sent = 0
-    for (const row of (tokenRows as { token: string; user_id: string }[])) {
+    const report = newReport()
+    for (const row of (tokenRows as DeviceTokenRow[])) {
       try {
         const badge = badgeMap.get(row.user_id) ?? 0
         const apnsPayload = {
@@ -207,33 +207,26 @@ serve(async (req) => {
           },
           groupId,
         }
-        const res = await fetch(`${apnsHost}/3/device/${row.token}`, {
-          method: 'POST',
-          headers: {
-            authorization:     `bearer ${jwt}`,
-            'apns-topic':      bundleId,
-            'apns-push-type':  'alert',
-            'apns-expiration': expiration,
-            'content-type':    'application/json',
-          },
-          body: JSON.stringify(apnsPayload),
-        })
+        // PUSH-02: the host comes from THIS token's environment, not from the sender's build.
+        const reason = await sendToToken({ row, jwt, bundleId, expiration, payload: apnsPayload })
+        record(report, reason)
 
-        if (res.ok) {
-          sent++
-        } else if (res.status === 410 || res.status === 400) {
-          const body = await res.json().catch(() => ({}))
-          if (body.reason === 'Unregistered' || body.reason === 'BadDeviceToken') {
-            await supabase.from('device_tokens').delete().eq('token', row.token)
-          }
+        // Delete only what APNs calls Unregistered. `BadDeviceToken` is what a perfectly good
+        // token returns when posted to the wrong host, so the old condition was destroying
+        // working registrations every time the environment mismatched — silently.
+        if (reason !== null && isDeadToken(reason)) {
+          await supabase.from('device_tokens').delete().eq('token', row.token)
         }
-      } catch {
-        // Network error — skip this token silently
+      } catch (err) {
+        // Reached only by something other than the APNs post — `sendToToken` handles network
+        // failure itself. This used to swallow the error, and the token simply vanished from
+        // the count with nothing recorded anywhere.
+        record(report, `UnexpectedError: ${(err as Error).message}`)
       }
     }
 
     return new Response(
-      JSON.stringify({ sent }),
+      JSON.stringify(report),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (err) {

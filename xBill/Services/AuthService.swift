@@ -134,23 +134,54 @@ final class AuthService {
 
     // MARK: - Device Token
 
+    /// APNs environment this build's tokens are valid in.
+    ///
+    /// PUSH-02. This is the **only** place in the app where `#if DEBUG` legitimately answers the
+    /// sandbox-vs-production question, because here it describes the local binary: `project.yml`
+    /// signs Debug with `xBill.Debug.entitlements` (`aps-environment: development`) and Release
+    /// with `xBill.entitlements` (`aps-environment: production`).
+    ///
+    /// The four notify functions used to ask the same question from the **sender's** build, where
+    /// it describes the wrong device entirely. Never reintroduce it there — the answer belongs to
+    /// the recipient's token, and that is what this writes.
+    /// `nonisolated` because it is a compile-time constant: it reads no state and touches nothing
+    /// on the main actor, so requiring isolation would only make the tests reach for a hop.
+    nonisolated static var apnsEnvironment: String {
+        #if DEBUG
+        "sandbox"
+        #else
+        "production"
+        #endif
+    }
+
+    /// A row of `public.device_tokens`, as this app writes it.
+    ///
+    /// Lifted out of `updateDeviceToken` so its **encoded form** can be asserted. A missing or
+    /// misnamed `environment` key does not fail — PostgREST simply applies the column's
+    /// `DEFAULT 'production'`, and a sandbox device silently stops receiving anything. That is the
+    /// same shape as `SPLIT-04`, where a key the client omitted changed the server's behaviour
+    /// with no error anywhere.
+    struct DeviceTokenRow: Encodable {
+        let userID: UUID
+        let token: String
+        let platform: String
+        let environment: String
+        enum CodingKeys: String, CodingKey {
+            case userID   = "user_id"
+            case token
+            case platform
+            case environment
+        }
+    }
+
     func updateDeviceToken(_ token: String) async throws {
         guard let userID = currentUserID else { return }
-        struct TokenRow: Encodable {
-            let userID: UUID
-            let token: String
-            let platform: String
-            enum CodingKeys: String, CodingKey {
-                case userID   = "user_id"
-                case token
-                case platform
-            }
-        }
         // Insert new token first (upsert on unique(user_id,token)) to guarantee
         // the user always has at least one valid token even if the cleanup step fails.
         // Then delete all other (stale) tokens for this user.
         try await supabase.table("device_tokens")
-            .upsert(TokenRow(userID: userID, token: token, platform: "apns"),
+            .upsert(DeviceTokenRow(userID: userID, token: token, platform: "apns",
+                                   environment: Self.apnsEnvironment),
                     onConflict: "user_id,token")
             .execute()
         try await supabase.table("device_tokens")

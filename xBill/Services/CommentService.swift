@@ -84,13 +84,7 @@ final class CommentService {
         struct Payload: Encodable {
             let commentId, expenseId, expenseTitle, groupId, groupName: String
             let commenterID, commenterName, commentText: String
-            let isDevelopment: Bool
         }
-        #if DEBUG
-        let dev = true
-        #else
-        let dev = false
-        #endif
         let payload = Payload(
             commentId:      commentID.uuidString,
             expenseId:     expenseID.uuidString,
@@ -100,7 +94,6 @@ final class CommentService {
             commenterID:   commenterID.uuidString,
             commenterName: commenterName,
             commentText:   commentText,
-            isDevelopment: dev
         )
         do {
             _ = try await supabase.client.functions
