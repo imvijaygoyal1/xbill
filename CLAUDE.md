@@ -1460,7 +1460,7 @@ the edit sheet cannot drift — the same reason `SplitParticipantRow` is shared.
 being distinguishable from under, and excluding a participant returning their share).
 **✅ Device-confirmed by the owner 2026-08-24.**
 
-## Release status — v1.4 (6) ARCHIVED 2026-08-24, ready to upload
+## Release status — v1.4 (6) SUBMITTED FOR REVIEW 2026-08-24
 
 **Eight fixes, every one reported by the owner using the app.** Six were device-verified by him
 before submission rather than after.
