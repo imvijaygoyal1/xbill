@@ -1460,7 +1460,7 @@ the edit sheet cannot drift — the same reason `SplitParticipantRow` is shared.
 being distinguishable from under, and excluding a participant returning their share).
 **✅ Device-confirmed by the owner 2026-08-24.**
 
-## Release status — v1.4 (6) SUBMITTED FOR REVIEW 2026-08-24
+## Release status — v1.4 (6) APPROVED 2026-08-25
 
 **Eight fixes, every one reported by the owner using the app.** Six were device-verified by him
 before submission rather than after.
@@ -1498,9 +1498,16 @@ The single most valuable technique of the release was **instrumenting the owner'
 DEBUG probe logging `contentHeight` against `viewportHeight` settled `UI-02` in one number after
 three hypotheses had been proposed and disproved by reading.
 
-### Still unverified on device
-`SPLIT-04` (re-split an expense) and scanning the add-friend QR. Both are exercisable on the Debug
-build already installed on the owner's phone.
+### Approved 2026-08-25. Two checks still open
+`SPLIT-04` (re-split an expense) and scanning the add-friend QR were never verified on hardware —
+they are the last two of the eight without a device confirmation, and both are exercisable on the
+build now live.
+
+### Now unblocked by approval
+- **`splits.is_settled`** — approved to drop months ago, still present and read by nothing.
+- **`expenses.updated_at`** — added in 043 and still unread, so two people editing one expense
+  overwrite each other silently.
+- Any further migration or Edge Function work.
 
 ## Release status — v1.3 (5) APPROVED 2026-08-24 — replaces the pulled build 4
 
