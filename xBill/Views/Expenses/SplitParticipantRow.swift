@@ -67,14 +67,29 @@ struct SplitParticipantRow: View {
                 .accessibilityIdentifier("\(idPrefix).exactAmountField.\(input.userID.uuidString)")
 
         case .percentage:
-            HStack(spacing: 2) {
-                TextField("0", value: Binding(get: { input.percentage }, set: onPercentage),
-                          format: .number.precision(.fractionLength(0...2)))
+            HStack(spacing: AppSpacing.sm) {
+                // A plain `String` field, not `TextField(value:format:)`. The formatted variant
+                // shows a `0` that has to be deleted before typing and fights partial input — "3"
+                // on the way to "30" is a valid intermediate state a formatter keeps rewriting.
+                HStack(spacing: 2) {
+                    TextField("0", text: Binding(
+                        get: { input.percentage == 0 ? "" : Self.percentText(input.percentage) },
+                        set: { onPercentage(Self.percentValue($0)) }
+                    ))
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
-                    .frame(width: 56)
+                    .frame(width: 46)
                     .accessibilityIdentifier("\(idPrefix).percentField.\(input.userID.uuidString)")
-                Text("%").foregroundStyle(.secondary)
+                    Text("%").foregroundStyle(.secondary)
+                }
+
+                // What the percentage is actually worth. Typing "40" and not knowing whether that
+                // is £12 or £120 until after saving is the part that made this unintuitive.
+                Text(input.amount.formatted(currencyCode: currency))
+                    .font(.xbillCaption)
+                    .monospacedDigit()
+                    .foregroundStyle(Color.textSecondary)
+                    .frame(minWidth: 62, alignment: .trailing)
             }
 
         case .shares:
@@ -103,5 +118,24 @@ struct SplitParticipantRow: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+extension SplitParticipantRow {
+    /// Trailing zeros are noise while typing: 40 reads better than 40.00, and 12.5 must survive.
+    static func percentText(_ value: Decimal) -> String {
+        var v = value, rounded = Decimal()
+        NSDecimalRound(&rounded, &v, 2, .bankers)
+        let s = "\(rounded)"
+        return s.hasSuffix(".00") ? String(s.dropLast(3)) : s
+    }
+
+    /// Locale-safe, and tolerant of a half-typed value. `Decimal(string:)` on "" or "." yields nil,
+    /// which becomes 0 rather than discarding the keystroke.
+    static func percentValue(_ text: String) -> Decimal {
+        let cleaned = text
+            .replacingOccurrences(of: ",", with: ".")
+            .filter { $0.isNumber || $0 == "." }
+        return Decimal(string: cleaned) ?? 0
     }
 }

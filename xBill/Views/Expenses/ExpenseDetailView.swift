@@ -369,7 +369,11 @@ struct ExpenseDetailView: View {
                             )
                         }
 
-                        if splitsEdited, let problem = editor.validationError(for: editedAmount) {
+                        if let progress = editor.percentageProgress {
+                            // Shown from the moment percentage mode is chosen, not only after an
+                            // edit: the user needs to know 100% is outstanding before they start.
+                            PercentageProgressHint(progress: progress)
+                        } else if splitsEdited, let problem = editor.validationError(for: editedAmount) {
                             Text(problem)
                                 .font(.caption)
                                 .foregroundStyle(Color.moneyNegative)

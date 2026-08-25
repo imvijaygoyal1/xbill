@@ -203,3 +203,86 @@ struct PercentageSplitTests {
         #expect(e.validationError == nil, "C is not included and must not be required to hold a %")
     }
 }
+
+// MARK: - Percentage progress hint
+//
+// "split by percentage works but input style is not very intuitive" — the only feedback was
+// `validationError`, which reports a failure after the fact ("Currently: 65.00") rather than
+// telling you what is left while you type.
+
+@Suite("Percentage progress")
+@MainActor
+struct PercentageProgressTests {
+
+    private func editor(_ n: Int) -> SplitEditor {
+        let users = (0..<n).map { i in
+            User(id: UUID(), email: "u\(i)@x.test", displayName: "U\(i)",
+                 avatarURL: nil, createdAt: Date())
+        }
+        let splits = users.map {
+            Split(id: UUID(), expenseID: UUID(), userID: $0.id, amount: 0, isSettled: false)
+        }
+        let e = SplitEditor.forEditing(existingSplits: splits, members: users, total: 100)
+        e.strategy = .percentage
+        return e
+    }
+
+    @Test("Starts with the whole amount unassigned")
+    func startsAtOneHundred() {
+        #expect(editor(2).percentageProgress?.remaining == 100)
+    }
+
+    @Test("Counts down as percentages are entered")
+    func countsDown() {
+        let e = editor(3)
+        let ids = e.inputs.map(\.userID)
+        e.setPercentage(40, participantID: ids[0])
+        #expect(e.percentageProgress?.remaining == 60)
+        e.setPercentage(35, participantID: ids[1])
+        #expect(e.percentageProgress?.remaining == 25)
+    }
+
+    @Test("Reports completion at exactly 100")
+    func completesAtHundred() {
+        let e = editor(2)
+        let ids = e.inputs.map(\.userID)
+        e.setPercentage(70, participantID: ids[0])
+        e.setPercentage(30, participantID: ids[1])
+        let p = e.percentageProgress
+        #expect(p?.isComplete == true)
+        #expect(p?.isOver == false)
+        #expect(e.validationError == nil)
+    }
+
+    /// Over-allocation must read differently from under-allocation, or the hint tells you to add
+    /// more when you need to remove some.
+    @Test("Over 100 is distinguishable from under")
+    func overIsDistinct() {
+        let e = editor(2)
+        let ids = e.inputs.map(\.userID)
+        e.setPercentage(80, participantID: ids[0])
+        e.setPercentage(45, participantID: ids[1])
+        let p = e.percentageProgress
+        #expect(p?.isOver == true)
+        #expect(p?.remaining == -25)
+    }
+
+    /// Excluding someone frees their share back up.
+    @Test("Excluding a participant returns their percentage")
+    func excludingFrees() {
+        let e = editor(3)
+        let ids = e.inputs.map(\.userID)
+        e.setPercentage(50, participantID: ids[0])
+        e.setPercentage(50, participantID: ids[1])
+        #expect(e.percentageProgress?.isComplete == true)
+        e.toggle(participantID: ids[1])
+        #expect(e.percentageProgress?.remaining == 50)
+    }
+
+    @Test("No progress outside percentage mode")
+    func nilOutsidePercentage() {
+        let e = editor(2)
+        e.strategy = .equal
+        #expect(e.percentageProgress == nil)
+    }
+}

@@ -219,7 +219,10 @@ struct AddExpenseView: View {
                                         }
                                     }
                                     
-                                    if let validationError = vm.splitValidationError {
+                                    if let progress = vm.splitEditor.percentageProgress {
+                                        PercentageProgressHint(progress: progress)
+                                            .padding(.horizontal, XBillSpacing.base)
+                                    } else if let validationError = vm.splitValidationError {
                                         Text(validationError)
                                             .font(.xbillCaption)
                                             .foregroundStyle(Color.moneyNegative)

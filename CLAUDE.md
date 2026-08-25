@@ -1438,6 +1438,28 @@ screen"**, which made every candidate inside the content irrelevant at once.
 content. The DEBUG content-height probe stays in `XBillScrollView` — it is compiled out of Release
 and cost nothing to keep.
 
+## Recent Fix Log — 2026-08-24 — SPLIT-06: the percentage input asked the user to do the arithmetic
+
+Percentage splitting worked after `SPLIT-05`, but the owner found the input unintuitive. Three
+concrete faults, all from having reused the exact-amount field without asking what percentages
+actually need:
+
+| Fault | Fix |
+|---|---|
+| `TextField(value:format:)` showed a `0` that had to be deleted first, and rewrote partial input — "3" on the way to "30" | A plain `String` field. Empty shows nothing; `percentValue` tolerates a half-typed value and is locale-safe |
+| No idea what a percentage was worth until after saving | The money appears beside each row and updates live |
+| The running total lived in the user's head; the only feedback was `"Percentages must add up to 100. Currently: 65.00"` — after the fact, phrased as a failure, and the wrong number (what was used, not what is left) | `PercentageProgressHint`: **"25% left to assign"**, → **"All 100% assigned"** in green, and **"5% over — remove some"** when over |
+
+Under-allocation is deliberately **not** coloured as an error — it is unfinished work, and colouring
+it red while someone is still typing is what made the old message feel like a rebuke.
+
+`percentageProgress` lives on `SplitEditor` and the hint is one shared view, so the create form and
+the edit sheet cannot drift — the same reason `SplitParticipantRow` is shared.
+
+**Verification:** unit **469/469** (6 new, covering count-down, exact completion, over-allocation
+being distinguishable from under, and excluding a participant returning their share). Installed on
+the owner's device.
+
 ## Release status — v1.3 (5) APPROVED 2026-08-24 — replaces the pulled build 4
 
 Build 4 was **pulled from review by the owner** so the QR and cold-launch join fixes could go in

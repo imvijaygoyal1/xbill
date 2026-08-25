@@ -51,6 +51,7 @@
 		2465BB59E2C0A610C52C38A3 /* XBillIllustrationKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A3EB8FD01BC1D9B60ECE624 /* XBillIllustrationKit.swift */; };
 		24FBE7F0178498D36C63D26F /* XBillScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B7DD861EB79D8F2736E75 /* XBillScrollView.swift */; };
 		27C9F1CCE5A9662E1FF86F0D /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE32F30DD7CE24CD3A20BDD /* AppState.swift */; };
+		29EFF312CDCEFB7BAAD2686F /* PercentageProgressHint.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBA0B546C3E0A3B2D7DCDE2F /* PercentageProgressHint.swift */; };
 		2BA01380F09AAD24964C4CA4 /* Receipt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26C33DD3A8F942B96FA9D543 /* Receipt.swift */; };
 		2BBDAB3AEC451B3A9A0E327B /* XBillScreenHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C8BF94ECF8E5A072FEF212 /* XBillScreenHeader.swift */; };
 		2C638A52BB196F9220378948 /* InvitePreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 767B021066958C99DB685EEA /* InvitePreview.swift */; };
@@ -502,6 +503,7 @@
 		E7019A0E1C1F524DA0A45BBD /* xBillWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = xBillWidgetBundle.swift; sourceTree = "<group>"; };
 		E82EDC580ACC0A6A8BFB4CAD /* NotificationReadStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationReadStateTests.swift; sourceTree = "<group>"; };
 		EB8ECB0D8B3E6EACF9A77C06 /* SpotlightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightService.swift; sourceTree = "<group>"; };
+		EBA0B546C3E0A3B2D7DCDE2F /* PercentageProgressHint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PercentageProgressHint.swift; sourceTree = "<group>"; };
 		EBFE0C31221A637C053EB927 /* GroupInvite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupInvite.swift; sourceTree = "<group>"; };
 		ECF005101BCA70988BD71C7A /* ReceiptViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptViewModel.swift; sourceTree = "<group>"; };
 		ED15D014D17E3C1040C4845D /* OfflineBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineBanner.swift; sourceTree = "<group>"; };
@@ -517,7 +519,7 @@
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
 		FA59435ADAF303865175315B /* VisionParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionParsingTests.swift; sourceTree = "<group>"; };
 		FFA8CD2E5A8CA2C7892BB8A8 /* CheckBalanceIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckBalanceIntent.swift; sourceTree = "<group>"; };
-		"TEMP_4A028962-0634-41B4-9E3B-C20E1AEE79A4" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_4888BA30-FB79-45FA-A0E8-0D73835DF88B" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -712,6 +714,7 @@
 			children = (
 				05B3640249525E36A9F52772 /* AddExpenseView.swift */,
 				5330091C7BED6739A543E2E5 /* ExpenseDetailView.swift */,
+				EBA0B546C3E0A3B2D7DCDE2F /* PercentageProgressHint.swift */,
 				5B25D8C5FF593A75E1B3D698 /* ReceiptReviewView.swift */,
 				A19018B425F735551B80FBD2 /* ReceiptScanView.swift */,
 				13C87D6032FBC43C05AF8DF2 /* SplitParticipantRow.swift */,
@@ -1009,10 +1012,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_016973E7-9A45-4200-814A-6F27D0BD02CF" /* xBill */ = {
+		"TEMP_39A7D278-28B8-4823-A61A-E59823553553" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_4A028962-0634-41B4-9E3B-C20E1AEE79A4" /* Secrets.xcconfig */,
+				"TEMP_4888BA30-FB79-45FA-A0E8-0D73835DF88B" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1390,6 +1393,7 @@
 				FEBB0DC57546D7D4961ED7E2 /* PaymentHandleValidator.swift in Sources */,
 				5BE5F22C5B7F8E2FAAC5BA69 /* PaymentHistorySection.swift in Sources */,
 				E242F2571DF59CECE27D0ED4 /* PaymentLinkService.swift in Sources */,
+				29EFF312CDCEFB7BAAD2686F /* PercentageProgressHint.swift in Sources */,
 				D1B4793846C9BB681C1A9218 /* PreviewData.swift in Sources */,
 				140A9C9A748A17DB33301EE3 /* ProfileView.swift in Sources */,
 				8E2A5EEEB7DFD066D5A6C1CC /* ProfileViewModel.swift in Sources */,
@@ -1520,7 +1524,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_4A028962-0634-41B4-9E3B-C20E1AEE79A4" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_4888BA30-FB79-45FA-A0E8-0D73835DF88B" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1729,7 +1733,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_4A028962-0634-41B4-9E3B-C20E1AEE79A4" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_4888BA30-FB79-45FA-A0E8-0D73835DF88B" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

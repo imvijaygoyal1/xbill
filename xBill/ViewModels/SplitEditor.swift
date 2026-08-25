@@ -64,6 +64,28 @@ final class SplitEditor {
     /// Convenience for owners whose total is already this editor's own.
     var validationError: String? { validationError(for: total) }
 
+    /// Live guidance while assigning percentages: how much is still unallocated.
+    ///
+    /// Replaces relying on `validationError` alone, which only says *"Percentages must add up to
+    /// 100. Currently: 65.00"* — after the fact, and phrased as a failure. Knowing 35% is left is
+    /// the thing that actually helps while typing, and it reads as progress rather than a mistake.
+    ///
+    /// `nil` outside percentage mode.
+    struct PercentageProgress: Equatable {
+        let remaining: Decimal
+        var isComplete: Bool { remaining == 0 }
+        var isOver: Bool { remaining < 0 }
+    }
+
+    var percentageProgress: PercentageProgress? {
+        guard strategy == .percentage else { return nil }
+        let used = includedInputs.reduce(Decimal.zero) { $0 + $1.percentage }
+        var remainder = 100 - used
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &remainder, 2, .bankers)
+        return PercentageProgress(remaining: rounded)
+    }
+
     var includedInputs: [SplitInput] { inputs.filter(\.isIncluded) }
 
     // MARK: - Recompute
