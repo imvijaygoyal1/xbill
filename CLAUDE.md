@@ -1460,6 +1460,48 @@ the edit sheet cannot drift — the same reason `SplitParticipantRow` is shared.
 being distinguishable from under, and excluding a participant returning their share).
 **✅ Device-confirmed by the owner 2026-08-24.**
 
+## Release status — v1.4 (6) ARCHIVED 2026-08-24, ready to upload
+
+**Eight fixes, every one reported by the owner using the app.** Six were device-verified by him
+before submission rather than after.
+
+| Fix | Device-verified |
+|---|---|
+| `SPLIT-04` re-splitting failed with `PGRST202` | — |
+| `SPLIT-05` "By %" had no input anywhere since 1.0 | ✅ |
+| `SPLIT-06` percentage input made the user do the arithmetic | ✅ |
+| `UI-01` Manage Group scrolled endlessly | — |
+| `UI-02` an `EmptyView` safe-area inset made plain screens scroll into blank space | ✅ |
+| Add-friend QR → universal link | — |
+| `LAUNCH-01` login-screen flash on every cold launch | ✅ |
+| `LOCK-01` idle phone waking itself for Face ID | ✅ |
+
+| Check | Result |
+|---|---|
+| Unit | **469 passed**, 0 failed |
+| UI regression | **22/22**, including the three new scroll probes |
+| `OnboardingUITests` | 5/6 → the failure was `keyboard focus`, then **2/2 in isolation**; 6/6 twice earlier the same day |
+| Widget | 7 tests |
+| Release build | clean |
+| Backend | handles NULL · migrations through **046** · all six web endpoints incl. AASA and `/add` return 200 |
+| Archive | `1.4 (6)`, `UIDeviceFamily [1]`, region `en`, encryption `false`, `associated-domains` in the **signed** binary, 3 dSYMs, widget framework + `Assets.car`, Siri `nlu/` compiled, **0 corpus paths**, and **0 `scrollContentHeight` symbols** — the DEBUG probe compiled out as intended |
+
+Simulator erased before the UI run, per `RELEASE_VERIFICATION.md`.
+
+### What this release cost, and what it taught
+Three of the eight (`SPLIT-04`, `SPLIT-05`, `UI-01`) were defects **I introduced or worsened in
+1.3**. The pattern behind them is written up in
+`.claude/skills/verifying-your-own-work/SKILL.md` — thirteen rules, each traceable to a specific
+defect that reached a user or a wrong claim committed to this repository.
+
+The single most valuable technique of the release was **instrumenting the owner's device**: a
+DEBUG probe logging `contentHeight` against `viewportHeight` settled `UI-02` in one number after
+three hypotheses had been proposed and disproved by reading.
+
+### Still unverified on device
+`SPLIT-04` (re-split an expense) and scanning the add-friend QR. Both are exercisable on the Debug
+build already installed on the owner's phone.
+
 ## Release status — v1.3 (5) APPROVED 2026-08-24 — replaces the pulled build 4
 
 Build 4 was **pulled from review by the owner** so the QR and cold-launch join fixes could go in
