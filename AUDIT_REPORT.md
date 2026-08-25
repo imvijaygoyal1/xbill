@@ -681,6 +681,17 @@ together, in that order.
 | **Fix** | One `update_expense_with_splits` RPC updating the expense and replacing splits in a single transaction. Amount changes **rescale proportionally** rather than re-splitting equally: the split strategy is not persisted, so equal re-splitting would silently destroy a deliberate 70/30. |
 | **Verification** | Unit 441/441. Migration 043 verified against production (all three guards fail before any write; 0 rows touched). **Ships in 1.3** — 1.2 users still have SPLIT-02. Device check outstanding: add a late joiner to a real expense and watch both balances move. |
 
+## PUSH-01/02 — Push notifications are not delivered (2026-08-25)
+
+| Field | Value |
+|---|---|
+| **ID** | PUSH-01, PUSH-02 |
+| **File** | `xBill/ViewModels/AddExpenseViewModel.swift:232`, `xBill/ViewModels/GroupViewModel.swift:789`, `xBill/Services/CommentService.swift:59`, all four `supabase/functions/notify-*/index.ts`, `public.device_tokens` |
+| **Issue** | (01) The Profile toggle titled "New Expenses" gates whether **other people** are notified when **you** add an expense, not whether you are notified — and it defaults to `false`. The recipient's own preference is never consulted, and there is no server-side preference table to consult it in. Same for settlements and comments; friend requests are ungated. (02) `apnsHost` is chosen from `isDevelopment`, which is `#if DEBUG` on the **sender's** build, but sandbox-vs-production must match the **recipient's token**. `device_tokens` records no environment, so correct routing is impossible in principle. An App Store sender notifying a debug-build recipient gets `BadDeviceToken` silently — the normal case during testing. |
+| **Status** | 🔍 Scoped, not built — `docs/superpowers/specs/2026-08-25-push-notification-delivery-scope.md` |
+| **Fix** | Phase 1: `device_tokens.environment`, written at registration where `#if DEBUG` is correct, and each function routes per recipient token. Phase 2: a server-side `notification_preferences` table filtered by the function, with the sender-side gates deleted. |
+| **Verification** | Pending. **No simulator can verify this** — APNs does not deliver to one. Needs two real devices on opposite builds. |
+
 ## SCAN-01/02/03 — Receipt scanning: sign, confidence, per-item flags (2026-08-18)
 
 | Field | Value |
