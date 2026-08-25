@@ -1374,8 +1374,16 @@ Two things came out of that:
   The worst case is now the flash this fixes, not a terminal blank screen.
 
 **Verification:** unit **463/463**, `OnboardingUITests` **6/6** (0/6 against the broken first
-attempt). Both fixes ship in the next build; neither is device-verified yet, and both are about
-*when* something appears, which only a device can confirm.
+attempt).
+
+### ✅ Both DEVICE-VERIFIED 2026-08-24 on iPhone 16 Pro
+The owner ran both on a Debug build installed over the App Store one:
+- **LAUNCH-01** — cold launch shows one continuous screen; the login screen no longer appears.
+- **LOCK-01** — a backgrounded app on an idle phone leaves the screen dark, and Face ID still
+  prompts correctly on return. The fix changed *when* it prompts, not whether.
+
+Both were only observable on a device: one is a sub-second race on cold launch, the other requires
+a real background transition and a sleeping screen.
 
 ## Release status — v1.3 (5) APPROVED 2026-08-24 — replaces the pulled build 4
 
