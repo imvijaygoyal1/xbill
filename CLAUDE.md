@@ -1457,8 +1457,8 @@ it red while someone is still typing is what made the old message feel like a re
 the edit sheet cannot drift — the same reason `SplitParticipantRow` is shared.
 
 **Verification:** unit **469/469** (6 new, covering count-down, exact completion, over-allocation
-being distinguishable from under, and excluding a participant returning their share). Installed on
-the owner's device.
+being distinguishable from under, and excluding a participant returning their share).
+**✅ Device-confirmed by the owner 2026-08-24.**
 
 ## Release status — v1.3 (5) APPROVED 2026-08-24 — replaces the pulled build 4
 
