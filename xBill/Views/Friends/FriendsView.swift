@@ -187,7 +187,8 @@ struct FriendsView: View {
         XBillScreenHeader(
             title: "Friends",
             trailingSystemImage: "person.badge.plus",
-            trailingAccessibilityLabel: "Add Friend"
+            trailingAccessibilityLabel: "Add Friend",
+            trailingAccessibilityIdentifier: "xBill.friends.addButton"
         ) {
             showAddFriend = true
         }

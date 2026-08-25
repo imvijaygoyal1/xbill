@@ -386,6 +386,26 @@ final class RegressionUITests: XCTestCase {
             """, file: file, line: line)
     }
 
+    /// Add Friend on its own, reached directly rather than by walking the tab bar.
+    ///
+    /// The combined sweep kept breaking on tab navigation before it got here, and its first
+    /// version skipped Add Friend silently. Reported still broken by the owner after UI-01, so it
+    /// gets a probe that cannot skip and cannot be stranded by an earlier step.
+    func testAddFriendStopsScrollingAtItsContentHeight() throws {
+        launchMainApp(initialTab: "friends")
+        try signInIfNeeded()
+        dismissNotificationPromptIfNeeded()
+
+        let addFriend = app.buttons["xBill.friends.addButton"]
+        XCTAssertTrue(addFriend.waitForExistence(timeout: 10),
+                      "Add Friend entry point not found — this probe must fail, not skip.")
+        addFriend.tap()
+        XCTAssertTrue(app.buttons["xBill.addFriend.importContactsButton"].waitForExistence(timeout: 10),
+                      "Add Friend did not open.")
+
+        assertScrollSettles(screen: "Add Friend")
+    }
+
     /// UI-01 across **every** screen on the shared scroll container.
     ///
     /// The first sweep probed three screens and the summary claimed "the other nine were checked".
@@ -420,17 +440,20 @@ final class RegressionUITests: XCTestCase {
 
         // Add Friend last: it is a sheet, and a dismissal that does not fully settle stranded the
         // remaining tab navigation when this ran earlier in the sequence.
+        //
+        // ⚠️ Every step here ASSERTS. The first version wrapped the whole block in
+        // `for … where candidate.exists` and an `if …`, so when the identifier turned out not to
+        // exist the body never ran, no assertion was made, and the suite reported Add Friend as
+        // passing having never opened it. **A probe that can silently skip is not coverage.**
         tapTab(identifier: "xBill.tab.friends", label: "Friends")
-        for candidate in [app.buttons["xBill.friends.addButton"],
-                          app.buttons["person.badge.plus"]]
-        where candidate.waitForExistence(timeout: 3) && candidate.isHittable {
-            candidate.tap()
-            if app.buttons["xBill.addFriend.importContactsButton"].waitForExistence(timeout: 6) {
-                assertScrollSettles(screen: "Add Friend")
-            }
-            dismissSheetIfPossible()
-            break
-        }
+        let addFriend = app.buttons["xBill.friends.addButton"]
+        XCTAssertTrue(addFriend.waitForExistence(timeout: 6),
+                      "Add Friend entry point not found — the probe cannot skip silently.")
+        addFriend.tap()
+        XCTAssertTrue(app.buttons["xBill.addFriend.importContactsButton"].waitForExistence(timeout: 8),
+                      "Add Friend sheet did not open.")
+        assertScrollSettles(screen: "Add Friend")
+        dismissSheetIfPossible()
     }
 
     /// UI-01 swept to the other screen carrying the same icon grid inside the same container.

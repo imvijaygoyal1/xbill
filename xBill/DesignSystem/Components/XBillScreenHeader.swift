@@ -10,6 +10,9 @@ struct XBillScreenHeader: View {
     var subtitle: String?
     var trailingSystemImage: String?
     var trailingAccessibilityLabel: String?
+    /// Set on the trailing **button itself**. Putting one on the header instead is UIT-01: a
+    /// container's identifier overwrites its children's, and the button becomes unaddressable.
+    var trailingAccessibilityIdentifier: String?
     var trailingAction: (() -> Void)?
 
     var body: some View {
@@ -18,6 +21,7 @@ struct XBillScreenHeader: View {
                 XBillCircularIconButton(
                     systemImage: trailingSystemImage,
                     accessibilityLabel: trailingAccessibilityLabel ?? title,
+                    accessibilityIdentifier: trailingAccessibilityIdentifier,
                     action: trailingAction
                 )
             }

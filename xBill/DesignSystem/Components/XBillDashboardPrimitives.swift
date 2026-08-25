@@ -130,6 +130,9 @@ struct XBillStatusChip: View {
 struct XBillCircularIconButton: View {
     let systemImage: String
     let accessibilityLabel: String
+    /// Applied to the `Button` itself so UI tests can address it. UIT-01: an identifier on an
+    /// enclosing container overwrites its children's, which leaves the button unfindable.
+    var accessibilityIdentifier: String? = nil
     var action: () -> Void
 
     var body: some View {
@@ -148,6 +151,7 @@ struct XBillCircularIconButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier(accessibilityIdentifier ?? "")
     }
 }
 

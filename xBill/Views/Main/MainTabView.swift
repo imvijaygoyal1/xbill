@@ -243,11 +243,19 @@ struct MainTabView: View {
     private static var initialTab: Tab {
         #if UI_TESTING
         let process = ProcessInfo.processInfo
-        return process.arguments.contains("--initial-tab-groups")
-            || process.environment["XBILL_INITIAL_TAB"] == "groups"
-            || UserDefaults.standard.string(forKey: "XBILL_INITIAL_TAB") == "groups"
-            ? .groups
-            : .home
+        // A test that must reach a specific tab should land on it, not walk the tab bar. Chained
+        // `tapTab` navigation is where the UI-01 sweep kept breaking — and a probe that cannot
+        // reach its screen reports nothing rather than failing.
+        let requested = process.environment["XBILL_INITIAL_TAB"]
+            ?? UserDefaults.standard.string(forKey: "XBILL_INITIAL_TAB")
+        if process.arguments.contains("--initial-tab-groups") { return .groups }
+        switch requested {
+        case "groups":   return .groups
+        case "friends":  return .friends
+        case "activity": return .activity
+        case "profile":  return .profile
+        default:         return .home
+        }
         #else
         return .home
         #endif
