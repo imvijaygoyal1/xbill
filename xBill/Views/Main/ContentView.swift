@@ -12,6 +12,8 @@ struct ContentView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var lockService = AppLockService.shared
+    /// See `launchPlaceholder` — bounds how long the launch screen may be shown.
+    @State private var launchWaitElapsed = false
     @State private var sampleDataError: AppError?
     // Owned here so onTrySampleData can write into the same instance that MainTabView reads.
     @State private var homeVM = HomeViewModel()
@@ -107,12 +109,40 @@ struct ContentView: View {
                 AppLockView()
                     .transition(.opacity)
             }
+        } else if !authVM.hasResolvedInitialSession && !launchWaitElapsed {
+            // The SDK has not yet said whether a stored session exists. `currentUser` is nil during
+            // that window on **every** cold launch, so showing `AuthView` here is what produced
+            // "it opens on the login screen and then logs itself in".
+            //
+            // This is the app's own launch screen continued, not a spinner: matching
+            // `UILaunchScreen` means the hand-off from the system launch image is invisible, so a
+            // returning user sees one continuous screen rather than a flash of the wrong one.
+            launchPlaceholder
         } else {
             AuthView(vm: authVM)
                 .transition(.asymmetric(
                     insertion: .move(edge: .leading).combined(with: .opacity),
                     removal:   .move(edge: .leading).combined(with: .opacity)
                 ))
+        }
+    }
+
+    /// Deliberately silent — no spinner and no copy. Session restore is normally imperceptible;
+    /// announcing it would draw attention to a wait that usually is not one.
+    private var launchPlaceholder: some View {
+        ZStack {
+            Color.bgPrimary.ignoresSafeArea()
+            XBillWordmark()
+        }
+        .transition(.opacity)
+        .accessibilityIdentifier("xBill.launch.placeholder")
+        .task {
+            // Safety net. If the auth stream never yields `.initialSession` — a version change, a
+            // Keychain the SDK cannot read, an error path nobody predicted — this screen would
+            // otherwise be terminal, and a blank wordmark forever is far worse than the flash it
+            // replaced. After this the app falls through to `AuthView`, i.e. the pre-fix behaviour.
+            try? await Task.sleep(for: .seconds(3))
+            launchWaitElapsed = true
         }
     }
 

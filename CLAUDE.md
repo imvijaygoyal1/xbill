@@ -1333,6 +1333,50 @@ story I had already committed.
 Group probe fails against the reverted component. All three previously-failing UI tests pass on a
 clean simulator.
 
+## Recent Fix Log — 2026-08-24 — LAUNCH-01 and LOCK-01, both reported from a real device
+
+### LAUNCH-01 — every cold launch flashed the login screen, then signed itself in
+`ContentView` chose between `MainTabView` and `AuthView` on `currentUser != nil`. On a cold launch
+`currentUser` is **always** nil until the SDK finishes an async session restore, so the signed-out
+UI rendered first and then flipped.
+
+**"Not signed in" and "not yet known" are different states**, and only the first should show
+`AuthView`. `AuthViewModel.hasResolvedInitialSession` distinguishes them; until it is true the app
+shows a silent wordmark on `bgPrimary` — a continuation of `UILaunchScreen`, not a spinner, so the
+hand-off from the system launch image is invisible.
+
+The flag is set in a **`defer` inside the event loop**, so every path marks the question answered —
+including the early `break`s for "no session" and "unconfirmed email". Setting it only on the
+success path strands a signed-out user.
+
+### LOCK-01 — an idle phone woke its own screen to ask for Face ID
+`lock()` runs on `.background`, which inserts `AppLockView` into the hierarchy **as the app is being
+backgrounded** — and its bare `.task` immediately called `authenticate()`. `LAContext.evaluatePolicy`
+presents the system biometric prompt, and **that wakes the screen**: a phone on a desk lit up and
+asked for Face ID with nobody touching it.
+
+Now `.task(id: scenePhase)` with `guard scenePhase == .active`. The prompt appears when the user
+actually returns, which is the only moment it was ever meant to.
+
+### ⚠️ The first attempt shipped a worse bug than the one it fixed
+The `defer` was inserted with a `python` `str.replace` whose pattern had **12 spaces of indentation
+where the file has 8**. `replace` does not fail on no match — it silently returns the string
+unchanged, and the script printed a success line. The flag was therefore never set, and the app
+**hung on the launch placeholder forever**. `OnboardingUITests` went 6/6 → **0/6**, which is how it
+was caught.
+
+Two things came out of that:
+- **Every scripted edit asserts its pattern matched.** `s.replace` without an `assert` is a no-op
+  that reports success — the third silent-transform failure in two days, after a `sed` that left
+  `xbill://join/` in the add-friend page and a splice that duplicated 200 lines of tests.
+- **The launch wait is bounded.** If `.initialSession` never arrives — a version change, an
+  unreadable Keychain, an unforeseen error path — a 3-second timer falls through to `AuthView`.
+  The worst case is now the flash this fixes, not a terminal blank screen.
+
+**Verification:** unit **463/463**, `OnboardingUITests` **6/6** (0/6 against the broken first
+attempt). Both fixes ship in the next build; neither is device-verified yet, and both are about
+*when* something appears, which only a device can confirm.
+
 ## Release status — v1.3 (5) APPROVED 2026-08-24 — replaces the pulled build 4
 
 Build 4 was **pulled from review by the owner** so the QR and cold-launch join fixes could go in

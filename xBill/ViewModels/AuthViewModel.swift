@@ -23,6 +23,15 @@ final class AuthViewModel {
     var isLoading: Bool = false
     var errorAlert: ErrorAlert?
     var currentUser: User?
+
+    /// False until the first `.initialSession` event has been handled — i.e. until the SDK has
+    /// restored a stored session or established there is none.
+    ///
+    /// `currentUser` starts nil on every cold launch and is only populated **after** an async
+    /// session restore, so a view that keys purely on `currentUser != nil` shows the signed-out
+    /// UI first and then flips. That is the "it opens on the login screen, then logs itself in"
+    /// flash. Views must wait on this before concluding a user is signed out.
+    var hasResolvedInitialSession = false
     var confirmationEmailSent: Bool = false
     var isInPasswordRecovery: Bool = false
     var pendingJoinRequest: InviteJoinRequest?
@@ -78,6 +87,11 @@ final class AuthViewModel {
         defer { isListening = false }
 
         for await (event, session) in SupabaseManager.shared.auth.authStateChanges {
+            // Recorded in a `defer` so **every** path through the switch marks the question
+            // answered — including the early `break`s for "no session" and "unconfirmed email".
+            // Setting it only on the success path would strand a signed-out user on the launch
+            // screen, which is exactly what happened when this edit first failed to apply.
+            defer { if event == .initialSession { hasResolvedInitialSession = true } }
             switch event {
             case .initialSession, .signedIn, .tokenRefreshed, .userUpdated:
                 // .initialSession fires on every cold launch, with session == nil when no user
