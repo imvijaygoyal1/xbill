@@ -1460,6 +1460,61 @@ the edit sheet cannot drift — the same reason `SplitParticipantRow` is shared.
 being distinguishable from under, and excluding a participant returning their share).
 **✅ Device-confirmed by the owner 2026-08-24.**
 
+## Recent Fix Log — 2026-08-25 — INV-08/09: an add-friend link opened the app and added nobody
+
+Reported after 1.4 shipped: tapping a shared add-friend link opens xBill and nothing happens. Same
+family as the group-join defects. **No `friends` row was ever written** — only two seed rows from
+April and June — so the request never reached the database.
+
+### INV-08 — the link was discarded on cold launch
+`MainTabView`'s handler cleared the pending id and returned when `currentUser` was nil:
+
+```swift
+guard homeVM.currentUser != nil else {
+    appState.pendingAddFriendUserID = nil   // ← discards it
+    return
+}
+```
+
+On a cold launch that is the **normal** state — the deep link is parsed while the session restore
+is still in flight, the same window as `LAUNCH-01`. The sibling `pendingQuickAction` handler
+already did the right thing (**load the user, then guard**); this one now matches it. The original
+comment justified the clear as avoiding "a transparent flash": a cosmetic concern that was silently
+throwing away what the user tapped.
+
+### INV-09 — and there was nobody to add
+The id was resolved through `fetchProfiles(ids:)`, a direct select on `public.profiles`, whose
+SELECT policy is *your own row, **or** someone who shares an active group with you*. **A new friend
+shares no group with you** — creating that relationship is the entire point of the link.
+
+Verified against production before and after, same caller:
+
+```
+direct select        []
+get_add_friend_preview   [{"display_name":"Vijay Goyal", …}]
+```
+
+Migration **047** adds `get_add_friend_preview`: SECURITY DEFINER, keyed on the id the link carries,
+returning name and avatar and **not email** — the holder needs to recognise a person, not look up
+an address (the same reasoning that removed email from `search_profiles` in 021). `anon` is revoked
+by name, since Supabase's default grant survives `REVOKE … FROM PUBLIC`.
+
+### Key Pattern — this is the THIRD instance of the same rule
+> **A capability check cannot be an RLS policy on the thing being granted.**
+
+`INV-01` (group invite preview read a table restricted to existing members), `INV-07` (join guarded
+by an `EXISTS` that ignored `is_active`), and now `INV-09`. Every flow whose purpose is to *create*
+a relationship must be routed through a SECURITY DEFINER function keyed on whatever the link
+carries — never through a policy that presumes the relationship already exists.
+
+**When touching any invite, share or add flow, check this first.** It has cost three separate
+production defects.
+
+**Verification:** unit **469/469**. Migration 047 deployed and verified against production: the
+direct select returns `[]` while the RPC returns the profile for the same caller, no email is
+exposed, and `anon` gets `42501`. Client fix installed on the owner's device; **not yet
+device-confirmed**.
+
 ## Release status — v1.4 (6) APPROVED 2026-08-25
 
 **Eight fixes, every one reported by the owner using the app.** Six were device-verified by him

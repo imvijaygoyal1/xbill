@@ -235,6 +235,37 @@ final class FriendService {
 
     /// Fetches profiles for an arbitrary set of user IDs. Used by FriendsView
     /// to resolve IOU counterparties without querying Supabase directly from the View layer.
+    /// Resolves the person behind an add-friend link (INV-09).
+    ///
+    /// `fetchProfiles(ids:)` selects `public.profiles` directly, and that table's SELECT policy
+    /// requires a **shared active group** — which a new friend by definition does not have. The
+    /// lookup returned nothing and the add-friend screen opened with nobody on it.
+    ///
+    /// `get_add_friend_preview` is SECURITY DEFINER and keyed on the id the link carries. It
+    /// returns no email: the holder needs to recognise a person, not to look up an address.
+    func fetchAddFriendPreview(userID: UUID) async throws -> User? {
+        struct Params: Encodable { let p_user_id: UUID }
+        struct Row: Decodable {
+            let id: UUID
+            let displayName: String
+            let avatarURL: String?
+            enum CodingKeys: String, CodingKey {
+                case id
+                case displayName = "display_name"
+                case avatarURL   = "avatar_url"
+            }
+        }
+        let rows: [Row] = try await supabase.client
+            .rpc("get_add_friend_preview", params: Params(p_user_id: userID))
+            .execute()
+            .value
+        guard let row = rows.first else { return nil }
+        // Email is intentionally absent from the RPC; it is display-only here, as in
+        // `searchProfiles`, which also had its email removed (migration 021, M-1).
+        return User(id: row.id, email: "", displayName: row.displayName,
+                    avatarURL: row.avatarURL.flatMap(URL.init(string:)), createdAt: Date())
+    }
+
     func fetchProfiles(ids: Set<UUID>) async throws -> [User] {
         try await fetchProfiles(ids: Array(ids))
     }

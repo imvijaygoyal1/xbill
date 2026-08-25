@@ -180,16 +180,27 @@ struct MainTabView: View {
         // Handle xbill://add/<userID> deep link → open AddFriendView pre-loaded
         .task(id: appState.pendingAddFriendUserID) {
             guard let userID = appState.pendingAddFriendUserID else { return }
-            // Guard: do not open sheet when currentUser is not yet loaded — avoids transparent flash.
+
+            // INV-08. This used to CLEAR the pending id when `currentUser` was nil and return —
+            // discarding the invite outright. On a cold launch from a link that is the normal
+            // state: the deep link is parsed immediately, while the session restore is still in
+            // flight (the same window as LAUNCH-01). The app opened and nothing happened, and the
+            // request was gone before the user finished loading.
+            //
+            // The sibling `pendingQuickAction` handler above already does the right thing —
+            // **load the user, then guard** — and this now matches it. The original comment said
+            // the clear existed "to avoid a transparent flash": a cosmetic concern that was
+            // silently throwing away the thing the user tapped.
+            if homeVM.currentUser == nil { await homeVM.loadCurrentUser() }
             guard homeVM.currentUser != nil else {
-                appState.pendingAddFriendUserID = nil
+                // Still no user after an explicit load — genuinely signed out. Leave the pending id
+                // in place so signing in and returning still honours the link.
                 return
             }
-            // Fetch by ID using fetchProfiles(ids:) — searchProfiles uses ILIKE on email/display_name
-            // and would never match a raw UUID string.
-            if let profile = try? await FriendService.shared.fetchProfiles(ids: [userID]).first {
-                addFriendPreloadedUser = profile
-            }
+            // INV-09: through the SECURITY DEFINER preview, not a direct select on `profiles`.
+            // That table's SELECT policy requires a shared active group, which a NEW friend never
+            // has — so the direct lookup returned nothing and this screen opened with nobody on it.
+            addFriendPreloadedUser = try? await FriendService.shared.fetchAddFriendPreview(userID: userID)
             selectedTab = .friends
             showAddFriendFromQR = true
             appState.pendingAddFriendUserID = nil
