@@ -1385,6 +1385,59 @@ The owner ran both on a Debug build installed over the App Store one:
 Both were only observable on a device: one is a sub-second race on cold launch, the other requires
 a real background transition and a sleeping screen.
 
+## Recent Fix Log — 2026-08-24 — UI-02: an EmptyView safe-area inset made every plain screen scroll into blank space
+
+### Reported
+Add Friend scrolled into blank space on a device. Freshly opened, nothing typed. Still present
+after the `UI-01` `LazyVStack` fix.
+
+### Four hypotheses, three wrong, and what actually settled it
+Reading eliminated `Spacer()` in a vertical stack, `GeometryReader`, and infinite frames in every
+component the screen composes. Two structural theories — the contradictory `toolbar(.hidden)` +
+`toolbarBackground(.visible)` pair, and the negative header padding — **both failed a differential
+test**: each is absent from Manage Group, which *was* broken, and present on screens that are fine.
+A fourth guess (FAB-sized `bottomPadding` on a screen with no FAB) was real but was **not the
+cause**.
+
+What settled it was **instrumenting the device**. A DEBUG probe logging content height against the
+viewport:
+
+```
+before:  screen=AddFriend contentHeight=882 viewportHeight=874 ratio=1.0x
+after:   screen=AddFriend contentHeight=826 viewportHeight=874 ratio=0.9x   ← and it STILL scrolled
+```
+
+**Content shorter than the screen cannot scroll.** That single number eliminated the entire content
+tree in one step and proved the extra extent came from outside it.
+
+### The cause
+`XBillScreenContainer` applied `.safeAreaInset(edge: .bottom) { stickyBottom() }` **unconditionally**,
+so every screen without a sticky button still received an inset built from an `EmptyView`. That
+inset contributes to a scroll view's scrollable extent from **outside its content** — which is why
+no amount of reading the screen's own body could explain it. It is not in the body.
+
+Now applied only when the sticky view is not `EmptyView`. `CreateGroupView` and `ProfileView` are
+the two screens that pass a real one and keep the inset.
+
+### Also fixed on the way (real, but not the cause)
+`AddFriendView` and `GroupListView` inherited the container's default `bottomPadding` of
+`floatingActionBottomPadding` (88pt), reserved to clear a floating action button **neither screen
+has**. Every sibling already overrode it.
+
+### Key Pattern — instrument the device before the third hypothesis, not after
+Three guesses were spent before measuring, on a defect the owner could reproduce on demand and I
+could not reproduce at all. **When someone can reproduce a bug reliably and you cannot, their
+device is the fastest instrument available** — the probe took minutes to write and answered the
+question no amount of code reading had.
+
+### Key Pattern — a measurement that eliminates a whole layer beats one that confirms a suspicion
+The useful number was not "the content is too tall". It was **"the content is shorter than the
+screen"**, which made every candidate inside the content irrelevant at once.
+
+**Verification:** unit **463/463**. **Device-confirmed by the owner**: Add Friend now stops at its
+content. The DEBUG content-height probe stays in `XBillScrollView` — it is compiled out of Release
+and cost nothing to keep.
+
 ## Release status — v1.3 (5) APPROVED 2026-08-24 — replaces the pulled build 4
 
 Build 4 was **pulled from review by the owner** so the QR and cold-launch join fixes could go in

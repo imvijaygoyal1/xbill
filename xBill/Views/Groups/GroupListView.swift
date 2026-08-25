@@ -47,7 +47,12 @@ struct GroupListView: View {
                 if vm.isLoading && vm.groups.isEmpty && vm.archivedGroups.isEmpty {
                     LoadingOverlay(message: "Loading groups…")
                 } else if vm.groups.isEmpty && vm.archivedGroups.isEmpty {
-                    XBillScreenContainer(contentSpacing: AppSpacing.xl) {
+                    XBillScreenContainer(
+            contentSpacing: AppSpacing.xl,
+            // UI-02, same as Add Friend: the default reserves 88pt to clear a floating action
+            // button, and Groups has none — its create control is a header button. Less visible
+            // here only because the list is usually long enough to hide the dead space.
+            bottomPadding: AppSpacing.xl) {
                         groupsHeader
                         EmptyStateView(
                             icon: "person.3.fill",

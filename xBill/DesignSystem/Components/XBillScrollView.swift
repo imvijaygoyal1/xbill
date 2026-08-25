@@ -6,6 +6,8 @@
 import SwiftUI
 
 struct XBillScrollView<Content: View>: View {
+    /// Names this scroll view in the DEBUG content-height log.
+    var probeLabel: String = "unnamed"
     var showsIndicators = true
     var horizontalPadding: CGFloat = AppSpacing.lg
     var bottomPadding: CGFloat = AppSpacing.floatingActionBottomPadding
@@ -40,8 +42,39 @@ struct XBillScrollView<Content: View>: View {
             }
             .padding(.horizontal, horizontalPadding)
             .padding(.bottom, bottomPadding)
+            // DEBUG-only measurement for the Add Friend report (UI-02). Reads the content's own
+            // height and compares it with the viewport. A `.background` overlay does not
+            // participate in layout, so measuring cannot itself change what is measured.
+            .modifier(ScrollContentProbe(label: probeLabel))
         }
         .background(AppColors.background)
     }
 }
 
+/// Logs how tall a scroll view's content actually is, against the screen it sits in.
+///
+/// A scroll view that "scrolls endlessly" is reporting content far taller than it has; this says
+/// by how much, which is the thing no amount of reading the view hierarchy established. DEBUG only
+/// and compiled out of Release.
+private struct ScrollContentProbe: ViewModifier {
+    let label: String
+    func body(content: Content) -> some View {
+        #if DEBUG
+        content.background(
+            GeometryReader { proxy in
+                Color.clear.onAppear {
+                    let screen = UIScreen.main.bounds.height
+                    AppDiagnostics.log(.lifecycle, "scrollContentHeight", [
+                        ("screen", label),
+                        ("contentHeight", Int(proxy.size.height)),
+                        ("viewportHeight", Int(screen)),
+                        ("ratio", String(format: "%.1fx", proxy.size.height / max(screen, 1)))
+                    ])
+                }
+            }
+        )
+        #else
+        content
+        #endif
+    }
+}

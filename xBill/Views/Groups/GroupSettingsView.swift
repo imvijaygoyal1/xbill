@@ -50,6 +50,7 @@ struct GroupSettingsView: View {
     var body: some View {
         NavigationStack {
             XBillScreenContainer(
+                probeLabel: "ManageGroup",
                 horizontalPadding: AppSpacing.lg,
                 contentSpacing: AppSpacing.xl,
                 bottomPadding: AppSpacing.xl

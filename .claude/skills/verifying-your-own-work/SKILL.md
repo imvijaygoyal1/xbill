@@ -188,6 +188,32 @@ none plausibly does, delete it.
 
 ---
 
+## 13. When they can reproduce it and you cannot, instrument their device
+
+**UI-02, 2026-08-24.** Add Friend scrolled into blank space on the owner's phone. It could not be
+reproduced on a simulator, and **three hypotheses were written and discarded** — a lazy container,
+a contradictory toolbar pair, negative padding — each eliminated by a differential test only after
+being proposed.
+
+A DEBUG probe logging the scroll view's content height took minutes to write:
+
+```
+screen=AddFriend contentHeight=826 viewportHeight=874 ratio=0.9x
+```
+
+Content **shorter than the screen** cannot scroll — and it was still scrolling. That one number
+eliminated the entire content tree at a stroke and proved the extra extent came from outside it: a
+`safeAreaInset` built from an `EmptyView`, applied unconditionally by a shared container. Nothing
+in the screen's own body could ever have shown it, because it is not in the body.
+
+- Someone who can reproduce a bug on demand is the fastest instrument available. Use them early.
+- Prefer a measurement that **eliminates a whole layer** over one that confirms a suspicion. "The
+  content is shorter than the screen" was worth more than any number of candidate causes inside it.
+- Three guesses is two too many. After the first hypothesis fails a differential test, stop
+  theorising and go and measure.
+
+---
+
 ## The check before saying "done"
 
 1. Did I test what my code **produces**, or something I typed by hand?

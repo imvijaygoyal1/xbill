@@ -36,7 +36,18 @@ struct AddFriendView: View {
 
     var body: some View {
         NavigationStack {
-            XBillScreenContainer(contentSpacing: AppSpacing.xl) {
+            XBillScreenContainer(
+                probeLabel: "AddFriend",
+                contentSpacing: AppSpacing.xl,
+                // UI-02. The container's default is `floatingActionBottomPadding` (88pt), reserved
+                // to clear a floating action button. **Add Friend has no FAB**, so those 88pt were
+                // blank space the screen ended in — and with content at 882pt in an 874pt viewport
+                // it sat just over one screenful, so dragging rubber-banded without revealing
+                // anything. Measured on device: `contentHeight=882 viewportHeight=874 ratio=1.0x`.
+                //
+                // Manage Group, Create Group and My QR all override this already. Add Friend and
+                // `GroupListView` were the two that did not.
+                bottomPadding: AppSpacing.xl) {
                 XBillDetailHeader(
                     title: "Add Friend",
                     subtitle: "Find people by email, QR link, or contacts.",
