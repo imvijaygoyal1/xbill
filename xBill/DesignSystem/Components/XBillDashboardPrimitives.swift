@@ -151,7 +151,10 @@ struct XBillCircularIconButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityIdentifier(accessibilityIdentifier ?? "")
+        // Only when supplied. Applying `""` unconditionally would set an empty identifier on every
+        // other use of this button — `GroupListView` sets `xBill.groups.createButton` from the
+        // outside, and clobbering it would break the tests that navigate by it.
+        .modifier(OptionalAccessibilityIdentifier(identifier: accessibilityIdentifier))
     }
 }
 
@@ -170,4 +173,13 @@ struct XBillCircularIconButton: View {
     }
     .padding()
     .xbillScreenBackground()
+}
+
+/// Applies an accessibility identifier only when one is supplied, leaving any set by an enclosing
+/// view untouched.
+private struct OptionalAccessibilityIdentifier: ViewModifier {
+    let identifier: String?
+    func body(content: Content) -> some View {
+        if let identifier { content.accessibilityIdentifier(identifier) } else { content }
+    }
 }

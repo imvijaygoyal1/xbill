@@ -392,18 +392,45 @@ final class RegressionUITests: XCTestCase {
     /// version skipped Add Friend silently. Reported still broken by the owner after UI-01, so it
     /// gets a probe that cannot skip and cannot be stranded by an earlier step.
     func testAddFriendStopsScrollingAtItsContentHeight() throws {
-        launchMainApp(initialTab: "friends")
+        // Same entry as `testMainTabsLoadRegression`, which is the navigation known to work here:
+        // launch on groups, sign in, then one `tapTab`. A direct `initialTab: "friends"` launch did
+        // not land on the tab, and a long tapTab chain broke midway — both leave the probe unable
+        // to reach its screen, which is how Add Friend went unchecked to begin with.
+        launchMainApp(initialTab: "groups")
         try signInIfNeeded()
         dismissNotificationPromptIfNeeded()
+        tapTab(identifier: "xBill.tab.friends", label: "Friends")
+
+        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Friends"].waitForExistence(timeout: 12),
+                      "Friends tab did not load — the probe never reached its screen.")
 
         let addFriend = app.buttons["xBill.friends.addButton"]
-        XCTAssertTrue(addFriend.waitForExistence(timeout: 10),
-                      "Add Friend entry point not found — this probe must fail, not skip.")
+        if !addFriend.waitForExistence(timeout: 8) {
+            // Report what IS there. A probe that fails without saying what it saw sends the next
+            // run back to guessing, which is how this screen went unchecked in the first place.
+            let ids = app.buttons.allElementsBoundByIndex
+                .prefix(25).map { "\($0.identifier)|\($0.label)" }.joined(separator: ", ")
+            XCTFail("Add Friend entry point not found. Buttons on screen: [\(ids)]")
+            return
+        }
         addFriend.tap()
         XCTAssertTrue(app.buttons["xBill.addFriend.importContactsButton"].waitForExistence(timeout: 10),
                       "Add Friend did not open.")
 
         assertScrollSettles(screen: "Add Friend")
+
+        // Stronger than "something is rendered". Add Friend is a SHORT screen — about one and a
+        // half screenfuls — so once it reaches its end the bottom content must still be on screen.
+        // The weaker check passed here while the owner was watching it scroll into blank space on
+        // a device, which means a single surviving element (sheet chrome, a stray label) is enough
+        // to satisfy it. On a short screen, name the row that must remain.
+        let importRow = app.buttons["xBill.addFriend.importContactsButton"]
+        let searchField = app.textFields["xBill.addFriend.searchField"]
+        XCTAssertTrue(importRow.exists || searchField.exists, """
+            Add Friend scrolled past its own content: neither the search field nor the
+            Import from Contacts row is on screen after swiping to the end. On a screen this
+            short both should still be reachable.
+            """)
     }
 
     /// UI-01 across **every** screen on the shared scroll container.
