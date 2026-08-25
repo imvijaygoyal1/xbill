@@ -174,21 +174,64 @@ final class AuthService {
         }
     }
 
+    /// The APNs token this device most recently registered, so cleanup can name it.
+    ///
+    /// PUSH-03. Every token operation used to be scoped to the **user**, not the device, which is
+    /// wrong in both directions: registering on a second device deleted the first one's token, and
+    /// revoking notifications on any one device deleted them for all of them. Remembering our own
+    /// token is what makes "this device" expressible at all.
+    ///
+    /// Stored in the App Group defaults alongside the rest of the cache, not the Keychain: a
+    /// device token is not a secret, it is public routing information the server already holds.
+    nonisolated static var lastRegisteredAPNsToken: String? {
+        get { CacheService.defaults.string(forKey: lastRegisteredTokenKey) }
+        set {
+            if let newValue {
+                CacheService.defaults.set(newValue, forKey: lastRegisteredTokenKey)
+            } else {
+                CacheService.defaults.removeObject(forKey: lastRegisteredTokenKey)
+            }
+        }
+    }
+    nonisolated static let lastRegisteredTokenKey = "xbill_last_registered_apns_token"
+
+    /// What a revocation or sign-out should remove.
+    ///
+    /// Pure, so the fallback can be tested — it is the part that carries the risk. Extracted as a
+    /// function rather than behind an injection seam for the same reason as
+    /// `IOUService.validateParties`: a seam still permits the network call, a pure function cannot.
+    enum TokenCleanupScope: Equatable {
+        /// Normal case: remove only what this device registered.
+        case thisDevice(String)
+        /// We have never observed our own token — an install that upgraded into this version and
+        /// signed out before registering, or one that never had permission. Falling back to the
+        /// old user-wide delete is deliberate: leaving a token behind means someone who revoked
+        /// notifications keeps receiving them, and that is worse than unregistering a sibling
+        /// device that will re-register on its next launch.
+        case allDevicesForUser
+    }
+
+    nonisolated static func cleanupScope(lastRegistered: String?) -> TokenCleanupScope {
+        guard let token = lastRegistered, !token.isEmpty else { return .allDevicesForUser }
+        return .thisDevice(token)
+    }
+
     func updateDeviceToken(_ token: String) async throws {
         guard let userID = currentUserID else { return }
-        // Insert new token first (upsert on unique(user_id,token)) to guarantee
-        // the user always has at least one valid token even if the cleanup step fails.
-        // Then delete all other (stale) tokens for this user.
+        // Upsert on unique(user_id, token). There is deliberately **no** delete of the user's
+        // other tokens here any more (PUSH-03): a person with a phone and a tablet is entitled to
+        // be reached on both, and `.neq("token", …)` meant whichever they opened last silently
+        // unregistered the other.
+        //
+        // Dead tokens are reaped by the one authority that actually knows: APNs answers
+        // `Unregistered` for an uninstalled app, and `_shared/apns.ts` deletes on exactly that.
+        // Growth is therefore bounded by real devices, not by launches.
         try await supabase.table("device_tokens")
             .upsert(DeviceTokenRow(userID: userID, token: token, platform: "apns",
                                    environment: Self.apnsEnvironment),
                     onConflict: "user_id,token")
             .execute()
-        try await supabase.table("device_tokens")
-            .delete()
-            .eq("user_id", value: userID)
-            .neq("token", value: token)
-            .execute()
+        Self.lastRegisteredAPNsToken = token
     }
 
     /// Fire-and-forget token cleanup that **reports** failure instead of swallowing it.
@@ -207,12 +250,20 @@ final class AuthService {
         }
     }
 
+    /// Unregister **this** device (PUSH-03), falling back to the user's whole set only when we
+    /// have never seen our own token — see `TokenCleanupScope`.
     func deleteDeviceTokens() async throws {
         guard let userID = currentUserID else { return }
-        try await supabase.table("device_tokens")
-            .delete()
-            .eq("user_id", value: userID)
-            .execute()
+        let query = supabase.table("device_tokens").delete().eq("user_id", value: userID)
+        switch Self.cleanupScope(lastRegistered: Self.lastRegisteredAPNsToken) {
+        case .thisDevice(let token):
+            try await query.eq("token", value: token).execute()
+        case .allDevicesForUser:
+            try await query.execute()
+        }
+        // Cleared either way: whatever we had registered is gone, and keeping the value would
+        // make the next call believe it still has a token on the server to remove.
+        Self.lastRegisteredAPNsToken = nil
     }
 
     // MARK: - Avatar Upload

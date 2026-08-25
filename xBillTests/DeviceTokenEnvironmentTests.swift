@@ -21,7 +21,7 @@ import Testing
 import Foundation
 @testable import xBill
 
-@Suite("PUSH-02 — device token environment")
+@Suite("PUSH-02/03 — device token environment and scope", .serialized)
 struct DeviceTokenEnvironmentTests {
 
     /// Decode the row the way PostgREST receives it: through the encoder the transport really
@@ -82,5 +82,47 @@ struct DeviceTokenEnvironmentTests {
         #else
         #expect(AuthService.apnsEnvironment == "production")
         #endif
+    }
+
+    // MARK: - PUSH-03 — token cleanup is scoped to this device
+
+    /// The fallback is the risky half. Getting it backwards means a user who revokes notification
+    /// permission keeps receiving pushes, which is the privacy defect `MINOR-01` already fixed
+    /// once — so it is asserted in both directions rather than assumed.
+    @Test("with no remembered token, cleanup falls back to the user's whole set")
+    func cleanupFallsBackWhenTokenUnknown() {
+        #expect(AuthService.cleanupScope(lastRegistered: nil) == .allDevicesForUser)
+        #expect(AuthService.cleanupScope(lastRegistered: "") == .allDevicesForUser)
+    }
+
+    @Test("with a remembered token, cleanup names only this device")
+    func cleanupScopesToThisDevice() {
+        let token = String(repeating: "b", count: 64)
+        #expect(AuthService.cleanupScope(lastRegistered: token) == .thisDevice(token))
+    }
+
+    /// Asserts the memory that makes "this device" expressible at all.
+    ///
+    /// It does **not** assert that `updateDeviceToken` stopped deleting sibling rows — that is a
+    /// PostgREST call this suite cannot make, and claiming it from here would be exactly the kind
+    /// of over-broad coverage claim `UI-01` produced. It is verified by reading the method and by
+    /// two devices staying registered on hardware.
+    @Test("the remembered token round-trips and clears")
+    func rememberedTokenRoundTrips() {
+        let key = AuthService.lastRegisteredTokenKey
+        let saved = CacheService.defaults.string(forKey: key)
+        defer {
+            if let saved { CacheService.defaults.set(saved, forKey: key) }
+            else { CacheService.defaults.removeObject(forKey: key) }
+        }
+
+        AuthService.lastRegisteredAPNsToken = "token-one"
+        #expect(AuthService.lastRegisteredAPNsToken == "token-one")
+        AuthService.lastRegisteredAPNsToken = "token-two"
+        #expect(AuthService.lastRegisteredAPNsToken == "token-two")
+        AuthService.lastRegisteredAPNsToken = nil
+        #expect(AuthService.lastRegisteredAPNsToken == nil)
+        #expect(AuthService.cleanupScope(lastRegistered: AuthService.lastRegisteredAPNsToken)
+                == .allDevicesForUser)
     }
 }

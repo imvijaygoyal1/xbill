@@ -168,10 +168,46 @@ mutation-tested three times — the first two versions **could not fire**, becau
 words that appear in the explanatory comments. Debug and Release both build; installed and
 launched on the simulator.
 
+### PUSH-03 — a second device silently unregistered the first
+Found while building the above and fixed at the owner's direction. `updateDeviceToken` ended with
+`DELETE … WHERE user_id = ? AND token <> ?` — **every other token for that user**. A person with a
+phone and a tablet could only be reached on whichever they opened last, and nothing said so.
+`deleteDeviceTokens` had the mirror of it: revoking notifications on any one device unregistered
+all of them.
+
+The sibling delete is gone. Reaping is left to the one authority that knows a token is dead — APNs
+answers `Unregistered` for an uninstalled app — and sign-out/revocation now names
+`AuthService.lastRegisteredAPNsToken`. When this install has never seen its own token it falls back
+to the old user-wide delete, deliberately: a token left behind means someone who revoked
+notifications keeps receiving them (`MINOR-01`), which is worse than unregistering a sibling that
+re-registers on next launch. `cleanupScope(lastRegistered:)` is pure so both directions are tested.
+
+**Verification:** unit **476/476**, 0 failed (7 new across PUSH-02/03). Both mutation-tested:
+renaming the `environment` key fails exactly the two payload tests; removing the cleanup fallback
+fails exactly the two that assert it. Debug and Release both build; installed and launched.
+`scripts/check-apns-routing.sh` passes and was itself mutation-tested three times — **its first two
+versions could not fire**, because they grepped for words that also appear in the explanatory
+comments.
+
+**✅ DEPLOYED 2026-08-25**, migration before functions:
+
+| Check | Result |
+|---|---|
+| `supabase migration list --linked` | `048 \| 048 \| 048` |
+| Column | `environment text NOT NULL DEFAULT 'production'`, CHECK `('sandbox','production')` live and refusing a typo |
+| Data | 4 rows, all `production`, **none touched** |
+| Functions | all four ACTIVE (`notify-expense` v15, `notify-settlement` v12, `notify-comment` v10, `notify-friend-request` v9) |
+| New code live | `notify-friend-request` returns `{"sent":0,"failed":0,"reasons":{}}` — the old build returned `{"sent":0}` |
+| Auth guard | anon caller still gets **401** |
+
 **Not verified, and not verifiable here:** that any notification arrives. **APNs does not deliver
-to a simulator.** Proving this needs two real devices on opposite builds — precisely the case that
-fails today. ⏳ **Migration 048 and the four functions are built and NOT deployed**; both need
-approval.
+to a simulator**, so no run in this project — green or otherwise — says anything about delivery.
+Proving it needs two real devices on opposite builds, which is precisely the case that failed.
+
+**Who this reaches today.** Every row defaults to `production`, so users on the App Store build are
+now routed correctly **regardless of who sends**. A debug-build recipient — the owner's test device
+— stays wrong until it re-registers, which happens on the first launch of the next release. So:
+**production users are fixed by the deploy; the test device is fixed by 1.5.**
 
 ## Recent Fix Log — 2026-08-19 (latest) — the receipt scanner was measured for the first time
 
