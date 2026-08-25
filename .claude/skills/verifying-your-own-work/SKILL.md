@@ -214,6 +214,31 @@ in the screen's own body could ever have shown it, because it is not in the body
 
 ---
 
+## 14. A capability check cannot be an RLS policy on the thing being granted
+
+**Three separate production defects, same rule.** Every flow whose *purpose* is to create a
+relationship was gated on a policy that assumed the relationship already existed:
+
+| | |
+|---|---|
+| `INV-01` | the group-invite preview read `group_invites`, restricted to creators and **existing members** — an invitee is neither |
+| `INV-07` | `join_group_via_invite` guarded on `EXISTS(…)` ignoring `is_active`, so a **removed** member's row blocked their own rejoin |
+| `INV-09` | the add-friend link resolved a profile through `profiles`, whose policy requires a **shared active group** — which a new friend never has |
+
+Each presented identically to the user: the app opens, appears to work, and nothing happens.
+
+- Route these through a `SECURITY DEFINER` function keyed on whatever the link carries. **Possession
+  of the token or id is the capability.** Never widen the table policy.
+- Return the minimum: `get_add_friend_preview` returns a name and avatar and **not email**.
+- Revoke `anon` **by name** — Supabase's `ALTER DEFAULT PRIVILEGES` grants EXECUTE explicitly, and
+  `REVOKE … FROM PUBLIC` does not remove an explicit grant (see rule 12).
+
+**Check this first on any invite, share, or add flow.** Recognising the pattern took three
+occurrences; the second and third were both found only by querying production directly rather than
+trusting the client code to be doing something sensible.
+
+---
+
 ## The check before saying "done"
 
 1. Did I test what my code **produces**, or something I typed by hand?

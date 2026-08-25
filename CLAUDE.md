@@ -1512,8 +1512,13 @@ production defects.
 
 **Verification:** unit **469/469**. Migration 047 deployed and verified against production: the
 direct select returns `[]` while the RPC returns the profile for the same caller, no email is
-exposed, and `anon` gets `42501`. Client fix installed on the owner's device; **not yet
-device-confirmed**.
+exposed, and `anon` gets `42501`.
+
+### ✅ Device-confirmed end to end 2026-08-25
+The owner opened a real add-friend link. Confirmed **in the data**, not only on screen: a `friends`
+row now exists from `imvijaygoyal@gmail.com` to `sonthalia2sweta@gmail.com`, created 23:08 and
+already `accepted` — the request reached the database and was answered. Before the fix the table
+held only two seed rows from April and June.
 
 ## Release status — v1.4 (6) APPROVED 2026-08-25
 
