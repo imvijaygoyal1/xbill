@@ -93,7 +93,7 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
-## Release status — v1.5 (7) READY TO SUBMIT 2026-08-26
+## Release status — v1.5 (7) SUBMITTED FOR REVIEW 2026-08-26
 
 **The release that makes push notifications work.** Delivery was device-confirmed before
 submission, not after — the server halves went live during diagnosis, so this ships the client
