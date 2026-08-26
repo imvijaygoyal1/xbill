@@ -30,6 +30,7 @@
 		0ED0F8DD0E0626E4896A8F57 /* XBillScreenContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E7B455C79947887A00B52C /* XBillScreenContainer.swift */; };
 		11651519E7380C3E815A846A /* VisionServiceTier1Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F594004D5366FF8FB39E99 /* VisionServiceTier1Tests.swift */; };
 		118066442D50980FE03E3C82 /* OfflineBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED15D014D17E3C1040C4845D /* OfflineBanner.swift */; };
+		129AAF5E1D54FF72B70B4308 /* NotificationPreferencesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4331F3860E044B2745FB87 /* NotificationPreferencesService.swift */; };
 		12B6DE3542709345ABA20FD8 /* CheckBalanceIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA8CD2E5A8CA2C7892BB8A8 /* CheckBalanceIntent.swift */; };
 		12B8CA2870E479D66347472B /* XBillFonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49E9AD0A279EB2FED9B14022 /* XBillFonts.swift */; };
 		140A9C9A748A17DB33301EE3 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15941156CC3FE45D87BA4FD /* ProfileView.swift */; };
@@ -123,6 +124,7 @@
 		855E0121D35ABDC650717126 /* GroupSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB7493E366F7A81A7D689A69 /* GroupSettingsView.swift */; };
 		85EF4FE35F770FC35BB9E29D /* xBillApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A92E6317BFEDCD8644649CC /* xBillApp.swift */; };
 		8AA94B2F374EFB847041A1C5 /* ExchangeRateServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24BD802F744BC6F8432F35E8 /* ExchangeRateServiceTests.swift */; };
+		8DA9A618E38C7635F701C062 /* NotificationPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6C78E6A0ABDE9F56CDAEBAD /* NotificationPreferencesTests.swift */; };
 		8E2A5EEEB7DFD066D5A6C1CC /* ProfileViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BC31D74A8BB9161A92940CE /* ProfileViewModel.swift */; };
 		8E5CF020384675D09AA382EF /* ExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 660094306688B8BD8869E033 /* ExportService.swift */; };
 		8ECCF70B441B03207AC143B1 /* EmailAuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B09DB08A10227EBBB8F379 /* EmailAuthView.swift */; };
@@ -331,6 +333,7 @@
 		18633ED5865B279B769E85CD /* XBillEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillEmptyState.swift; sourceTree = "<group>"; };
 		195902F3C820CD0AB3116E00 /* XBillPageHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillPageHeader.swift; sourceTree = "<group>"; };
 		1D45105FFF4B5F811A38E58C /* GroupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupViewModel.swift; sourceTree = "<group>"; };
+		1E4331F3860E044B2745FB87 /* NotificationPreferencesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPreferencesService.swift; sourceTree = "<group>"; };
 		1E8B4D781A6BA5080BC7AF4D /* XBillDetailHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillDetailHeader.swift; sourceTree = "<group>"; };
 		1EB95AF7F1C155D9C83D8E6B /* P3HelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P3HelperTests.swift; sourceTree = "<group>"; };
 		1F16025238EC5A021ED99777 /* ReceiptScanQualityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptScanQualityTests.swift; sourceTree = "<group>"; };
@@ -518,10 +521,11 @@
 		F4D0D78A5AA944448B3F1160 /* XBillCardModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillCardModifier.swift; sourceTree = "<group>"; };
 		F4FA0DF138FAAA01522B668E /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
 		F684542CE9913F0736FC5EC2 /* XBillFloatingAddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBillFloatingAddButton.swift; sourceTree = "<group>"; };
+		F6C78E6A0ABDE9F56CDAEBAD /* NotificationPreferencesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPreferencesTests.swift; sourceTree = "<group>"; };
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
 		FA59435ADAF303865175315B /* VisionParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionParsingTests.swift; sourceTree = "<group>"; };
 		FFA8CD2E5A8CA2C7892BB8A8 /* CheckBalanceIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckBalanceIntent.swift; sourceTree = "<group>"; };
-		"TEMP_2B265A1A-DBF4-4315-B64F-FA990677C75F" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_A9AE35C9-000F-439A-A334-986554107D1C" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -569,6 +573,7 @@
 				49CEB8132E22A0A5F75F2E70 /* GroupDataProviding.swift */,
 				E22D97081A17583A65576DEE /* GroupService.swift */,
 				ED1F81BD1F1817FCBF7438D7 /* IOUService.swift */,
+				1E4331F3860E044B2745FB87 /* NotificationPreferencesService.swift */,
 				46030FF3CE3722DB807BD7BA /* NotificationService.swift */,
 				B38345EDA277CDE0B30C7222 /* NotificationStore.swift */,
 				B33016E6C4C9822060E8D180 /* PaymentHandleValidator.swift */,
@@ -927,6 +932,7 @@
 				D524ED62CCA0FC4141B077F7 /* GroupViewModelStateTests.swift */,
 				672B1FD4F2EBEDAE1A6D2ABB /* InvitePreviewTests.swift */,
 				156AED98D88AA04B27A4110E /* LaunchAndLockTests.swift */,
+				F6C78E6A0ABDE9F56CDAEBAD /* NotificationPreferencesTests.swift */,
 				E82EDC580ACC0A6A8BFB4CAD /* NotificationReadStateTests.swift */,
 				97C0585EEB30C03384B5CDAE /* P1NotificationTests.swift */,
 				8FB75CACE895B59BCDF118AD /* P2FeatureTests.swift */,
@@ -1015,10 +1021,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_C1F048D9-6D78-4B3F-8CE4-61799D55BE74" /* xBill */ = {
+		"TEMP_671EB94D-5108-468D-B46D-2434E554C250" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_2B265A1A-DBF4-4315-B64F-FA990677C75F" /* Secrets.xcconfig */,
+				"TEMP_A9AE35C9-000F-439A-A334-986554107D1C" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1270,6 +1276,7 @@
 				D44C2AB28279A5C52919BDC5 /* GroupViewModelStateTests.swift in Sources */,
 				07AE0244428F5664CD97D714 /* InvitePreviewTests.swift in Sources */,
 				38ED23B0A2EDD70B3C7C5EDA /* LaunchAndLockTests.swift in Sources */,
+				8DA9A618E38C7635F701C062 /* NotificationPreferencesTests.swift in Sources */,
 				4CF1455938D2F1C336DDD2A6 /* NotificationReadStateTests.swift in Sources */,
 				B1451440BEDFB9AAAA50BE94 /* P1NotificationTests.swift in Sources */,
 				9A76A87FA21BFD4F3ADA3740 /* P2FeatureTests.swift in Sources */,
@@ -1390,6 +1397,7 @@
 				CF7BB5EDBB1D51E7878487CB /* NetworkMonitor.swift in Sources */,
 				B47BAFF8822A6ED9F62109C2 /* NotificationItem.swift in Sources */,
 				96FC246B7C94AE28102FC61B /* NotificationPermissionView.swift in Sources */,
+				129AAF5E1D54FF72B70B4308 /* NotificationPreferencesService.swift in Sources */,
 				E50C54F5DD08930BE0AAF3CF /* NotificationService.swift in Sources */,
 				381348AB57FBCAB61DC0B7BD /* NotificationStore.swift in Sources */,
 				118066442D50980FE03E3C82 /* OfflineBanner.swift in Sources */,
@@ -1528,7 +1536,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_2B265A1A-DBF4-4315-B64F-FA990677C75F" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_A9AE35C9-000F-439A-A334-986554107D1C" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1737,7 +1745,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_2B265A1A-DBF4-4315-B64F-FA990677C75F" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_A9AE35C9-000F-439A-A334-986554107D1C" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

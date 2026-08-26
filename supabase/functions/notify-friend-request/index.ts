@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import {
-  isDeadToken, newReport, record, sendToToken,
+  isDeadToken, newReport, record, recipientsAllowing, sendToToken,
   type DeviceTokenRow,
 } from '../_shared/apns.ts'
 
@@ -138,6 +138,20 @@ serve(async (req) => {
     }
 
     const report = newReport()
+
+    // PUSH-01: the RECIPIENT decides whether they hear about this, not the sender. The in-app
+    // `notifications` rows above are written regardless — muting a push means "do not interrupt
+    // me", not "hide this from my history", and a row never written cannot be caught up on.
+    const preference = await recipientsAllowing(supabase, [toUserID], 'friend_requests')
+    if (preference.lookupFailed) report.preferenceLookupFailed = true
+    if (!preference.allowed.has(toUserID)) {
+      report.muted = 1
+      return new Response(
+        JSON.stringify(report),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     for (const row of (tokenRows as DeviceTokenRow[])) {
       try {
         // PUSH-02: the host comes from THIS token's environment, not from the sender's build.

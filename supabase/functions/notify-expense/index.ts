@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import {
-  isDeadToken, newReport, record, sendToToken,
+  isDeadToken, newReport, record, recipientsAllowing, sendToToken,
   type DeviceTokenRow,
 } from '../_shared/apns.ts'
 
@@ -169,9 +169,21 @@ serve(async (req) => {
     const badgeMap = await batchUnreadCounts(supabase, recipientIDs)
 
     const report = newReport()
+
+    // PUSH-01: the RECIPIENT decides whether they hear about this, not the sender. The in-app
+    // `notifications` rows above are written regardless — muting a push means "do not interrupt
+    // me", not "hide this from my history", and a row never written cannot be caught up on.
+    const preference = await recipientsAllowing(supabase, recipientIDs, 'expenses')
+    if (preference.lookupFailed) report.preferenceLookupFailed = true
+    // Counted once per PERSON, not per token — a user may now have several devices (PUSH-03),
+    // and "3 muted" meaning "one person with three phones" would be a misleading number.
+    report.muted = new Set(recipientIDs).size - preference.allowed.size
+
     for (const row of (tokenRows as DeviceTokenRow[])) {
       // Don't notify the person who added the expense (use verified callerID, not body payerId)
       if (row.user_id === callerID) continue
+
+      if (!preference.allowed.has(row.user_id)) continue
 
       try {
         const badge = badgeMap.get(row.user_id) ?? 0

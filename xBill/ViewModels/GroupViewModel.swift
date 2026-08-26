@@ -786,9 +786,9 @@ final class GroupViewModel {
             // debtor would only see it if they ever signed in on that device.
             NotificationStore.shared.merge([note], userID: recordedBy)
 
-            if CacheService.defaults.bool(forKey: NotificationService.settlementPreferenceKey) {
-                await expenseService.notifySettlementRecorded(settlementID: saved.id)
-            }
+            // PUSH-01: ungated. The recipient's own preference is applied by the Edge Function;
+            // the person recording a payment does not decide whether the other party is told.
+            await expenseService.notifySettlementRecorded(settlementID: saved.id)
 
             // A debt was just closed — the one moment in xBill worth asking for a review. Placed
             // at the end of the `do` block so it is unreachable from the duplicate-payment

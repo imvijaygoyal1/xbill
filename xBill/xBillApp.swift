@@ -29,12 +29,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotifi
         #endif
 
         UNUserNotificationCenter.current().delegate = self
-        CacheService.defaults.register(defaults: [
-            NotificationService.expensePreferenceKey:     false,
-            NotificationService.settlementPreferenceKey:  false,
-            NotificationService.commentPreferenceKey:     false,
-            NotificationService.preferenceConfiguredKey:  false,
-        ])
+        // PUSH-01: no push-preference defaults are registered here any more. These four keys
+        // registered `false`, which is how a user who had never opened Profile silently suppressed
+        // notifications for everyone in their groups. Preferences are server-side now and default
+        // to on; `NotificationPreferencesService.cached` supplies the offline view.
         registerShortcutItems()
         // One-time cleanup: remove expense Spotlight entries — expense titles contain
         // financial data visible from the lock screen, bypassing App Lock.

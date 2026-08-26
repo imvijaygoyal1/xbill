@@ -93,7 +93,96 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
-## Recent Fix Log — 2026-08-25 (latest) — PUSH-02: the APNs host was chosen by the wrong device
+## Recent Fix Log — 2026-08-25 (latest) — PUSH-01: the toggle gated the wrong person
+
+Phase 2 of the push work. Phase 1 (`PUSH-02`, below) fixed *where* a notification was sent;
+this fixes *whether*.
+
+### "New Expenses" decided whether other people were notified
+```swift
+// AddExpenseViewModel.swift
+if CacheService.defaults.bool(forKey: NotificationService.expensePreferenceKey) {
+    await notifyExpenseAdded(...)
+}
+```
+Nobody reads that label as *"suppress notifications for everyone in my groups"*, but that is what
+it did — and `xBillApp.swift` registered the default as **`false`**. A payer who had never opened
+Profile silently muted their whole group. Same shape for settlements (`GroupViewModel`) and
+comments (`CommentService`); friend requests were ungated entirely, which is why that one path was
+otherwise healthy.
+
+The recipient's own preference was **never consulted by anything**, and could not be: it lived in
+`UserDefaults` on the sender's device.
+
+### Migration 049 — the place a recipient's choice can exist
+`notification_preferences (user_id PK, expenses, settlements, comments, friend_requests,
+updated_at)`, owner-only RLS in all three directions, `WITH CHECK` on UPDATE so a row cannot be
+re-pointed at someone else (the gap 027 closed on four other tables).
+
+**Every column defaults true, and a missing row also means on.** iOS is the real consent gate:
+nothing displays without notification permission, and this app deletes its device token when it
+finds permission revoked — so a token existing already means the person agreed. Defaulting to off
+would have reproduced exactly the silence being fixed and required every existing user to go
+find a setting.
+
+### What changed where
+| | |
+|---|---|
+| `_shared/apns.ts` | `recipientsAllowing(supabase, userIDs, column)` — one filter, four callers |
+| all four functions | filter recipients by the recipient's own row; report `muted` (**per person**, not per token, now that a user may have several devices) |
+| the three sender-side gates | **deleted** |
+| `enableDefaultPreferencesAfterPermissionIfNeeded` + the four `prefPush*` defaults | **deleted** — they seeded state nothing reads any more |
+| `NotificationPreferencesService` | new; server is authoritative, `UserDefaults` demoted to an offline cache so the switches are never blank |
+| `ProfileView` | toggles write through and **revert on failure**; a new **Friend Requests** toggle, the one category that never had one |
+
+### The in-app Activity row is deliberately NOT filtered
+Muting a push means *"do not interrupt me"*, not *"hide this from my history"*. Every function
+still writes its `notifications` row before consulting the preference — a row never written cannot
+be caught up on later, and Activity is the only record of what happened.
+
+### Fail open, and say so
+If the preference lookup errors, everyone is allowed through and the response carries
+`preferenceLookupFailed: true`. The two ways of being wrong are not symmetrical: notifying someone
+who opted out is an annoyance they fix in one tap; suppressing everyone on a transient database
+error is the failure that went a month unnoticed.
+
+### Key Pattern — a routing or permission flag belongs to whoever owns the thing it acts on
+Three flags in this feature were read from the wrong side of the wire: the APNs environment
+(the recipient's signing), the notification preference (the recipient's choice), and the stale-token
+verdict (APNs'). Ask of any flag crossing a boundary: **whose property is this?** If the answer is
+"the other end's", it must not come from the request body or the sender's `UserDefaults`.
+
+### Key Pattern — a test that compares against the constant it is guarding cannot fail
+`absentCacheReadsAsOn` first asserted `cached == .default`. Against a mutant with every default
+flipped to `false` — the exact original defect — **it passed**, because both sides moved together.
+It now asserts the four booleans. Third instance of this in the project after `warningPenalises`
+(`SCAN-02`) and `UIT-01`: assert the property that **distinguishes** the fix from the bug, never
+one the fix merely happens to have.
+
+**Verification:** unit **483/483**, 0 failed (7 new). Mutation-tested: flipping the defaults to off
+fails exactly four tests and leaves the three that are independent of them passing. Debug and
+Release both build; installed and launched.
+
+**✅ DEPLOYED 2026-08-25**, migration before functions:
+
+| Check | Result |
+|---|---|
+| `supabase migration list --linked` | `049 \| 049 \| 049` |
+| Table | RLS on; SELECT/INSERT/UPDATE owner-only; UPDATE carries `WITH CHECK`; **0 DELETE policies**; all four columns default `true`; 0 rows |
+| Functions | all four ACTIVE (expense v16, settlement v13, comment v11, friend-request v10) |
+| Read path, live | absent row → `[]`, no `PGRST116`; after a write, the exact query `recipientsAllowing()` runs returns `expenses=false` |
+| RLS, live | another user's row invisible; insert for another user → `42501`; anon sees nothing |
+
+⚠️ **A client DELETE on this table answers 204 having deleted nothing** — there is no DELETE
+policy, so it matches zero rows and the status describes the request, not the effect. Found while
+verifying; recorded in the migration. Reset with an UPDATE setting every column true.
+
+**Not verified, and not reachable from here:** that a muted recipient is actually skipped. Proving
+it needs a second account with a device token, and the only other token-holders in production are
+real people — exercising it would send them a real notification. It needs the same two-device test
+that `PUSH-02`'s delivery claim needs; one session covers both.
+
+## Recent Fix Log — 2026-08-25 — PUSH-02: the APNs host was chosen by the wrong device
 
 Reported: *"why push notifications are not triggered when an expense is added"*. Two independent
 defects, either of which alone stops delivery. **Phase 1 fixes the second; the first is scoped and

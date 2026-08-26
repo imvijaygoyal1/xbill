@@ -9,6 +9,7 @@ import SwiftUI
 import UIKit
 import PhotosUI
 import UserNotifications
+import OSLog
 
 // MARK: - PhotoPickerView
 
@@ -66,9 +67,14 @@ struct ProfileView: View {
     @State private var showTerms = false
     @State private var showMyQR = false
 
-    @State private var prefPushExpense = false
-    @State private var prefPushSettlement = false
-    @State private var prefPushComment = false
+    // PUSH-01: these now mean "notify ME", which is what the labels always said. Seeded from the
+    // local cache so the switches render the right way round before the server answers, and
+    // defaulting to ON — the same thing a missing row means to the Edge Functions (migration 049).
+    @State private var prefPushExpense = NotificationPreferencesService.cached.expenses
+    @State private var prefPushSettlement = NotificationPreferencesService.cached.settlements
+    @State private var prefPushComment = NotificationPreferencesService.cached.comments
+    @State private var prefPushFriendRequest = NotificationPreferencesService.cached.friendRequests
+    @State private var preferenceSaveFailed = false
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
     @State private var isRequestingNotifications = false
     @State private var lockService = AppLockService.shared
@@ -91,13 +97,21 @@ struct ProfileView: View {
                     await vm.load()
                 }
                 await refreshNotificationStatus()
+                // Cache first so the switches are never blank, then reconcile with the server,
+                // which is the only place a recipient's preference actually takes effect.
                 loadNotificationPreferences()
+                await refreshNotificationPreferences()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 Task {
                     await refreshNotificationStatus()
-                    loadNotificationPreferences()
+                    await refreshNotificationPreferences()
                 }
+            }
+            .alert("Setting Not Saved", isPresented: $preferenceSaveFailed) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Your notification preference could not be saved. The switch has been put back — check your connection and try again.")
             }
             .onChange(of: vm.displayName) { _, _ in
                 if !vm.isLoading { vm.isEditing = true }
@@ -333,7 +347,7 @@ struct ProfileView: View {
                             .labelsHidden()
                             .tint(AppColors.primary)
                             .onChange(of: prefPushExpense) { _, value in
-                                CacheService.defaults.set(value, forKey: NotificationService.expensePreferenceKey)
+                                savePreference(.expenses, value, revert: { prefPushExpense = !value })
                             }
                     }
 
@@ -345,7 +359,7 @@ struct ProfileView: View {
                             .labelsHidden()
                             .tint(AppColors.primary)
                             .onChange(of: prefPushSettlement) { _, value in
-                                CacheService.defaults.set(value, forKey: NotificationService.settlementPreferenceKey)
+                                savePreference(.settlements, value, revert: { prefPushSettlement = !value })
                             }
                     }
 
@@ -357,7 +371,24 @@ struct ProfileView: View {
                             .labelsHidden()
                             .tint(AppColors.primary)
                             .onChange(of: prefPushComment) { _, value in
-                                CacheService.defaults.set(value, forKey: NotificationService.commentPreferenceKey)
+                                savePreference(.comments, value, revert: { prefPushComment = !value })
+                            }
+                    }
+
+                    Divider()
+                        .overlay(AppColors.border)
+
+                    // Friend requests were the one category with no toggle at all — they were
+                    // never gated on anything, so there was nothing to expose. Now that every
+                    // category is honoured server-side, leaving this one out would make it the
+                    // only push a user cannot turn off.
+                    XBillSettingsRow(icon: "person.badge.plus", title: "Friend Requests") {
+                        Toggle("", isOn: $prefPushFriendRequest)
+                            .labelsHidden()
+                            .tint(AppColors.primary)
+                            .onChange(of: prefPushFriendRequest) { _, value in
+                                savePreference(.friendRequests, value,
+                                               revert: { prefPushFriendRequest = !value })
                             }
                     }
                 }
@@ -443,9 +474,51 @@ struct ProfileView: View {
 
     @MainActor
     private func loadNotificationPreferences() {
-        prefPushExpense = CacheService.defaults.bool(forKey: NotificationService.expensePreferenceKey)
-        prefPushSettlement = CacheService.defaults.bool(forKey: NotificationService.settlementPreferenceKey)
-        prefPushComment = CacheService.defaults.bool(forKey: NotificationService.commentPreferenceKey)
+        apply(NotificationPreferencesService.cached)
+    }
+
+    /// Replace the cached view with the server's, which is authoritative (PUSH-01).
+    ///
+    /// A failure leaves the cached values on screen rather than flipping everything to a default:
+    /// showing "on" to someone who muted a category is how they come to distrust the switch.
+    @MainActor
+    private func refreshNotificationPreferences() async {
+        guard let userID = vm.user?.id else { return }
+        do {
+            apply(try await NotificationPreferencesService.shared.fetch(userID: userID))
+        } catch {
+            Logger(subsystem: "com.vijaygoyal.xbill", category: "Profile")
+                .error("notification preferences fetch failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    @MainActor
+    private func apply(_ prefs: NotificationPreferences) {
+        prefPushExpense = prefs.expenses
+        prefPushSettlement = prefs.settlements
+        prefPushComment = prefs.comments
+        prefPushFriendRequest = prefs.friendRequests
+    }
+
+    /// Write one toggle through to the server, putting the switch back if it does not land.
+    ///
+    /// The revert matters: the previous implementation wrote `UserDefaults`, which cannot fail, so
+    /// a switch that moved always meant a setting that changed. Against a network it does not, and
+    /// a switch showing a state the server never accepted is worse than one that springs back.
+    @MainActor
+    private func savePreference(_ category: NotificationPreferences.Category,
+                                _ value: Bool,
+                                revert: @escaping @MainActor () -> Void) {
+        guard let userID = vm.user?.id else { revert(); return }
+        Task {
+            do {
+                try await NotificationPreferencesService.shared.set(category, to: value,
+                                                                    userID: userID)
+            } catch {
+                revert()
+                preferenceSaveFailed = true
+            }
+        }
     }
 
     @MainActor
@@ -457,8 +530,9 @@ struct ProfileView: View {
         notificationStatus = await NotificationService.shared.authorizationStatus()
 
         if granted || notificationStatus.allowsPushRegistration {
-            NotificationService.shared.enableDefaultPreferencesAfterPermissionIfNeeded()
-            loadNotificationPreferences()
+            // No local default-seeding any more: the server's defaults are all-on and a missing
+            // row already means on, so there is nothing to enable at this moment (PUSH-01).
+            await refreshNotificationPreferences()
             UIApplication.shared.registerForRemoteNotifications()
         } else {
             await AuthService.shared.deleteDeviceTokensReportingFailure()

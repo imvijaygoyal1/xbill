@@ -56,18 +56,17 @@ final class CommentService {
             .value
         // Await the server side effect so a successful comment save has a
         // deterministic notification attempt before the flow is dismissed.
-        if CacheService.defaults.bool(forKey: NotificationService.commentPreferenceKey) {
-            await notifyComment(
-                commentID:      comment.id,
-                expenseID:     expenseID,
-                expenseTitle:  expenseTitle,
-                groupID:       groupID,
-                groupName:     groupName,
-                commenterID:   userID,
-                commenterName: commenterName,
-                commentText:   text
-            )
-        }
+        // PUSH-01: ungated — each participant's own preference is applied server-side.
+        await notifyComment(
+            commentID:      comment.id,
+            expenseID:     expenseID,
+            expenseTitle:  expenseTitle,
+            groupID:       groupID,
+            groupName:     groupName,
+            commenterID:   userID,
+            commenterName: commenterName,
+            commentText:   text
+        )
         return comment
     }
 

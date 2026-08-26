@@ -229,11 +229,13 @@ final class AddExpenseViewModel {
             isSaved = true
 
             // Await the notification inline — isSaved drives sheet dismissal, not isLoading.
-            if CacheService.defaults.bool(forKey: NotificationService.expensePreferenceKey) {
-                await expenseService.notifyExpenseAdded(
-                    expenseID: expense.id
-                )
-            }
+            //
+            // PUSH-01: no longer gated on this device's preference. The toggle that used to guard
+            // this line was labelled "New Expenses" and read as "notify me", while it actually
+            // decided whether EVERYONE ELSE heard about an expense I added — and it defaulted to
+            // off. Each recipient's own choice is now applied server-side, by the one party
+            // entitled to make it.
+            await expenseService.notifyExpenseAdded(expenseID: expense.id)
         } catch {
             guard !AppError.isSilent(error) else { return }
             self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)

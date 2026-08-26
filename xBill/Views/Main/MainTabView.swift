@@ -97,7 +97,6 @@ struct MainTabView: View {
             await activityVM.load()
             let status = await NotificationService.shared.authorizationStatus()
             if status.allowsPushRegistration {
-                NotificationService.shared.enableDefaultPreferencesAfterPermissionIfNeeded()
                 UIApplication.shared.registerForRemoteNotifications()
             } else if status == .denied {
                 await AuthService.shared.deleteDeviceTokensReportingFailure()
@@ -111,7 +110,6 @@ struct MainTabView: View {
                 showNotificationPrompt  = false
                 let granted = (try? await NotificationService.shared.requestAuthorization()) ?? false
                 if granted {
-                    NotificationService.shared.enableDefaultPreferencesAfterPermissionIfNeeded()
                     UIApplication.shared.registerForRemoteNotifications()
                 } else {
                     await AuthService.shared.deleteDeviceTokensReportingFailure()

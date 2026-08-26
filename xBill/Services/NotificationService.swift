@@ -15,10 +15,9 @@ final class NotificationService {
     static let shared = NotificationService()
     private init() {}
 
-    static let preferenceConfiguredKey = "prefPushConfiguredAfterPermission"
-    static let expensePreferenceKey = "prefPushExpense"
-    static let settlementPreferenceKey = "prefPushSettlement"
-    static let commentPreferenceKey = "prefPushComment"
+    // The `prefPush*` UserDefaults keys were removed with PUSH-01. They were read on the SENDER's
+    // device to decide whether OTHER people were notified; the recipient's own preference now
+    // lives server-side and is cached by `NotificationPreferencesService` under different keys.
 
     // MARK: - Authorization
 
@@ -35,13 +34,11 @@ final class NotificationService {
         await authorizationStatus().allowsPushRegistration
     }
 
-    func enableDefaultPreferencesAfterPermissionIfNeeded(defaults: UserDefaults = CacheService.defaults) {
-        guard !defaults.bool(forKey: Self.preferenceConfiguredKey) else { return }
-        defaults.set(true, forKey: Self.expensePreferenceKey)
-        defaults.set(true, forKey: Self.settlementPreferenceKey)
-        defaults.set(true, forKey: Self.commentPreferenceKey)
-        defaults.set(true, forKey: Self.preferenceConfiguredKey)
-    }
+    // PUSH-01: `enableDefaultPreferencesAfterPermissionIfNeeded` is gone. It seeded three
+    // UserDefaults keys that nothing reads any more — preferences live in
+    // `public.notification_preferences`, where the defaults are all-on and a missing row already
+    // means on, so there is no moment at which anything needs enabling. A function that sets state
+    // no reader consults is worse than none: it reads as consent handling and is not.
 
     // MARK: - Local Notifications
 

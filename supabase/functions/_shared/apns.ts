@@ -54,6 +54,10 @@ export interface SendReport {
   failed: number
   /** Rejection reason → count, e.g. `{ "BadDeviceToken": 2 }`. Never contains a token. */
   reasons: Record<string, number>
+  /** Recipients skipped because they muted this category (PUSH-01). Not a failure. */
+  muted?: number
+  /** True when the preference lookup errored and everyone was allowed through as a result. */
+  preferenceLookupFailed?: boolean
 }
 
 /**
@@ -118,3 +122,55 @@ export function record(report: SendReport, reason: string | null): void {
 export function newReport(): SendReport {
   return { sent: 0, failed: 0, reasons: {} }
 }
+
+// ---------------------------------------------------------------------------
+// PUSH-01 — the recipient decides, not the sender
+// ---------------------------------------------------------------------------
+
+/** Column of `public.notification_preferences` a given event type is governed by. */
+export type PreferenceColumn = 'expenses' | 'settlements' | 'comments' | 'friend_requests'
+
+/**
+ * Of `userIDs`, those who have not muted this category.
+ *
+ * Each notify function used to be gated on the **sender's** `UserDefaults` — a Profile toggle
+ * labelled "New Expenses" that actually decided whether *other people* were notified, defaulting
+ * to off. A sender must not decide whether a recipient hears about something, and the recipient's
+ * own choice can only live somewhere the server can read.
+ *
+ * **A missing row means allowed.** iOS is the real consent gate: nothing displays without
+ * notification permission, and the client deletes its device token when it finds permission
+ * revoked, so a token only exists for someone who agreed. Treating "no row" as opt-out would
+ * reproduce exactly the silence this replaces.
+ *
+ * **A failed lookup also means allowed**, and says so in the report. The two ways to be wrong are
+ * not symmetrical: notifying someone who opted out is an annoyance they can correct in one tap,
+ * while suppressing everyone on a transient database error is the failure that went unnoticed for
+ * a month. Erring toward delivery keeps the failure visible.
+ */
+export async function recipientsAllowing(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  userIDs: string[],
+  column: PreferenceColumn,
+): Promise<{ allowed: Set<string>; lookupFailed: boolean }> {
+  const unique = [...new Set(userIDs)]
+  if (unique.length === 0) return { allowed: new Set(), lookupFailed: false }
+
+  const { data, error } = await supabase
+    .from('notification_preferences')
+    .select(`user_id, ${column}`)
+    .in('user_id', unique)
+
+  if (error) {
+    return { allowed: new Set(unique), lookupFailed: true }
+  }
+
+  const muted = new Set(
+    ((data ?? []) as Record<string, unknown>[])
+      .filter(r => r[column] === false)
+      .map(r => r.user_id as string),
+  )
+  return { allowed: new Set(unique.filter(id => !muted.has(id))), lookupFailed: false }
+}
+
