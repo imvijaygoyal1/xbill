@@ -93,7 +93,69 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
-## Recent Fix Log — 2026-08-25 (latest) — PUSH-01: the toggle gated the wrong person
+## Recent Fix Log — 2026-08-26 (latest) — PUSH-04: push notifications delivered, for the first time
+
+**✅ DEVICE-CONFIRMED by the owner: "I saw the push on device."** Phases 1 and 2 were both
+necessary and neither was sufficient. This is what closed it.
+
+### The report line that ended a month of guessing
+After Phase 2 shipped, the owner reported a badge and an Activity row but no notification. **Both
+of those are written without APNs being involved** — the Edge Function inserts the `notifications`
+row before it contacts Apple, and `ActivityViewModel` sets the badge locally from that table. So
+the two visible symptoms were fully explained by *zero* delivery, and proved nothing either way.
+
+The functions returned HTTP 200, so nothing in `function_edge_logs` distinguished "delivered" from
+"rejected". One `console.log` of the send report settled it in a single line:
+
+```
+[notify-expense] {"sent":0,"failed":1,"reasons":{"BadDeviceToken":1},"muted":0}
+```
+
+### `BadDeviceToken` does not mean the token is bad
+It means *"not valid on **this** host"* — which has two causes needing opposite fixes: a wrong
+recorded environment, or a provider-key/topic mismatch. Rather than guess, `deliver()` now retries
+the **other** environment on `BadDeviceToken`:
+
+- retry succeeds → the push lands **and** `device_tokens.environment` is corrected in place
+- both hosts reject → the report says `BadDeviceToken(both:<reason>)`, which rules the environment
+  out and points at the Apple key instead
+
+The owner's row flipped `production` → `sandbox` and the push arrived. Their phone was running a
+development-signed build; migration 048 had defaulted every pre-existing row to `production`,
+because the client that writes the column ships in 1.5.
+
+### Why this matters more than a one-off fix
+**Every token registered before 048 is a guess**, and would have stayed wrong until that device
+updated — for some users, never. The server now converges on the truth by itself, so correctness no
+longer depends on the client shipping, and a user who moves between a TestFlight and an App Store
+build is corrected on their next notification rather than going silent.
+
+### Key Pattern — a symptom that survives the fix may not be evidence of the fix failing
+The badge and the Activity row looked like partial success and were not: both come from a table
+written *before* the network call they were being read as evidence of. **Before treating an
+observation as evidence, name the code path that produces it.** Two independent user-visible
+signals here had nothing to do with the subsystem under test.
+
+### Key Pattern — instrument the boundary you cannot see across
+`function_edge_logs` records the status code; it never records the body. A 200 from a function that
+swallows an APNs rejection is indistinguishable from a delivery. **One log line of the outcome was
+worth more than every inference drawn before it** — and it is now permanent, precisely so the next
+failure is one query away instead of a week of hypotheses.
+
+⚠️ **Supabase's log ingestion runs minutes behind**, and its analytics endpoint defaults to roughly
+a 40-second window. An early query returned "0 invocations" for a period whose database writes were
+already visible — a conclusion that was entirely an artifact of the default window. Always pass
+`iso_timestamp_start`, and prefer a database check over a log check when both can answer.
+
+### Still open
+- **`device_tokens.environment` for everyone else is still a default**, not a measurement. They
+  self-correct on their next notification, which is the point — but do not read the column as truth
+  until a send has confirmed it.
+- **1.5 should still ship**: the client writing `environment` at registration makes the first
+  attempt correct rather than the second, and `PUSH-03` (a second device unregistering the first)
+  and the recipient-side preference UI are client-side and unreleased.
+
+## Recent Fix Log — 2026-08-25 — PUSH-01: the toggle gated the wrong person
 
 Phase 2 of the push work. Phase 1 (`PUSH-02`, below) fixed *where* a notification was sent;
 this fixes *whether*.

@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import {
-  isDeadToken, newReport, record, recipientsAllowing, sendToToken,
+  deliver, isDeadToken, newReport, record, recipientsAllowing,
   type DeviceTokenRow,
 } from '../_shared/apns.ts'
 
@@ -198,9 +198,19 @@ serve(async (req) => {
           },
           groupId,
         }
-        // PUSH-02: the host comes from THIS token's environment, not from the sender's build.
-        const reason = await sendToToken({ row, jwt, bundleId, expiration, payload: apnsPayload })
+        // PUSH-02: the host comes from THIS token's environment, not from the sender's build —
+        // and if that environment turns out to be wrong, `deliver` finds the right one and tells
+        // us, so the row can be corrected instead of the user staying silent until they update.
+        const { reason, correctedEnvironment } =
+          await deliver({ row, jwt, bundleId, expiration, payload: apnsPayload })
         record(report, reason)
+
+        if (correctedEnvironment) {
+          await supabase.from('device_tokens')
+            .update({ environment: correctedEnvironment })
+            .eq('token', row.token)
+          report.corrected = (report.corrected ?? 0) + 1
+        }
 
         // Delete only what APNs calls Unregistered. `BadDeviceToken` is what a perfectly good
         // token returns when posted to the wrong host, so the old condition was destroying
@@ -215,6 +225,14 @@ serve(async (req) => {
         record(report, `UnexpectedError: ${(err as Error).message}`)
       }
     }
+
+    // Log the OUTCOME, not just failures. A 200 from this function says only that it did not
+    // crash — it says nothing about whether APNs accepted anything, and `function_edge_logs`
+    // records the status code but never the body. Without this line, "delivered" and "silently
+    // rejected by APNs" are indistinguishable from outside. Same lesson as the 2026-07-28
+    // notification work: log the success path or you can prove an absence of errors and still
+    // not know which path ran. Counts only — never a token, never a recipient id.
+    console.log(`[notify-expense] ${JSON.stringify(report)}`)
 
     return new Response(
       JSON.stringify(report),

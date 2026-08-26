@@ -58,6 +58,8 @@ export interface SendReport {
   muted?: number
   /** True when the preference lookup errored and everyone was allowed through as a result. */
   preferenceLookupFailed?: boolean
+  /** Tokens whose recorded environment was wrong and has been corrected in place (PUSH-02). */
+  corrected?: number
 }
 
 /**
@@ -91,6 +93,47 @@ export async function sendToToken(args: {
   } catch (err) {
     return `NetworkError: ${(err as Error).message}`
   }
+}
+
+/** The environment a token is not currently recorded as. */
+function otherEnvironment(environment: string | null | undefined): ApnsEnvironment {
+  return environment === 'sandbox' ? 'production' : 'sandbox'
+}
+
+/**
+ * Send to a token, and if APNs rejects it as `BadDeviceToken`, try the other environment.
+ *
+ * `BadDeviceToken` means "this token is not valid **here**" — it does not mean the token is bad.
+ * The commonest cause is a row whose `environment` is wrong, and there is a large population of
+ * exactly those: every token registered before migration 048 defaulted to `production`, because
+ * the client that writes the column ships in the next release. Waiting for every device to update
+ * would leave those users silent for as long as they take to update, which for some is never.
+ *
+ * So the server corrects itself. A successful retry returns the environment that worked, and the
+ * caller writes it back — after which the token routes correctly first time, for good.
+ *
+ * This also disambiguates a failure that is otherwise unreadable: if BOTH hosts reject the token,
+ * the problem is not the environment at all (a topic or provider-key mismatch), and the report
+ * says so instead of blaming the environment.
+ */
+export async function deliver(args: {
+  row: DeviceTokenRow
+  jwt: string
+  bundleId: string
+  expiration: string
+  payload: unknown
+}): Promise<{ reason: string | null; correctedEnvironment: ApnsEnvironment | null }> {
+  const first = await sendToToken(args)
+  if (first === null) return { reason: null, correctedEnvironment: null }
+  if (first !== 'BadDeviceToken') return { reason: first, correctedEnvironment: null }
+
+  const other = otherEnvironment(args.row.environment)
+  const retry = await sendToToken({ ...args, row: { ...args.row, environment: other } })
+  if (retry === null) return { reason: null, correctedEnvironment: other }
+
+  // Rejected in both environments. Report the pair so the next reader is not sent hunting for an
+  // environment bug that is not there.
+  return { reason: `BadDeviceToken(both:${retry})`, correctedEnvironment: null }
 }
 
 /**

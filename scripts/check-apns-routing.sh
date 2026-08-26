@@ -35,8 +35,11 @@ for f in $FUNCS; do
     p="supabase/functions/$f/index.ts"
     grep -q "_shared/apns.ts" "$p" 2>/dev/null \
         || bad "$f: does not import _shared/apns.ts"
-    grep -q "await sendToToken(" "$p" 2>/dev/null \
-        || bad "$f: does not send through sendToToken"
+    # `deliver` is the entry point: it sends via sendToToken and, on BadDeviceToken, retries the
+    # other environment and reports the one that worked. A function calling sendToToken directly
+    # would send correctly but lose the self-correction, so require deliver by name.
+    grep -q "await deliver(" "$p" 2>/dev/null \
+        || bad "$f: does not send through deliver() — loses environment recovery"
 done
 
 # 3. Every function must actually select the column it routes on. Selecting without it yields
