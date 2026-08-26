@@ -109,7 +109,11 @@ The widget reads local App Group balance/cache data for display. Sensitive cache
 - Optional avatar/profile-photo upload
 - OCR-only receipt scanning with no receipt image upload
 - Exchange-rate requests to `open.er-api.com` without user identifiers
-- Local app preferences and widget/offline cache
+- Local app preferences and widget/offline cache — **note:** notification *category* preferences
+  are no longer local. Since `PUSH-01` (migration 049) they are stored in
+  `public.notification_preferences`, keyed by user id, because only the server can honour a
+  **recipient's** choice. Declared as `Other Data` (linked, App Functionality) in
+  `PrivacyInfo.xcprivacy`, and described in the published policy. Do not re-list them as local.
 - Account deletion and retained shared expense history
 
 ## Pre-Submission Checks

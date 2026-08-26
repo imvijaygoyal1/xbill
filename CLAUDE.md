@@ -116,6 +116,8 @@ side that makes the *first* attempt correct rather than the retry.
 | Archive | `1.5 (7)`, `UIDeviceFamily [1]`, region `en`, encryption `false`, 3 dSYMs, widget framework + `.appex` with `Assets.car`, Siri `nlu/` compiled |
 | DEBUG-only symbols absent from Release | `scrollContentHeight` 0 · `ReceiptCorpus` 0 · `xbill-diagnostics` 0 |
 | **Exported IPA** | **`aps-environment: production`**, distribution profile, `associated-domains` present |
+| Privacy manifest | **9** collected types — `OtherDataTypes` added for the server-stored notification preferences (linked, App Functionality, not tracking); widget manifest present in the `.appex` |
+| Privacy policy | corrected and **deployed**: the published page said preferences were *local*, which `PUSH-01` made untrue. All six endpoints 200, AASA still `application/json` |
 
 ### ⚠️ New runbook check: read `aps-environment` from the EXPORT, never the archive
 A plain `xcodebuild archive` signs with the **development** profile, which **overrides** the
@@ -126,6 +128,26 @@ This is worth a command per release: a build shipped with `development` hands ev
 a **sandbox** token, which the notify functions would post to the production host and get
 `BadDeviceToken` — silently, for everyone. That is `PUSH-02`/`PUSH-04` reproduced at the worst
 possible scale, and nothing else in the pipeline would catch it.
+
+### Privacy drift caught at submission, not by a tool
+`PUSH-01` moved notification preferences from `UserDefaults` to `public.notification_preferences`,
+and **two documents kept saying they were local** — `APPSTORE_PRIVACY_RECONCILIATION.md` and the
+**published** privacy policy, which told users their notification choices never left the phone.
+Nothing flags this: the manifest scanner checks required-reason APIs, not whether prose matches
+behaviour. **When a change moves data across the device boundary, the privacy copy is part of the
+change**, not a follow-up.
+
+`PrivacyInfo.xcprivacy` now declares `OtherDataTypes`. A per-user setting transmitted off-device
+and stored persistently meets Apple's definition of collected data, and this project has already
+been blocked once by a manifest gap (`M5`, missing Contacts) — under-declaring is the expensive
+direction.
+
+### ⚠️ `_prefPushExpense` is still in the Release binary and is NOT the old key
+`strings` finds `_prefPushExpense`: that is SwiftUI's `@State` backing storage for `ProfileView`'s
+local toggle variable, which kept its name. The **UserDefaults keys** it is named after are gone —
+`prefPushExpense`, `prefPushSettlement`, `prefPushComment` and `prefPushConfiguredAfterPermission`
+each match **0** times as exact strings. Grep for the exact key, not a substring, or this reads as
+a failed removal.
 
 ### What still needs a device once this is live
 1. **The mute path** — turn off "New Expenses", confirm no push arrives **and** the Activity row
