@@ -456,6 +456,31 @@ tested for. Fixed by pinning `TARGETED_DEVICE_FAMILY: "1"` on the app target its
 Nothing in the test suites catches this: every device run used a physical iPhone and every simulator
 run an iPhone model, so the iPad claim is only observable at App Store validation.
 
+### ⚠️ `aps-environment` — check the EXPORTED build, never the archive
+
+A plain `xcodebuild archive` signs with the **development** provisioning profile, which
+**overrides** the `production` value in `xBill/xBill.entitlements`. So the archive reports:
+
+```
+aps-environment => development        ← expected, and NOT a defect
+```
+
+Reading that off the archive is misleading in both directions: it looks broken when it is fine,
+and it cannot tell you whether the shipped build is correct. Only the App Store export re-signs
+with the distribution profile. Check there:
+
+```bash
+xcodebuild -exportArchive -archivePath X.xcarchive -exportPath out \
+  -exportOptionsPlist export.plist -allowProvisioningUpdates
+unzip -q out/xBill.ipa -d ipa
+codesign -d --entitlements - --xml ipa/Payload/xBill.app | plutil -p - | grep aps-environment
+```
+
+**Expected: `production`.** This matters more than it looks: a build shipped with `development`
+gives every App Store user a **sandbox** token, and the notify functions would post it to the
+production host and get `BadDeviceToken` — silently, for everyone. That is `PUSH-02`/`PUSH-04`
+exactly, and it is worth one command to rule out per release. Verified `production` for 1.5 (7).
+
 ### dSYMs — archive and check the UUIDs match
 
 ```bash

@@ -93,6 +93,47 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Release status — v1.5 (7) READY TO SUBMIT 2026-08-26
+
+**The release that makes push notifications work.** Delivery was device-confirmed before
+submission, not after — the server halves went live during diagnosis, so this ships the client
+side that makes the *first* attempt correct rather than the retry.
+
+| Contents | |
+|---|---|
+| `PUSH-02` | the app records which APNs environment its token belongs to |
+| `PUSH-01` | notification toggles finally mean **"notify me"**, honoured server-side; the three sender-side gates deleted; new **Friend Requests** toggle |
+| `PUSH-03` | a second device no longer silently unregisters the first; sign-out unregisters only that device |
+| `UIT-09` | the UI suite survives an erased simulator |
+
+| Check | Result |
+|---|---|
+| Unit | **483 passed**, 0 failed, 0 skipped |
+| UI regression | **22/22** on an erased simulator — first clean full run since the scroll probes were added |
+| Widget | ✅ |
+| Release build | clean |
+| Backend | handles NULL `0` · migrations local = remote through **049** · six web endpoints + AASA + Apple's CDN all 200 |
+| Archive | `1.5 (7)`, `UIDeviceFamily [1]`, region `en`, encryption `false`, 3 dSYMs, widget framework + `.appex` with `Assets.car`, Siri `nlu/` compiled |
+| DEBUG-only symbols absent from Release | `scrollContentHeight` 0 · `ReceiptCorpus` 0 · `xbill-diagnostics` 0 |
+| **Exported IPA** | **`aps-environment: production`**, distribution profile, `associated-domains` present |
+
+### ⚠️ New runbook check: read `aps-environment` from the EXPORT, never the archive
+A plain `xcodebuild archive` signs with the **development** profile, which **overrides** the
+`production` value in `xBill.entitlements`. The 1.5 archive reports `development` and that is
+**not** a defect — only the App Store export re-signs. Verified `production` on the exported IPA.
+
+This is worth a command per release: a build shipped with `development` hands every App Store user
+a **sandbox** token, which the notify functions would post to the production host and get
+`BadDeviceToken` — silently, for everyone. That is `PUSH-02`/`PUSH-04` reproduced at the worst
+possible scale, and nothing else in the pipeline would catch it.
+
+### What still needs a device once this is live
+1. **The mute path** — turn off "New Expenses", confirm no push arrives **and** the Activity row
+   still does. Only meaningful now that delivery works.
+2. **Two devices, one account** (`PUSH-03`) — both should receive.
+3. **First-attempt routing** — after this build registers, `device_tokens.environment` should be
+   written correctly at registration, so no `corrected` appears in the function report.
+
 ## Recent Fix Log — 2026-08-26 (latest) — PUSH-04: push notifications delivered, for the first time
 
 **✅ DEVICE-CONFIRMED by the owner: "I saw the push on device."** Phases 1 and 2 were both

@@ -15,12 +15,50 @@ final class RegressionUITests: XCTestCase {
     private var app: XCUIApplication!
     private struct RegressionFailure: Error {}
 
+    /// Set once per process, so the first-run cost is paid outside any single test's assertions.
+    private static var didAbsorbFirstRun = false
+
     override func setUp() async throws {
         try await super.setUp()
         continueAfterFailure = false
         executionTimeAllowance = 180
         app = XCUIApplication()
+        absorbFirstRunIfNeeded()
         launch(route: "groups")
+    }
+
+    /// Get the simulator to a signed-in, onboarded, prompt-dismissed state **before** the first
+    /// test asserts anything.
+    ///
+    /// `RELEASE_VERIFICATION.md` requires erasing the simulator before a release UI run, and
+    /// whichever test runs first then absorbs the entire cold-start cost: first launch, first
+    /// sign-in over the network, the onboarding pages (`hasCompletedOnboarding` is reset by the
+    /// erase) and the notification permission sheet (`hasPromptedNotification` likewise). Every
+    /// later test runs warm.
+    ///
+    /// Tests are ordered alphabetically, so that cost always landed on
+    /// `testAddFriendStopsScrollingAtItsContentHeight` — which failed on 2026-08-25 and 08-26 in
+    /// **three different places across three runs**: `tapTab` finding no Friends tab, the Friends
+    /// header never arriving, and the email auth form never appearing. Three symptoms, one cause:
+    /// waits tuned for a warm simulator, applied to a cold one.
+    ///
+    /// Four hypotheses were proposed and disproved before this — a permission sheet covering the
+    /// tab bar, the DEBUG route harness having no tab bar, the Friends header sitting behind a
+    /// loading branch, and plain slowness. Each was plausible; none survived a differential test.
+    /// What identified it was the ordering: **21 of 22 tests pass, and the failure is always the
+    /// alphabetically first one.**
+    ///
+    /// Deliberately tolerant: a failure here must not fail a test, because this is not the thing
+    /// under test. If it does not succeed, the test proceeds and fails on its own terms.
+    private func absorbFirstRunIfNeeded() {
+        guard !Self.didAbsorbFirstRun else { return }
+        Self.didAbsorbFirstRun = true
+
+        launchMainApp(initialTab: "groups")
+        try? signInIfNeeded()
+        dismissNotificationPromptIfNeeded(timeout: 8)
+        _ = groupSurfaceExists(timeout: 30)
+        app.terminate()
     }
 
     override func tearDown() async throws {
@@ -401,8 +439,25 @@ final class RegressionUITests: XCTestCase {
         dismissNotificationPromptIfNeeded()
         tapTab(identifier: "xBill.tab.friends", label: "Friends")
 
-        XCTAssertTrue(app.staticTexts["xBill.pageHeader.title.Friends"].waitForExistence(timeout: 12),
-                      "Friends tab did not load — the probe never reached its screen.")
+        // Report what IS on screen when the header does not arrive. The same assertion — same
+        // identifier, tighter 8s timeout — passes in
+        // `testAllTabScreensStopScrollingAtTheirContentHeight`, so the screen itself is fine and
+        // the question is what this entry path lands on instead. Four hypotheses were proposed
+        // and disproved from run logs alone (a permission sheet, the route harness, a header
+        // behind a loading branch, a slow cold start); none survived. A probe that fails without
+        // saying what it saw is what made that possible. 20s, so slowness and a wrong screen are
+        // distinguishable rather than conflated.
+        if !app.staticTexts["xBill.pageHeader.title.Friends"].waitForExistence(timeout: 20) {
+            let describe: (XCUIElement) -> String = {
+                $0.identifier.isEmpty ? "<\($0.label)>" : $0.identifier
+            }
+            let titles = app.staticTexts.allElementsBoundByIndex.prefix(30)
+                .map(describe).joined(separator: ", ")
+            let buttons = app.buttons.allElementsBoundByIndex.prefix(30)
+                .map(describe).joined(separator: ", ")
+            XCTFail("Friends tab did not load. staticTexts: [\(titles)] buttons: [\(buttons)]")
+            return
+        }
 
         let addFriend = app.buttons["xBill.friends.addButton"]
         if !addFriend.waitForExistence(timeout: 8) {
@@ -1074,11 +1129,39 @@ final class RegressionUITests: XCTestCase {
         return nil
     }
 
-    private func dismissNotificationPromptIfNeeded() {
-        let notNow = app.buttons["Not Now"].firstMatch
-        if notNow.waitForExistence(timeout: 2) {
-            _ = tapElement(notNow)
+    /// Dismiss the notification permission sheet, which is raised **asynchronously**.
+    ///
+    /// `MainTabView` shows it from a `.task` that first awaits sign-in, the initial load and
+    /// `authorizationStatus()`. A single 2-second wait raced that: on a freshly erased simulator —
+    /// which `RELEASE_VERIFICATION.md` **requires** before a release UI run — the sheet arrived
+    /// after the wait expired and then covered the tab bar for the rest of the test.
+    ///
+    /// That is how `testAddFriendStopsScrollingAtItsContentHeight` failed on 2026-08-25 with
+    /// "Could not find hittable tab Friends" while the app was signed in and on Groups. It passed
+    /// on a *dirty* simulator, where `hasPromptedNotification` was already set from an earlier run
+    /// — so the suite was green precisely when it had skipped the state it needed to handle.
+    ///
+    /// Polls instead of waiting once, and is safe to call when no sheet appears.
+    ///
+    /// ⚠️ This did **not** fix `testAddFriendStopsScrollingAtItsContentHeight` on an erased
+    /// simulator — at the moment that test fails, "Not Now" does not exist, so no sheet is
+    /// covering anything. The sheet hypothesis came from counting occurrences of "Not Now" in the
+    /// run log, which count the test *searching* for the button, not the button existing. The real
+    /// cause is still unidentified; the leading candidate is `waitForSignedInGroupsSurface`
+    /// falling back to `launch(route: "groups")`, which renders `GroupListView` directly with no
+    /// tab bar — signed in, Groups visible, no Friends tab, exactly as observed. Not confirmed.
+    @discardableResult
+    private func dismissNotificationPromptIfNeeded(timeout: TimeInterval = 5) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let notNow = app.buttons["Not Now"].firstMatch
+            if notNow.exists && notNow.isHittable {
+                _ = tapElement(notNow)
+                return true
+            }
+            usleep(300_000)
         }
+        return false
     }
 
     private func dismissSheetIfPossible() {
@@ -1426,7 +1509,36 @@ final class RegressionUITests: XCTestCase {
                 return
             }
         }
-        XCTFail("Could not find hittable tab \(label).")
+        // Nothing hittable. The commonest cause is a modal covering the tab bar — the
+        // notification permission sheet on a freshly erased simulator. Clear it and retry once
+        // before failing, so a real navigation defect is not reported as a missing tab.
+        if dismissNotificationPromptIfNeeded(timeout: 3) {
+            for candidate in [
+                app.buttons[identifier],
+                app.otherElements[identifier],
+                app.staticTexts[identifier],
+                app.tabBars.buttons[label],
+                app.buttons[label].firstMatch,
+                app.otherElements[label].firstMatch
+            ] where candidate.waitForExistence(timeout: 1) {
+                if candidate.isHittable {
+                    candidate.tap()
+                    return
+                }
+            }
+        }
+
+        // Say what was on screen instead. This failure alternates with the one in
+        // `testAddFriendStopsScrollingAtItsContentHeight` between runs, so it is non-deterministic
+        // and both variants mean "the app is not in the tab shell". Guessing from run logs
+        // produced four wrong causes; the dump is what will name it.
+        let describe: (XCUIElement) -> String = {
+            $0.identifier.isEmpty ? "<\($0.label)>" : $0.identifier
+        }
+        let onScreen = app.staticTexts.allElementsBoundByIndex.prefix(20).map(describe)
+            + app.buttons.allElementsBoundByIndex.prefix(20).map(describe)
+        XCTFail("Could not find hittable tab \(label). tabBars=\(app.tabBars.count) "
+                + "sheets=\(app.sheets.count) onScreen=[\(onScreen.joined(separator: ", "))]")
     }
 
     private func tapVisibleBackButton() {
