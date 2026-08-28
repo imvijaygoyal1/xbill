@@ -16,17 +16,16 @@ struct Split: Codable, Identifiable, Equatable, Sendable {
     let userID: UUID
     var amount: Decimal
     var percentage: Decimal?
-    /// **Legacy. Read by nothing, written by nothing.** `public.settlements` (migration 041)
-    /// replaced this as the record of who has paid whom; balances are now every split minus
-    /// every settlement. The column and these two properties are retained for one release so
-    /// the pre-migration state can be re-derived if the backfill proves wrong.
-    ///
-    /// Do not add a write path back. The one that existed — `ExpenseService.settleSplit` —
-    /// was deleted precisely because a method named "settle" that returns HTTP 200 and moves
-    /// no balance is worse than no method at all. Record a payment through
-    /// `SettlementService.recordSettlement` instead.
-    var isSettled: Bool
-    var settledAt: Date?
+    // `isSettled` / `settledAt` were removed 2026-08-27. `public.settlements` (migration 041)
+    // replaced them as the record of who has paid whom, and `netBalances` has ignored the flag
+    // since. They were still **decoded**, though — a non-optional `Bool` with a synthesised
+    // `Decodable` — which is a dependency in the direction that matters: dropping
+    // `splits.is_settled` while these existed would have thrown `keyNotFound` on every split and
+    // broken expenses and balances for every shipped client. Removing them makes the column
+    // droppable, and makes "write to the flag" unrepresentable rather than merely discouraged.
+    //
+    // The COLUMN is still there. Swift's decoder ignores unknown keys, so this model reads rows
+    // with or without it.
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -34,8 +33,6 @@ struct Split: Codable, Identifiable, Equatable, Sendable {
         case userID     = "user_id"
         case amount
         case percentage
-        case isSettled  = "is_settled"
-        case settledAt  = "settled_at"
     }
 }
 

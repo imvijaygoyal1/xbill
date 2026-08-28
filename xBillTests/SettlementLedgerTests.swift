@@ -46,8 +46,7 @@ private func expense(payer: UUID, group: UUID, amount: Decimal = 30) -> Expense 
 
 @MainActor
 private func split(_ expenseID: UUID, _ userID: UUID, _ amount: Decimal) -> Split {
-    Split(id: UUID(), expenseID: expenseID, userID: userID, amount: amount,
-          isSettled: false, settledAt: nil)
+    Split(id: UUID(), expenseID: expenseID, userID: userID, amount: amount)
 }
 
 @MainActor
@@ -104,17 +103,10 @@ struct LedgerBalanceTests {
         #expect(balances[alice] == -30)
     }
 
-    /// `is_settled` must no longer influence anything.
-    @Test("A split flagged settled still counts as debt")
-    func flagIsIgnored() {
-        let g = UUID(), alice = UUID(), bob = UUID()
-        let e = expense(payer: alice, group: g)
-        var s = split(e.id, bob, 10)
-        s.isSettled = true
-        let balances = SplitCalculator.netBalances(
-            expenses: [e], splits: [e.id: [s]], settlements: [])
-        #expect(balances[bob] == -10)
-    }
+    // `flagIsIgnored` lived here: it set `split.isSettled = true` and asserted the balance was
+    // unaffected. `Split` no longer HAS that property (2026-08-27), so the behaviour it guarded is
+    // now unrepresentable rather than merely asserted — the stronger form. Deleted rather than
+    // rewritten, because a test whose subject cannot be constructed is not a test.
 }
 
 @Suite("Settlement suggestions from the ledger")
@@ -210,11 +202,12 @@ struct BackfillEquivalenceTests {
 
     /// `WHERE s.is_settled AND e.paid_by IS NOT NULL AND e.paid_by <> s.user_id AND s.amount > 0`,
     /// projected to `(group, debtor -> payer, amount)`. Same rule as 041_settlements.sql.
-    private func applyBackfillRule(expenses: [Expense], splits: [UUID: [Split]]) -> [Settlement] {
+    private func applyBackfillRule(expenses: [Expense], splits: [UUID: [Row]]) -> [Settlement] {
         expenses.flatMap { expense -> [Settlement] in
             guard let payerID = expense.payerID else { return [] }
-            return (splits[expense.id] ?? []).compactMap { split in
-                guard split.isSettled, split.userID != payerID, split.amount > 0 else { return nil }
+            return (splits[expense.id] ?? []).compactMap { row in
+                let split = row.split
+                guard row.settled, split.userID != payerID, split.amount > 0 else { return nil }
                 return Settlement(id: UUID(), groupID: expense.groupID,
                                   fromUserID: split.userID, toUserID: payerID,
                                   amount: split.amount, currency: expense.currency,
@@ -223,10 +216,24 @@ struct BackfillEquivalenceTests {
         }
     }
 
+    /// Settled-ness is **test data now, not a model property.** `splits.is_settled` still exists
+    /// as a column, but `Split` stopped decoding it on 2026-08-27 so the column could eventually
+    /// be dropped without breaking every shipped client. This suite reproduces migration 041's
+    /// one-time backfill, which read that column, so it carries the flag alongside the split
+    /// rather than inside it.
+    private struct Row {
+        let split: Split
+        let settled: Bool
+    }
+
     private func makeSplit(_ expenseID: UUID, _ userID: UUID, _ amount: Decimal,
-                           settled: Bool) -> Split {
-        Split(id: UUID(), expenseID: expenseID, userID: userID, amount: amount,
-              isSettled: settled, settledAt: settled ? Date() : nil)
+                           settled: Bool) -> Row {
+        Row(split: Split(id: UUID(), expenseID: expenseID, userID: userID, amount: amount),
+            settled: settled)
+    }
+
+    private func splitsOnly(_ rows: [UUID: [Row]]) -> [UUID: [Split]] {
+        rows.mapValues { $0.map(\.split) }
     }
 
     private func makeExpense(group: UUID, payer: UUID?, amount: Decimal) -> Expense {
@@ -238,15 +245,15 @@ struct BackfillEquivalenceTests {
 
     /// Old model: what `netBalances` computed before this branch — settled splits skipped, no
     /// ledger. Reproduced by handing it only the unsettled splits.
-    private func oldModelBalances(expenses: [Expense], splits: [UUID: [Split]]) -> [UUID: Decimal] {
-        let unsettled = splits.mapValues { $0.filter { !$0.isSettled } }
+    private func oldModelBalances(expenses: [Expense], splits: [UUID: [Row]]) -> [UUID: Decimal] {
+        let unsettled = splits.mapValues { $0.filter { !$0.settled }.map(\.split) }
         return SplitCalculator.netBalances(expenses: expenses, splits: unsettled, settlements: [])
     }
 
     /// Fixture covering every branch of the backfill's WHERE clause, plus the cases the
     /// production data actually contains. Returns the expected number of backfill rows so the
     /// test also pins *which* splits the rule selects, not only that the totals agree.
-    private func fixture() -> (expenses: [Expense], splits: [UUID: [Split]],
+    private func fixture() -> (expenses: [Expense], splits: [UUID: [Row]],
                                members: [UUID], expectedBackfillRows: Int) {
         let group = UUID()
         let alice = UUID(), bob = UUID(), carol = UUID()
@@ -360,8 +367,9 @@ struct BackfillEquivalenceTests {
 
         let withoutGuard = expenses.flatMap { expense -> [Settlement] in
             guard let payerID = expense.payerID else { return [] }
-            return (splits[expense.id] ?? []).compactMap { split in
-                guard split.isSettled, split.userID != payerID else { return nil }
+            return (splits[expense.id] ?? []).compactMap { row in
+                let split = row.split
+                guard row.settled, split.userID != payerID else { return nil }
                 return Settlement(id: UUID(), groupID: expense.groupID,
                                   fromUserID: split.userID, toUserID: payerID,
                                   amount: split.amount, currency: expense.currency,

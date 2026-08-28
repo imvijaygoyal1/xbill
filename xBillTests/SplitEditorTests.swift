@@ -24,7 +24,7 @@ struct SplitEditorTests {
     }
     private func split(_ userID: UUID, _ amount: String) -> Split {
         Split(id: UUID(), expenseID: UUID(), userID: userID,
-              amount: Decimal(string: amount)!, isSettled: false)
+              amount: Decimal(string: amount)!)
     }
 
     /// The original question: a member who joined later must be offered, unticked.
@@ -143,7 +143,7 @@ struct PercentageSplitTests {
     }
     private func split(_ id: UUID, _ amt: String) -> Split {
         Split(id: UUID(), expenseID: UUID(), userID: id,
-              amount: Decimal(string: amt)!, isSettled: false)
+              amount: Decimal(string: amt)!)
     }
 
     /// The state a user is dropped into the moment they pick "By %".
@@ -220,7 +220,7 @@ struct PercentageProgressTests {
                  avatarURL: nil, createdAt: Date())
         }
         let splits = users.map {
-            Split(id: UUID(), expenseID: UUID(), userID: $0.id, amount: 0, isSettled: false)
+            Split(id: UUID(), expenseID: UUID(), userID: $0.id, amount: 0)
         }
         let e = SplitEditor.forEditing(existingSplits: splits, members: users, total: 100)
         e.strategy = .percentage

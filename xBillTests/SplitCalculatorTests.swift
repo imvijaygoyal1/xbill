@@ -176,9 +176,9 @@ struct SplitCalculatorTests {
         let splits: [UUID: [Split]] = [
             expense.id: [
                 // Payer's own split is skipped by the algorithm
-                Split(id: UUID(), expenseID: expense.id, userID: payerID,      amount: 20.00, percentage: nil, isSettled: false, settledAt: nil),
-                Split(id: UUID(), expenseID: expense.id, userID: participant1, amount: 20.00, percentage: nil, isSettled: false, settledAt: nil),
-                Split(id: UUID(), expenseID: expense.id, userID: participant2, amount: 20.00, percentage: nil, isSettled: false, settledAt: nil),
+                Split(id: UUID(), expenseID: expense.id, userID: payerID,      amount: 20.00, percentage: nil),
+                Split(id: UUID(), expenseID: expense.id, userID: participant1, amount: 20.00, percentage: nil),
+                Split(id: UUID(), expenseID: expense.id, userID: participant2, amount: 20.00, percentage: nil),
             ]
         ]
 
@@ -246,12 +246,12 @@ struct SplitCalculatorTests {
 
         let splits: [UUID: [Split]] = [
             firstExpense.id: [
-                Split(id: UUID(), expenseID: firstExpense.id, userID: creditorID, amount: 0.00, percentage: nil, isSettled: false, settledAt: nil),
-                Split(id: UUID(), expenseID: firstExpense.id, userID: debtorID, amount: 2.00, percentage: nil, isSettled: false, settledAt: nil)
+                Split(id: UUID(), expenseID: firstExpense.id, userID: creditorID, amount: 0.00, percentage: nil),
+                Split(id: UUID(), expenseID: firstExpense.id, userID: debtorID, amount: 2.00, percentage: nil)
             ],
             reverseExpense.id: [
-                Split(id: UUID(), expenseID: reverseExpense.id, userID: debtorID, amount: 0.00, percentage: nil, isSettled: false, settledAt: nil),
-                Split(id: UUID(), expenseID: reverseExpense.id, userID: reversePayerID, amount: 0.10, percentage: nil, isSettled: false, settledAt: nil)
+                Split(id: UUID(), expenseID: reverseExpense.id, userID: debtorID, amount: 0.00, percentage: nil),
+                Split(id: UUID(), expenseID: reverseExpense.id, userID: reversePayerID, amount: 0.10, percentage: nil)
             ]
         ]
 
@@ -293,9 +293,9 @@ struct SplitCalculatorTests {
             recurrence: .none, createdAt: Date())
         let splits: [UUID: [Split]] = [
             expense.id: [
-                Split(id: UUID(), expenseID: expense.id, userID: payerID, amount: 30.00, percentage: nil, isSettled: false, settledAt: nil),
-                Split(id: UUID(), expenseID: expense.id, userID: p1,      amount: 30.00, percentage: nil, isSettled: false, settledAt: nil),
-                Split(id: UUID(), expenseID: expense.id, userID: p2,      amount: 30.00, percentage: nil, isSettled: false, settledAt: nil),
+                Split(id: UUID(), expenseID: expense.id, userID: payerID, amount: 30.00, percentage: nil),
+                Split(id: UUID(), expenseID: expense.id, userID: p1,      amount: 30.00, percentage: nil),
+                Split(id: UUID(), expenseID: expense.id, userID: p2,      amount: 30.00, percentage: nil),
             ]
         ]
 
@@ -336,9 +336,9 @@ struct SplitCalculatorTests {
                          recurrence: .none, createdAt: Date())
 
         let splits: [UUID: [Split]] = [
-            eA.id: [Split(id: UUID(), expenseID: eA.id, userID: bID, amount: 10.00, percentage: nil, isSettled: false, settledAt: nil)],
-            eB.id: [Split(id: UUID(), expenseID: eB.id, userID: cID, amount: 10.00, percentage: nil, isSettled: false, settledAt: nil)],
-            eC.id: [Split(id: UUID(), expenseID: eC.id, userID: aID, amount: 10.00, percentage: nil, isSettled: false, settledAt: nil)],
+            eA.id: [Split(id: UUID(), expenseID: eA.id, userID: bID, amount: 10.00, percentage: nil)],
+            eB.id: [Split(id: UUID(), expenseID: eB.id, userID: cID, amount: 10.00, percentage: nil)],
+            eC.id: [Split(id: UUID(), expenseID: eC.id, userID: aID, amount: 10.00, percentage: nil)],
         ]
 
         let balances = SplitCalculator.netBalances(expenses: [eA, eB, eC], splits: splits, settlements: [])
@@ -377,8 +377,8 @@ struct SplitCalculatorTests {
             recurrence: .none, createdAt: Date())
         let splits: [UUID: [Split]] = [
             expense.id: [
-                Split(id: UUID(), expenseID: expense.id, userID: aliceID, amount: 20.00, percentage: nil, isSettled: false, settledAt: nil),
-                Split(id: UUID(), expenseID: expense.id, userID: bobID,   amount: 20.00, percentage: nil, isSettled: false, settledAt: nil),
+                Split(id: UUID(), expenseID: expense.id, userID: aliceID, amount: 20.00, percentage: nil),
+                Split(id: UUID(), expenseID: expense.id, userID: bobID,   amount: 20.00, percentage: nil),
             ]
         ]
 

@@ -501,7 +501,7 @@ struct ExpenseDetailView: View {
                 let saved = try await ExpenseService.shared.updateExpenseWithSplits(updated, splits: chosen)
                 splits = chosen.map {
                     Split(id: UUID(), expenseID: expense.id, userID: $0.userID,
-                          amount: $0.amount, isSettled: false)
+                          amount: $0.amount)
                 }
                 onUpdated?(saved)
                 isEditing = false

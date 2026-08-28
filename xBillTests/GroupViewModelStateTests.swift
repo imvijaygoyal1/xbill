@@ -104,7 +104,7 @@ private func makeExpense(id: UUID = UUID(), payerID: UUID, groupID: UUID, amount
 
 @MainActor
 private func makeSplit(expenseID: UUID, userID: UUID, amount: Decimal) -> Split {
-    Split(id: UUID(), expenseID: expenseID, userID: userID, amount: amount, isSettled: false, settledAt: nil)
+    Split(id: UUID(), expenseID: expenseID, userID: userID, amount: amount)
 }
 
 // MARK: - REV-03

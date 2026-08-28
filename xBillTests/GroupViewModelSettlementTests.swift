@@ -178,8 +178,7 @@ struct GroupViewModelPaymentTests {
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
         expenses.expenses = [e]
-        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                                 isSettled: false, settledAt: nil)]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)]
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
@@ -208,8 +207,7 @@ struct GroupViewModelPaymentTests {
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
         expenses.expenses = [e]
-        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                                 isSettled: false, settledAt: nil)]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)]
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
@@ -233,8 +231,7 @@ struct GroupViewModelPaymentTests {
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
         expenses.expenses = [e]
-        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                                 isSettled: false, settledAt: nil)]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)]
         settlements.insertError = AppError.permissionDenied
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
@@ -263,8 +260,7 @@ struct GroupViewModelPaymentTests {
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
         expenses.expenses = [e]
-        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                                 isSettled: false, settledAt: nil)]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)]
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
@@ -289,8 +285,7 @@ struct GroupViewModelPaymentTests {
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
         expenses.expenses = [e]
-        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                                 isSettled: false, settledAt: nil)]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)]
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
@@ -324,8 +319,7 @@ struct GroupViewModelPaymentTests {
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
         expenses.expenses = [e]
-        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                                 isSettled: false, settledAt: nil)]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)]
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
@@ -369,8 +363,7 @@ struct GroupViewModelPaymentTests {
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
         expenses.expenses = [e]
-        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                                 isSettled: false, settledAt: nil)]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)]
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
@@ -412,8 +405,7 @@ struct GroupViewModelPaymentTests {
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
         expenses.expenses = [e]
-        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                                 isSettled: false, settledAt: nil)]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)]
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
@@ -488,8 +480,7 @@ struct GroupViewModelPaymentTests {
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
         expenses.expenses = [e]
-        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                                 isSettled: false, settledAt: nil)]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)]
         // An unrelated payment between two other members, so the reconciling fetch below is not
         // empty. The empty-fetch case is covered separately by emptyFetchIsRefusedOnceThenTrusted.
         settlements.stored = [Settlement(id: UUID(), groupID: group.id, fromUserID: carol,
@@ -539,8 +530,7 @@ struct GroupViewModelPaymentTests {
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
         expenses.expenses = [e]
-        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                                 isSettled: false, settledAt: nil)]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)]
         let recorded = Settlement(id: UUID(), groupID: group.id, fromUserID: bob,
                                   toUserID: alice, amount: 10, currency: "USD",
                                   recordedBy: alice, createdAt: Date())
@@ -581,8 +571,7 @@ struct GroupViewModelPaymentTests {
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
         expenses.expenses = [e]
-        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                                 isSettled: false, settledAt: nil)]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)]
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
@@ -628,8 +617,7 @@ struct GroupViewModelPaymentTests {
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
         expenses.expenses = [e]
-        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                                 isSettled: false, settledAt: nil)]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)]
         // Unrelated payment between two other members, so no fetch here is ever empty and the
         // empty-response guard plays no part in what this test measures.
         settlements.stored = [Settlement(id: UUID(), groupID: group.id, fromUserID: carol,
@@ -741,8 +729,7 @@ struct GroupViewModelPaymentTests {
                         currency: "USD", payerID: alice, category: .food, notes: nil,
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
-        let split = Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                          isSettled: false, settledAt: nil)
+        let split = Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)
         let repayment = Settlement(id: UUID(), groupID: group.id, fromUserID: bob,
                                    toUserID: alice, amount: 10, currency: "USD",
                                    recordedBy: bob, createdAt: Date())
@@ -794,8 +781,7 @@ struct GroupViewModelPaymentTests {
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
         expenses.expenses = [e]
-        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                                 isSettled: false, settledAt: nil)]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)]
         // A small earlier payment by bob, so he can delete it — the isLoading hole this needs.
         let earlier = Settlement(id: UUID(), groupID: group.id, fromUserID: bob, toUserID: alice,
                                  amount: 2, currency: "USD", recordedBy: bob,
@@ -875,8 +861,7 @@ struct PaymentRecomputeIsSynchronousTests {
                         receiptURL: nil, originalAmount: nil, originalCurrency: nil,
                         recurrence: .none, nextOccurrenceDate: nil, createdAt: Date())
         expenses.expenses = [e]
-        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10,
-                                 isSettled: false, settledAt: nil)]
+        expenses.splits = [Split(id: UUID(), expenseID: e.id, userID: bob, amount: 10)]
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,

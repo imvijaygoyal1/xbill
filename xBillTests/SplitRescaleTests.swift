@@ -23,7 +23,7 @@ struct SplitRescaleTests {
 
     private func split(_ user: UUID, _ amount: String) -> Split {
         Split(id: UUID(), expenseID: UUID(), userID: user,
-              amount: Decimal(string: amount)!, isSettled: false)
+              amount: Decimal(string: amount)!)
     }
     private func sum(_ s: [Split]) -> Decimal { s.reduce(.zero) { $0 + $1.amount } }
 
