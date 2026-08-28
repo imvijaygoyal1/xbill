@@ -93,7 +93,7 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
-## Release status — v1.5 (7) SUBMITTED FOR REVIEW 2026-08-26
+## Release status — v1.5 (7) APPROVED 2026-08-27
 
 **The release that makes push notifications work.** Delivery was device-confirmed before
 submission, not after — the server halves went live during diagnosis, so this ships the client
@@ -128,6 +128,17 @@ This is worth a command per release: a build shipped with `development` hands ev
 a **sandbox** token, which the notify functions would post to the production host and get
 `BadDeviceToken` — silently, for everyone. That is `PUSH-02`/`PUSH-04` reproduced at the worst
 possible scale, and nothing else in the pipeline would catch it.
+
+### Approved 2026-08-27, first pass — including the privacy-manifest change
+Six releases, six first-pass approvals. The added `OtherDataTypes` declaration and the corrected
+privacy policy went through without a query.
+
+### Now unblocked by approval
+- **`splits.is_settled`** — approved to drop months ago, still present and read by nothing. Held
+  during every review window since; there is no longer a reason to hold it.
+- **`expenses.updated_at`** — added in migration 043 and still unread, so two people editing one
+  expense silently overwrite each other.
+- Any further migration or Edge Function work.
 
 ### Privacy drift caught at submission, not by a tool
 `PUSH-01` moved notification preferences from `UserDefaults` to `public.notification_preferences`,
