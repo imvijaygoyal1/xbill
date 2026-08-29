@@ -44,7 +44,7 @@ turns one up; do not add a new prose block.
 | Any `@Observable` ViewModel | Never construct one inline in a `navigationDestination` / `sheet` closure — SwiftUI rebuilds it on every parent re-render, wiping loaded state, and `.task` will not re-fire | *Key Pattern — Own ViewModels in @State, never inline in a view builder* |
 | Any Supabase `insert`/`update`/`delete` | Without `.select()` the SDK sends `Prefer: return=minimal` and decoding fails. Never use `.single()` to check affected rows — go through `SupabaseWrite.requireAffected` | *Supabase Insert/Update — Always Chain .select()* |
 | Any `Identifiable` model built per-refresh (`SettlementSuggestion`) | A stored `id` filled with `UUID()` gives structurally identical rows new identities on every recompute. SwiftUI rebuilds every row; inside an in-flight `List` animation `UICollectionView` aborts with "Invalid number of items in section". Derive identity from content instead of storing it | `AUDIT_REPORT.md` → `DEV-01` |
-| Settle Up / `settlements` | **Either party may record a payment** — the debtor *or* the creditor. Balances are every split minus every settlement. **`splits.is_settled`: the COLUMN still exists and must not be dropped until this ships and users adopt it.** No logic branches on it, and as of 2026-08-28 `Split` no longer *decodes* it either — which is the dependency that matters. Saying it is "read by nothing" was true of the logic and false of the decoding, and dropping the column on that basis would have thrown `keyNotFound` on every split for every shipped client. `settlements` RLS: INSERT requires `recorded_by = auth.uid()` **and** `auth.uid() IN (from_user_id, to_user_id)`; DELETE requires `recorded_by = auth.uid()`; there is **no UPDATE policy** — a correction is delete-then-record | `supabase/migrations/041_settlements.sql`, `docs/superpowers/specs/2026-07-28-settlements-ledger-design.md` |
+| Settle Up / `settlements` | **Either party may record a payment** — the debtor *or* the creditor. Balances are every split minus every settlement. **`splits.is_settled` STAYS IN THE SCHEMA PERMANENTLY — decided 2026-08-29. Do not propose dropping it again.** No logic branches on it, and as of 2026-08-28 `Split` no longer *decodes* it either. "Read by nothing" was true of the logic and false of the decoding: clients on 1.0–1.5 decode it non-optionally, so a `DROP` throws `keyNotFound` on every split and kills expenses and balances outright. **There is no force-update mechanism in this app**, so that population never provably empties — the risk has no bounded tail, and the prize is one boolean on a small table. The client change already captured the whole benefit by making a write unrepresentable. `settlements` RLS: INSERT requires `recorded_by = auth.uid()` **and** `auth.uid() IN (from_user_id, to_user_id)`; DELETE requires `recorded_by = auth.uid()`; there is **no UPDATE policy** — a correction is delete-then-record | `supabase/migrations/041_settlements.sql`, `docs/superpowers/specs/2026-07-28-settlements-ledger-design.md` |
 
 ### When you finish a piece of work
 
@@ -134,10 +134,9 @@ Six releases, six first-pass approvals. The added `OtherDataTypes` declaration a
 privacy policy went through without a query.
 
 ### Now unblocked by approval
-- **`splits.is_settled`** — **the drop is still NOT safe yet, for a reason six release notes got
-  wrong.** See the 2026-08-28 entry below: the column cannot be dropped while shipped clients
-  *decode* it, which is a different question from whether anything reads it. The client half is
-  done and verified; the column drops only after that ships and users adopt it.
+- ~~**`splits.is_settled`**~~ — **CLOSED 2026-08-29: the column stays, permanently.** It appeared on
+  this list for six consecutive releases as unpaid debt. It is not debt; see the 2026-08-28/29
+  entries below. Removed from the list so it stops resurfacing.
 - **`expenses.updated_at`** — added in migration 043 and still unread, so two people editing one
   expense silently overwrite each other.
 - Any further migration or Edge Function work.
@@ -180,9 +179,21 @@ Removing the keys stops `is_settled` being **sent** on insert as well as read. S
 omitting it gets `false` and the `splits_settled_consistency` CHECK still holds. Every remaining
 `isSettled` reference in app code belongs to `IOU`, a different model with its own live column.
 
-### Sequence to actually drop the column
-Merge this → ship it → wait for adoption → **then** `ALTER TABLE public.splits DROP COLUMN
-is_settled` (the CHECK goes with it). Do not reorder these.
+### ~~Sequence to actually drop the column~~ — the column is NOT being dropped (2026-08-29)
+The plan was merge → ship → wait for adoption → `DROP COLUMN`. **Step 3 has no end.** Every client
+on 1.0–1.5 decodes `is_settled` non-optionally, and this app has **no force-update or
+minimum-version mechanism** — verified by grep, nothing of the kind exists. So there is no date on
+which the drop becomes safe, only a date on which you decide the remaining clients don't matter,
+and the failure mode is total: `keyNotFound` on every split, expenses and balances dead.
+
+Against that: the column is one boolean on a table recorded at ~82 rows. **The client change
+already captured the entire benefit** — a write to the flag is now unrepresentable rather than
+discouraged. The `DROP` adds no simplification, no speed, nothing.
+
+**Decision: `splits.is_settled` stays in the schema permanently.** Not deferred — closed. If
+someone reopens it, the gate is a *measured* one (a client-version column written at device-token
+registration, DROP conditional on observed adoption), which is real work for a payoff of one
+boolean, and is itself the argument for leaving it alone.
 
 **Verification:** unit **482 passed, 0 failed, 0 skipped**
 (`TestResults/Coverage/2026.08.28_07-04-22-unit.xcresult`); the `Backfill equivalence` suite
@@ -1955,6 +1966,8 @@ build now live.
 
 ### Now unblocked by approval
 - **`splits.is_settled`** — approved to drop months ago, still present and read by nothing.
+  ⚠️ **Superseded 2026-08-29: the column stays permanently, and "read by nothing" was wrong** —
+  it was read by the decoder. See the 2026-08-28/29 fix log.
 - **`expenses.updated_at`** — added in 043 and still unread, so two people editing one expense
   overwrite each other silently.
 - Any further migration or Edge Function work.
@@ -2059,6 +2072,7 @@ Submitted 2026-08-22 and **approved 2026-08-22** — first pass, despite carryin
 
 ### Now unblocked by approval
 - **`splits.is_settled` drop** — held during review, safe to do now.
+  ⚠️ **Superseded 2026-08-29: it was never safe, and the column now stays permanently.**
 - **Universal links** — both halves can proceed (AASA file + entitlement).
 - Any further migration or Edge Function work.
 
@@ -2096,7 +2110,9 @@ instead; and "Executed 0 test" is XCTest's counter, which does not see Swift Tes
 widget suite had in fact run 7/7.
 
 ### Still true and unshipped
-`splits.is_settled` remains unread and undropped. The receipt corpus is git-ignored and local-only,
+`splits.is_settled` remains unread and undropped. ⚠️ **Superseded 2026-08-29 — it is now
+permanently undropped by decision, and it was never "unread": the decoder read it.**
+The receipt corpus is git-ignored and local-only,
 so no other machine can run the benchmark.
 
 ## Release status — v1.1 (2) APPROVED 2026-08-18
@@ -2869,7 +2885,7 @@ And log the **success** path, not just failures. A log that only records errors 
 | `groups` | `id uuid PK`, `name text`, `emoji text`, `currency text DEFAULT 'USD'`, `created_by uuid`, `is_archived bool`, `created_at` |
 | `group_members` | `group_id uuid`, `user_id uuid`, `joined_at` |
 | `expenses` | `id uuid PK`, `group_id uuid`, `title text`, `amount numeric`, `currency text`, `category text`, `notes text`, `paid_by uuid`, `recurrence text DEFAULT 'none'`, `next_occurrence_date timestamptz`, `created_at` |
-| `splits` | `id uuid PK`, `expense_id uuid`, `user_id uuid`, `amount numeric`, `is_settled bool` |
+| `splits` | `id uuid PK`, `expense_id uuid`, `user_id uuid`, `amount numeric`, `is_settled bool` **(deprecated, permanent — never dropped, never written; see trap index)** |
 | `comments` | `id uuid PK`, `expense_id uuid`, `user_id uuid`, `text text`, `created_at` |
 | `group_invites` | `token text PK (default: uuid stripped of dashes)`, `group_id uuid`, `created_by uuid`, `expires_at (default: +7 days)` |
 | `ious` | `id uuid PK`, `created_by uuid`, `lender_id uuid`, `borrower_id uuid`, `amount numeric`, `currency text`, `description text`, `is_settled bool`, `created_at` — CHECK: `created_by = lender_id OR created_by = borrower_id`, `lender_id != borrower_id` |
@@ -2901,7 +2917,7 @@ And log the **success** path, not just failures. A log that only records errors 
 24. `024_create_group_atomic.sql` — `create_group_with_member(p_name, p_emoji, p_currency)` SECURITY DEFINER RPC; performs group INSERT + group_members INSERT atomically; derives creator from `auth.uid()`; granted to `authenticated`.
 38. `038_block_user_rpc.sql` — `block_user(p_user_id)` SECURITY DEFINER RPC; removes any existing friend/request row for the pair, inserts a blocked row, and replaces `send_friend_request` so blocked pairs cannot create new friend requests until the block row is removed. Deployed with `supabase db push --linked` on 2026-07-15; `supabase migration list` confirmed local/remote match through `038`.
 39. `039_purge_ui_test_groups.sql` — `purge_ui_test_groups(p_execute, p_prefixes, p_created_by)` guarded cleanup RPC for UI-test-created groups. Defaults to dry-run style listing, restricts prefixes to known test patterns, and deletes only groups owned by the selected creator; existing cascades remove group members, invites, expenses, splits, and comments.
-41. `041_settlements.sql` — the settlements ledger. Replaces `splits.is_settled` as the record of who has paid whom: a payment is its own row (`from_user_id`, `to_user_id`, `amount`, `recorded_by`) and balances are derived as *every split is debt, every settlement offsets it*. RLS: group members read; **either party** may record their own (both parties bounded to the group, `is_active` deliberately not required so someone who left can still be settled with); only the recorder may delete; **no UPDATE policy at all** — corrections are delete-then-record. Backfilled one settlement per settled non-payer split (2 rows; the other 5 settled splits are payers' own shares, balance-neutral and excluded). `splits.is_settled` is retained for one release, unread, as the re-derivation source. **Deployed 2026-08-01**; the balance-equivalence check returned zero rows and per-user balances were confirmed unchanged.
+41. `041_settlements.sql` — the settlements ledger. Replaces `splits.is_settled` as the record of who has paid whom: a payment is its own row (`from_user_id`, `to_user_id`, `amount`, `recorded_by`) and balances are derived as *every split is debt, every settlement offsets it*. RLS: group members read; **either party** may record their own (both parties bounded to the group, `is_active` deliberately not required so someone who left can still be settled with); only the recorder may delete; **no UPDATE policy at all** — corrections are delete-then-record. Backfilled one settlement per settled non-payer split (2 rows; the other 5 settled splits are payers' own shares, balance-neutral and excluded). `splits.is_settled` is retained for one release, unread, as the re-derivation source. ⚠️ **Superseded 2026-08-29: retained *permanently*, not for one release** — shipped clients decode it and there is no force-update path. **Deployed 2026-08-01**; the balance-equivalence check returned zero rows and per-user balances were confirmed unchanged.
 40. `040_notifications.sql` — server-backed in-app notification rows with recipient-scoped deduplication, unread/read RLS, and indexes for Activity and APNs badge counts. **Its RLS was audited on 2026-07-28 and is correct** (SELECT/UPDATE/DELETE all `auth.uid() = recipient_id`, UPDATE with a matching `WITH CHECK`). If a read-state write ever reports zero affected rows again, RLS is not the first suspect — check whether the id is an *expense* id from a history row instead.
 
 ## File Map
