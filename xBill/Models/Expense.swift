@@ -25,6 +25,19 @@ struct Expense: Codable, Identifiable, Equatable, Sendable {
     var nextOccurrenceDate: Date?
     let createdAt: Date
 
+    /// Optimistic-concurrency token, sent back as `p_expected_updated_at`.
+    ///
+    /// **A `String`, deliberately — never a `Date`.** `timestamptz` is microsecond precision and
+    /// `Date` is a `Double`; decoding and re-encoding rounds the value, and the server comparison
+    /// would then fail against a row nobody had touched. The client has no reason to interpret
+    /// this: it is a version tag that happens to look like a time. See `ExpenseTokenTests`.
+    ///
+    /// Optional because `CacheService` holds entries written before this key existed.
+    var updatedAt: String? = nil
+
+    /// Who last edited the row, so a conflict can name them. Nil for rows predating migration 051.
+    var updatedBy: UUID? = nil
+
     // MARK: - Category
 
     enum Category: String, Codable, CaseIterable, Sendable {
@@ -141,5 +154,7 @@ struct Expense: Codable, Identifiable, Equatable, Sendable {
         case recurrence
         case nextOccurrenceDate   = "next_occurrence_date"
         case createdAt            = "created_at"
+        case updatedAt            = "updated_at"
+        case updatedBy            = "updated_by"
     }
 }
