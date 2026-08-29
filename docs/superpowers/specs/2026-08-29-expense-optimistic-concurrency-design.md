@@ -223,7 +223,8 @@ cached expense retains what it was loaded with.
 
 - `ExpenseService.updateExpense` — delete
 - `GroupViewModel.updateExpense` — delete
-- `GroupDataProviding.updateExpense` — delete the requirement, update fakes
+- `ExpenseDataProviding.updateExpense` — delete the requirement, update fakes (it is on
+  `ExpenseDataProviding`, not `GroupDataProviding`, though both live in `GroupDataProviding.swift`)
 - Add `GroupViewModel.applySavedExpense(_:)`: replace the row in `expenses`, recompute balances,
   **no network call**
 - `GroupDetailView:469` `onUpdated` → `applySavedExpense`
