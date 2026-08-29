@@ -20,7 +20,8 @@
 - **Every optional in an RPC params struct uses `encode`, never `encodeIfPresent`.** PostgREST resolves an RPC by the exact key set received; an omitted nil key makes the function "disappear" with `PGRST202` (defect SPLIT-04).
 - **Never deploy a migration without explicit user approval** (CLAUDE.md standing rule). Task 2 is the only task that touches production and is gated.
 - **SQLSTATE for a conflict is exactly `XB409`.** Match on the structured `PostgrestError.code`, never on message text.
-- Do not run `xcodegen generate` unless a Swift file is **added or removed**. This plan adds no new source files to the app target; it adds test files only.
+- **Run `xcodegen generate` immediately after creating or deleting any `.swift` file, before building.** `project.yml:154` declares `xBillTests` sources as a *directory path* and `xBill.xcodeproj/project.pbxproj` is tracked, so XcodeGen resolves that directory into explicit file references at generation time. A new test file that has not been regenerated into the project **is never compiled** — the suite passes at the old count and you have measured nothing. This plan creates two test files (Tasks 3 and 5) and deletes no source files.
+- **A suite count that did not move is a failure, not a pass.** Every task states its expected total. If the count is unchanged after adding tests, the new file is not in the project — run `xcodegen generate` and re-run before reporting anything.
 
 ---
 
@@ -383,10 +384,18 @@ struct ExpenseTokenTests {
 }
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [ ] **Step 2: Regenerate the project, then run it and watch it fail**
 
-Run: `scripts/run-coverage.sh unit --destination 'platform=iOS Simulator,id=CA2078AC-6559-4BF3-93CB-370CF27E92EA'`
-Expected: compile failure — `Expense` has no member `updatedAt`.
+The file will not compile at all until it is in the project. Run first:
+
+```bash
+xcodegen generate
+```
+
+Then: `scripts/run-coverage.sh unit --destination 'platform=iOS Simulator,id=CA2078AC-6559-4BF3-93CB-370CF27E92EA'`
+Expected: **compile failure** — `Expense` has no member `updatedAt`.
+
+If instead the suite passes at 482, the new file is not in the project: `xcodegen generate` did not run or did not pick it up. Fix that before continuing — a green run here means the test never executed.
 
 - [ ] **Step 3: Add the properties**
 
@@ -634,10 +643,18 @@ struct EditConflictMappingTests {
 }
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [ ] **Step 2: Regenerate the project, then run and watch it fail**
 
-Run: `scripts/run-coverage.sh unit --destination 'platform=iOS Simulator,id=CA2078AC-6559-4BF3-93CB-370CF27E92EA'`
-Expected: compile failure — no member `isEditConflict`.
+This task creates a new test file, so the project must be regenerated or it will never compile:
+
+```bash
+xcodegen generate
+```
+
+Then: `scripts/run-coverage.sh unit --destination 'platform=iOS Simulator,id=CA2078AC-6559-4BF3-93CB-370CF27E92EA'`
+Expected: **compile failure** — no member `isEditConflict`.
+
+If the suite instead passes at 487, the new file is not in the project. A green run here means the test never executed.
 
 - [ ] **Step 3: Implement it**
 
