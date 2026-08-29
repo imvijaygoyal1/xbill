@@ -313,7 +313,7 @@ struct BackfillEquivalenceTests {
         ]
 
         let expenses = [mixed, settled, open, orphan, zero, uneven]
-        let splits: [UUID: [Split]] = [
+        let splits: [UUID: [Row]] = [
             mixed.id: mixedSplits, settled.id: settledSplits, open.id: openSplits,
             orphan.id: orphanSplits, zero.id: zeroSplits, uneven.id: unevenSplits
         ]
@@ -328,7 +328,7 @@ struct BackfillEquivalenceTests {
         #expect(backfill.count == expectedRows)
 
         let old = oldModelBalances(expenses: expenses, splits: splits)
-        let new = SplitCalculator.netBalances(expenses: expenses, splits: splits,
+        let new = SplitCalculator.netBalances(expenses: expenses, splits: splitsOnly(splits),
                                               settlements: backfill)
 
         // Compare over the union of both key sets, not just one — a user present in only one

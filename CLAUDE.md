@@ -44,7 +44,7 @@ turns one up; do not add a new prose block.
 | Any `@Observable` ViewModel | Never construct one inline in a `navigationDestination` / `sheet` closure — SwiftUI rebuilds it on every parent re-render, wiping loaded state, and `.task` will not re-fire | *Key Pattern — Own ViewModels in @State, never inline in a view builder* |
 | Any Supabase `insert`/`update`/`delete` | Without `.select()` the SDK sends `Prefer: return=minimal` and decoding fails. Never use `.single()` to check affected rows — go through `SupabaseWrite.requireAffected` | *Supabase Insert/Update — Always Chain .select()* |
 | Any `Identifiable` model built per-refresh (`SettlementSuggestion`) | A stored `id` filled with `UUID()` gives structurally identical rows new identities on every recompute. SwiftUI rebuilds every row; inside an in-flight `List` animation `UICollectionView` aborts with "Invalid number of items in section". Derive identity from content instead of storing it | `AUDIT_REPORT.md` → `DEV-01` |
-| Settle Up / `settlements` | **Either party may record a payment** — the debtor *or* the creditor. `splits.is_settled` is no longer read or written by anything; balances are every split minus every settlement. `settlements` RLS: INSERT requires `recorded_by = auth.uid()` **and** `auth.uid() IN (from_user_id, to_user_id)`; DELETE requires `recorded_by = auth.uid()`; there is **no UPDATE policy** — a correction is delete-then-record | `supabase/migrations/041_settlements.sql`, `docs/superpowers/specs/2026-07-28-settlements-ledger-design.md` |
+| Settle Up / `settlements` | **Either party may record a payment** — the debtor *or* the creditor. Balances are every split minus every settlement. **`splits.is_settled`: the COLUMN still exists and must not be dropped until this ships and users adopt it.** No logic branches on it, and as of 2026-08-28 `Split` no longer *decodes* it either — which is the dependency that matters. Saying it is "read by nothing" was true of the logic and false of the decoding, and dropping the column on that basis would have thrown `keyNotFound` on every split for every shipped client. `settlements` RLS: INSERT requires `recorded_by = auth.uid()` **and** `auth.uid() IN (from_user_id, to_user_id)`; DELETE requires `recorded_by = auth.uid()`; there is **no UPDATE policy** — a correction is delete-then-record | `supabase/migrations/041_settlements.sql`, `docs/superpowers/specs/2026-07-28-settlements-ledger-design.md` |
 
 ### When you finish a piece of work
 
@@ -134,11 +134,60 @@ Six releases, six first-pass approvals. The added `OtherDataTypes` declaration a
 privacy policy went through without a query.
 
 ### Now unblocked by approval
-- **`splits.is_settled`** — approved to drop months ago, still present and read by nothing. Held
-  during every review window since; there is no longer a reason to hold it.
+- **`splits.is_settled`** — **the drop is still NOT safe yet, for a reason six release notes got
+  wrong.** See the 2026-08-28 entry below: the column cannot be dropped while shipped clients
+  *decode* it, which is a different question from whether anything reads it. The client half is
+  done and verified; the column drops only after that ships and users adopt it.
 - **`expenses.updated_at`** — added in migration 043 and still unread, so two people editing one
   expense silently overwrite each other.
 - Any further migration or Edge Function work.
+
+## Recent Fix Log — 2026-08-28 — `Split` stops decoding `is_settled`, and the build that never ran
+
+### "Read by nothing" was true of the logic and false of the decoding
+Six release notes in this file recorded `splits.is_settled` as safe to drop because nothing reads
+it. `netBalances` genuinely ignores it — but `Split.isSettled` was a **non-optional `Bool` with a
+synthesised `Decodable`**, and splits are fetched with `select=*`. Dropping the column would have
+omitted the key, thrown `keyNotFound` on **every split**, and broken expenses and balances for
+every client on 1.0–1.5, including the build approved the day before.
+
+**A column you never branch on is still a column you parse.** The fix is not to drop the column but
+to stop the model decoding it: Swift's decoder ignores unknown keys, so `Split` now reads rows with
+or without `is_settled`, which is what makes an eventual `DROP` safe. It also makes writing to the
+flag unrepresentable rather than discouraged by a comment.
+
+`flagIsIgnored` was deleted with it — it set `split.isSettled` and asserted balances ignored the
+flag. With the property gone that guarantee is structural, so the suite is **482**, not 483.
+
+### The branch sat unverified for a day because of the sandbox, not the toolchain
+The change was committed on 2026-08-27 with a `*** THIS HAS NEVER BEEN COMPILED ***` banner: every
+build that day wedged before compiling a single file. The variable that had never been tested was
+the **agent shell's sandbox** — the same cause already recorded in this file for 2026-07-15. Re-run
+with the sandbox disabled, it compiled in about two minutes and produced real errors.
+
+**When a build fails before producing compile output, run one differential — same command, one
+variable changed — before naming any cause.**
+
+### What the green build then caught
+Exactly what the parked commit predicted: the `BackfillEquivalenceTests` rework was half-finished.
+The fixture dictionary was annotated `[UUID: [Split]]` while holding `[Row]` values, and
+`netBalances` was handed `Row`s directly. A `splitsOnly` adapter had been written for precisely
+this and left **unwired** — dead code in the parked commit, which is why nothing referenced it.
+
+### Checked, because `Split` is `Codable` in both directions
+Removing the keys stops `is_settled` being **sent** on insert as well as read. Safe:
+`001_initial_schema.sql:169` declares `is_settled boolean not null default false`, so an INSERT
+omitting it gets `false` and the `splits_settled_consistency` CHECK still holds. Every remaining
+`isSettled` reference in app code belongs to `IOU`, a different model with its own live column.
+
+### Sequence to actually drop the column
+Merge this → ship it → wait for adoption → **then** `ALTER TABLE public.splits DROP COLUMN
+is_settled` (the CHECK goes with it). Do not reorder these.
+
+**Verification:** unit **482 passed, 0 failed, 0 skipped**
+(`TestResults/Coverage/2026.08.28_07-04-22-unit.xcresult`); the `Backfill equivalence` suite
+confirmed present **by name** with all 3 cases passing, not inferred from exit status.
+**Not verified:** nothing on a device, and no migration run — the column is deliberately untouched.
 
 ### Privacy drift caught at submission, not by a tool
 `PUSH-01` moved notification preferences from `UserDefaults` to `public.notification_preferences`,
