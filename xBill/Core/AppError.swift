@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Supabase
 
 // MARK: - ErrorAlert
 
@@ -26,6 +27,7 @@ enum AppError: LocalizedError, Equatable {
     case decodingFailed(String)
     case serverError(String)
     case validationFailed(String)
+    case editConflict
     case unknown(String)
 
     var errorDescription: String? {
@@ -46,6 +48,8 @@ enum AppError: LocalizedError, Equatable {
             return message
         case .validationFailed(let message):
             return message
+        case .editConflict:
+            return "This expense was changed by someone else"
         case .unknown(let message):
             return message
         }
@@ -57,6 +61,16 @@ enum AppError: LocalizedError, Equatable {
         // Navigation-triggered task cancellations should never surface as error alerts.
         if error is CancellationError { return .unknown("cancelled") }
         return .unknown(error.localizedDescription)
+    }
+
+    /// SQLSTATE raised by `update_expense_with_splits` when the row moved under the editor.
+    ///
+    /// Matched on the structured `code`, never on message text — see `EditConflictMappingTests`.
+    static let editConflictCode = "XB409"
+
+    static func isEditConflict(_ error: Error) -> Bool {
+        guard let pg = error as? PostgrestError else { return false }
+        return pg.code == editConflictCode
     }
 
     /// Returns true if this error should be silently ignored and never shown to the user.
