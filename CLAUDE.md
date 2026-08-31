@@ -44,7 +44,7 @@ turns one up; do not add a new prose block.
 | Any `@Observable` ViewModel | Never construct one inline in a `navigationDestination` / `sheet` closure — SwiftUI rebuilds it on every parent re-render, wiping loaded state, and `.task` will not re-fire | *Key Pattern — Own ViewModels in @State, never inline in a view builder* |
 | Any Supabase `insert`/`update`/`delete` | Without `.select()` the SDK sends `Prefer: return=minimal` and decoding fails. Never use `.single()` to check affected rows — go through `SupabaseWrite.requireAffected` | *Supabase Insert/Update — Always Chain .select()* |
 | Any `Identifiable` model built per-refresh (`SettlementSuggestion`) | A stored `id` filled with `UUID()` gives structurally identical rows new identities on every recompute. SwiftUI rebuilds every row; inside an in-flight `List` animation `UICollectionView` aborts with "Invalid number of items in section". Derive identity from content instead of storing it | `AUDIT_REPORT.md` → `DEV-01` |
-| Editing an expense (`ExpenseDetailView`, `ExpenseService`, `GroupViewModel`) | **`expenses.updated_at` is an optimistic-concurrency token, not a timestamp to display or parse.** It is an opaque `String?` on purpose — `timestamptz` is microsecond precision and `Date` is a `Double`, so decoding and re-encoding rounds it and *every* save reports a phantom conflict. Never "tidy" it into a `Date`. There is **no whole-struct `Expense` write** any more: `updateExpense` was deleted because `.update(expense)` sends the stale token back and undoes the guard. Every edit goes through `update_expense_with_splits`, which raises SQLSTATE **`XB409`** on conflict — match it with `AppError.isEditConflict`, never on message text. A nil token means "skip the check" **to the server**, so the client re-reads rather than sending one. ⚠️ Migration 051 is **written and not deployed** — until it is, the client's 9 keys hit an 8-argument function and expense editing dies with `PGRST202` | the 2026-08-31 fix log below, `supabase/migrations/051_expense_concurrency.sql`, `docs/superpowers/plans/2026-08-29-expense-optimistic-concurrency.md` |
+| Editing an expense (`ExpenseDetailView`, `ExpenseService`, `GroupViewModel`) | **`expenses.updated_at` is an optimistic-concurrency token, not a timestamp to display or parse.** It is an opaque `String?` on purpose — `timestamptz` is microsecond precision and `Date` is a `Double`, so decoding and re-encoding rounds it and *every* save reports a phantom conflict. Never "tidy" it into a `Date`. There is **no whole-struct `Expense` write** any more: `updateExpense` was deleted because `.update(expense)` sends the stale token back and undoes the guard. Every edit goes through `update_expense_with_splits`, which raises SQLSTATE **`XB409`** on conflict — match it with `AppError.isEditConflict`, never on message text. A nil token means "skip the check" **to the server**, so the client re-reads rather than sending one. Migration 051 is ✅ **deployed** (2026-08-31), but `p_expected_updated_at DEFAULT NULL` means **no shipped client sends a token yet** — the guard protects nobody until the client half ships, and 1.0–1.5 can still clobber forever | the 2026-08-31 fix log below, `supabase/migrations/051_expense_concurrency.sql`, `docs/superpowers/plans/2026-08-29-expense-optimistic-concurrency.md` |
 | Settle Up / `settlements` | **Either party may record a payment** — the debtor *or* the creditor. Balances are every split minus every settlement. **`splits.is_settled` STAYS IN THE SCHEMA PERMANENTLY — decided 2026-08-29. Do not propose dropping it again.** No logic branches on it, and as of 2026-08-28 `Split` no longer *decodes* it either. "Read by nothing" was true of the logic and false of the decoding: clients on 1.0–1.5 decode it non-optionally, so a `DROP` throws `keyNotFound` on every split and kills expenses and balances outright. **There is no force-update mechanism in this app**, so that population never provably empties — the risk has no bounded tail, and the prize is one boolean on a small table. The client change already captured the whole benefit by making a write unrepresentable. `settlements` RLS: INSERT requires `recorded_by = auth.uid()` **and** `auth.uid() IN (from_user_id, to_user_id)`; DELETE requires `recorded_by = auth.uid()`; there is **no UPDATE policy** — a correction is delete-then-record | `supabase/migrations/041_settlements.sql`, `docs/superpowers/specs/2026-07-28-settlements-ledger-design.md` |
 
 ### When you finish a piece of work
@@ -140,16 +140,18 @@ privacy policy went through without a query.
   entries below. Removed from the list so it stops resurfacing.
 - **`expenses.updated_at`** — added in migration 043 and still unread, so two people editing one
   expense silently overwrite each other.
-  ⚠️ **Partly superseded 2026-08-31.** The client half is built on branch
-  `worktree-expense-optimistic-concurrency` — the column is read, sent and matched. It is still
-  **unread in production**: migration 051 is written and **not deployed**, so the sentence above
-  remains true for every live user. See the 2026-08-31 fix log.
+  ⚠️ **Superseded 2026-08-31.** Migration 051 is **deployed**: `updated_at` is `NOT NULL DEFAULT
+  now()`, and `update_expense_with_splits` compares it and raises `XB409`. The client half is built
+  on branch `worktree-expense-optimistic-concurrency` and **not yet released** — so the sentence
+  above still describes what a live user experiences, because no shipped build sends a token. See
+  the 2026-08-31 fix log.
 - Any further migration or Edge Function work.
 
 ## Recent Fix Log — 2026-08-31 — expense edits stop overwriting each other
 
-**Branch `worktree-expense-optimistic-concurrency`. The client half is complete and green; the
-migration is written and NOT deployed, so nothing below reaches a live user yet.**
+**Branch `worktree-expense-optimistic-concurrency`. Client half complete and green; migration 051
+✅ DEPLOYED 2026-08-31 and verified against production without writing. The client half ships in
+the next release — until then the guard protects nothing, because no shipped build sends a token.**
 
 ### The defect
 `expenses.updated_at` was added by migration 043 on 2026-08-23 and **nothing ever read it**. Two
@@ -223,15 +225,43 @@ Debug and Release both build; installed and launched on the simulator.
 `neighbouringCodeDoesNotMatch` and `messageAloneIsNotAConflict` (490 total, 488 passed, 2 failed),
 leaving `exactCodeMatches` correctly passing. A matcher that cannot reject is not a matcher.
 
+### ✅ Migration 051 DEPLOYED 2026-08-31
+
+Preflight first, all read-only: 051 was the **only** pending migration (local = remote through
+050); **60 of 62** expense rows had a null `updated_at` (the plan's "roughly 46" was written on
+08-29 and the table had grown); **0** rows had a null `created_at`, so the backfill could not leave
+a NULL and `SET NOT NULL` could not abort; and exactly **1** overload existed, with the 8-argument
+signature the `DROP` names.
+
+| Check | Result |
+|---|---|
+| `migration list --linked` | `051 \| 051 \| 051` |
+| `null_tokens` | **0** |
+| Column | `is_nullable = NO`, `column_default = now()` |
+| Overloads | **1**, and it is the 9-argument signature — no orphaned 8-arg function (H-11 avoided) |
+| Grants | `anon_exec = false`, `auth_exec = true` |
+| Data | 62 expenses / 82 splits, unchanged |
+
+**Both directions of the guard were proven against production without writing a byte.** Each probe
+ran inside a `DO` block whose final `RAISE` aborts the transaction, so anything the call did was
+rolled back — the plan's bare `SELECT` would have modified a real expense if the guard had been
+broken, which is precisely the case a probe exists to detect:
+
+- stale token (`1999-01-01`) → **`sqlstate=XB409`**, "This expense was changed by someone else"
+- the row's **real** token → **accepted**, no phantom conflict — the microsecond round-trip works
+
+Afterwards the probed row was byte-identical (title `Test`, amount `5.00`, same `updated_at`,
+`updated_by` still null, 1 split) and `title LIKE 'PROBE%'` matched **0** rows.
+
 ### NOT verified — read this before believing the feature works
-- **Migration 051 is NOT deployed.** Held at the owner's direction. Production still runs the
-  8-argument RPC, so `expenses.updated_at` remains unread for every live user.
-- **No save has ever succeeded with this code.** The client sends 9 keys; against the live
-  8-argument function that is `PGRST202` and expense editing dies outright. **Deploy 051 before
-  exercising expense editing against production** — that ordering is the whole hazard.
-- **No two-device race was exercised.** The mechanism is proven by unit tests and, once deployed,
-  by a read-only stale-token call. The race itself is not. Proving it needs two accounts editing
-  one expense.
+- **No shipped client sends a token, so the guard currently protects nobody.** The server accepts
+  `p_expected_updated_at` and every build in the wild omits it, which is the `DEFAULT NULL`
+  compatibility hinge doing exactly its job. The protection begins when the client half ships.
+- **No save has ever succeeded through the app with this code.** The RPC is proven from SQL; the
+  Swift path — `currentToken()`, the 9-key payload, `handleEditConflict()` — has never round-tripped
+  against production. That is the first device check after this build installs.
+- **No two-device race was exercised.** The mechanism is proven; the race is not. It needs two
+  accounts editing one expense.
 - **Clients on 1.0–1.5 can still clobber**, by design, and will until they update.
 
 ## Recent Fix Log — 2026-08-28 — `Split` stops decoding `is_settled`, and the build that never ran
@@ -3699,6 +3729,7 @@ All 30 v3 Low defects resolved. Key changes:
 - Migration 027 ✅ — pushed to production DB (2026-05-13). CRIT-03 groups UPDATE (creator-only), M-22 groups DELETE (creator-only), CRIT-04 ious UPDATE WITH CHECK, CRIT-05 friends UPDATE (addressee, accepted/blocked only), CRIT-06 group_invites SELECT (creator or member), CRIT-07 device_tokens FOR ALL WITH CHECK, H-10 profiles email functional index, H-11 drop old 7-param add_expense_with_splits overload, M-20 join_group_via_invite single-use token (DROP+CREATE to preserve uuid return type)
 - Migration 028 ✅ — pushed to production DB (2026-05-13). M-21 creator DELETE policy on group_members so creator can remove any member.
 - Migration 050 ✅ — pushed to production DB (2026-08-29). Comment-only: records in the database that `splits.is_settled` is deprecated and permanent. No data, schema-shape or policy change. `migration list --linked` reads `050 | 050 | 050`.
+- Migration 051 ✅ — pushed to production DB (2026-08-31). `updated_by` column; `updated_at` backfilled to `created_at` on **60 of 62** rows and made `NOT NULL DEFAULT now()`; `update_expense_with_splits` DROP+CREATEd with `p_expected_updated_at timestamptz DEFAULT NULL`, raising SQLSTATE `XB409` on conflict. `migration list --linked` reads `051 | 051 | 051`; exactly **1** overload (the 9-arg one), `anon_exec = false` / `auth_exec = true`. Guard verified live in **both** directions without writing — stale token → `XB409`, real token → accepted — using a `DO` block whose closing `RAISE` rolls the probe back. ⚠️ **The client that sends the token is unreleased**, so `DEFAULT NULL` means no live user is protected yet.
 - Migration 029 ✅ — pushed to production DB (2026-05-13). M-18 group_members INSERT profile-existence check, M-19 search_profiles 2-char minimum, M-24 composite index on group_members(user_id,group_id), M-48 send_friend_request ON CONFLICT DO NOTHING with pair unique index.
 - `notify-expense` ✅ — M-23 APNs expiry 24h live (2026-05-13)
 - `notify-settlement` ✅ — M-23 APNs expiry 24h live (2026-05-13)

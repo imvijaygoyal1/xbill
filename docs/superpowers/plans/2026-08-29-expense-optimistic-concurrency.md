@@ -5,12 +5,12 @@
 > | Task | State |
 > |---|---|
 > | 1 — write migration 051 | ✅ done (`28319fa`) |
-> | **2 — deploy migration 051** | ⛔ **NOT DONE — held at the owner's direction.** Everything below is inert in production until this lands |
+> | **2 — deploy migration 051** | ✅ **DEPLOYED 2026-08-31.** `051 \| 051 \| 051`; guard proven live in both directions with zero writes. Preflight found **60 of 62** rows to backfill, not the ~46 this plan predicted |
 > | 3 — token on the model | ✅ done (`3f44a8b`) |
 > | 4 — send the token | ✅ done (`7770eec`) |
 > | 5 — map `XB409` | ✅ done (`8b16c23`) |
 > | 6 — delete the second write | ✅ done (`f1401d0`) |
-> | 7 — conflict handling in the sheet | ✅ code done (`f16a27e`); **Step 4's save check is blocked on Task 2** — 9 keys against the live 8-arg RPC is `PGRST202` |
+> | 7 — conflict handling in the sheet | ✅ code done (`f16a27e`). Step 4's save check is now **unblocked** by the deploy but **still not done** — no save has round-tripped through the app |
 > | 8 — verification + docs | ✅ docs done; full run 493/493, Release clean |
 >
 > **Two corrections to this plan, both found by running it:**
