@@ -40,8 +40,6 @@ final class FakeExpenseService: ExpenseDataProviding {
         expenses.removeAll { $0.id == id }
     }
 
-    func updateExpense(_ expense: Expense) async throws -> Expense { expense }
-
     // MARK: Recurring-expense seam
     var dueRecurring: [Expense] = []
     var dueRecurringError: Error?
@@ -180,5 +178,84 @@ struct BalanceLoadFailedFlagTests {
         await vm.load(showError: false)
 
         #expect(!vm.balanceLoadFailed)
+    }
+}
+
+/// Applying a saved expense must not hit the network. The edit has ALREADY been written by
+/// `update_expense_with_splits`; a second write was both a wasted round-trip and — once the
+/// concurrency token existed — a way to put a stale token back into the row.
+///
+/// Mirrors the payment tests, which assert a fetch count for the same reason.
+@Suite("Applying a saved expense")
+@MainActor
+struct ApplySavedExpenseTests {
+
+    @Test("Replaces the row in place rather than appending")
+    func replacesTheRowInPlace() async {
+        let group = makeGroup()
+        let fake = FakeExpenseService()
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: fake, settlementService: FakeSettlementService())
+
+        let original = makeExpense(payerID: UUID(), groupID: group.id, amount: Decimal(string: "100.00")!)
+        vm.expenses = [original]
+
+        var saved = original
+        saved.title  = "Dinner (team)"
+        saved.amount = Decimal(string: "120.00")!
+
+        await vm.applySavedExpense(saved)
+
+        #expect(vm.expenses.count == 1)
+        #expect(vm.expenses[0].title == "Dinner (team)")
+        #expect(vm.expenses[0].amount == Decimal(string: "120.00")!)
+    }
+
+    /// **This must NOT be "optimised" into a zero-fetch apply.**
+    ///
+    /// The payment paths assert a fetch count of zero, and copying that here is wrong in a way
+    /// that is invisible until someone's balance is off. `update_expense_with_splits` DELETEs and
+    /// re-INSERTs the expense's splits, so `splitsMap` is stale the instant an edit lands;
+    /// recomputing from it would show the new amount against the old shares — SPLIT-02 exactly,
+    /// the defect this whole feature is built on top of.
+    ///
+    /// A settlement is the opposite case: it cannot change a split, so its fetch is pure cost and
+    /// the suspension it introduces is what crashed `UICollectionView` on device (DEV-03).
+    ///
+    /// A read is also harmless to the concurrency guard. What had to go was the second *write*,
+    /// which sent the client's stale `updated_at` back into the row — and that is now structural:
+    /// `ExpenseDataProviding` has no expense-write method left to call.
+    @Test("Recomputes balances from freshly fetched splits, not the stale map")
+    func recomputesFromFreshSplits() async {
+        let group = makeGroup()
+        let fake = FakeExpenseService()
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: fake, settlementService: FakeSettlementService())
+
+        let original = makeExpense(payerID: UUID(), groupID: group.id, amount: Decimal(string: "100.00")!)
+        vm.expenses = [original]
+
+        var saved = original
+        saved.amount = Decimal(string: "120.00")!
+
+        let before = fake.fetchSplitsCount
+        await vm.applySavedExpense(saved)
+
+        #expect(fake.fetchSplitsCount > before,
+                "balances must be recomputed from re-read splits — the RPC replaced them")
+    }
+
+    @Test("An unknown expense is ignored rather than appended")
+    func unknownExpenseIsIgnored() async {
+        let group = makeGroup()
+        let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
+                                expenseService: FakeExpenseService(),
+                                settlementService: FakeSettlementService())
+        vm.expenses = []
+
+        let stranger = makeExpense(payerID: UUID(), groupID: group.id, amount: Decimal(string: "1.00")!)
+        await vm.applySavedExpense(stranger)
+
+        #expect(vm.expenses.isEmpty)
     }
 }

@@ -695,19 +695,16 @@ final class GroupViewModel {
         }
     }
 
-    func updateExpense(_ updated: Expense) async {
-        isLoading = true
-        defer { isLoading = false }
-        do {
-            let saved = try await expenseService.updateExpense(updated)
-            if let i = expenses.firstIndex(where: { $0.id == saved.id }) {
-                expenses[i] = saved
-            }
-            await computeBalances()
-        } catch {
-            guard !AppError.isSilent(error) else { return }
-            self.errorAlert = ErrorAlert(title: "Something went wrong", message: error.localizedDescription)
-        }
+    /// Applies an expense that has ALREADY been saved by `update_expense_with_splits`.
+    ///
+    /// Deliberately performs no network call. This used to be `updateExpense`, which wrote the
+    /// row a second time: a wasted round-trip that also put the client's stale `updated_at` back
+    /// into the row, undoing the concurrency guard microseconds after it passed. See
+    /// `ApplySavedExpenseTests`.
+    func applySavedExpense(_ saved: Expense) async {
+        guard let i = expenses.firstIndex(where: { $0.id == saved.id }) else { return }
+        expenses[i] = saved
+        await computeBalances()
     }
 
     /// Records a payment. Either party may do this; the database enforces it.

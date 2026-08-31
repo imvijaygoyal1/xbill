@@ -165,22 +165,16 @@ final class ExpenseService {
 
     // MARK: - Update
 
-    func updateExpense(_ expense: Expense) async throws -> Expense {
-        try await supabase.table("expenses")
-            .update(expense)
-            .eq("id", value: expense.id)
-            .select()
-            .single()
-            .execute()
-            .value
-    }
-
     /// Updates an expense **and replaces its splits** in one transaction (SPLIT-02).
     ///
-    /// `updateExpense` writes only the `expenses` row. Balances derive from splits, so using it
-    /// after an amount change produced an expense that displayed the new figure while everyone
-    /// still owed the old one. Every edit now goes through here so there is a single write path
-    /// and no way to change an amount without its splits following.
+    /// There is deliberately **no whole-struct `updateExpense`** any more. It wrote only the
+    /// `expenses` row, so after an amount change the expense displayed the new figure while
+    /// everyone still owed the old one — and once `updated_at` became a concurrency token it
+    /// was worse than redundant: `.update(expense)` sent the client's stale token straight back
+    /// into the row, undoing the guard microseconds after it passed. It was the only
+    /// server-bound whole-struct `Expense` write in the app, so deleting it removes the only
+    /// path that can do this, the way `settleSplit` and `fetchInvite` were deleted rather than
+    /// documented as hazardous.
     ///
     /// The RPC rejects a split set that does not sum to the amount, so a rounding mistake fails
     /// loudly here rather than becoming a balance nobody can explain.

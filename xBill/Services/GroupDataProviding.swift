@@ -21,7 +21,6 @@ protocol ExpenseDataProviding: AnyObject, Sendable {
     func fetchExpenses(groupID: UUID, limit: Int?) async throws -> [Expense]
     func fetchSplits(expenseIDs: [UUID]) async throws -> [Split]
     func deleteExpense(id: UUID) async throws
-    func updateExpense(_ expense: Expense) async throws -> Expense
     func fetchDueRecurringExpenses(groupID: UUID) async throws -> [Expense]
     func createRecurringInstance(
         templateID: UUID,
