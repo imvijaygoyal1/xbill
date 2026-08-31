@@ -498,7 +498,8 @@ struct ExpenseDetailView: View {
                     self.error = AppError.validationFailed("Choose at least one person to split this with.")
                     return
                 }
-                let saved = try await ExpenseService.shared.updateExpenseWithSplits(updated, splits: chosen)
+                let saved = try await ExpenseService.shared.updateExpenseWithSplits(
+                    updated, splits: chosen, expectedUpdatedAt: expense.updatedAt)
                 splits = chosen.map {
                     Split(id: UUID(), expenseID: expense.id, userID: $0.userID,
                           amount: $0.amount)
@@ -528,7 +529,8 @@ struct ExpenseDetailView: View {
                 input.amount = split.amount
                 return input
             }
-            let saved = try await ExpenseService.shared.updateExpenseWithSplits(updated, splits: inputs)
+            let saved = try await ExpenseService.shared.updateExpenseWithSplits(
+                updated, splits: inputs, expectedUpdatedAt: expense.updatedAt)
             splits = rescaled
             onUpdated?(saved)
             isEditing = false

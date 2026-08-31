@@ -190,14 +190,17 @@ final class ExpenseService {
     /// prevents was invisible to every server-side check: the RPC was verified with a hand-written
     /// payload that included `p_notes`, while the app omitted it whenever notes were empty.
     /// Verifying the contract is not the same as verifying what the client sends.
-    nonisolated static func updateParamsJSON(_ expense: Expense, splits: [SplitInput]) throws -> [String: Any] {
+    nonisolated static func updateParamsJSON(_ expense: Expense, splits: [SplitInput],
+                                             expectedUpdatedAt: String?) throws -> [String: Any] {
         let data = try SupabaseManager.postgrestEncoder.encode(
-            makeUpdateParams(expense, splits: splits))
+            makeUpdateParams(expense, splits: splits, expectedUpdatedAt: expectedUpdatedAt))
         return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
     }
 
-    func updateExpenseWithSplits(_ expense: Expense, splits: [SplitInput]) async throws -> Expense {
-        let params = Self.makeUpdateParams(expense, splits: splits)
+    func updateExpenseWithSplits(_ expense: Expense, splits: [SplitInput],
+                                 expectedUpdatedAt: String?) async throws -> Expense {
+        let params = Self.makeUpdateParams(expense, splits: splits,
+                                           expectedUpdatedAt: expectedUpdatedAt)
         return try await supabase.client
             .rpc("update_expense_with_splits", params: params)
             .execute()
@@ -313,6 +316,7 @@ struct UpdateExpenseParams: Encodable {
     let notes:     String?
     let paidBy:    UUID?
     let splits:    [RPCSplitParam]
+    let expectedUpdatedAt: String?
     enum CodingKeys: String, CodingKey {
         case expenseID = "p_expense_id"
         case title     = "p_title"
@@ -322,6 +326,7 @@ struct UpdateExpenseParams: Encodable {
         case notes     = "p_notes"
         case paidBy    = "p_paid_by"
         case splits    = "p_splits"
+        case expectedUpdatedAt = "p_expected_updated_at"
     }
 
     /// Hand-written because **Swift's synthesized `Encodable` omits a nil**, and PostgREST
@@ -343,11 +348,13 @@ struct UpdateExpenseParams: Encodable {
         try c.encode(notes,     forKey: .notes)     // explicit null, never omitted
         try c.encode(paidBy,    forKey: .paidBy)    // explicit null, never omitted
         try c.encode(splits,    forKey: .splits)
+        try c.encode(expectedUpdatedAt, forKey: .expectedUpdatedAt)  // explicit null, never omitted
     }
 }
 
 extension ExpenseService {
-    nonisolated static func makeUpdateParams(_ expense: Expense, splits: [SplitInput]) -> UpdateExpenseParams {
+    nonisolated static func makeUpdateParams(_ expense: Expense, splits: [SplitInput],
+                                             expectedUpdatedAt: String?) -> UpdateExpenseParams {
         UpdateExpenseParams(
             expenseID: expense.id,
             title:     expense.title,
@@ -356,7 +363,8 @@ extension ExpenseService {
             category:  expense.category.rawValue,
             notes:     expense.notes,
             paidBy:    expense.payerID,
-            splits:    splits.map { RPCSplitParam(userID: $0.userID, amount: $0.amount) }
+            splits:    splits.map { RPCSplitParam(userID: $0.userID, amount: $0.amount) },
+            expectedUpdatedAt: expectedUpdatedAt
         )
     }
 }

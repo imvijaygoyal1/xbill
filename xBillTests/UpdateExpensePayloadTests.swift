@@ -38,13 +38,14 @@ struct UpdateExpensePayloadTests {
         return i
     }
     private static let required = ["p_expense_id", "p_title", "p_amount", "p_currency",
-                                   "p_category", "p_notes", "p_paid_by", "p_splits"]
+                                   "p_category", "p_notes", "p_paid_by", "p_splits",
+                                   "p_expected_updated_at"]
 
     /// The defect, exactly: no notes must still send `p_notes`.
     @Test("A nil note is sent as an explicit null, not omitted")
     func nilNoteIsStillSent() throws {
         let json = try ExpenseService.updateParamsJSON(
-            expense(notes: nil, payer: UUID()), splits: [input("42.50")])
+            expense(notes: nil, payer: UUID()), splits: [input("42.50")], expectedUpdatedAt: nil)
         #expect(json["p_notes"] is NSNull,
                 "p_notes must be present and null — omitting it makes PostgREST search for a 7-arg function")
         for key in Self.required {
@@ -56,7 +57,7 @@ struct UpdateExpensePayloadTests {
     @Test("A nil payer is sent as an explicit null")
     func nilPayerIsStillSent() throws {
         let json = try ExpenseService.updateParamsJSON(
-            expense(notes: "x", payer: nil), splits: [input("42.50")])
+            expense(notes: "x", payer: nil), splits: [input("42.50")], expectedUpdatedAt: nil)
         #expect(json["p_paid_by"] is NSNull)
         #expect(json.keys.count == Self.required.count)
     }
@@ -66,7 +67,7 @@ struct UpdateExpensePayloadTests {
     func keySetIsInvariant() throws {
         for (notes, payer) in [(nil, nil), ("n", nil), (nil, UUID()), ("n", UUID())] as [(String?, UUID?)] {
             let json = try ExpenseService.updateParamsJSON(
-                expense(notes: notes, payer: payer), splits: [input("42.50")])
+                expense(notes: notes, payer: payer), splits: [input("42.50")], expectedUpdatedAt: nil)
             #expect(Set(json.keys) == Set(Self.required),
                     "notes=\(String(describing: notes)) payer=\(String(describing: payer)) → \(json.keys.sorted())")
         }
@@ -76,10 +77,30 @@ struct UpdateExpensePayloadTests {
     @Test("Amounts encode without float error")
     func amountsAreExact() throws {
         let json = try ExpenseService.updateParamsJSON(
-            expense(notes: nil, payer: UUID()), splits: [input("42.50")])
+            expense(notes: nil, payer: UUID()), splits: [input("42.50")], expectedUpdatedAt: nil)
         #expect("\(json["p_amount"] ?? "")".contains("42.5"))
         let splits = try #require(json["p_splits"] as? [[String: Any]])
         #expect(splits.count == 1)
         #expect(splits[0].keys.contains("user_id") && splits[0].keys.contains("amount"))
+    }
+
+    /// PostgREST resolves an RPC by the exact key set it receives, so this key must be present
+    /// even when there is no token — exactly the rule `p_notes` taught us in SPLIT-04.
+    @Test("The token key is always present, explicitly null when absent")
+    func tokenKeyIsAlwaysSent() throws {
+        let json = try ExpenseService.updateParamsJSON(
+            expense(notes: nil, payer: nil), splits: [input("42.50")],
+            expectedUpdatedAt: nil)
+        #expect(json.keys.contains("p_expected_updated_at"))
+        #expect(json["p_expected_updated_at"] is NSNull)
+    }
+
+    @Test("A token is sent verbatim, with its microseconds intact")
+    func tokenIsSentVerbatim() throws {
+        let token = "2026-08-29T14:03:11.123456+00:00"
+        let json = try ExpenseService.updateParamsJSON(
+            expense(notes: nil, payer: nil), splits: [input("42.50")],
+            expectedUpdatedAt: token)
+        #expect(json["p_expected_updated_at"] as? String == token)
     }
 }
