@@ -456,6 +456,44 @@ struct ExpenseDetailView: View {
         ))
     }
 
+    /// The token to send as `p_expected_updated_at`.
+    ///
+    /// A nil token means "skip the check" on the server. That is correct for clients on 1.0–1.5,
+    /// and WRONG here: a nil can also come from a `CacheService` entry written before the column
+    /// existed, and that first edit after upgrading — right when the app has just reopened — is
+    /// exactly the one most likely to race. So a nil forces a re-read instead of reaching the
+    /// server as "no check".
+    private func currentToken() async throws -> String? {
+        if let token = expense.updatedAt { return token }
+        return try await ExpenseService.shared.fetchExpense(id: expense.id).updatedAt
+    }
+
+    /// Refuse-and-reload. Nothing is merged and nothing is invented: the user sees the current
+    /// server state and re-applies their edit if they still want it.
+    ///
+    /// Presented through this view's own `error` surface, because feedback for a pushed screen
+    /// has to be reachable from that screen — an alert raised on the parent is invisible, or
+    /// flashes and dies mid-transition.
+    private func handleEditConflict() async {
+        isEditing = false
+        do {
+            let fresh = try await ExpenseService.shared.fetchExpense(id: expense.id)
+            let freshSplits = try await ExpenseService.shared.fetchSplits(expenseID: expense.id)
+            splits = freshSplits
+            onUpdated?(fresh)
+
+            let who = fresh.updatedBy.flatMap { id in
+                members.first(where: { $0.id == id })?.displayName
+            } ?? "Someone"
+            error = .validationFailed(
+                "\(who) changed this expense while you were editing. "
+                + "It is now \(fresh.title), \(fresh.amount.formatted(currencyCode: fresh.currency)). "
+                + "Your changes weren't saved — review theirs and try again.")
+        } catch {
+            self.error = AppError.from(error)
+        }
+    }
+
     private func saveEdit() async {
         guard let payerID = editPayerID,
               let amount = Decimal(string: editAmountText.replacingOccurrences(of: ",", with: ".")),
@@ -498,8 +536,15 @@ struct ExpenseDetailView: View {
                     self.error = AppError.validationFailed("Choose at least one person to split this with.")
                     return
                 }
-                let saved = try await ExpenseService.shared.updateExpenseWithSplits(
-                    updated, splits: chosen, expectedUpdatedAt: expense.updatedAt)
+                let token = try await currentToken()
+                let saved: Expense
+                do {
+                    saved = try await ExpenseService.shared.updateExpenseWithSplits(
+                        updated, splits: chosen, expectedUpdatedAt: token)
+                } catch let e where AppError.isEditConflict(e) {
+                    await handleEditConflict()
+                    return
+                }
                 splits = chosen.map {
                     Split(id: UUID(), expenseID: expense.id, userID: $0.userID,
                           amount: $0.amount)
@@ -529,8 +574,15 @@ struct ExpenseDetailView: View {
                 input.amount = split.amount
                 return input
             }
-            let saved = try await ExpenseService.shared.updateExpenseWithSplits(
-                updated, splits: inputs, expectedUpdatedAt: expense.updatedAt)
+            let token = try await currentToken()
+            let saved: Expense
+            do {
+                saved = try await ExpenseService.shared.updateExpenseWithSplits(
+                    updated, splits: inputs, expectedUpdatedAt: token)
+            } catch let e where AppError.isEditConflict(e) {
+                await handleEditConflict()
+                return
+            }
             splits = rescaled
             onUpdated?(saved)
             isEditing = false
