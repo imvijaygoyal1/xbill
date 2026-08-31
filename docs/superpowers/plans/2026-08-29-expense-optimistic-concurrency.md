@@ -1,5 +1,27 @@
 # Expense Optimistic Concurrency Implementation Plan
 
+> ## Status as of 2026-08-31
+>
+> | Task | State |
+> |---|---|
+> | 1 — write migration 051 | ✅ done (`28319fa`) |
+> | **2 — deploy migration 051** | ⛔ **NOT DONE — held at the owner's direction.** Everything below is inert in production until this lands |
+> | 3 — token on the model | ✅ done (`3f44a8b`) |
+> | 4 — send the token | ✅ done (`7770eec`) |
+> | 5 — map `XB409` | ✅ done (`8b16c23`) |
+> | 6 — delete the second write | ✅ done (`f1401d0`) |
+> | 7 — conflict handling in the sheet | ✅ code done (`f16a27e`); **Step 4's save check is blocked on Task 2** — 9 keys against the live 8-arg RPC is `PGRST202` |
+> | 8 — verification + docs | ✅ docs done; full run 493/493, Release clean |
+>
+> **Two corrections to this plan, both found by running it:**
+> 1. **Task 6's "performs zero fetches" assertion is wrong** and was not implemented. The RPC
+>    replaces the splits, so `applySavedExpense` must recompute from re-read splits or SPLIT-02
+>    returns. Only the second *write* was ever the problem. See `ApplySavedExpenseTests`.
+> 2. **The expected suite totals in this plan are exact** (487 → 490 → 492/493). An earlier claim
+>    that they were stale came from counting `grep -c '^Test case'` log lines, which parallel
+>    clones duplicate and truncate. Read counts from the `.xcresult`.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Stop two people editing the same xBill expense from silently overwriting each other.

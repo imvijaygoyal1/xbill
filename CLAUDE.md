@@ -44,6 +44,7 @@ turns one up; do not add a new prose block.
 | Any `@Observable` ViewModel | Never construct one inline in a `navigationDestination` / `sheet` closure — SwiftUI rebuilds it on every parent re-render, wiping loaded state, and `.task` will not re-fire | *Key Pattern — Own ViewModels in @State, never inline in a view builder* |
 | Any Supabase `insert`/`update`/`delete` | Without `.select()` the SDK sends `Prefer: return=minimal` and decoding fails. Never use `.single()` to check affected rows — go through `SupabaseWrite.requireAffected` | *Supabase Insert/Update — Always Chain .select()* |
 | Any `Identifiable` model built per-refresh (`SettlementSuggestion`) | A stored `id` filled with `UUID()` gives structurally identical rows new identities on every recompute. SwiftUI rebuilds every row; inside an in-flight `List` animation `UICollectionView` aborts with "Invalid number of items in section". Derive identity from content instead of storing it | `AUDIT_REPORT.md` → `DEV-01` |
+| Editing an expense (`ExpenseDetailView`, `ExpenseService`, `GroupViewModel`) | **`expenses.updated_at` is an optimistic-concurrency token, not a timestamp to display or parse.** It is an opaque `String?` on purpose — `timestamptz` is microsecond precision and `Date` is a `Double`, so decoding and re-encoding rounds it and *every* save reports a phantom conflict. Never "tidy" it into a `Date`. There is **no whole-struct `Expense` write** any more: `updateExpense` was deleted because `.update(expense)` sends the stale token back and undoes the guard. Every edit goes through `update_expense_with_splits`, which raises SQLSTATE **`XB409`** on conflict — match it with `AppError.isEditConflict`, never on message text. A nil token means "skip the check" **to the server**, so the client re-reads rather than sending one. ⚠️ Migration 051 is **written and not deployed** — until it is, the client's 9 keys hit an 8-argument function and expense editing dies with `PGRST202` | the 2026-08-31 fix log below, `supabase/migrations/051_expense_concurrency.sql`, `docs/superpowers/plans/2026-08-29-expense-optimistic-concurrency.md` |
 | Settle Up / `settlements` | **Either party may record a payment** — the debtor *or* the creditor. Balances are every split minus every settlement. **`splits.is_settled` STAYS IN THE SCHEMA PERMANENTLY — decided 2026-08-29. Do not propose dropping it again.** No logic branches on it, and as of 2026-08-28 `Split` no longer *decodes* it either. "Read by nothing" was true of the logic and false of the decoding: clients on 1.0–1.5 decode it non-optionally, so a `DROP` throws `keyNotFound` on every split and kills expenses and balances outright. **There is no force-update mechanism in this app**, so that population never provably empties — the risk has no bounded tail, and the prize is one boolean on a small table. The client change already captured the whole benefit by making a write unrepresentable. `settlements` RLS: INSERT requires `recorded_by = auth.uid()` **and** `auth.uid() IN (from_user_id, to_user_id)`; DELETE requires `recorded_by = auth.uid()`; there is **no UPDATE policy** — a correction is delete-then-record | `supabase/migrations/041_settlements.sql`, `docs/superpowers/specs/2026-07-28-settlements-ledger-design.md` |
 
 ### When you finish a piece of work
@@ -139,7 +140,99 @@ privacy policy went through without a query.
   entries below. Removed from the list so it stops resurfacing.
 - **`expenses.updated_at`** — added in migration 043 and still unread, so two people editing one
   expense silently overwrite each other.
+  ⚠️ **Partly superseded 2026-08-31.** The client half is built on branch
+  `worktree-expense-optimistic-concurrency` — the column is read, sent and matched. It is still
+  **unread in production**: migration 051 is written and **not deployed**, so the sentence above
+  remains true for every live user. See the 2026-08-31 fix log.
 - Any further migration or Edge Function work.
+
+## Recent Fix Log — 2026-08-31 — expense edits stop overwriting each other
+
+**Branch `worktree-expense-optimistic-concurrency`. The client half is complete and green; the
+migration is written and NOT deployed, so nothing below reaches a live user yet.**
+
+### The defect
+`expenses.updated_at` was added by migration 043 on 2026-08-23 and **nothing ever read it**. Two
+people editing the same expense therefore silently overwrote each other — last write wins, no
+conflict, no warning, and the thing being overwritten is money. It has been listed as unpaid debt
+under "Now unblocked by approval" in every release note since 1.2.
+
+The guard is a compare-and-swap inside the existing `update_expense_with_splits`: the client sends
+the `updated_at` it loaded as `p_expected_updated_at`, and the RPC updates only if the row still
+carries it, raising SQLSTATE **`XB409`** otherwise.
+
+### The second write was found during design, and deleted
+`GroupViewModel.updateExpense` wrote the row a **second** time after the RPC had already saved it —
+`.update(expense)` on the whole struct, which sends the client's **stale `updated_at` straight back
+into the row**, undoing the guard microseconds after it passed. A wasted round-trip before this
+change; a hole in the guard after it.
+
+It is **deleted**, not guarded: `ExpenseService.updateExpense` was the only server-bound
+whole-struct `Expense` write in the app, so removing it makes the clobber *unrepresentable* rather
+than discouraged by a comment. `ExpenseDataProviding` lost the requirement too, so there is no
+write method left to call. Same treatment as `settleSplit` and `fetchInvite`. Its replacement,
+`GroupViewModel.applySavedExpense`, swaps the row in place and recomputes.
+
+### The token is a `String`, and must stay one
+`timestamptz` is **microsecond** precision; Swift's `Date` is a `Double` of seconds. Decoding to a
+`Date` and re-encoding **rounds** the value, so `updated_at = p_expected_updated_at` would fail
+against a row nobody had touched and *every save would report a phantom conflict*. A guard that
+fires constantly is worse than no guard: it teaches people to ignore it. `Expense.updatedAt` is an
+opaque `String?` — never parsed, never reformatted — and `ExpenseTokenTests` fails if anyone
+"tidies" it into a `Date`.
+
+Optional because `CacheService` holds entries written before the key existed. A non-optional would
+fail to decode every one of them — the `splits.is_settled` failure in miniature, on our own cache.
+
+### A nil token forces a re-read rather than "no check"
+On the server a nil `p_expected_updated_at` means *skip the check*. That is correct for clients on
+1.0–1.5 and **wrong for this client**, because a nil can also come from a pre-upgrade cache entry —
+and the first edit after upgrading, right when the app has just reopened, is exactly the one most
+likely to race. `ExpenseDetailView.currentToken()` re-fetches instead.
+
+### `DEFAULT NULL` is the compatibility hinge — and old clients can still clobber
+`p_expected_updated_at timestamptz DEFAULT NULL` is what keeps 1.0–1.5 working: they send 8 keys,
+resolve to the same function, receive NULL, and skip the check. **They therefore remain able to
+overwrite silently, and will until they update.** That cannot be fixed without breaking them, and
+this app has no force-update mechanism.
+
+### Key Pattern — a fetch is not a write, and only the write was the problem
+The plan for `applySavedExpense` asserted **zero fetches**, copied from the payment paths where a
+fetch is pure cost and its suspension crashed `UICollectionView` (DEV-03). The test failed, and it
+was right to: `update_expense_with_splits` **DELETEs and re-INSERTs the splits**, so `splitsMap` is
+stale the instant an edit lands, and recomputing from it shows the new amount against the old
+shares — SPLIT-02 returning. A settlement cannot change a split; an edit always does. The read is
+kept, with the reasoning recorded on the test so nobody optimises it away. What had to die was the
+second *write*.
+
+### Key Pattern — `grep -c '^Test case'` is not a test count
+Three runs were reported as 533/535/539 from `grep -c` over piped `xcodebuild` output. The real
+figures were 487/490/493. Parallel test clones interleave on one stream, so lines are duplicated
+and occasionally truncated mid-word (one run logged `est case '...'`, losing the `T`). That made a
+plan-vs-actual comparison look wrong and prompted a false claim that the plan's expected totals
+were stale — they were exact. **Read counts from the result bundle**:
+`xcrun xcresulttool get test-results summary --path <bundle>.xcresult`.
+
+### Verification
+Unit **493 passed, 0 failed, 0 skipped** (`TestResults/Coverage/2026.08.31_19-36-01-unit.xcresult`),
+baseline 487. All three new suites confirmed **by name** in the bundle — `Expense concurrency
+token`, `Edit-conflict error mapping`, `Applying a saved expense` — not inferred from exit status.
+Debug and Release both build; installed and launched on the simulator.
+
+`AppError.isEditConflict` was mutation-tested: forced to `return true` it fails **exactly**
+`neighbouringCodeDoesNotMatch` and `messageAloneIsNotAConflict` (490 total, 488 passed, 2 failed),
+leaving `exactCodeMatches` correctly passing. A matcher that cannot reject is not a matcher.
+
+### NOT verified — read this before believing the feature works
+- **Migration 051 is NOT deployed.** Held at the owner's direction. Production still runs the
+  8-argument RPC, so `expenses.updated_at` remains unread for every live user.
+- **No save has ever succeeded with this code.** The client sends 9 keys; against the live
+  8-argument function that is `PGRST202` and expense editing dies outright. **Deploy 051 before
+  exercising expense editing against production** — that ordering is the whole hazard.
+- **No two-device race was exercised.** The mechanism is proven by unit tests and, once deployed,
+  by a read-only stale-token call. The race itself is not. Proving it needs two accounts editing
+  one expense.
+- **Clients on 1.0–1.5 can still clobber**, by design, and will until they update.
 
 ## Recent Fix Log — 2026-08-28 — `Split` stops decoding `is_settled`, and the build that never ran
 

@@ -1,5 +1,5 @@
 # xBill — Comprehensive Defect Audit Report
-**Last updated:** 2026-07-31
+**Last updated:** 2026-08-31
 **Scope:** All defect findings across three audit passes + security review  
 **Status:** Historical 214 findings resolved. Post-040 notification hardening is implemented locally; Edge Function deployment and physical-device verification remain release gates.
 
@@ -769,3 +769,34 @@ together, in that order.
 | **Status** | ✅ Fixed |
 | **Fix** | `Everyone` / `Just me` / `Clear` bulk actions that replace rather than merge; `allItemsAssigned` exact-matches; "Just me" hidden for non-members. `startManually` now carries `currentUserID` instead of relying on `.onAppear`. |
 | **Verification** | Unit 362/362, UI 18/18, device-confirmed. Root cause of the original nil not established — the instrumentation postdated the failing build. |
+
+## CONC-01/02 — Two people editing one expense overwrote each other (2026-08-31)
+
+Branch `worktree-expense-optimistic-concurrency`. **The client half is complete and green; migration
+051 is written and NOT deployed, so neither defect is fixed in production.** Plan and spec:
+`docs/superpowers/plans/2026-08-29-expense-optimistic-concurrency.md`.
+
+| ID | File | Issue | Status | Fix |
+|---|---|---|---|---|
+| CONC-01 | `supabase/migrations/051_expense_concurrency.sql`, `xBill/Models/Expense.swift`, `xBill/Services/ExpenseService.swift`, `xBill/Core/AppError.swift`, `xBill/Views/Expenses/ExpenseDetailView.swift` | `expenses.updated_at` was added by migration 043 on 2026-08-23 and **read by nothing**. Two people editing the same expense silently overwrote each other — last write wins, no conflict, no warning, and what is overwritten is money. Listed as unpaid debt in every release note since 1.2. | ⚠️ **Fixed on branch, NOT deployed** | Compare-and-swap inside `update_expense_with_splits`: the client sends the `updated_at` it loaded as `p_expected_updated_at`; the RPC updates only if the row still carries it and raises SQLSTATE `XB409` otherwise. `AppError.isEditConflict` matches the structured `PostgrestError.code`, never message text. `ExpenseDetailView` refuses and reloads, naming the editor from `updated_by`. |
+| CONC-02 | `xBill/ViewModels/GroupViewModel.swift`, `xBill/Services/ExpenseService.swift`, `xBill/Services/GroupDataProviding.swift`, `xBill/Views/Groups/GroupDetailView.swift` | **Found during design, not reported.** `GroupViewModel.updateExpense` wrote the expense a *second* time after `update_expense_with_splits` had already saved it. `.update(expense)` is a whole-struct write, so it sent the client's **stale `updated_at` back into the row** — undoing the guard microseconds after it passed. A wasted round-trip before CONC-01; a hole in the guard after it. | ✅ Fixed (client-only, no deploy needed) | **Deleted**, not guarded. `ExpenseService.updateExpense` was the only server-bound whole-struct `Expense` write in the app, so removing it — and the `ExpenseDataProviding` requirement — makes the clobber unrepresentable. Replaced by `GroupViewModel.applySavedExpense`, which swaps the row in place and recomputes. `grep -rn "updateExpense("` over `xBill/` and `xBillTests/` returns nothing. |
+
+### Design decisions worth not re-deriving
+
+| Decision | Why |
+|---|---|
+| The token is an opaque `String?`, never a `Date` | `timestamptz` is microsecond precision; `Date` is a `Double` of seconds. Round-tripping rounds the value, so `updated_at = p_expected_updated_at` fails against a row nobody touched and **every** save reports a phantom conflict. A guard that fires constantly teaches people to ignore it. `ExpenseTokenTests` fails if anyone converts it. |
+| Optional, not required | `CacheService` holds entries written before the key existed; a non-optional fails to decode every one — the `splits.is_settled` failure in miniature, on our own cache. |
+| A nil token forces a re-read | Nil means "skip the check" *to the server* — correct for 1.0–1.5, wrong here, because a nil can come from a pre-upgrade cache entry and the first edit after upgrading is the likeliest to race. |
+| `p_expected_updated_at DEFAULT NULL` | The compatibility hinge: 1.0–1.5 send 8 keys, resolve to the same function, and keep working. **They also remain able to clobber**, which cannot be fixed without breaking them. |
+| `applySavedExpense` still fetches | The plan asserted zero fetches, copied from the payment paths, and the test failed — correctly. The RPC DELETEs and re-INSERTs the splits, so `splitsMap` is stale and recomputing from it shows the new amount against old shares (SPLIT-02 again). A settlement cannot change a split; an edit always does. Only the *write* was ever the problem. |
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Unit | **493 passed, 0 failed, 0 skipped** (`TestResults/Coverage/2026.08.31_19-36-01-unit.xcresult`), baseline 487 |
+| Suites by name | `Expense concurrency token`, `Edit-conflict error mapping`, `Applying a saved expense` — all three confirmed in the result bundle, not inferred from exit status |
+| Mutation test | `isEditConflict` forced to `return true` fails **exactly** `neighbouringCodeDoesNotMatch` and `messageAloneIsNotAConflict` (490 total, 488 passed, 2 failed); `exactCodeMatches` correctly still passes |
+| Builds | Debug and Release both clean; installed and launched on the simulator |
+| **Not verified** | **Migration 051 undeployed** — production runs the 8-argument RPC and `updated_at` stays unread. **No save has ever succeeded with this code**: 9 keys against the 8-argument function is `PGRST202`, so expense editing dies until 051 lands. **No two-device race was exercised** — the mechanism is proven, the race is not. **Clients on 1.0–1.5 can still clobber**, by design, until they update. |
