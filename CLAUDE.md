@@ -253,13 +253,41 @@ broken, which is precisely the case a probe exists to detect:
 Afterwards the probed row was byte-identical (title `Test`, amount `5.00`, same `updated_at`,
 `updated_by` still null, 1 split) and `title LIKE 'PROBE%'` matched **0** rows.
 
+### ✅ The client path round-trips against production — verified 2026-08-31
+
+`testExpenseEditSendsConcurrencyTokenRegression` (new, in `RegressionUITests`) drives the real
+thing: sign in → create a disposable `Regression-` group → add an expense at 42.50 → open it → Edit
+→ 55.25 → Save. It passed, and it is the check that would have caught the ordering hazard, because
+a client sending 9 keys to an unmigrated database resolves to no function and dies with `PGRST202`
+— which no unit test can see, since PostgREST resolves an RPC by the exact key set it receives.
+
+**Confirmed in the data, not on screen**, and an earlier run that failed before reaching the edit
+left a natural control:
+
+| Expense | amount | `updated_at` vs `created_at` | `updated_by` |
+|---|---|---|---|
+| edited | **55.25** | **advanced** (00:14:15 vs 00:13:44) | **`6180290a…`** |
+| never edited | 42.50 | identical | `null` |
+
+`updated_by` **only exists as of 051**, so a populated value is direct proof the new 9-argument
+function ran rather than some fallback. Both disposable groups were then purged
+(`scripts/purge-ui-test-groups.sh --execute`); production is back to 62 expenses / 82 splits with
+`null_tokens = 0`.
+
+Three accessibility identifiers were added to reach it — `xBill.expenseDetail.actions`,
+`xBill.expenseDetail.editButton`, `xBill.editExpense.amountField`,
+`xBill.editExpense.saveButton`. They are a contract with the suite; do not rename them.
+
+⚠️ **Two traps cost a run each here.** A bare `xcodebuild` **omits the UI-test credentials** and
+fails with "Set XBILL_TEST_EMAIL…", which reads like a crash because the summary says
+*"Executed 0 tests… Restarting after unexpected exit"* — export them from
+`xBillUITests/UITestCredentials.plist` or go through `scripts/run-coverage.sh`. And the expense
+overflow menu had **no accessibility label at all**, unlike `GroupDetailView`'s "Group actions".
+
 ### NOT verified — read this before believing the feature works
-- **No shipped client sends a token, so the guard currently protects nobody.** The server accepts
-  `p_expected_updated_at` and every build in the wild omits it, which is the `DEFAULT NULL`
-  compatibility hinge doing exactly its job. The protection begins when the client half ships.
-- **No save has ever succeeded through the app with this code.** The RPC is proven from SQL; the
-  Swift path — `currentToken()`, the 9-key payload, `handleEditConflict()` — has never round-tripped
-  against production. That is the first device check after this build installs.
+- **No *shipped* client sends a token, so live users are not protected yet.** The server accepts
+  `p_expected_updated_at` and every build in the wild omits it — the `DEFAULT NULL` compatibility
+  hinge doing its job. Protection begins when this branch ships.
 - **No two-device race was exercised.** The mechanism is proven; the race is not. It needs two
   accounts editing one expense.
 - **Clients on 1.0–1.5 can still clobber**, by design, and will until they update.

@@ -94,6 +94,65 @@ final class RegressionUITests: XCTestCase {
         )
     }
 
+    /// CONC-01. The optimistic-concurrency guard (migration 051) is unreachable from the unit
+    /// suite: it lives in `saveEdit()`, which builds a 9-key RPC payload and talks to PostgREST.
+    ///
+    /// This is the check that would have caught the ordering hazard the plan warns about — a
+    /// client sending `p_expected_updated_at` to a database that has not been migrated resolves
+    /// to no function at all and fails with `PGRST202`, killing expense editing outright. A green
+    /// unit suite says nothing about it, because PostgREST resolves an RPC by the exact key set
+    /// it receives and no test in this project sends one.
+    ///
+    /// Uses its own disposable `Regression-` group, never a real user's expense.
+    func testExpenseEditSendsConcurrencyTokenRegression() throws {
+        try signInIfNeeded()
+
+        let groupName = uniqueName(prefix: "Regression")
+        let expenseTitle = "Concurrency \(uniqueSuffix())"
+
+        try createGroup(named: groupName)
+        try openGroup(named: groupName)
+        try addExpense(title: expenseTitle, amount: "42.50")
+
+        let expenseRow = expenseRowButton(title: expenseTitle)
+        XCTAssertTrue(expenseRow.waitForExistence(timeout: 8), "Saved expense should appear before editing.")
+        expenseRow.tap()
+        XCTAssertTrue(app.otherElements["xBill.expenseDetail.screen"].waitForExistence(timeout: 8)
+                      || app.staticTexts[expenseTitle].waitForExistence(timeout: 4),
+                      "Expense detail should open.")
+
+        let actions = app.buttons["xBill.expenseDetail.actions"]
+        XCTAssertTrue(actions.waitForExistence(timeout: 8), "Expense overflow menu should be available.")
+        XCTAssertTrue(tapElement(actions), "Expense overflow menu should be tappable.")
+
+        let editButton = app.buttons["xBill.expenseDetail.editButton"]
+        XCTAssertTrue(editButton.waitForExistence(timeout: 4), "Edit Expense action should be available.")
+        editButton.tap()
+
+        let amountField = app.textFields["xBill.editExpense.amountField"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 6), "Edit sheet amount field should be visible.")
+        clearAndType("55.25", into: amountField)
+        dismissKeyboardIfNeeded()
+
+        let save = app.buttons["xBill.editExpense.saveButton"]
+        XCTAssertTrue(save.waitForExistence(timeout: 4), "Edit sheet should expose Save.")
+        save.tap()
+
+        // The whole point: the save must COMPLETE. Against an unmigrated database this fails with
+        // PGRST202 and the sheet stays up with an alert, so a dismissed sheet is the signal.
+        XCTAssertFalse(app.staticTexts["Edit Expense"].waitForExistence(timeout: 8),
+                       "Edit sheet should dismiss on a successful save — it stays up on PGRST202.")
+
+        let failureAlert = app.alerts.firstMatch
+        if failureAlert.waitForExistence(timeout: 2) {
+            XCTFail("Saving the edit raised an alert: \(failureAlert.label)")
+        }
+
+        XCTAssertTrue(waitForLabel(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "55.25")).firstMatch,
+                                   toContain: "55.25", timeout: 8),
+                      "Edited amount should be reflected after the save round-trips.")
+    }
+
     func testPaymentReturnSurvivesAppReactivationRegression() throws {
         try signInIfNeeded()
 

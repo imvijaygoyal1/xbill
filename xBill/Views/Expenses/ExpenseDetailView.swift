@@ -171,6 +171,7 @@ struct ExpenseDetailView: View {
                     Button { openEditSheet() } label: {
                         Label("Edit Expense", systemImage: "pencil")
                     }
+                    .accessibilityIdentifier("xBill.expenseDetail.editButton")
                     Button(role: .destructive) {
                         showDeleteConfirm = true
                     } label: {
@@ -179,6 +180,8 @@ struct ExpenseDetailView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
+                .accessibilityLabel("Expense actions")
+                .accessibilityIdentifier("xBill.expenseDetail.actions")
             }
         }
         .task {
@@ -323,6 +326,7 @@ struct ExpenseDetailView: View {
                         TextField("0.00", text: $editAmountText)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .accessibilityIdentifier("xBill.editExpense.amountField")
                     }
 
                     Picker("Category", selection: $editCategory) {
@@ -394,6 +398,7 @@ struct ExpenseDetailView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { Task { await saveEdit() } }
+                        .accessibilityIdentifier("xBill.editExpense.saveButton")
                         .disabled(editTitle.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
                         .overlay {
                             if isSaving {
