@@ -75,6 +75,7 @@ struct XBillPaymentHandleRow: View {
             HStack(spacing: AppSpacing.sm) {
                 Image(systemName: systemImage)
                     .font(.appIcon)
+                    .xbillSymbol()
                     .foregroundStyle(AppColors.primary)
                     .frame(width: XBillIcon.categorySize, height: XBillIcon.categorySize)
                     .background(AppColors.surfaceSoft)
@@ -128,6 +129,7 @@ struct XBillSettingsRow<Trailing: View>: View {
         HStack(spacing: AppSpacing.md) {
             Image(systemName: icon)
                 .font(.appIcon)
+                .xbillSymbol()
                 .foregroundStyle(foregroundColor)
                 .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                 .background(backgroundColor)

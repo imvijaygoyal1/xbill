@@ -15,6 +15,7 @@ struct XBillArchivedRow: View {
         HStack(spacing: AppSpacing.md) {
             Image(systemName: icon)
                 .font(.appIcon)
+                .xbillSymbol()
                 .foregroundStyle(AppColors.primary)
                 .frame(width: AppSpacing.tapTarget, height: AppSpacing.tapTarget)
                 .background(AppColors.surfaceSoft)

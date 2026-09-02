@@ -32,6 +32,16 @@ enum AppColors {
     static let moneyNegativeBg = adaptive(light: "#FFF0F0", dark: "#3B2027")
     static let moneySettledBg  = adaptive(light: "#F0EFF2", dark: "#242033")
 
+    /// Glyph colour for a symbol drawn on a `Cat*` category swatch.
+    ///
+    /// ICON-02: this was `primary` in both appearances. The `Cat*` colorsets carry dark variants
+    /// that darken underneath the glyph while `#6C35FF` does not move, so every one of the eight
+    /// category icons sat at **2.34–2.50:1** in dark mode — below the 3:1 non-text minimum. Light
+    /// mode was ~5.1:1 throughout, which is why this survived every screenshot review.
+    /// `primaryLight` in dark takes the set to **6.01–6.41:1** and leaves light mode untouched.
+    /// Recompute both appearances before changing either side; do not eyeball it.
+    static let categoryGlyph = adaptive(light: "#6C35FF", dark: "#B79CFF")
+
     static let inputBackground = adaptive(light: "#FFFFFF", dark: "#1A1724")
     static let inputBorder     = adaptive(light: "#E7E0F7", dark: "#332D45")
 

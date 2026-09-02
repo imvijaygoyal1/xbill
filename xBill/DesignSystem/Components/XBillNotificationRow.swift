@@ -67,7 +67,9 @@ struct XBillNotificationRow: View {
         case .settlementMade:
             Image(systemName: "checkmark.circle.fill")
                 .font(.appIcon)
-                .foregroundStyle(AppColors.success)
+                // Palette, not hierarchical: the tick and its disc carry different meaning, and a
+                // hierarchical fade would dim the tick — the part that says "settled".
+                .xbillSymbol(palette: AppColors.surface, AppColors.success)
                 .frame(width: XBillIcon.categorySize, height: XBillIcon.categorySize)
                 .background(AppColors.moneySettledBg)
                 .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
@@ -75,6 +77,7 @@ struct XBillNotificationRow: View {
         case .commentAdded:
             Image(systemName: "bubble.left.and.bubble.right.fill")
                 .font(.appIcon)
+                .xbillSymbol()
                 .foregroundStyle(AppColors.primary)
                 .frame(width: XBillIcon.categorySize, height: XBillIcon.categorySize)
                 .background(AppColors.primary.opacity(0.12))
@@ -83,6 +86,9 @@ struct XBillNotificationRow: View {
         case .friendRequest:
             Image(systemName: "person.badge.plus.fill")
                 .font(.appIcon)
+                // Multi-layer glyph: the badge is a separate layer, so hierarchical rendering
+                // actually changes this one rather than being a no-op.
+                .xbillSymbol()
                 .foregroundStyle(AppColors.primary)
                 .frame(width: XBillIcon.categorySize, height: XBillIcon.categorySize)
                 .background(AppColors.primary.opacity(0.12))

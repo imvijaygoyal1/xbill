@@ -147,6 +147,79 @@ privacy policy went through without a query.
   the 2026-08-31 fix log.
 - Any further migration or Edge Function work.
 
+## Recent Fix Log — 2026-09-01 — ICON-01/02: the category-icon fix that shipped to one screen
+
+### `Expense.Category` carried three symbol vocabularies, and the corrected one was not the one drawn
+`XBillCategoryIcon` read `Expense.Category.symbolName`, declared at the bottom of
+`XBillVisualAssets.swift`. `Expense.Category.systemImage`, in `Models/Expense.swift`, is rendered
+from **one** place — `ReceiptReviewView.swift:243`. A third, `var emoji` in `CategoryIconView.swift`,
+had zero call sites.
+
+Commit `1eed83e` (2026-08-16), *"Fix three colliding or misleading category icons"*, corrected
+`systemImage`. So from that day the fix was live on one screen and absent from the four people
+actually use: expense rows, notification rows, Add Expense chips, Group Details filter chips. The
+copy those drew still mapped `.accommodation` to **`house.fill`** — the Home tab's glyph
+(`MainTabView.swift:40`), the exact collision the comment at `Expense.swift:79` forbids — and
+`.other` to **`sparkles`**, which since iOS 18 reads as Apple Intelligence.
+
+`symbolName` and `emoji` are **deleted**, not deprecated, and a comment block stands where
+`symbolName` was. `NATIVE_PATTERNS.md:159` documented a **fourth** table matching none of the three;
+it is now corrected to cite the enum instead of restating it.
+
+### ICON-02 — the whole set failed contrast in dark mode, and only in dark mode
+The glyph was pinned `.foregroundStyle(AppColors.primary)` (`#6C35FF`) while the `Cat*` colorsets
+carry dark variants that darken underneath it. All eight sat at **2.34–2.50:1**, under the 3:1
+non-text minimum. Light mode was 5.05–5.26:1 throughout — which is why it survived every review:
+**the failure does not exist in the appearance screenshots are taken in.**
+
+New `AppColors.categoryGlyph = adaptive(light: "#6C35FF", dark: "#B79CFF")`. Dark becomes
+**6.01–6.41:1**; light is byte-identical. `primaryLight` was chosen over `textPrimary` so the brand
+purple survives the fix rather than being traded for plain white.
+
+### Key Pattern — a fix is only applied where the code reads the thing you fixed
+Before correcting a value, grep for **who reads it**. `1eed83e` was correct, well-reasoned and
+carried explanatory comments, and it moved nothing a user saw, because a second property with the
+same job sat closer to the view. This is the fifth instance in this project of two things meant to
+agree drifting apart (`INV-01`…`INV-04`, `SPLIT-05`, `UIT-01`), and the first where the drift
+silently absorbed a fix.
+
+### Key Pattern — an appearance-conditional defect needs an appearance-conditional test
+`CategoryIconContrastTests` resolves the real `UIColor` through
+`resolvedColor(with: UITraitCollection(userInterfaceStyle:))` for **both** appearances. A test that
+resolves in the default appearance reports light-mode numbers and passes against the live defect —
+it would have been a guard that cannot fire, the failure mode already recorded here three times
+(`SCAN-02`, `PUSH-01`, `UIT-01`).
+
+### ⚠️ `grep` over test output invented 7 failures on a run the bundle reports as clean
+`grep -cE '^Test case.*failed'` returned **7**; `xcresulttool` returned **0 failed / 505 passed**.
+Seven *passing* tests have "failed" in their names (`failedArchiveDoesNotLie`, `failedFetchIsQuiet`,
+`failedLoadKeepsStoredItems`, `failedWriteRollsBack`, `failedInsertIsReported`,
+`failedDeleteRestoresInPlace`, `failedDeleteRollsBack`). Same lesson as the 2026-08-31 entry, new
+disguise: **never derive a pass/fail count from piped output.**
+
+### ICON-06 — the symbol layer
+`DesignSystem/Components/XBillSymbol.swift` (new): `xbillSymbol()` for hierarchical rendering and
+`xbillSymbol(palette:_:)` for glyphs whose colour is information. Adopted at 8 component-level
+sites. Before this the app used **none** of SF Symbols' rendering system — zero
+`symbolRenderingMode`, zero `symbolVariant`, zero `imageScale`, zero `symbolEffect` across 47 call
+sites, despite `NATIVE_PATTERNS.md` §3 requiring the first two. It is a modifier so the rule lives
+in one place; `symbolEffect` and the 17 fixed-point-size symbols remain open.
+
+### Verification
+Unit **505 passed, 0 failed, 0 skipped** (baseline 493); both new suites confirmed **by name** in
+the result bundle. Debug and Release both build; installed and launched on the iPhone 17 Pro
+**iOS 26.4** simulator (`D6EB3CD2-618C-4B60-A6F5-7A9DA65CFE8F`) — *not* the iOS 26.2 device named
+under Simulator below, per the standing rule to use the newest runtime.
+
+**Mutation-tested, exactly:** restoring `house.fill`, `sparkles` and the non-adaptive glyph fails
+**exactly 3** tests — `glyphIsLegibleOnItsSwatch` (all 8 arguments), `noReservedGlyphs`,
+`noTabBarCollision` — while `symbolsAreUnique`, `symbolsAreNonEmpty`,
+`measurementRejectsThePreFixColour` and `lightModeStillUsesPrimary` correctly still pass.
+
+**NOT verified:** nothing was seen on a signed-in screen. `XBillCategoryIcon` is reachable only past
+auth; the UI regression test driving it was killed at a 10-minute budget. A dark-mode look at the
+Add Expense category chips is still owed.
+
 ## Recent Fix Log — 2026-08-31 — expense edits stop overwriting each other
 
 **Branch `worktree-expense-optimistic-concurrency`. Client half complete and green; migration 051

@@ -153,11 +153,22 @@ Image(systemName: "dollarsign.circle.fill")
     .foregroundColor(.purple)  // kills the multicolor intent
 ```
 
-### Category icons in xBill (CategoryIconView)
-Map expense categories to SF Symbols. Use `.symbolVariant(.fill)` on selected state only.
+### Category icons in xBill
+Rendered by `XBillCategoryIcon` (`DesignSystem/Components/XBillVisualAssets.swift`).
 
-| Category | Symbol |
-|---|---|
+**The symbol vocabulary is `Expense.Category.systemImage` in `Models/Expense.swift` — the single
+source. It is deliberately not restated here.** A table in this file previously listed a fourth,
+different set of symbols and matched none of the three that existed in code (ICON-01); a doc that
+duplicates an enum is a doc that contradicts it. Read the enum, which carries its reasoning in
+comments.
+
+Rules that do belong here:
+- Glyph colour is `AppColors.categoryGlyph`, never `AppColors.primary` — the swatch has dark
+  appearance variants and a pinned glyph fails contrast in dark mode (ICON-02).
+- Apply `.xbillSymbol()` (hierarchical) to symbols; `.xbillSymbol(palette:_:)` where the colour
+  carries meaning rather than decoration.
+
+---|---|
 | Food & Drink | `fork.knife` |
 | Transport | `car.fill` |
 | Accommodation | `house.fill` |

@@ -7,21 +7,13 @@
 
 import SwiftUI
 
-// Extends the existing Expense.Category model with visual properties
+// Extends the existing Expense.Category model with visual properties.
+//
+// ICON-01: `var emoji` was declared here and is **deleted** — it was the third symbol vocabulary
+// on this enum and had zero call sites. The symbol vocabulary is `Expense.Category.systemImage`
+// (`Models/Expense.swift`); the group-level emoji this was confused with is `BillGroup.emoji`,
+// which is user-chosen data, not a design token.
 extension Expense.Category {
-
-    var emoji: String {
-        switch self {
-        case .food:          return "🍕"
-        case .transport:     return "✈️"
-        case .accommodation: return "🏠"
-        case .entertainment: return "🎬"
-        case .utilities:     return "⚡️"
-        case .shopping:      return "🛍️"
-        case .health:        return "💊"
-        case .other:         return "💸"
-        }
-    }
 
     var categoryBackground: Color {
         switch self {
