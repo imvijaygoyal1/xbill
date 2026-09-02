@@ -78,15 +78,14 @@ final class ExpenseService {
         let splitParams = splits.filter(\.isIncluded).map {
             RPCSplitParam(userID: $0.userID, amount: $0.amount)
         }
-        let params = AddExpenseRPCParams(
+        let params = Self.makeAddParams(
             groupID:             groupID,
-            paidBy:              payerID,
+            payerID:             payerID,
             amount:              amount,
             title:               title,
             category:            category.rawValue,
             currency:            currency,
             notes:               notes,
-            receiptURL:          nil,
             splits:              splitParams,
             originalAmount:      originalAmount,
             originalCurrency:    originalCurrency,
@@ -266,7 +265,10 @@ struct RPCSplitParam: Encodable {
     }
 }
 
-private struct AddExpenseRPCParams: Encodable {
+/// The exact body sent to `add_expense_with_splits`.
+///
+/// **Every key is encoded with `encode`, never `encodeIfPresent`** — see `encode(to:)` below.
+struct AddExpenseRPCParams: Encodable {
     let groupID:             UUID
     let paidBy:              UUID
     let amount:              Decimal
@@ -294,6 +296,79 @@ private struct AddExpenseRPCParams: Encodable {
         case originalCurrency    = "p_original_currency"
         case recurrence          = "p_recurrence"
         case nextOccurrenceDate  = "p_next_occurrence_date"
+    }
+
+    /// Hand-written for the same reason `UpdateExpenseParams` is: **Swift's synthesized
+    /// `Encodable` omits a nil**, and PostgREST resolves an RPC by the exact key set it receives.
+    ///
+    /// That is SPLIT-04, which shipped in 1.3 and broke expense editing with `PGRST202`. The
+    /// create path was never given the same treatment. It has not misbehaved, but only by luck:
+    /// all five optional parameters here happen to be `DEFAULT NULL` on the server, so omitting
+    /// them produced the same result as sending null. Verified against production 2026-08-31 —
+    /// `p_notes`, `p_receipt_url`, `p_original_amount`, `p_original_currency` and
+    /// `p_next_occurrence_date` are each `DEFAULT NULL`.
+    ///
+    /// Relying on that is relying on a coincidence between two files that nothing keeps in sync:
+    /// change one default to a non-null, or drop one, and the omitted-key payload silently
+    /// resolves somewhere else or not at all. Sending all 13 keys makes the payload a fixed
+    /// contract instead. Behaviour is identical today; the failure mode is removed.
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(groupID,            forKey: .groupID)
+        try c.encode(paidBy,             forKey: .paidBy)
+        try c.encode(amount,             forKey: .amount)
+        try c.encode(title,              forKey: .title)
+        try c.encode(category,           forKey: .category)
+        try c.encode(currency,           forKey: .currency)
+        try c.encode(notes,              forKey: .notes)              // explicit null, never omitted
+        try c.encode(receiptURL,         forKey: .receiptURL)         // explicit null, never omitted
+        try c.encode(splits,             forKey: .splits)
+        try c.encode(originalAmount,     forKey: .originalAmount)     // explicit null, never omitted
+        try c.encode(originalCurrency,   forKey: .originalCurrency)   // explicit null, never omitted
+        try c.encode(recurrence,         forKey: .recurrence)
+        try c.encode(nextOccurrenceDate, forKey: .nextOccurrenceDate) // explicit null, never omitted
+    }
+}
+
+extension ExpenseService {
+    nonisolated static func makeAddParams(
+        groupID: UUID, payerID: UUID, amount: Decimal, title: String, category: String,
+        currency: String, notes: String?, splits: [RPCSplitParam],
+        originalAmount: Decimal?, originalCurrency: String?,
+        recurrence: String, nextOccurrenceDate: Date?
+    ) -> AddExpenseRPCParams {
+        AddExpenseRPCParams(
+            groupID:             groupID,
+            paidBy:              payerID,
+            amount:              amount,
+            title:               title,
+            category:            category,
+            currency:            currency,
+            notes:               notes,
+            receiptURL:          nil,
+            splits:              splits,
+            originalAmount:      originalAmount,
+            originalCurrency:    originalCurrency,
+            recurrence:          recurrence,
+            nextOccurrenceDate:  nextOccurrenceDate
+        )
+    }
+
+    /// Mirrors `updateParamsJSON`. Exists so a test can assert the **wire format** without a
+    /// network call — a server-side check cannot see how the client serialises, which is exactly
+    /// how SPLIT-04 passed three verification passes and still shipped.
+    nonisolated static func addParamsJSON(
+        groupID: UUID, payerID: UUID, amount: Decimal, title: String, category: String,
+        currency: String, notes: String?, splits: [RPCSplitParam],
+        originalAmount: Decimal?, originalCurrency: String?,
+        recurrence: String, nextOccurrenceDate: Date?
+    ) throws -> [String: Any] {
+        let data = try SupabaseManager.postgrestEncoder.encode(
+            makeAddParams(groupID: groupID, payerID: payerID, amount: amount, title: title,
+                          category: category, currency: currency, notes: notes, splits: splits,
+                          originalAmount: originalAmount, originalCurrency: originalCurrency,
+                          recurrence: recurrence, nextOccurrenceDate: nextOccurrenceDate))
+        return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
     }
 }
 

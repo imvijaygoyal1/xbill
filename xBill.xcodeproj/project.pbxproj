@@ -184,6 +184,7 @@
 		CB3C903B5EE8C407F8544C45 /* Settlement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6254841C9BA8DCEF16494B86 /* Settlement.swift */; };
 		CCE3F9B5588D20D85B1DC3D3 /* GreetingHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A091C82B575E5CAC10B0351 /* GreetingHelper.swift */; };
 		CE3208620DF87CCDB7FF9518 /* ReviewPromptService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 244F935515F203166B0E5F4C /* ReviewPromptService.swift */; };
+		CE742FAE07433AA06009CE35 /* AddExpensePayloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F3046C346F9C9B453279A5 /* AddExpensePayloadTests.swift */; };
 		CE9313445761692A45CF9868 /* XBillVisualAssets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D92174E4E357082804DD4A9 /* XBillVisualAssets.swift */; };
 		CF7BB5EDBB1D51E7878487CB /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCE2A2449DE087F7C0D3279 /* NetworkMonitor.swift */; };
 		D04816EEDFDC9CF26CFFAD40 /* GroupViewModelMaintenanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E5843A89FB9191BE4437CD6 /* GroupViewModelMaintenanceTests.swift */; };
@@ -461,6 +462,7 @@
 		B38345EDA277CDE0B30C7222 /* NotificationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationStore.swift; sourceTree = "<group>"; };
 		B49EE121E1BA0D36C58241E5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B54708E8A101CDBA935A0CB1 /* SecurityFixTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityFixTests.swift; sourceTree = "<group>"; };
+		B5F3046C346F9C9B453279A5 /* AddExpensePayloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddExpensePayloadTests.swift; sourceTree = "<group>"; };
 		B6A3F61B523BC6008036CCFF /* AppTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTypography.swift; sourceTree = "<group>"; };
 		BA2F6A9C1B5518B246E1F435 /* CreateGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateGroupView.swift; sourceTree = "<group>"; };
 		BA815E59A9392EC45FC52770 /* GroupFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupFlowTests.swift; sourceTree = "<group>"; };
@@ -924,6 +926,7 @@
 			isa = PBXGroup;
 			children = (
 				34E68D6ADD9318C0A78A73FD /* ActivityServiceTests.swift */,
+				B5F3046C346F9C9B453279A5 /* AddExpensePayloadTests.swift */,
 				5C237E9614C7F0B3BAE24964 /* AffectedRowsTests.swift */,
 				D14A8C0A7F841017BCAFEC7A /* BalanceSummaryTests.swift */,
 				815EB128D2C5A24318D4B831 /* DeepLinkParserTests.swift */,
@@ -1270,6 +1273,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				46B6B413083B728129DDEC2E /* ActivityServiceTests.swift in Sources */,
+				CE742FAE07433AA06009CE35 /* AddExpensePayloadTests.swift in Sources */,
 				E93F2E5DF0F8395C187DED1E /* AffectedRowsTests.swift in Sources */,
 				E66C64E0558F6CB40FB42D39 /* BalanceSummaryTests.swift in Sources */,
 				E32479FFEBC0C3B9FE1FA333 /* DeepLinkParserTests.swift in Sources */,
