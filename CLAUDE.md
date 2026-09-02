@@ -3711,8 +3711,52 @@ All 11 Critical and 37 High defects from the v3 senior developer audit (DEFECT_R
 - `notify-settlement` ✅ — derives every identity field from the settlement row rather than the caller (2026-08-01). Preserves `H-09` and strengthens it: the body carries only `{settlementId, isDevelopment}`, the row is read with the service role, `recorded_by === callerID` is checked before any field is used, and the push goes to whichever party is *not* the caller. Necessary because either party may now record — the old `fromUserID = callerID` would have announced a creditor as the payer and pushed to themselves.
 
 ## Known TODOs
-- **App Group registration** (for widget data sharing): register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Certificates, IDs & Profiles → Identifiers → App Groups
-- App Store Assets: screenshots, preview video, keyword strategy (only remaining P0 blocker)
+
+**Re-checked 2026-09-01.** Everything below was verified against the repo or production on that
+date, not carried forward on trust — a "still open" list nobody re-checks becomes a lie (the
+scanner list in this file claimed six open items when five were fixed).
+
+### 1. Ship 1.6 — the work is done and reaches nobody
+
+`MARKETING_VERSION` is still **1.5 / build 7**, the release already approved and live. Everything
+from 2026-08-31 is on `main` and **unreleased**, so migration 051's `p_expected_updated_at DEFAULT
+NULL` means the server accepts a token **no shipped client sends**. The concurrency guard currently
+protects zero users.
+
+1.6 would carry: `CONC-01` (expense edits stop overwriting each other, SQLSTATE `XB409`), `CONC-02`
+(the redundant second write deleted), the `AddExpenseRPCParams` hand-written encode closing the last
+SPLIT-04 gap, +11 unit tests and +1 UI regression test.
+
+Needs a version bump and a `RELEASE_VERIFICATION.md` pass — including that file's two hard-won
+traps: **erase the simulator before the UI run**, and **read `aps-environment` from the exported
+IPA, never the archive**.
+
+### 2. Verification gaps, highest first
+
+- **The two-device race on the concurrency guard has never been exercised.** The mechanism is
+  proven — live SQL probes in both directions, and one-editor-at-a-time through the app — but the
+  actual race is not. Needs two accounts editing one expense concurrently. This is the only
+  unproven claim in an otherwise finished feature.
+- **Three push checks from 1.5, unblocked since 2026-08-27 and still not done.** 1.5 is live, so
+  these are actionable now: (a) the mute path — toggle off "New Expenses", confirm no push arrives
+  **and** the Activity row still does; (b) two devices on one account, both receive (`PUSH-03`);
+  (c) first-attempt routing — no `corrected` in the function report, meaning
+  `device_tokens.environment` was written correctly at registration rather than self-healed.
+
+### 3. Release-gating, not engineering
+
+- **App Store assets** — screenshots, preview video, keyword strategy. The last P0 blocker.
+- **App Group registration** — `group.com.vijaygoyal.xbill` in Apple Developer Portal →
+  Certificates, IDs & Profiles → Identifiers → App Groups (widget data sharing).
+
+### 4. Runbook hygiene
+
+- **`RELEASE_VERIFICATION.md` has no anon-privilege check.** That class produced *two* findings on
+  2026-08-31 — `PURGE-02` (an anon-executable `SECURITY DEFINER` bulk-delete whose ownership guard
+  was skipped for NULL callers) and `SECDEF-01` (two profile-lookup functions protected only by
+  `id != NULL` evaluating to never-true) — and **neither came from a test**. Both were found by
+  querying production by hand. One line would catch the next:
+  `SELECT proname, has_function_privilege('anon', oid, 'EXECUTE') FROM pg_proc … WHERE prosecdef`.
 
 ## All v3 Low Defects Fixed (2026-05-13, commit 126ed55)
 
