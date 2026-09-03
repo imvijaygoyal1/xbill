@@ -890,3 +890,28 @@ all three states — correct glyphs, no `house.fill`, no `sparkles`, and the dar
 plainly visible. The colour claim rests on the unit tests, which resolve the actual `UIColor` in
 both trait collections and are stronger evidence than a screenshot. **A device or simulator look at
 the Add Expense category chips in dark mode is still owed.**
+
+## SECDEF-03 — anon-EXECUTE sweep, run from the runbook (2026-09-03)
+
+The `has_function_privilege('anon', …)` check recommended after `PURGE-02` is now **in**
+`RELEASE_VERIFICATION.md` §1, and running it during 1.6 prep produced its first result.
+
+**13 of 18** `SECURITY DEFINER` functions in `public` are anon-executable. That is not itself a
+defect — Supabase grants `anon` EXECUTE explicitly on every new function in `public`, and a
+`REVOKE … FROM PUBLIC` does not remove it — but each one needs a reason.
+
+| Function | Covered by the 2026-08-31 sweep? | Verdict |
+|---|---|---|
+| `get_invite_preview` | yes | deliberately public — the token is the capability |
+| `is_group_member`, `is_expense_group_member` | yes | return false for a NULL caller |
+| `handle_new_user`, `set_group_member_snapshot` | yes | trigger functions |
+| `add_or_reactivate_group_member`, `deactivate_group_member` | yes | explicit `auth.uid() IS NULL` RAISE |
+| `create_recurring_expense_instance` | **no** | ✅ **checked here.** Uses `auth.uid()` *nowhere*, which looks alarming, but its `UPDATE … WHERE public.is_group_member(group_id)` matches zero rows for an anonymous caller and it returns NULL at `IF NOT FOUND`. **Fails closed.** |
+| `add_expense_with_splits`, `block_user`, `create_group_with_member`, `respond_to_friend_request`, `send_friend_request` | **no** | ⬜ **NOT verified.** All five reference `auth.uid()` and none has an explicit `auth.uid() IS NULL` guard. Probably fail closed the way the others do — but "probably" is exactly the word that preceded `SECDEF-01`. |
+
+**Not a 1.6 blocker** — nothing here is newly introduced, and no exploit is demonstrated. But the
+last five deserve the same treatment the first eight got, and the pattern is now familiar enough to
+name: **in this schema, safety keeps resting on a predicate that happens to be false for NULL rather
+than on a guard that says so.** `SECDEF-01` was that shape and was one `IS DISTINCT FROM` away from
+being an enumeration oracle. An explicit `auth.uid() IS NULL` RAISE costs one line and cannot be
+refactored away by accident.

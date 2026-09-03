@@ -48,7 +48,36 @@ supabase migration list --linked
 Expected:
 
 - Local and remote migration numbers match.
-- Current expected latest migration: `041` (settlements ledger, deployed 2026-08-01).
+- Current expected latest migration: **`054`** (drop stale RPC overloads, deployed 2026-08-31).
+  Verified local = remote through 054 on 2026-09-03.
+
+> This line has been stale before — it read `041` from 2026-08-01 until 2026-09-03 while thirteen
+> further migrations shipped. **Update it in the same commit as any `supabase db push`.**
+
+### Anon EXECUTE on SECURITY DEFINER functions
+
+```bash
+supabase db query --linked <<'SQL'
+select p.proname,
+       has_function_privilege('anon', p.oid, 'EXECUTE') as anon_can_execute
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.prosecdef
+order by 2 desc, 1;
+SQL
+```
+
+Expected: every `anon_can_execute = true` is one you can name a reason for. **On 2026-09-03 that
+was 13 of 18** — so the expected value is not "none", it is "none you cannot justify". Each must
+either be unreachable for a NULL caller (an `auth.uid() IS NULL` RAISE, or a guard that fails
+closed), a trigger function, or deliberately public like `get_invite_preview`.
+
+This check exists because the class produced two findings on 2026-08-31 and **neither came from a
+test**: `PURGE-02` (an anon-executable bulk-delete whose ownership guard is skipped when
+`auth.uid()` is NULL) and `SECDEF-01` (two profile-lookup functions protected only by
+`id != NULL` evaluating to never-true — SQL three-valued logic, not intent). Both were found by
+querying production by hand. Note that a `REVOKE ... FROM PUBLIC` in a migration **does not**
+remove Supabase's explicit grant to `anon`; revoke by name.
 
 ### Realtime Publication
 
@@ -645,3 +674,43 @@ XCTest's `Executed N tests` line. Read the `.xcresult` summary, or grep for `Tes
 a timeout, then passed twice in isolation (7 passes, 1 failure overall). The suite creates and
 archives real groups; interrupting it leaves that state half-applied. **Let the suite finish**, and
 if you must kill it, treat the next run's failures as suspect until re-run in isolation.
+
+### Never run two `xcodebuild` invocations against the same DerivedData
+
+They share `Build/Intermediates.noindex/XCBuildData/build.db`. The second fails with
+*"unable to attach DB ... database is locked"*, **cancels testing before building**, and reports
+`0 tests` — which reads exactly like a suite that ran and found nothing. Hit on 2026-09-03 while
+running the unit suite alongside a backgrounded UI run; the unit result bundle said
+`total 0, passed 0, failed 0` for code that was in fact fine.
+
+If you must overlap runs, give one its own `-derivedDataPath` (and expect a full clean build).
+Otherwise sequence them. Either way, read the count from the **result bundle**, never from
+`grep` over the output — see the entry below.
+
+### ☠️ `strings | grep -c` cannot see a Swift literal of 15 bytes or fewer
+
+Swift's **small-string optimization** stores any string literal whose UTF-8 length is ≤ 15 bytes
+inline in the `String` struct — packed into instructions, never emitted to `__TEXT,__cstring`.
+`strings` therefore reports **0** for it whether or not the code shipped, so a zero is not evidence
+of absence.
+
+Measured on the 1.6 archive (2026-09-03): `strings` extracted 26,801 entries and correctly found
+`xBill.expenseDetail.editButton` (30 B), `Settle Up`, and `com.vijaygoyal.xbill` — while
+`fork.knife` (10 B) returned **0** despite being live in `Expense.Category.systemImage` and
+rendered on every expense row.
+
+| Symbol | Bytes | `strings` verdict trustworthy? |
+|---|---|---|
+| `scrollContentHeight` | 19 | ✅ yes — a 0 means absent |
+| `xbill-diagnostics` | 17 | ✅ yes |
+| `AppDiagnostics` | 14 | ❌ no — use the 21-byte `xbill-diagnostics.log` instead |
+| `ReceiptCorpus` | 13 | ❌ no — use `find "$APP" -iname '*ReceiptCorpus*'` instead |
+
+**Before trusting any `strings | grep -c 0`, run a positive control**: grep a string you know is in
+the build. If the control also returns 0, the check is inert. Prefer a filesystem check
+(`find`), a long unique marker, or `nm`/`otool` over a short literal — and never add a short symbol
+to this runbook's absence list.
+
+Past claims re-checked against this: the "0 `scrollContentHeight`" and "0 corpus paths" lines in the
+1.4/1.5 release notes are **sound** — the first is 19 bytes, the second was a `find`. No previous
+release claim is invalidated.
