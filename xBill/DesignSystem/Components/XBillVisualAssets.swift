@@ -107,12 +107,15 @@ struct XBillCategoryIcon: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                .fill(AppColors.surfaceSoft)
-            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                .fill(category.categoryBackground.opacity(0.9))
-            Image(systemName: category.symbolName)
+                .fill(category.categoryBackground)
+            // ICON-01: `Expense.Category.systemImage` — the model's own vocabulary, the one
+            // carrying the reasoning in its comments. This view used to read a second property,
+            // `symbolName`, declared at the bottom of this file. See the note below.
+            Image(systemName: category.systemImage)
                 .font(.system(size: size * 0.42, weight: .semibold))
-                .foregroundStyle(AppColors.primary)
+                .xbillSymbol()
+                // ICON-02: adaptive. `AppColors.primary` here sat at 2.34–2.50:1 in dark mode.
+                .foregroundStyle(AppColors.categoryGlyph)
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
@@ -173,17 +176,18 @@ private struct QRCorner: Shape {
     }
 }
 
-extension Expense.Category {
-    var symbolName: String {
-        switch self {
-        case .food: return "fork.knife"
-        case .transport: return "airplane"
-        case .accommodation: return "house.fill"
-        case .entertainment: return "popcorn.fill"
-        case .utilities: return "bolt.fill"
-        case .shopping: return "bag.fill"
-        case .health: return "cross.case.fill"
-        case .other: return "sparkles"
-        }
-    }
-}
+// ICON-01: `Expense.Category.symbolName` was declared here and is **deleted**. Do not reintroduce
+// a second symbol vocabulary on this enum.
+//
+// It shadowed `Expense.Category.systemImage` (`Models/Expense.swift`) and, because
+// `XBillCategoryIcon` read *this* one, it was what every everyday surface actually drew: expense
+// rows, notification rows, Add Expense chips and the Group Details filter chips. `systemImage`
+// reached exactly one screen, `ReceiptReviewView`.
+//
+// Commit 1eed83e (2026-08-16), "Fix three colliding or misleading category icons", corrected
+// `systemImage` — so for two weeks the fix was live on one screen and absent from four. This
+// copy still mapped `.accommodation` to `house.fill`, which is the Home tab's glyph
+// (`MainTabView.swift:40`) and the exact collision the comment at `Expense.swift:79` forbids,
+// and `.other` to `sparkles`, which since iOS 18 reads as Apple Intelligence.
+//
+// One vocabulary, beside the model it describes.
