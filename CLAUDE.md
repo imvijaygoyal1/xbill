@@ -155,7 +155,6 @@ there by hand. Either omit `-archivePath` or write it into that directory.
 ### Still open after this ships
 - **The three push checks**, unblocked since 1.5 was approved on 2026-08-27 and still not done: the
   mute path, two devices on one account, and first-attempt `environment` routing.
-- **App Store assets** — screenshots, preview video, keywords. The last P0.
 - `SECDEF-03`, and `ICON-03`…`ICON-10` (app-icon dark/tinted variants are the visible one).
 
 ## Release status — v1.5 (7) APPROVED 2026-08-27
@@ -3882,7 +3881,12 @@ IPA, never the archive**.
 
 ### 3. Release-gating, not engineering
 
-- **App Store assets** — screenshots, preview video, keyword strategy. The last P0 blocker.
+- ~~**App Store assets**~~ — **NOT open, and never was after 2026-06-14.** Screenshots, preview
+  video and keywords were completed then, and App Store Connect *cannot accept a submission without
+  screenshots* — so six approved releases are themselves proof. This line survived because the
+  one-line index summary in memory was stale while the file it pointed at said "ALL P0 BLOCKERS
+  RESOLVED"; the summary was read instead of the file. Second instance of exactly this
+  (see DEFECT_REPORT_V3, stale for 3½ months). **Read the file, not the summary.**
 - **App Group registration** — `group.com.vijaygoyal.xbill` in Apple Developer Portal →
   Certificates, IDs & Profiles → Identifiers → App Groups (widget data sharing).
 
