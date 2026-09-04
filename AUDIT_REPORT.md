@@ -915,3 +915,53 @@ name: **in this schema, safety keeps resting on a predicate that happens to be f
 than on a guard that says so.** `SECDEF-01` was that shape and was one `IS DISTINCT FROM` away from
 being an enumeration oracle. An explicit `auth.uid() IS NULL` RAISE costs one line and cannot be
 refactored away by accident.
+
+### SECDEF-03 — resolved by inspection + live anon probe (2026-09-03)
+
+All five previously-unverified functions were read from `pg_proc.prosrc` and then probed over HTTP
+with the **public anon key**. Random UUIDs were used throughout so nothing could persist even if a
+guard had failed; production was confirmed byte-identical afterwards (34 expenses, 54 splits, 3
+friends, 0 `PROBE` rows, 0 friends touched in the last 5 minutes).
+
+| Function | Anon probe | Guard |
+|---|---|---|
+| `block_user` | `400 P0001 Not authenticated` | ✅ explicit `IF caller_id IS NULL THEN RAISE` |
+| `create_group_with_member` | `400 P0001 unauthenticated` | ✅ explicit |
+| `send_friend_request` | `400 P0001 Not authenticated` | ✅ explicit |
+| `add_expense_with_splits` | `401 42501 caller is not a member of group` | ⚠️ **its identity guard is inert for anon** |
+| `respond_to_friend_request` | **`204 No Content`** | ⚠️ **no guard at all** |
+
+**Nothing is exploitable today.** Both ⚠️ rows fail closed. Neither does so by intent.
+
+#### `add_expense_with_splits` — the guard that cannot reject the caller it names
+```sql
+IF auth.uid() <> p_paid_by THEN
+    RAISE EXCEPTION 'paid_by must match the authenticated user' ...
+```
+For an anonymous caller `auth.uid()` is NULL, so `NULL <> p_paid_by` evaluates to **NULL, not TRUE**,
+and the `IF` never fires. Confirmed against production: `select (null::uuid <> gen_random_uuid())`
+returns **NULL**. The function is saved entirely by the *next* check — `is_group_member`, which
+returns **false** (not null) for a NULL caller, so `NOT false` raises `42501`.
+
+So the guard written specifically to bind identity is inert for exactly the caller it exists to
+reject, and the protection is supplied by an unrelated membership test standing behind it. Delete or
+weaken that membership test — a plausible refactor, since it reads as a redundant second
+authorisation check — and this becomes an unauthenticated write path into `expenses` and `splits`.
+
+#### `respond_to_friend_request` — answers 204 to an anonymous caller
+No `auth.uid()` guard of any kind. Both branches filter `addressee_id = auth.uid()`, which is
+`= NULL` for anon → never true → zero rows. PostgREST then returns **`204 No Content`**, i.e.
+*success*. Same shape as the `notification_preferences` DELETE already recorded in `CLAUDE.md`:
+**a 204 describes the request, not the effect.**
+
+#### This is the third instance of one rule
+`SECDEF-01` (`WHERE p.id != auth.uid()`), and now both of these. **In this schema, safety keeps
+resting on a predicate that happens to be false for NULL rather than on a guard that says so.** Each
+is one `IS DISTINCT FROM`, one `COALESCE`, or one deleted "redundant" line away from being live. The
+three functions that *do* carry `IF ... IS NULL THEN RAISE` cost one line each and cannot be
+refactored into a hole.
+
+**Recommended (not applied — a migration needs approval):** add an explicit
+`IF auth.uid() IS NULL THEN RAISE EXCEPTION ... USING ERRCODE = '42501'` to both, and change
+`add_expense_with_splits`'s identity check to `auth.uid() IS DISTINCT FROM p_paid_by` so it fires on
+NULL. Revoking `anon` by name is the second layer, as in 053.
