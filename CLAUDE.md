@@ -94,6 +94,70 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Release status — v1.6 (8) SUBMITTED 2026-09-03
+
+**The release that makes the expense concurrency guard reach a user.** Migration 051 has been
+deployed since 2026-08-31 and `p_expected_updated_at DEFAULT NULL` meant **no shipped client sent a
+token** — the guard protected nobody for three days. This is the client half.
+
+| Contents | |
+|---|---|
+| `CONC-01` | an expense edit sends the `updated_at` it loaded; the RPC raises `XB409` and the editor refuses and reloads instead of silently overwriting |
+| `CONC-02` | the redundant second whole-struct write **deleted**, so the clobber is unrepresentable rather than discouraged |
+| `SPLIT-04` (last gap) | `AddExpenseRPCParams.encode` hand-written — the create path had kept Swift's synthesized `Encodable`, which omits nils |
+| `ICON-01` | `Expense.Category` had **three** symbol vocabularies; the one the 2026-08-16 commit fixed reached one screen while four everyday surfaces drew `house.fill` (the Home tab glyph) and `sparkles` |
+| `ICON-02` | every category icon sat at **2.34–2.50:1** in dark mode, below the 3:1 non-text minimum — now 6.01–6.41:1, light mode byte-identical |
+
+| Check | Result |
+|---|---|
+| Unit + widget | **513 passed**, 0 failed, 0 skipped (baseline 493) |
+| UI regression | **22/23** on an erased simulator; the one failure passes **1/1 in isolation** |
+| Release build | clean |
+| Backend | migrations local = remote through **054** — nothing to deploy · payment handles **0** · reviewer seed intact · all 6 web endpoints + AASA (`application/json`) + Apple's CDN 200 · all 6 Edge Functions ACTIVE |
+| Archive | `1.6 (8)`, `UIDeviceFamily [1]`, region `en`, encryption `false`, 3 dSYMs with **matching UUID**, widget framework + `.appex` with `Assets.car`, Siri `nlu/` compiled, 0 corpus paths |
+| **Exported IPA** | **`aps-environment: production`**, Apple Distribution, store profile (no `ProvisionedDevices`), `get-task-allow false`, `associated-domains` present |
+| Privacy manifest | unchanged — 9 collected types, widget manifest present |
+
+### The UI failure was classified from the record, not from hope
+`testAddFriendStopsScrollingAtItsContentHeight` failed in the full run. Evidence it is not a
+regression: the log shows it timed out **inside the sign-in flow**, never reaching its assertion; it
+passes **1/1 alone**; the sweep test that enters Add Friend itself passed in the same run; and the
+historical bundles read **Passed (08-31), Passed (08-26), Failed (08-25), Failed (08-25), Passed
+(08-24)** — intermittent well before this change. Rule 11 of `verifying-your-own-work` exists
+because this exact call was once made wrong.
+
+### Three findings from running the runbook rather than reading it
+- **The migration baseline was 13 versions stale** — it read `041` while production is at `054`.
+- **New anon-EXECUTE sweep** (missing since `PURGE-02`): **13 of 18** `SECURITY DEFINER` functions
+  are anon-executable. `create_recurring_expense_instance` references `auth.uid()` nowhere and
+  **fails closed** via `WHERE is_group_member(group_id)`. **Five were never verified** — see
+  `SECDEF-03`. Not a 1.6 blocker.
+- ☠️ **`strings | grep -c` cannot see a Swift literal ≤15 bytes.** Small-string optimization packs
+  them inline, never into `__cstring`. On this archive `strings` found
+  `xBill.expenseDetail.editButton` (30 B) among 26,801 entries and returned **0 for `fork.knife`**
+  (10 B), which renders on every expense row — so the `ReceiptCorpus` (13 B) and `AppDiagnostics`
+  (14 B) absence ticks proved nothing. Past claims re-checked and still sound: `scrollContentHeight`
+  is 19 B, and corpus paths were checked with `find`.
+
+### ⚠️ Archive to the default path, not `/tmp`
+This release was first archived to `-archivePath /tmp/...`, so it **did not appear in Xcode's
+Organizer** and could not be distributed the normal way. Every other release sits in
+`~/Library/Developer/Xcode/Archives/<date>/xBill <version> (<build>) <time>.xcarchive`; 1.6 was moved
+there by hand. Either omit `-archivePath` or write it into that directory.
+
+### NOT verified — read before believing the guard is complete
+- **Clients on 1.0–1.5 can still clobber, by design**, and will until they update. There is no
+  force-update mechanism. Release-note wording must not claim expenses "can no longer be overwritten".
+- **No two-device race has been exercised.** The mechanism is proven — both directions against
+  production, and a real edit round-trip through the UI — but the race itself is not. It needs two
+  accounts editing one expense.
+
+### Still open after this ships
+- **The three push checks**, unblocked since 1.5 was approved on 2026-08-27 and still not done: the
+  mute path, two devices on one account, and first-attempt `environment` routing.
+- **App Store assets** — screenshots, preview video, keywords. The last P0.
+- `SECDEF-03`, and `ICON-03`…`ICON-10` (app-icon dark/tinted variants are the visible one).
+
 ## Release status — v1.5 (7) APPROVED 2026-08-27
 
 **The release that makes push notifications work.** Delivery was device-confirmed before
