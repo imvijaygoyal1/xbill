@@ -94,7 +94,7 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
-## Release status — v1.6 (8) SUBMITTED 2026-09-03
+## Release status — v1.6 (8) APPROVED 2026-09-04
 
 **The release that makes the expense concurrency guard reach a user.** Migration 051 has been
 deployed since 2026-08-31 and `p_expected_updated_at DEFAULT NULL` meant **no shipped client sent a
@@ -117,6 +117,31 @@ token** — the guard protected nobody for three days. This is the client half.
 | Archive | `1.6 (8)`, `UIDeviceFamily [1]`, region `en`, encryption `false`, 3 dSYMs with **matching UUID**, widget framework + `.appex` with `Assets.car`, Siri `nlu/` compiled, 0 corpus paths |
 | **Exported IPA** | **`aps-environment: production`**, Apple Distribution, store profile (no `ProvisionedDevices`), `get-task-allow false`, `associated-domains` present |
 | Privacy manifest | unchanged — 9 collected types, widget manifest present |
+
+### Approved 2026-09-04, first pass — seven releases, seven first-pass approvals
+Submitted 2026-09-03, approved the next day.
+
+**The expense concurrency guard now protects a real user for the first time.** Migration 051 has
+been deployed since 2026-08-31 with `p_expected_updated_at DEFAULT NULL`, so until this build
+reached users the guard protected nobody. It now fires for anyone on 1.6.
+
+⚠️ **Clients on 1.0–1.5 can still clobber, by design**, and will until they update — `DEFAULT NULL`
+is the compatibility hinge and there is no force-update mechanism in this app. Do not describe the
+problem as solved; describe it as solved *for users on 1.6*.
+
+### Now actionable, and not before today
+1. **The two-device edit race** — the one unproven claim in the concurrency work. The mechanism is
+   proven in both directions against production and through a real UI round-trip, but two people
+   colliding on one expense has never been exercised. Needs two accounts on 1.6, one expense,
+   simultaneous edits. Expect `XB409` → *"This expense was changed by someone else"* → reload.
+2. **Watch for a conflict reported when nobody else was editing.** That would mean `updated_at` is
+   round-tripping lossily — the failure the String-not-Date decision exists to prevent — and a guard
+   that fires spuriously teaches people to ignore it.
+3. **The three push checks**, unblocked since 1.5 was approved on 2026-08-27 and still not done:
+   the mute path, two devices on one account, and first-attempt `environment` routing.
+4. **`SECDEF-03`** — a migration adding explicit `auth.uid() IS NULL` guards to
+   `add_expense_with_splits` and `respond_to_friend_request` is written up but **not applied**;
+   deploying it needs approval.
 
 ### The UI failure was classified from the record, not from hope
 `testAddFriendStopsScrollingAtItsContentHeight` failed in the full run. Evidence it is not a
