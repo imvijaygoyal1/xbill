@@ -1095,3 +1095,28 @@ source SVG and left the trap armed.
 **Verification.** Unit **513 passed, 0 failed, 0 build errors**. Not device-verified — these are
 VoiceOver and asset-pipeline changes; the chip merge is worth one look at the Group Details filter
 strip and the Add Expense picker.
+
+### SECDEF-03 — CLOSED 2026-09-08
+
+All five functions now carry an explicit `auth.uid() IS NULL` guard, and the class is gone from this
+schema.
+
+| Function | Closed by |
+|---|---|
+| `block_user`, `create_group_with_member`, `send_friend_request` | already guarded |
+| `add_expense_with_splits` | migration **055** (its `auth.uid() <> p_paid_by` was inert for NULL) |
+| `respond_to_friend_request` | migration **056**, deployed 2026-09-08 |
+
+**Proven live, before and after.** The anon probe that previously returned **`204 No Content`** —
+success, to a caller with no identity — now returns **`401` / `42501 permission denied`**. Signed-in
+behaviour verified unchanged inside a rolled-back `DO` block: both accept and decline complete
+without exception. `friends` still 3 rows / 2 accepted / 0 pending; 1 overload, 0 defaults, `anon`
+revoked by name.
+
+**The pattern, stated once so it stops recurring.** Three times this schema protected a
+`SECURITY DEFINER` function with a predicate that happens to be false for NULL rather than a guard
+that says so — `WHERE p.id != auth.uid()` (SECDEF-01), `auth.uid() <> p_paid_by` (055), and
+`addressee_id = auth.uid()` (056). Each was one `IS DISTINCT FROM`, one `COALESCE`, or one deleted
+"redundant" line from being live. **Any new `SECURITY DEFINER` function starts with
+`IF auth.uid() IS NULL THEN RAISE ... USING ERRCODE = '42501'`.** The runbook's anon-EXECUTE sweep
+(`RELEASE_VERIFICATION.md` §1) is what surfaces regressions.
