@@ -1,0 +1,21 @@
+-- 057_revoke_is_group_member_of.sql
+--
+-- Migration 055 created `is_group_member_of` and revoked `anon` EXECUTE **in the same transaction**.
+-- The revoke did not take: the release-verification anon sweep found the function still
+-- anon-executable, and an anonymous POST to /rest/v1/rpc/is_group_member_of returned HTTP 200 with
+-- `false` rather than 42501.
+--
+-- The revokes in migrations 052 and 053 DID work, and both targeted functions that already existed.
+-- The difference is create-and-revoke in one transaction versus revoke alone. That is a plausible
+-- mechanism and is **not verified**, so it is recorded as an observation, not a cause. The reliable
+-- pattern either way: **revoke in a migration separate from the create.**
+--
+-- Severity: low. The function takes two UUIDs and returns a boolean, so an anonymous caller who
+-- already knows both a group id and a user id could learn whether that user is a member. Both are
+-- unguessable, nothing is enumerable, and no row content is exposed. It is still an unintended
+-- disclosure from a SECURITY DEFINER helper, and it costs one line to close.
+--
+-- Caught by the `has_function_privilege('anon', ...)` sweep added to RELEASE_VERIFICATION.md after
+-- PURGE-02 — the first regression that check has caught, and it caught one of mine.
+
+revoke execute on function public.is_group_member_of(uuid, uuid) from anon;

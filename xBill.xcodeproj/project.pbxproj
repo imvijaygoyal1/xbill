@@ -539,7 +539,7 @@
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
 		FA59435ADAF303865175315B /* VisionParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionParsingTests.swift; sourceTree = "<group>"; };
 		FFA8CD2E5A8CA2C7892BB8A8 /* CheckBalanceIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckBalanceIntent.swift; sourceTree = "<group>"; };
-		"TEMP_4C385EE1-6688-49D0-A378-9CA041F63CCE" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_C862E13E-A4D8-4812-8997-6F352430E048" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1042,10 +1042,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_A7BA875F-FC0A-4ADF-A2C9-286B88BAD373" /* xBill */ = {
+		"TEMP_F0EF0F6D-2F9F-4DA6-B636-EF69D4DC0B88" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_4C385EE1-6688-49D0-A378-9CA041F63CCE" /* Secrets.xcconfig */,
+				"TEMP_C862E13E-A4D8-4812-8997-6F352430E048" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1564,7 +1564,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_4C385EE1-6688-49D0-A378-9CA041F63CCE" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_C862E13E-A4D8-4812-8997-6F352430E048" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1597,7 +1597,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 7B5U5LACV3;
 				ENABLE_STRICT_CONCURRENCY = complete;
@@ -1618,7 +1618,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.6;
+				MARKETING_VERSION = 1.7;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1676,7 +1676,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = xBillWidget/xBillWidget.entitlements;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				ENABLE_STRICT_CONCURRENCY = complete;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = xBillWidget/Info.plist;
@@ -1685,7 +1685,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.6;
+				MARKETING_VERSION = 1.7;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vijaygoyal.xbill.widget;
 				SDKROOT = iphoneos;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
@@ -1698,7 +1698,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = xBillWidget/xBillWidget.entitlements;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				ENABLE_STRICT_CONCURRENCY = complete;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = xBillWidget/Info.plist;
@@ -1707,7 +1707,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.6;
+				MARKETING_VERSION = 1.7;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vijaygoyal.xbill.widget;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -1773,7 +1773,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_4C385EE1-6688-49D0-A378-9CA041F63CCE" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_C862E13E-A4D8-4812-8997-6F352430E048" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1806,7 +1806,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 7B5U5LACV3;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -1821,7 +1821,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.6;
+				MARKETING_VERSION = 1.7;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

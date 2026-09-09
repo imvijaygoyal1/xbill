@@ -182,6 +182,58 @@ the third instance in this repo of a check that could not distinguish its two ou
 plus legacy `CFBundleIconFiles`; iOS resolves from those, and they carry no appearance variants. It
 must be `none` for dark/tinted to be possible at all. That part of the work stands.
 
+## Release status — v1.7 (9) — verified, ready to submit (2026-09-09)
+
+| Contents | |
+|---|---|
+| `UI-03` | the Group Details category strip dragged vertically and fired a pull-to-refresh — `.refreshable` was on `lifecycleContent` and every scrollable descendant adopts it |
+| `BOOK-01` client half | `Expense.createdBy` + **"Added by X"**, completing the bookkeeper flow whose server half went live 2026-09-08 |
+| `ICON-05/08/09` | dead duplicate icon set untracked; 4 missing `accessibilityLabel`s; one `XBillCategoryChip` that announces `.isSelected` |
+| `ICON-06/07/10` | `symbolEffect` 0→2; one `XBillGroupGlyph` for six group-emoji renders; category icons scale with Dynamic Type |
+| test flakiness | a silent 200 ms timeout in `settle(_:)` that surfaced as a behavioural failure — **0 failures in 20 runs** after, vs 2 in 10 before |
+
+| Check | Result |
+|---|---|
+| Unit + widget | **520 passed**, 0 failed, 0 skipped |
+| Release build | clean |
+| Backend | migrations local = remote through **058** · payment handles **0** · reviewer seed intact · 6 web endpoints + AASA (`application/json`) + Apple CDN all 200 · 6 Edge Functions ACTIVE |
+| Archive | `1.7 (9)`, `UIDeviceFamily [1]`, region `en`, encryption `false`, 3 dSYMs **UUID-matched**, widget framework + `.appex` `Assets.car`, Siri `nlu/`, 9 privacy types, 0 corpus paths |
+| **Exported IPA** | **`aps-environment: production`**, Apple Distribution, `get-task-allow false` |
+
+Archive: `~/Library/Developer/Xcode/Archives/2026-09-09/xBill 1.7 (9) 17-26.xcarchive` — the
+**Organizer** location, not `/tmp`.
+
+### ☠️ Revoking EXECUTE needs BOTH `anon` and `PUBLIC` — neither alone is enough
+The runbook's anon-EXECUTE sweep caught its first regression, and it was one of ours.
+`is_group_member_of` (added by migration 055) answered an anonymous POST with **HTTP 200**, despite
+055 *and* 057 both revoking from `anon`. Those revokes worked — `anon=X` was gone from the ACL. But
+PostgreSQL grants EXECUTE to **PUBLIC** on every new function, and
+`has_function_privilege('anon', …)` is satisfied through PUBLIC:
+
+```
+is_group_member_of   =X/postgres | postgres=X | authenticated=X | service_role=X
+                     ^ empty grantee = PUBLIC
+search_profiles      postgres=X  | authenticated=X | service_role=X     (no PUBLIC entry)
+```
+
+This file already recorded one half — *"`REVOKE … FROM PUBLIC` does not remove an explicit `anon`
+grant"*. **The converse is equally true and was missing.** Migration **058** revokes both;
+`HTTP 200` → **`401 / 42501`**, with signed-in inserts verified unaffected inside a rolled-back
+probe. **Every future `SECURITY DEFINER` function must revoke from both.**
+
+### Two theories discarded before the ACL was read
+"Create-and-revoke in the same transaction" (disproved by 057, a standalone revoke that also
+appeared to fail) and, before that, a suspected wrong signature. **Reading `pg_proc.proacl` settled
+it in one query and should have been the first step.**
+
+### NOT verified — read before believing 1.7 is fully proven
+- **The two-device edit race** — 1.6's concurrency guard has never been exercised by two people
+  editing one expense. Still the highest-value outstanding check, and it concerns money.
+- **The three push checks** — mute path, two devices on one account, first-attempt `environment`
+  routing. Unblocked since 2026-08-27.
+- **ICON-03** — dark/tinted app icons remain unresolved; see `AUDIT_REPORT.md`, where the earlier
+  "not applied" finding is **withdrawn** because the test could not detect success.
+
 ## Release status — v1.6 (8) APPROVED 2026-09-04
 
 **The release that makes the expense concurrency guard reach a user.** Migration 051 has been
