@@ -21,7 +21,7 @@ struct XBillIconPickerGrid: View {
                     ZStack {
                         RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
                             .fill(selectedIcon == icon ? AppColors.surfaceSoft : AppColors.surface)
-                        XBillAvatarPlaceholder(name: icon, size: 36)
+                        XBillGroupGlyph(emoji: icon, size: 36)
                     }
                     .frame(width: 56, height: 56)
                     .overlay(

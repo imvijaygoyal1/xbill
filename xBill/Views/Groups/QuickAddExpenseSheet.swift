@@ -67,9 +67,7 @@ struct QuickAddExpenseSheet: View {
                             loadMembers(for: group)
                         } label: {
                             HStack(spacing: XBillSpacing.md) {
-                                Text(group.emoji)
-                                    .font(.title2)
-                                    .frame(width: 44, height: 44)
+                                XBillGroupGlyph(emoji: group.emoji, size: 44)
                                     .background(Color.brandSurface)
                                     .clipShape(Circle())
                                 VStack(alignment: .leading, spacing: 2) {

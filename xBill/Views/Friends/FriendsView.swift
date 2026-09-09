@@ -445,9 +445,7 @@ struct FriendDetailView: View {
                 Section("Shared Groups") {
                     ForEach(mutualGroups) { group in
                         HStack(spacing: XBillSpacing.md) {
-                            Text(group.emoji)
-                                .font(.title3)
-                                .frame(width: 36, height: 36)
+                            XBillGroupGlyph(emoji: group.emoji, size: 36)
                                 .background(Color.bgTertiary)
                                 .clipShape(Circle())
                             Text(group.name)

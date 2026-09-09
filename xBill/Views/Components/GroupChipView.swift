@@ -13,7 +13,7 @@ struct GroupChipView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AppSpacing.md) {
             HStack(alignment: .top, spacing: AppSpacing.sm) {
-                XBillAvatarPlaceholder(name: group.emoji, size: AppSpacing.tapTarget)
+                XBillGroupGlyph(emoji: group.emoji, size: AppSpacing.tapTarget)
                 Spacer(minLength: AppSpacing.sm)
                 XBillStatusChip(text: group.currency, icon: "dollarsign.circle.fill", color: AppColors.primary)
             }

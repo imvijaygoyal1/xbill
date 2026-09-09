@@ -1157,3 +1157,56 @@ three causes were proposed and disproved before anyone measured.
 **Verification.** Unit **513 passed, 0 failed**. **Device-verified by the owner:** the strip no
 longer drags or refreshes, horizontal scrolling still works, and pull-to-refresh still works on all
 three tabs — the regression risk, since the modifier all three depended on was moved.
+
+## ICON-06/07/10 — fixed 2026-09-08. ICON-03/04 deliberately NOT done.
+
+| | |
+|---|---|
+| **ICON-07 ✅** | New `XBillGroupGlyph`. A group's emoji was rendered **six** ways — three sites through `XBillAvatarPlaceholder(name:)`, whose job is computing *initials* (it splits on spaces, takes two leading characters, uppercases, falls back to `"?"`) and which applies a `foregroundStyle` a colour emoji ignores; three more as bare `Text`. It worked only because `first` of "🍕" is "🍕". All six now route through one view; `XBillAvatarPlaceholder` goes back to initials. Handles the empty-emoji case, which previously rendered a blank circle. |
+| **ICON-10 ✅** | `XBillCategoryIcon` sizes tile and glyph from `@ScaledMetric(relativeTo: .body)`, capped at **1.4×** so an enlarged icon cannot push a chip-row label out of the row. Previously fixed points, so the icon stayed put while every label beside it grew. |
+| **ICON-06 🟡** | `symbolEffect` **0 → 2**, applied only where motion carries information: `wifi.slash` pulses while offline (an ongoing condition), and the regenerate-invite glyph pulses while an invite is minting. `.rotate` would read better on the latter but is iOS 18 and the floor is 17.0. `symbolVariant` remains unused — the category symbols are already explicit `.fill` variants, so it would be ceremony. |
+
+### ICON-03 — attempted, reverted, still open
+Dark and tinted variants of the **existing** artwork were built and tested. They did not take effect,
+and the cause was not established. Everything below was verified, so nobody repeats it:
+
+- The dark/tinted PNGs were genuinely distinct (mean channel diff **38.97** and **68.49** / 255).
+- They compiled into `Assets.car` as `UIAppearanceDark` and `ISAppearanceTintable`.
+- ☠️ **`ASSETCATALOG_COMPILER_STANDALONE_ICON_BEHAVIOR` defaults to `all`**, which emits loose
+  `AppIcon*.png` into the bundle **and** legacy `CFBundleIconFiles` keys. iOS then resolves the icon
+  from those loose files, which carry no appearance variants. Setting it to `none` removed both —
+  **necessary, but not sufficient.**
+- Giving the dark/tinted variants transparent backgrounds (iOS composites its own ground) also did
+  not help.
+- Measured on a clean simulator against controls: xBill's icon changed **0.5** between light and
+  dark; `Files`, which has no dark variant, changed **0.6**. i.e. not applied.
+
+⚠️ **A conclusion drawn here was wrong and is corrected:** "reproducible on the simulator, therefore
+not a device setting" **does not follow** — the simulator has the same Home Screen appearance control
+(Automatic / Light / Dark / Tinted), and it was never set there either. `simctl ui appearance dark`
+changes *system* appearance, which may not touch it. So it remains undetermined whether the asset is
+ignored, or whether both test environments simply had Home Screen appearance pinned to Light.
+
+**Next step if resumed:** set Home Screen appearance to Dark explicitly on a device first — ten
+seconds, and it settles the question. Then **Icon Composer** (`Xcode.app/Contents/Applications/`),
+since iOS 26 moved to `.icon` files; the hand-authored `appearances` array is the iOS 18 route.
+
+**ICON-04 is NOT a task.** The legibility measurements stand — the AL/MR/JT initials dissolve below
+120pt — but the app icon is brand identity, and changing it is a product decision, not an audit item.
+Recorded as a finding for whenever that conversation happens.
+
+### ⚠️ Suite flakiness observed 2026-09-08 — not caused by these changes
+Two full runs each failed a **different** test; both passed in isolation; a third full run was clean.
+
+| run | result |
+|---|---|
+| 1 | 512/513 — *"Marking a history row unread performs no server write"* |
+| isolated | `ActivityViewModelReadMutationTests` **10/10** |
+| 2 | 512/513 — *"Recording a payment reduces the balance"* |
+| isolated | `GroupViewModelPaymentTests` **16/16** |
+| 3 | **513/513** |
+
+Both are `@MainActor` view-model suites using injected fakes, and neither touches the views changed
+here. This looks like parallel-execution interference between suites rather than a regression, but
+it is **not diagnosed**. If a release run fails one of these, re-run it in isolation before treating
+it as real — and if it recurs, this table is the prior data point.

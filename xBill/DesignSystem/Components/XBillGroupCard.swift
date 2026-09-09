@@ -21,7 +21,7 @@ struct XBillGroupCard: View {
         let shadow = AppShadow.card(colorScheme: colorScheme)
 
         HStack(alignment: .center, spacing: AppSpacing.md) {
-            XBillAvatarPlaceholder(name: group.emoji, size: AppSpacing.xxl)
+            XBillGroupGlyph(emoji: group.emoji, size: AppSpacing.xxl)
 
             VStack(alignment: .leading, spacing: AppSpacing.sm) {
                 VStack(alignment: .leading, spacing: AppSpacing.xs) {

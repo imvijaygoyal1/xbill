@@ -54,7 +54,11 @@ struct GroupInviteView: View {
                         Button {
                             Task { await generateInvite() }
                         } label: {
+                            // ICON-06: pulses only while a new invite is being minted, so the
+                            // button reports its own work instead of looking inert. `.rotate` would
+                            // read better but is iOS 18; the floor here is 17.0.
                             Image(systemName: "arrow.clockwise")
+                                .symbolEffect(.pulse, isActive: isLoading)
                         }
                         .accessibilityLabel("Generate a new invite link")
                     }
@@ -69,8 +73,7 @@ struct GroupInviteView: View {
 
     private var groupHeader: some View {
         VStack(spacing: XBillSpacing.sm) {
-            Text(group.emoji)
-                .font(.system(size: 48))
+            XBillGroupGlyph(emoji: group.emoji, size: 64)
             Text(group.name)
                 .font(.title2.bold())
                 .foregroundStyle(Color.textPrimary)

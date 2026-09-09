@@ -104,20 +104,28 @@ struct XBillCategoryIcon: View {
     let category: Expense.Category
     var size: CGFloat = XBillIcon.categorySize
 
+    /// ICON-10: the tile and its glyph were fixed point sizes, so the icon stayed put while every
+    /// label beside it grew with Dynamic Type. `@ScaledMetric` scales both together, keeping the
+    /// glyph proportional to its tile. Capped at 1.4× — these sit in chip rows and expense rows,
+    /// where an unbounded icon pushes the label out of the row.
+    @ScaledMetric(relativeTo: .body) private var typeScale: CGFloat = 1
+
+    private var scaledSize: CGFloat { size * min(typeScale, 1.4) }
+
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+            RoundedRectangle(cornerRadius: scaledSize * 0.28, style: .continuous)
                 .fill(category.categoryBackground)
             // ICON-01: `Expense.Category.systemImage` — the model's own vocabulary, the one
             // carrying the reasoning in its comments. This view used to read a second property,
             // `symbolName`, declared at the bottom of this file. See the note below.
             Image(systemName: category.systemImage)
-                .font(.system(size: size * 0.42, weight: .semibold))
+                .font(.system(size: scaledSize * 0.42, weight: .semibold))
                 .xbillSymbol()
                 // ICON-02: adaptive. `AppColors.primary` here sat at 2.34–2.50:1 in dark mode.
                 .foregroundStyle(AppColors.categoryGlyph)
         }
-        .frame(width: size, height: size)
+        .frame(width: scaledSize, height: scaledSize)
         .accessibilityHidden(true)
     }
 }

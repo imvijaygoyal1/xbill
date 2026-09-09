@@ -429,7 +429,7 @@ struct GroupDetailView: View {
 
     private var groupSummaryHeader: some View {
         HStack(spacing: AppSpacing.md) {
-            XBillAvatarPlaceholder(name: vm.group.emoji, size: 56)
+            XBillGroupGlyph(emoji: vm.group.emoji, size: 56)
             VStack(alignment: .leading, spacing: AppSpacing.xs) {
                 HStack(spacing: AppSpacing.sm) {
                     XBillAvatarStack(users: vm.activeMembers, maxVisible: 4, size: 28)
