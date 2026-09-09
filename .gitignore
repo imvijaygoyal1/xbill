@@ -24,3 +24,6 @@ Pods/
 # Receipt benchmark corpus — real receipts carry card digits, loyalty IDs and
 # addresses. Local only; never committed. See CLAUDE.md, receipt corpus section.
 xBillTests/ReceiptCorpus/
+
+# Agent worktrees — embedded git repos, never part of this repo
+.claude/worktrees/
