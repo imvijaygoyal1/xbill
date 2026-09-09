@@ -1217,18 +1217,35 @@ outcomes is not a check.
 120pt — but the app icon is brand identity, and changing it is a product decision, not an audit item.
 Recorded as a finding for whenever that conversation happens.
 
-### ⚠️ Suite flakiness observed 2026-09-08 — not caused by these changes
-Two full runs each failed a **different** test; both passed in isolation; a third full run was clean.
+### ⚠️ Suite flakiness — measured 2026-09-08. Rate known, cause NOT known.
 
-| run | result |
-|---|---|
-| 1 | 512/513 — *"Marking a history row unread performs no server write"* |
-| isolated | `ActivityViewModelReadMutationTests` **10/10** |
-| 2 | 512/513 — *"Recording a payment reduces the balance"* |
-| isolated | `GroupViewModelPaymentTests` **16/16** |
-| 3 | **513/513** |
+**2 failures in 10 full runs (~20%)**, both passing in isolation. A hypothesis of
+parallel-execution interference was written here first and is **withdrawn** — it was tested and is
+wrong.
 
-Both are `@MainActor` view-model suites using injected fakes, and neither touches the views changed
-here. This looks like parallel-execution interference between suites rather than a regression, but
-it is **not diagnosed**. If a release run fails one of these, re-run it in isolation before treating
-it as real — and if it recurs, this table is the prior data point.
+| Run | Mode | Result |
+|---|---|---|
+| 1 | parallel | 512/513 — *"Marking a history row unread performs no server write"* |
+| 2 | parallel | 512/513 — *"Recording a payment reduces the balance"* |
+| 3 | parallel | 513/513 |
+| serial | serial | 513/513 |
+| par1–3 | parallel | **513/513 ×3** |
+| ser1–3 | serial | **513/513 ×3** |
+
+Isolated re-runs: `ActivityViewModelReadMutationTests` **10/10**, `GroupViewModelPaymentTests`
+**16/16**.
+
+**Parallel and serial are indistinguishable (3/3 each), so parallelism is not the cause.** Both
+failing tests are `@MainActor` view-model suites using injected fakes; an async-timing or shared
+-singleton interaction is plausible but **untested**, and is deliberately not asserted here — the
+parallelism guess was made on exactly that quality of reasoning and did not survive contact with six
+runs.
+
+One correlation, recorded as data only: both failures occurred in the two runs immediately following
+a recompile, while all six probe runs reused a warm `-derivedDataPath`. At n=2 that is as likely
+coincidence as signal.
+
+**What to do when it recurs:** re-run the named suite in isolation before treating it as real. If
+isolation passes, this table is the prior data point — do not re-derive it. If the rate climbs or a
+third suite joins, the next step is instrumenting shared state (`NotificationStore`,
+`CacheService.defaults`) across suite boundaries, not another guess.
