@@ -1245,6 +1245,27 @@ One correlation, recorded as data only: both failures occurred in the two runs i
 a recompile, while all six probe runs reused a warm `-derivedDataPath`. At n=2 that is as likely
 coincidence as signal.
 
+### Partial fix 2026-09-08 — one real defect found, one failure still unexplained
+
+`NotificationReadStateTests.settle(_:)` polled `hasInFlightMutations` for **200 × 1 ms and then
+returned silently**. On a loaded machine that budget is exceeded, the caller asserts against
+half-settled state, and the failure surfaces as *"Marking a history row unread performs no server
+write"* — a behavioural message for what is actually a timing shortfall. That is exactly the
+run-1 failure, and it explains why it passed in isolation every time.
+
+Now a 10-second budget with an **explicit `Issue.record` on exhaustion**, so a timeout can never
+again masquerade as wrong behaviour. Suite green at 513/513 after the change.
+
+⚠️ **This addresses at most ONE of the two observed failures.** The run-2 failure —
+*"Recording a payment reduces the balance"* in `GroupViewModelSettlementTests` — is **not
+explained**. That test awaits `recordPayment` directly and uses injected fakes with a fresh
+`UUID()` group id per call, so neither the shared `CacheService` keyspace nor a polling budget
+accounts for it. Ruled out by inspection: `NotificationStore` is isolated per test (UUID-suffixed
+keys), and `makeGroup()` never reuses an id.
+
+**No claim is made that the flakiness is fixed.** The measured rate was 2 in 10 before this; the
+rate after is unmeasured, and a single green run is not evidence.
+
 **What to do when it recurs:** re-run the named suite in isolation before treating it as real. If
 isolation passes, this table is the prior data point — do not re-derive it. If the rate climbs or a
 third suite joins, the next step is instrumenting shared state (`NotificationStore`,

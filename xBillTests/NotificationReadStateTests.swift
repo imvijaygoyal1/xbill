@@ -465,11 +465,27 @@ struct ActivityViewModelReadMutationTests {
     }
 
     /// Polls on the main actor so queued `Task { @MainActor in … }` mutation work can run.
-    private func settle(_ vm: ActivityViewModel) async {
-        for _ in 0..<200 {
+    /// Waits for the view model's in-flight mutations to drain.
+    ///
+    /// This previously polled 200 × 1 ms and then **returned silently**. On a loaded machine the
+    /// budget can be exceeded, and the caller would then assert against half-settled state — so a
+    /// timing shortfall surfaced as *"Marking a history row unread performs no server write"*
+    /// rather than as a timeout. That is one of the two intermittent failures measured on
+    /// 2026-09-08 (2 in 10 runs); it passed in isolation every time.
+    ///
+    /// Now: a far larger budget, and an explicit failure when it is exhausted. A test that cannot
+    /// distinguish "the behaviour is wrong" from "I did not wait long enough" is not a test.
+    private func settle(_ vm: ActivityViewModel,
+                        sourceLocation: SourceLocation = #_sourceLocation) async {
+        let deadline = ContinuousClock.now + .seconds(10)
+        while ContinuousClock.now < deadline {
             if !vm.hasInFlightMutations { return }
             try? await Task.sleep(nanoseconds: 1_000_000)
         }
+        Issue.record("""
+            settle() timed out after 10s with mutations still in flight. This is a TIMEOUT, not a \
+            behavioural failure — do not "fix" the assertions below it.
+            """, sourceLocation: sourceLocation)
     }
 
     @Test("Marking a history row unread performs no server write and keeps it unread")
