@@ -1040,6 +1040,24 @@ the display rule. Unit suite **513 passed, 0 failed**.
 the 7 — *"Silent when the payer recorded their own expense"* and *"Silent for a row predating
 migration 055"* — while the five independent of it correctly still pass.
 
-**NOT verified:** nothing was exercised through the app on a device. The probes prove the database
-accepts and refuses correctly; they do not prove the iOS client's round trip. Worth one real
-add-with-another-payer and one payer edit on a device.
+### ✅ DEVICE-VERIFIED by the owner 2026-09-08, on 1.6 (8)
+1. **Add an expense paid by another member** — works. Previously refused.
+2. **Edit an expense to correct the payer** — works. This is the exact action that produced
+   *"new row violates row-level security policy for table 'expenses'"*.
+3. **"Added by X"** — renders on a bookkeeper-recorded expense.
+
+⚠️ **(3) appeared absent at first, and the display code was not at fault.** The first attempt was a
+row created *and then edited*, ending with `paid_by = created_by` — so the label was correctly
+hidden. Confirmed from the data (`created_at 00:16:19`, `updated_at 00:16:47`, both ids the same),
+not by reading the view. Two probes were spent before that:
+- An OpenAPI-root check reported `created_by` **missing from PostgREST's schema cache** — and also
+  reported `paid_by` missing, which demonstrably works. **The probe was invalid, not the cache.**
+  A positive control is what exposed it.
+- Re-probed with a discriminating test: `?select=created_by` returns `[]` (known, RLS-filtered)
+  while `?select=definitely_not_a_column` returns `42703`. Schema cache was fine throughout.
+
+**Known gap, deliberately left.** `update_expense_with_splits` stamps `updated_by` but not
+`created_by`, so editing one of the 45 legacy rows to change its payer leaves `created_by` NULL and
+shows no label — the attribution stays invisible on exactly the rows most likely to be corrected.
+Editing does not change who originally recorded an expense, so this is arguably right; revisit only
+if the label is wanted on corrected legacy rows.
