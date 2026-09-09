@@ -178,7 +178,6 @@ struct GroupDetailView: View {
                 // the lock overlay; defer until unlock.
                 if !locked { presentHandoffPromptIfReady() }
             }
-            .refreshable { await vm.refresh() }
             .onChange(of: reviewPrompt.isRequestPending) { _, pending in
                 guard pending else { return }
                 Task { @MainActor in
@@ -384,29 +383,46 @@ struct GroupDetailView: View {
                     .padding(.horizontal, XBillSpacing.base)
                     .padding(.vertical, XBillSpacing.xs)
                 }
+                // A pinned bar should not rubber-band vertically. This does NOT stop the strip
+                // adopting a refresh gesture — see the note on the tab content below, which is
+                // where that was actually fixed.
+                .scrollBounceBehavior(.basedOnSize, axes: .vertical)
                 .background(AppColors.surface)
 
                 AppColors.border.frame(height: 0.5)
             }
 
             // Tab content
-            switch selectedTab {
-            case 0: expensesTab
-            case 1:
-                if vm.isLoading {
-                    ProgressView("Loading…")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    balancesTab
-                }
-            default:
-                if vm.isLoading {
-                    ProgressView("Loading…")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    settleUpTabEmbedded
+            //
+            // `.refreshable` lives HERE, not on `lifecycleContent`. It does not attach to one view:
+            // it puts a `RefreshAction` in the environment and **every** scrollable descendant
+            // adopts it — including the horizontal category strip above, which grew its own
+            // vertical pull-to-refresh gesture, dragged independently of the list, and refreshed on
+            // release. Reported from device use 2026-09-08.
+            //
+            // Scoping it to the tab content is the fix. `.environment(\.refresh, nil)` cannot undo
+            // it — that key path is read-only — and `.scrollBounceBehavior` did nothing because the
+            // movement was never bounce. All three tabs keep refresh; only the strip opts out.
+            Group {
+                switch selectedTab {
+                case 0: expensesTab
+                case 1:
+                    if vm.isLoading {
+                        ProgressView("Loading…")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        balancesTab
+                    }
+                default:
+                    if vm.isLoading {
+                        ProgressView("Loading…")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        settleUpTabEmbedded
+                    }
                 }
             }
+            .refreshable { await vm.refresh() }
         }
         .background(AppColors.background)
     }

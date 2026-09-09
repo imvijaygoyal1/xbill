@@ -1120,3 +1120,40 @@ that says so — `WHERE p.id != auth.uid()` (SECDEF-01), `auth.uid() <> p_paid_b
 "redundant" line from being live. **Any new `SECURITY DEFINER` function starts with
 `IF auth.uid() IS NULL THEN RAISE ... USING ERRCODE = '42501'`.** The runbook's anon-EXECUTE sweep
 (`RELEASE_VERIFICATION.md` §1) is what surfaces regressions.
+
+## UI-03 — the category filter strip dragged vertically and refreshed (2026-09-08)
+
+**Reported from device use.** On Group Details → Expenses, the pinned category chip strip could be
+dragged vertically **independently of the list below it**, and releasing fired a pull-to-refresh.
+
+**Cause.** `.refreshable` does **not** attach to a view. It places a `RefreshAction` in the
+**environment**, and *every* scrollable descendant adopts it. It was applied to `lifecycleContent`,
+which wraps the entire screen — so the strip, being a `ScrollView(.horizontal)`, inherited
+pull-to-refresh and grew its own vertical refresh gesture.
+
+**Fix.** `.refreshable` moved from `lifecycleContent` onto the tab-content `Group`. The strip now
+sits outside the refreshable region, so there is nothing for it to adopt. All three tabs keep
+refresh; device-verified by the owner.
+
+### Two wrong fixes first, both instructive
+- **`.scrollBounceBehavior(.basedOnSize, axes: .vertical)`** — diagnosed as vertical rubber-banding.
+  It was not: the movement was a refresh gesture, not bounce. The modifier is **kept** (a pinned bar
+  should not bounce either) but its comment now says plainly that it is not the fix.
+- **`.environment(\.refresh, nil)`** — does not compile. `EnvironmentValues.refresh` is exposed as a
+  read-only `KeyPath`, not a `WritableKeyPath`, so **a refresh action cannot be cleared from a
+  subtree at all**. Scoping where it is *set* is the only lever.
+
+### Key Pattern — `.refreshable` is environment-scoped, so place it on the scroll view that owns it
+Applying it high in the hierarchy silently hands pull-to-refresh to every scrollable descendant,
+including horizontal strips and pickers that should never have it. Put it on the list, not on the
+screen. The same reasoning applies to `.searchable` and `.toolbar`.
+
+### Key Pattern — read the view tree before the first hypothesis, not after the second
+Three hypotheses were proposed here and the first two were wrong, each costing a build-and-install
+cycle on the owner's device. The structure that explained it — `.refreshable` on an ancestor of a
+`ScrollView` — was visible in the file the whole time. This is the same lesson as `UI-02`, where
+three causes were proposed and disproved before anyone measured.
+
+**Verification.** Unit **513 passed, 0 failed**. **Device-verified by the owner:** the strip no
+longer drags or refreshes, horizontal scrolling still works, and pull-to-refresh still works on all
+three tabs — the regression risk, since the modifier all three depended on was moved.
