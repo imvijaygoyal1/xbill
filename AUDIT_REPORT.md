@@ -1263,8 +1263,24 @@ explained**. That test awaits `recordPayment` directly and uses injected fakes w
 accounts for it. Ruled out by inspection: `NotificationStore` is isolated per test (UUID-suffixed
 keys), and `makeGroup()` never reuses an id.
 
-**No claim is made that the flakiness is fixed.** The measured rate was 2 in 10 before this; the
-rate after is unmeasured, and a single green run is not evidence.
+### Measured after the fix: 0 failures in 20 runs
+
+| | |
+|---|---|
+| before the fix | **2 failures / 10 runs** (~20%) |
+| after the fix | **0 failures / 20 runs** |
+
+No `settle() timed out` messages appeared either, so the widened budget is not merely converting a
+silent failure into a loud one — the mutations genuinely drain.
+
+At the prior rate, twenty consecutive clean runs has roughly a **1.2%** chance of occurring, so the
+silent timeout accounts for the behaviour that was observed.
+
+⚠️ **The honest claim is "not reproduced in 20 runs", not "fixed".** The run-2 failure in
+`GroupViewModelSettlementTests` never had an identified mechanism. It is plausible that both
+failures shared the timing cause and presented differently — but that was never proven, and 20 runs
+cannot exclude something rarer. If a payment-suite failure recurs, it is a **new** investigation
+with this table as its starting point, not a regression of something closed.
 
 **What to do when it recurs:** re-run the named suite in isolation before treating it as real. If
 isolation passes, this table is the prior data point — do not re-derive it. If the rate climbs or a
