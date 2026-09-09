@@ -1,6 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <!-- Background squircle -->
-  <rect width="1024" height="1024" rx="226" ry="226" fill="#3C3489"/>
+  <!-- ICON-05: the outer background MUST be a full square. iOS masks the corners itself; a
+     baked-in radius is masked a second time and the icon renders visibly wrong on the home
+     screen. This rect carried rx/ry="226" until 2026-09-08, which is why the generated set in
+     Assets/AppIcon.appiconset/ diverged from the (correct, square) shipping icons — running
+     generate-icons.sh and following its own "copy into your Xcode project" instruction would
+     have replaced good icons with double-rounded ones. -->
+<rect width="1024" height="1024" fill="#3C3489"/>
 
   <!-- Receipt shadow (offset duplicate for depth) -->
   <rect x="327" y="197" width="380" height="480" rx="22" ry="22" fill="#000000" opacity="0.05"/>

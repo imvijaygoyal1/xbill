@@ -56,6 +56,7 @@ struct GroupInviteView: View {
                         } label: {
                             Image(systemName: "arrow.clockwise")
                         }
+                        .accessibilityLabel("Generate a new invite link")
                     }
                 }
             }

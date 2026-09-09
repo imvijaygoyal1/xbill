@@ -102,6 +102,9 @@ struct SplitParticipantRow: View {
                 .contentShape(Circle())          // TAP-01: the glyph is not the hit region
                 .disabled(input.shares <= 1)
                 .accessibilityIdentifier("\(idPrefix).decreaseShares.\(input.userID.uuidString)")
+                // ICON-08: an accessibilityIdentifier is a test contract, not a label. Without
+                // this VoiceOver announced "minus circle fill, button".
+                .accessibilityLabel("Decrease shares for \(input.displayName)")
 
                 Text("\(input.shares)×").monospacedDigit().frame(minWidth: 28)
 
@@ -111,6 +114,7 @@ struct SplitParticipantRow: View {
                 .buttonStyle(.plain)
                 .contentShape(Circle())
                 .accessibilityIdentifier("\(idPrefix).increaseShares.\(input.userID.uuidString)")
+                .accessibilityLabel("Increase shares for \(input.displayName)")
             }
 
         case .equal:

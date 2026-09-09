@@ -171,6 +171,7 @@ struct AddIOUView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Clear selected person")
                     }
                 } else if !friends.isEmpty && !showEmailSearch {
                     // Friend list picker

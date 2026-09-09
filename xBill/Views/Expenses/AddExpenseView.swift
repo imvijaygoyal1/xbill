@@ -403,22 +403,11 @@ private struct CategoryChipView: View {
     let isSelected: Bool
     let onTap: () -> Void
 
+    // ICON-09: delegates to the shared chip. This was a byte-similar copy of ExpenseFilterChip and
+    // neither announced selection to VoiceOver.
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: XBillSpacing.xs) {
-                XBillCategoryIcon(category: category, size: 24)
-                Text(category.displayName)
-                    .font(.xbillLabel)
-                    .foregroundStyle(isSelected ? Color.brandPrimary : Color.textSecondary)
-            }
-            .padding(.horizontal, XBillSpacing.md)
-            .padding(.vertical, XBillSpacing.sm)
-            .background(isSelected ? Color.brandSurface : Color.bgTertiary)
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(isSelected ? Color.brandPrimary : Color.clear, lineWidth: 1.5))
-        }
-        .buttonStyle(.plain)
-        .frame(minHeight: AppSpacing.tapTarget)
+        XBillCategoryChip(label: category.displayName, category: category,
+                          isSelected: isSelected, iconSize: 24, onTap: onTap)
     }
 }
 
