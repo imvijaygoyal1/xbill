@@ -1056,8 +1056,15 @@ not by reading the view. Two probes were spent before that:
 - Re-probed with a discriminating test: `?select=created_by` returns `[]` (known, RLS-filtered)
   while `?select=definitely_not_a_column` returns `42703`. Schema cache was fine throughout.
 
-**Known gap, deliberately left.** `update_expense_with_splits` stamps `updated_by` but not
-`created_by`, so editing one of the 45 legacy rows to change its payer leaves `created_by` NULL and
-shows no label — the attribution stays invisible on exactly the rows most likely to be corrected.
-Editing does not change who originally recorded an expense, so this is arguably right; revisit only
-if the label is wanted on corrected legacy rows.
+### DECIDED 2026-09-08 — legacy rows stay unattributed. Do not re-propose.
+`update_expense_with_splits` stamps `updated_by` but **not** `created_by`. Editing one of the 45
+pre-055 rows to change its payer therefore leaves `created_by` NULL and shows no "Added by" label.
+
+The alternative — stamping `created_by` with the editor when a legacy row's payer changes — was
+considered and **rejected by the owner**. The reasoning that settles it: **editing an expense does
+not change who originally recorded it.** Back-filling the editor into `created_by` would assert
+something false about history to make a label appear, and `created_by` means "who recorded this",
+not "who last touched the attribution" — that is what `updated_by` is for.
+
+This is recorded as closed rather than deferred because `splits.is_settled` was re-proposed for
+deletion in six consecutive release cycles before someone wrote down that the decision was made.

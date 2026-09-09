@@ -94,6 +94,67 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-09-08 — BOOK-01: the bookkeeper flow
+
+**Reported from live use, fixed server-side, live the same day on every shipped build.**
+
+A member could not add an expense paid by someone else, and editing one to correct a mistyped payer
+failed with *"new row violates row-level security policy for table 'expenses'"*. Deleting and
+re-adding hit a different refusal.
+
+### `paid_by` was doing two jobs
+*Who spent the money* and *who may touch this row*. `auth.uid() = paid_by` was enforced in **four**
+places — the INSERT, UPDATE and DELETE policies and the `add_expense_with_splits` guard. The
+UPDATE's `WITH CHECK` evaluates the **new** row, so changing `paid_by` could never succeed by
+construction; the delete-and-re-add route was refused by the RPC instead.
+
+`settlements` had already solved this shape in migration 041 by separating `recorded_by` from the
+parties. `expenses` had no equivalent, so the only way to stop A asserting things about B was to
+forbid it outright. Migration **055** gives `expenses` the same separation.
+
+### No app release was required, and that is the interesting part
+The client **already sent whatever payer the picker selected** — `AddExpenseViewModel.payerID`
+merely *defaults* to the current user, and `saveEdit()` sends `editPayerID`. Only the server
+refused. The flow went live for every build in the wild, 1.0–1.6, the moment the migration landed.
+Same shape as `INV-07`. **Before assuming a fix needs a release, check whether the client already
+sends what the server is rejecting.**
+
+### No existing row was written
+`created_by` is nullable with **no backfill**, at the owner's instruction. For the 45 live expenses
+it stays NULL, `auth.uid() = created_by` is then NULL, the OR falls through to the `paid_by` arm,
+and legacy rows behave exactly as they always did. The change cannot corrupt history because it
+never touches it.
+
+### ☠️ The first deploy failed, and that was lucky
+The `CREATE OR REPLACE` omitted the function's **8 parameter defaults**. Postgres refused —
+`cannot remove parameter defaults from existing function`, SQLSTATE `42P13` — and rolled the whole
+migration back (verified: no column, no helper, no policy change, 055 unrecorded). Had it
+succeeded it would have reintroduced **SPLIT-04**, the `PGRST202` that hit a real user in 1.3,
+because PostgREST resolves an RPC by the exact key set it receives and migration 045 added those
+defaults for exactly that reason. **When replacing a function, reproduce its defaults verbatim.**
+
+### Key Pattern — a probe needs a positive control before you believe it
+A check reported `created_by` missing from PostgREST's schema cache. It also reported `paid_by`
+missing, which demonstrably works — **the probe was invalid, not the cache**. The discriminating
+version: `?select=created_by` returns `[]` (known, RLS-filtered) while `?select=nonexistent`
+returns `42703`. This is the third instance in this project of a check that could not distinguish
+its two outcomes, after `warningPenalises` (`SCAN-02`) and `absentCacheReadsAsOn` (`PUSH-01`).
+
+### Verification
+Migration **055 ✅ deployed 2026-09-08**. Both guard directions proven inside a `DO` block whose
+closing `RAISE` rolls the transaction back: bookkeeper insert **accepted** with `created_by`
+stamped, non-member payer **refused 42501**, and afterwards 45 expenses / 76 splits unchanged with
+**0** probe rows and all 45 legacy rows still NULL. One RPC overload, 8 defaults intact, `anon`
+revoked. Unit **513 passed, 0 failed**; `ExpenseRecorderTests` (7 cases) confirmed by name and
+mutation-tested — forcing the display predicate true fails exactly the 2 tests asserting the silent
+branch. **✅ Device-verified by the owner on 1.6 (8): all three checks pass.**
+
+### DECIDED — legacy rows stay unattributed
+Editing a pre-055 row to change its payer leaves `created_by` NULL and shows no label. Stamping the
+editor there was considered and **rejected**: editing an expense does not change who recorded it,
+and `created_by` means "who recorded this", not "who last touched the attribution" — that is
+`updated_by`. Closed, not deferred.
+
 ## Release status — v1.6 (8) APPROVED 2026-09-04
 
 **The release that makes the expense concurrency guard reach a user.** Migration 051 has been
