@@ -91,6 +91,23 @@ struct ExpenseDetailView: View {
                     }
                     .font(.subheadline)
 
+                    // Bookkeeper flow (migration 055): only shown when someone recorded an expense
+                    // on another member's behalf. Silent in the ordinary case — the payer recording
+                    // their own expense — so it reads as an exception, not as noise on every row.
+                    // `createdBy` is nil on rows predating 055, which is also correctly silent.
+                    if expense.wasRecordedBySomeoneElse, let recorder = expense.createdBy {
+                        HStack(spacing: 4) {
+                            Image(systemName: "square.and.pencil")
+                                .symbolRenderingMode(.hierarchical)
+                                .imageScale(.small)
+                            Text("Added by \(memberName(recorder))")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Added by \(memberName(recorder)), who is not the payer")
+                    }
+
                     Text(expense.createdAt.shortFormatted)
                         .font(.caption)
                         .foregroundStyle(.secondary)

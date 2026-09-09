@@ -38,6 +38,27 @@ struct Expense: Codable, Identifiable, Equatable, Sendable {
     /// Who last edited the row, so a conflict can name them. Nil for rows predating migration 051.
     var updatedBy: UUID? = nil
 
+    /// Whether the UI should surface who recorded this expense.
+    ///
+    /// True only when someone recorded it on another member's behalf. Deliberately false when the
+    /// payer recorded their own — the ordinary case — so the label reads as an exception rather
+    /// than as noise on every row, and false for rows predating migration 055 where `createdBy`
+    /// is nil. A computed property rather than an inline condition in the view so the rule is
+    /// testable without driving SwiftUI.
+    var wasRecordedBySomeoneElse: Bool {
+        guard let createdBy else { return false }
+        return createdBy != payerID
+    }
+
+    /// Who *recorded* the expense, which may differ from `payerID` — the bookkeeper flow, where one
+    /// member enters an expense somebody else paid for (migration 055).
+    ///
+    /// Nil for rows predating 055, and deliberately never backfilled: authorisation falls back to
+    /// `paid_by` for those, so legacy rows behave exactly as they always did. Optional for the same
+    /// reason `updatedAt` is — `CacheService` holds entries written before the key existed, and a
+    /// non-optional would fail to decode every one of them.
+    var createdBy: UUID? = nil
+
     // MARK: - Category
 
     enum Category: String, Codable, CaseIterable, Sendable {
@@ -156,5 +177,6 @@ struct Expense: Codable, Identifiable, Equatable, Sendable {
         case createdAt            = "created_at"
         case updatedAt            = "updated_at"
         case updatedBy            = "updated_by"
+        case createdBy            = "created_by"
     }
 }

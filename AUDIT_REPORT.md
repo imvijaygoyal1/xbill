@@ -965,3 +965,81 @@ refactored into a hole.
 `IF auth.uid() IS NULL THEN RAISE EXCEPTION ... USING ERRCODE = '42501'` to both, and change
 `add_expense_with_splits`'s identity check to `auth.uid() IS DISTINCT FROM p_paid_by` so it fires on
 NULL. Revoking `anon` by name is the second layer, as in 053.
+
+## BOOK-01 — the bookkeeper flow (2026-09-08)
+
+**Reported from live use:** a member could not add an expense paid by someone else, and editing an
+expense to correct a mistyped payer failed with *"new row violates row-level security policy for
+table 'expenses'"*. Deleting and re-adding it hit a different refusal.
+
+**Cause.** `paid_by` was doing two jobs — *who spent the money* and *who may touch this row* — and
+`auth.uid() = paid_by` was enforced in **four** places: the INSERT, UPDATE and DELETE policies and
+the `add_expense_with_splits` guard. The UPDATE's `WITH CHECK` evaluates the **new** row, so
+changing `paid_by` could never succeed; the delete-and-re-add path was refused by the RPC instead.
+
+`settlements` had already solved this shape in migration 041 by separating `recorded_by` from the
+parties. `expenses` had no equivalent column, so the only way to stop A asserting things about B
+was to forbid it outright.
+
+**Fix — migration 055, ✅ DEPLOYED 2026-09-08.** `expenses.created_by`, nullable, stamped from
+`auth.uid()` server-side and never accepted from the client. Policies become
+`auth.uid() = paid_by OR auth.uid() = created_by`, with the payer required to be a group member —
+previously implied by the guard that was removed (the INV-07 lesson: re-emit a function and every
+guard in it becomes yours). Membership, not *active* membership, matching the settlements decision.
+
+⚠️ **No existing row was written.** `created_by` is nullable with **no backfill**, at the owner's
+instruction. For the 45 live expenses it stays NULL, `auth.uid() = created_by` is then NULL, the OR
+falls through to the `paid_by` arm, and legacy rows behave exactly as they always did.
+
+**No app release required.** The client already sent whatever payer the picker selected —
+`AddExpenseViewModel.payerID` merely *defaults* to the current user, and `saveEdit()` sends
+`editPayerID`. Only the server refused. The flow went live for every shipped build, 1.0–1.6, the
+moment the migration landed. Same shape as INV-07.
+
+**Also closes the `add_expense_with_splits` half of SECDEF-03.** Its identity guard was
+`auth.uid() <> p_paid_by`, which is **NULL — not TRUE — for an anonymous caller**, so it never
+fired; only the membership check behind it failed the request closed. Replaced with an explicit
+`auth.uid() IS NULL` raise.
+
+☠️ **The first deploy attempt failed, and that was lucky.** The `CREATE OR REPLACE` omitted the
+function's **8 parameter defaults**; Postgres refused with `cannot remove parameter defaults from
+existing function` (SQLSTATE 42P13) and rolled the whole migration back — verified: no column, no
+helper, no policy change, 055 unrecorded. Had it succeeded it would have reintroduced **SPLIT-04**,
+the `PGRST202 Could not find the function` that hit a real user in 1.3, because PostgREST resolves
+an RPC by the exact key set it receives and migration 045 added those defaults for precisely that
+reason. The warning is now in the migration header.
+
+**Verification, all read-only or rolled back.**
+
+| Check | Result |
+|---|---|
+| Bookkeeper insert (A records B paid) | **ACCEPTED**, `paid_by = B`, `created_by = A` |
+| Non-member named as payer | **REFUSED** `42501` |
+| Data after probing | 45 expenses / 76 splits, **0** probe rows — unchanged |
+| Legacy rows | **45 of 45** still `created_by = NULL` |
+| RPC overloads | **1** (H-11 has bitten this schema three times) |
+| Parameter defaults | **8**, preserved |
+| `anon` EXECUTE | revoked |
+
+Both guard directions were exercised inside a `DO` block whose closing `RAISE` aborts the
+transaction, so the probe could not persist even if a guard had been broken.
+
+**Client (ships in the next release, not required for the flow).** `Expense.createdBy` — optional
+and never backfilled, for the same reason `updatedAt` is optional: `CacheService` holds entries
+written before the key existed. `Expense.wasRecordedBySomeoneElse` is a computed property rather
+than an inline view condition so the display rule is testable without driving SwiftUI, and
+`ExpenseDetailView` shows **"Added by X"** only when the recorder differs from the payer — silent in
+the ordinary case so it reads as an exception rather than noise on every row.
+
+**Tests.** `ExpenseRecorderTests`, **7 cases**, confirmed by name in the result bundle: decoding
+through `SupabaseManager.postgrestDecoder` (the decoder the transport actually uses — the SPLIT-04
+lesson), the legacy-null row, a payload with the key **absent** entirely, and all four branches of
+the display rule. Unit suite **513 passed, 0 failed**.
+
+**Mutation-tested, exactly.** Forcing `wasRecordedBySomeoneElse` to `true` fails **exactly 2** of
+the 7 — *"Silent when the payer recorded their own expense"* and *"Silent for a row predating
+migration 055"* — while the five independent of it correctly still pass.
+
+**NOT verified:** nothing was exercised through the app on a device. The probes prove the database
+accepts and refuses correctly; they do not prove the iOS client's round trip. Worth one real
+add-with-another-payer and one payer edit on a device.
