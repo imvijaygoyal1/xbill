@@ -1166,30 +1166,52 @@ three tabs — the regression risk, since the modifier all three depended on was
 | **ICON-10 ✅** | `XBillCategoryIcon` sizes tile and glyph from `@ScaledMetric(relativeTo: .body)`, capped at **1.4×** so an enlarged icon cannot push a chip-row label out of the row. Previously fixed points, so the icon stayed put while every label beside it grew. |
 | **ICON-06 🟡** | `symbolEffect` **0 → 2**, applied only where motion carries information: `wifi.slash` pulses while offline (an ongoing condition), and the regenerate-invite glyph pulses while an invite is minting. `.rotate` would read better on the latter but is iOS 18 and the floor is 17.0. `symbolVariant` remains unused — the category symbols are already explicit `.fill` variants, so it would be ceremony. |
 
-### ICON-03 — attempted, reverted, still open
-Dark and tinted variants of the **existing** artwork were built and tested. They did not take effect,
-and the cause was not established. Everything below was verified, so nobody repeats it:
+### ICON-03 — attempted and reverted, on a measurement that was INVALID
 
-- The dark/tinted PNGs were genuinely distinct (mean channel diff **38.97** and **68.49** / 255).
+⚠️ **Read this before repeating any of it.** The dark/tinted work was reverted because measurements
+said the variants "were not applied". **Those measurements were worthless**, and the conclusion drawn
+from them is withdrawn.
+
+**What was verified and is sound:**
+- The dark/tinted PNGs were genuinely distinct images (mean channel diff **38.97** and **68.49**/255).
 - They compiled into `Assets.car` as `UIAppearanceDark` and `ISAppearanceTintable`.
 - ☠️ **`ASSETCATALOG_COMPILER_STANDALONE_ICON_BEHAVIOR` defaults to `all`**, which emits loose
-  `AppIcon*.png` into the bundle **and** legacy `CFBundleIconFiles` keys. iOS then resolves the icon
-  from those loose files, which carry no appearance variants. Setting it to `none` removed both —
-  **necessary, but not sufficient.**
-- Giving the dark/tinted variants transparent backgrounds (iOS composites its own ground) also did
-  not help.
-- Measured on a clean simulator against controls: xBill's icon changed **0.5** between light and
-  dark; `Files`, which has no dark variant, changed **0.6**. i.e. not applied.
+  `AppIcon*.png` into the bundle **and** legacy `CFBundleIconFiles` keys. iOS resolves the icon from
+  those loose files, which carry **no appearance variants**. Setting it to `none` removed both. This
+  is a real prerequisite and will be needed again.
 
-⚠️ **A conclusion drawn here was wrong and is corrected:** "reproducible on the simulator, therefore
-not a device setting" **does not follow** — the simulator has the same Home Screen appearance control
-(Automatic / Light / Dark / Tinted), and it was never set there either. `simctl ui appearance dark`
-changes *system* appearance, which may not touch it. So it remains undetermined whether the asset is
-ignored, or whether both test environments simply had Home Screen appearance pinned to Light.
+**What was WRONG — the test method.** `simctl ui appearance dark` (and Settings → Display &
+Brightness on a device) sets the **system** appearance. Home-screen **icon** appearance is a separate
+control — Automatic / Light / Dark / Tinted, under long-press wallpaper → Edit → Customise → Home
+Screen — which neither touches. Every "light vs dark" comparison was therefore taken in an
+environment that could not show a dark icon, whatever the asset contained.
 
-**Next step if resumed:** set Home Screen appearance to Dark explicitly on a device first — ten
-seconds, and it settles the question. Then **Icon Composer** (`Xcode.app/Contents/Applications/`),
-since iOS 26 moved to `.icon` files; the hand-authored `appearances` array is the iOS 18 route.
+**Proven by isolation.** A throwaway app (`DarkIconTest`) was built with a deliberately unmistakable
+pair — solid **red** light icon, solid **green** dark icon — a textbook `Contents.json`, and
+`STANDALONE_ICON_BEHAVIOR: none`. Zero xBill code. On the same simulator, in dark system appearance,
+its icon rendered **red**. A minimal, correct app fails the same test identically, so the test was
+measuring the environment, not the app.
+
+**Consequences, stated plainly:**
+- The earlier claim *"xBill 0.5 delta vs control 0.6, therefore not applied"* is **withdrawn**.
+- *"Reproducible on a clean simulator, therefore not a device setting"* is **withdrawn** — the
+  simulator has the same Home Screen appearance control and it was never set there either.
+- The xBill dark/tinted assets may have been **entirely correct**. That is unresolved, not disproven.
+
+**To resume:** set Home Screen appearance to **Dark** explicitly on a device (ten seconds), then
+reinstate the reverted work — the icons and `Contents.json` are reproducible from
+`Assets/xbill-icon.svg`, and `STANDALONE_ICON_BEHAVIOR: none` goes back into `project.yml`. If a
+device still shows the light icon with that setting on, only then is there a real defect to chase,
+and **Icon Composer** (`Xcode.app/Contents/Applications/`) is the next avenue, since iOS 26 moved to
+layered `.icon` files.
+
+### Key Pattern — a differential needs a control that is known to work
+Five theories were proposed and discarded here (bounce, loose files, the standalone setting, stale
+artifacts, opaque backgrounds) before anyone asked whether the *test* could detect a working icon at
+all. The throwaway app answered it in one run and would have answered it first. **When a change
+"doesn't take effect", build the smallest thing that should obviously work before debugging the
+thing that doesn't.** Same lesson as `SCAN-02` and `PUSH-01`: a check that cannot distinguish its two
+outcomes is not a check.
 
 **ICON-04 is NOT a task.** The legibility measurements stand — the AL/MR/JT initials dissolve below
 120pt — but the app icon is brand identity, and changing it is a product decision, not an audit item.

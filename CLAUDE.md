@@ -155,6 +155,33 @@ editor there was considered and **rejected**: editing an expense does not change
 and `created_by` means "who recorded this", not "who last touched the attribution" — that is
 `updated_by`. Closed, not deferred.
 
+## Recent Fix Log — 2026-09-08 (later) — a withdrawn finding: the icon test measured nothing
+
+`AUDIT_REPORT.md` briefly asserted that xBill's dark/tinted app icons "were not applied", with
+numbers attached (0.5 delta vs a 0.6 control). **That conclusion is withdrawn.**
+
+`simctl ui appearance dark` — and Settings → Display & Brightness on a device — set the **system**
+appearance. Home-screen **icon** appearance is a *separate* control (Automatic / Light / Dark /
+Tinted, under long-press wallpaper → Edit → Customise → Home Screen). Neither touches it. Every
+comparison was taken in an environment that could not display a dark icon regardless of the asset.
+
+Proven by building `DarkIconTest`: a throwaway app, textbook `Contents.json`, solid **red** light
+icon and solid **green** dark icon, no xBill code. In dark system appearance on the same simulator
+it rendered **red**. A minimal correct app fails identically, so the test was measuring the
+environment.
+
+### Key Pattern — when something "has no effect", first prove your test can detect success
+Five causes were proposed and discarded before anyone asked whether the test could detect a working
+icon at all. The control app answered it in one run. Build the smallest thing that should obviously
+work, and confirm your measurement sees it, **before** debugging the thing that does not. This is
+the third instance in this repo of a check that could not distinguish its two outcomes, after
+`SCAN-02` (`warningPenalises`) and `PUSH-01` (`absentCacheReadsAsOn`).
+
+### Still true and still useful
+`ASSETCATALOG_COMPILER_STANDALONE_ICON_BEHAVIOR` defaults to `all`, which emits loose `AppIcon*.png`
+plus legacy `CFBundleIconFiles`; iOS resolves from those, and they carry no appearance variants. It
+must be `none` for dark/tinted to be possible at all. That part of the work stands.
+
 ## Release status — v1.6 (8) APPROVED 2026-09-04
 
 **The release that makes the expense concurrency guard reach a user.** Migration 051 has been
