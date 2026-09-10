@@ -30,6 +30,8 @@ final class HomeViewModel {
     var errorAlert: ErrorAlert?
     @ObservationIgnored private var isComputingBalances = false
     @ObservationIgnored private var shouldRecomputeBalances = false
+    @ObservationIgnored private var inFlightLoad: Task<Void, Never>?
+    @ObservationIgnored private var shouldReloadAgain = false
     @ObservationIgnored private var realtimeTask: Task<Void, Never>?
 
     struct RecentEntry: Identifiable, Sendable {
@@ -95,7 +97,53 @@ final class HomeViewModel {
         }
     }
 
-    func loadAll() async {
+    /// Joins a load that is already running instead of starting a second one.
+    ///
+    /// Measured on device, three cold launches: **three** full `loadAll` round trips every time,
+    /// ~10 ms and ~300 ms apart, from three independent callers —
+    ///
+    ///   1. `MainTabView.task`, after `loadCurrentUser()`
+    ///   2. `HomeView.task(id: vm.currentUser?.id)` → `startRealtimeUpdates()`, whose
+    ///      `if groups.isEmpty && archivedGroups.isEmpty` bootstrap still sees an empty list
+    ///      because #1 is mid-flight. `currentUser` flipping nil→set is what re-fires the task.
+    ///   3. `MainTabView.onReceive(didBecomeActiveNotification)`, which fires on **cold launch**,
+    ///      not only on foregrounding
+    ///
+    /// Home's numbers land when the *last* of the three finishes, which measured 723–973 ms —
+    /// the second the balances appear to take. None of the three is wrong on its own; together
+    /// they fetch the same data three times.
+    ///
+    /// A joined caller waits for the running load and sees its result, so pull-to-refresh keeps
+    /// spinning until data arrives rather than ending instantly on a dropped request. What it
+    /// gives up is small and bounded: a request landing in the last moments of a running load
+    /// receives that load's data, fetched a moment before the request.
+    ///
+    /// - Parameter force: for a caller that *knows* something changed and therefore cannot accept
+    ///   a fetch that began before it — the realtime stream is the only one. It joins the running
+    ///   load and additionally requires one more pass afterwards, coalesced the same way
+    ///   `computeBalances` coalesces (REV-05), so N forced requests during one load cost one extra
+    ///   pass rather than N.
+    func loadAll(force: Bool = false) async {
+        if let existing = inFlightLoad {
+            if force { shouldReloadAgain = true }
+            AppDiagnostics.log(.balance, "HomeViewModel.loadAll.joined", [("force", force)])
+            await existing.value
+            return
+        }
+
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            repeat {
+                self.shouldReloadAgain = false
+                await self.performLoadAll()
+            } while self.shouldReloadAgain
+        }
+        inFlightLoad = task
+        await task.value
+        if inFlightLoad == task { inFlightLoad = nil }
+    }
+
+    private func performLoadAll() async {
         guard let user = currentUser else {
             AppDiagnostics.log(.balance, "HomeViewModel.loadAll.skipped", [("reason", "no currentUser")])
             return
@@ -227,7 +275,9 @@ final class HomeViewModel {
             for await _ in stream {
                 guard !Task.isCancelled else { return }
                 AppDiagnostics.log(.sync, "HomeViewModel.realtime.event", [])
-                await self.loadAll()
+                // `force`: the event says a row changed *now*. A load already in flight may have
+                // fetched before that commit, so joining it alone could return without the change.
+                await self.loadAll(force: true)
             }
         }
     }

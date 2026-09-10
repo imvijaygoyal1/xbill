@@ -279,6 +279,62 @@ struct HomeViewModelOrderingTests {
         #expect(vm.netBalance == -10, "and the load must still finish correctly")
     }
 
+    /// Three callers hit `loadAll` on every cold launch — `MainTabView.task`,
+    /// `startRealtimeUpdates`'s bootstrap, and `didBecomeActive` — within about 300 ms of each
+    /// other. Measured on device before this was fixed: three full round trips, with Home's
+    /// numbers landing only when the last finished, 723–973 ms in.
+    @Test("Overlapping loads share one fetch instead of repeating it")
+    func overlappingLoadsAreDeduplicated() async {
+        let fixture = HomeFixture()
+        let vm = fixture.makeViewModel()
+        await vm.loadCurrentUser()
+
+        fixture.expenses.fetchGate.arm()
+        let first = Task { await vm.loadAll() }
+        await fixture.expenses.fetchGate.waitUntilParked()
+
+        // The two redundant launch callers, arriving while the first load is still fetching.
+        let second = Task { await vm.loadAll() }
+        let third = Task { await vm.loadAll() }
+        await Task.yield()
+
+        fixture.expenses.fetchGate.release()
+        await first.value
+        await second.value
+        await third.value
+
+        #expect(fixture.groups.fetchGroupsCount == 1,
+                "three callers, one fetch — this was 3 before the fix")
+        #expect(vm.netBalance == -10, "and every caller still sees a loaded screen")
+    }
+
+    /// The joiners must not return early: a caller that gets nothing would end pull-to-refresh's
+    /// spinner instantly, which is indistinguishable from a refresh that failed.
+    @Test("A joined caller waits for the running load rather than returning empty")
+    func joinedCallerWaitsForTheResult() async {
+        let fixture = HomeFixture()
+        let vm = fixture.makeViewModel()
+        await vm.loadCurrentUser()
+
+        fixture.expenses.fetchGate.arm()
+        let first = Task { await vm.loadAll() }
+        await fixture.expenses.fetchGate.waitUntilParked()
+
+        var joinerFinished = false
+        let joiner = Task {
+            await vm.loadAll()
+            joinerFinished = true
+        }
+        await Task.yield()
+        #expect(joinerFinished == false, "it must still be waiting while the load is parked")
+
+        fixture.expenses.fetchGate.release()
+        await first.value
+        await joiner.value
+        #expect(joinerFinished)
+        #expect(vm.netBalance == -10)
+    }
+
     /// A realtime event and a pull-to-refresh both call `loadAll`, and nothing serialises them.
     ///
     /// `computeBalances(for:)` guards on `isComputingBalances` and, before this was fixed, simply
@@ -319,12 +375,17 @@ struct HomeViewModelOrderingTests {
         fixture.expenses.splits.append(
             Split(id: UUID(), expenseID: secondExpense.id, userID: fixture.bob, amount: 25))
 
-        // 3. Load #2 sees the new list. Its recompute is the one that must not be lost.
-        await vm.loadAll()
+        // 3. The realtime stream's load — `force`, because the event says the row changed now.
+        //    It joins #1 rather than racing it, and requires one further pass afterwards. Started
+        //    as a task, not awaited here: it cannot finish until #1 does, and #1 is parked.
+        let second_load = Task { await vm.loadAll(force: true) }
+        await Task.yield()
 
-        // 4. Let #1 finish, publishing totals derived from the list it read before step 2.
+        // 4. Let #1 finish. Its totals derive from the list it read before step 2, so the forced
+        //    pass is the only thing that can pick the new group up.
         fixture.expenses.fetchGate.release()
         await first.value
+        await second_load.value
 
         #expect(vm.groups.count == 2, "the new group is listed…")
         #expect(vm.groupNetBalances[second.id] == -25, "…so its balance must be there too")
