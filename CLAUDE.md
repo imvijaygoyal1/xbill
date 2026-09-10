@@ -315,7 +315,7 @@ the number was still free, and everything below now ships in one release rather 
 | Bundle | widget `.appex` + `Assets.car`, `xBillWidgetCore.framework`, `Metadata.appintents`, 9 privacy types, **0** corpus paths | ✅ |
 | **Exported IPA** | **`aps-environment: production`**, `get-task-allow false`, Apple Distribution (7B5U5LACV3), 5.7 MB | ✅ |
 | Device | installed on iPhone 16 Pro, 3 cold launches, 2 groups, no error alert, no stale-data warning | ✅ |
-| Backend | ⚠️ **not re-run today.** Verified 2026-09-09 (migrations local = remote through **058**, payment handles 0, reviewer seed intact, 6 endpoints + AASA + CDN 200, 6 Edge Functions ACTIVE). **No migration was added since**, so it should still hold — but re-check payment handles are NULL before uploading. | ⚠️ |
+| Backend | re-run **2026-09-10**: migrations local = remote, all 58, none pending · **payment handles 0** · reviewer seed `auth_users 1 / profiles 1 / tokyo 1-3-5-15-4 / ious 1` · 4 web pages + AASA (`application/json`) + Apple CDN all **200** · rate API `success`, INR present · **6 Edge Functions ACTIVE** | ✅ |
 
 Archive: `~/Library/Developer/Xcode/Archives/2026-09-10/xBill 1.7 (9) 18-44.xcarchive` — the
 **Organizer** location, not `/tmp`.
