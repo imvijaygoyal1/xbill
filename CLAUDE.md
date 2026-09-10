@@ -94,6 +94,51 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-09-10 — FLAKE-02: 27 tests were reading the machine's network
+
+**The payment-suite flake is explained.** `AUDIT_REPORT.md` had it logged as *"not explained"*
+after the `settle()` timeout fix closed only one of the two observed failures. It was never a
+timing problem.
+
+`GroupViewModel.init(isConnectedProvider:)` defaults to `NetworkMonitor.shared.isConnected` — a
+real `NWPathMonitor` singleton. **27 of 35 `GroupViewModel` constructions in the test target
+omitted the argument**, so they resolved to the host machine's network path. An unsatisfied path
+update mid-run sends `load()` down its offline branch, which reads `CacheService.shared` instead of
+the injected fakes; for a freshly generated group id that cache is empty. Nothing throws,
+`errorAlert` stays nil, and R2 correctly leaves `balanceLoadFailed` false, so the only symptom is a
+balance of **zero** — which looks exactly like a broken split calculation. In isolation the suite
+finishes before the first path update arrives, so `isConnected` is still its initial `true`.
+
+Isolated by mutation, not by reading: forcing `isConnectedProvider: { false }` on the two failing
+tests reproduced both messages verbatim, `→ 0` and `→ 10`, first try. The leading hypothesis going
+in — the coalescing early return in `computeBalances` — is **disproved** for these failures;
+`computeBalances()` is reachable only from `load()` and two methods those tests never call, so
+`isComputingBalances` cannot be true on entry.
+
+- All 27 sites now pass `isConnectedProvider: { true }` explicitly.
+- The seam's doc comment and the `GroupViewModelSettlementTests.swift` header say why omitting it
+  is not a style choice.
+- New `LoadSourceByConnectivityTests` pins both branches, so the discriminator is executable.
+- 515/515 unit tests pass (513 + the two new ones).
+
+**Carry this forward:** a default argument that resolves to a `.shared` singleton is a hidden
+dependency on the machine. `currentUserIDProvider` has the same shape — it defaults to
+`AuthService.shared.currentUserID`.
+
+### Home-screen load — the archived-groups fetch left the critical path
+
+`HomeViewModel.loadAll` awaited `loadArchivedGroups()` before `computeBalances(for:)`. Home does
+not render archived groups, so a whole round trip sat ahead of the numbers the user is waiting for.
+They now run concurrently.
+
+Measured on device, per stage: groups 90 ms, archived 85 ms, balances 282 ms, total 458 ms.
+⚠️ **The end-to-end gain is not established** — five cold launches before averaged 421 ms and four
+after averaged 361 ms, consistent with removing an ~88 ms serial step but well inside the spread.
+What *is* established is that the archived fetch no longer serialises ahead of the balances. The
+dominant cost is `computeBalances` itself, still one round trip per group; the fix that scales is a
+server-side `get_group_balances` RPC, not further reordering. The DEBUG timing instrumentation used
+for these numbers has been removed.
+
 ## Recent Fix Log — 2026-09-08 — BOOK-01: the bookkeeper flow
 
 **Reported from live use, fixed server-side, live the same day on every shipped build.**

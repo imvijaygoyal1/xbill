@@ -262,7 +262,8 @@ struct GroupViewModelCoverageTests {
             title: "Newer",
             createdAt: fixedDate.addingTimeInterval(60)
         )
-        let vm = GroupViewModel(group: group)
+        let vm = GroupViewModel(group: group,
+    isConnectedProvider: { true })
         vm.members = [
             makeUser("Active", id: activeID, isActive: true),
             makeUser("Inactive", id: inactiveID, isActive: false)
@@ -283,7 +284,8 @@ struct GroupViewModelCoverageTests {
         let group = makeCoverageGroup()
         let existing = makeExpense(groupID: group.id, title: "Existing")
         let created = makeExpense(groupID: group.id, title: "Created")
-        let vm = GroupViewModel(group: group)
+        let vm = GroupViewModel(group: group,
+    isConnectedProvider: { true })
         vm.expenses = [existing]
 
         vm.recordCreatedExpense(created)
@@ -296,7 +298,8 @@ struct GroupViewModelCoverageTests {
     @Test("canChangeCurrency is true only before expenses are present")
     func canChangeCurrencyDependsOnExpenses() {
         let group = makeCoverageGroup(currency: "USD")
-        let vm = GroupViewModel(group: group)
+        let vm = GroupViewModel(group: group,
+    isConnectedProvider: { true })
 
         #expect(vm.canChangeCurrency)
 

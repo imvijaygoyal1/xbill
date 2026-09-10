@@ -2,6 +2,24 @@ import Foundation
 import Testing
 @testable import xBill
 
+//  Every `GroupViewModel` built here passes `isConnectedProvider: { true }` explicitly, and must.
+//
+//  The parameter defaults to `NetworkMonitor.shared.isConnected`, a real `NWPathMonitor`
+//  singleton, so a test that omits it depends on the **host machine's network path**. When a
+//  path update lands unsatisfied mid-run, `load()` takes its offline branch and reads
+//  `CacheService.shared` — empty for a freshly generated group id — instead of the fakes wired
+//  up two lines earlier. No error is thrown and `balanceLoadFailed` stays false, so the only
+//  symptom is a balance of zero: exactly what a broken split calculation would look like.
+//
+//  That is what made this suite flaky. On 2026-09-10 a full-suite run failed
+//  `recordReducesBalance` with `(vm.balance(for: bob) → 0) == -10` and
+//  `paymentPathsDoNotRefetchSplits` with `(vm.balance(for: bob) → 10) == 0`, while both passed
+//  16/16 in isolation — a short run finishes before the first path update even arrives.
+//  Forcing `isConnectedProvider: { false }` reproduced both failure messages verbatim, which is
+//  what identified the mechanism; nothing about the payment logic was involved.
+//
+//  Tests that *want* the offline branch inject `{ false }` — see `SettleUpDisplayStateTests`.
+
 /// Suspends a fake's async call at a chosen point until the test lets it go.
 ///
 /// Replaces the sleep-based interleaving the settlement tests used through round 4
@@ -182,7 +200,8 @@ struct GroupViewModelPaymentTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
         #expect(vm.balance(for: bob) == -10)
 
@@ -211,7 +230,8 @@ struct GroupViewModelPaymentTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
 
         await vm.recordPayment(from: bob, to: alice, amount: 10)
@@ -237,7 +257,8 @@ struct GroupViewModelPaymentTests {
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses,
                                 settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
         #expect(vm.balance(for: bob) == -10)
 
@@ -264,7 +285,8 @@ struct GroupViewModelPaymentTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
         await vm.recordPayment(from: bob, to: alice, amount: 10)
         #expect(vm.balance(for: bob) == 0)
@@ -289,7 +311,8 @@ struct GroupViewModelPaymentTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
         await vm.recordPayment(from: bob, to: alice, amount: 10)
         #expect(vm.balance(for: bob) == 0)
@@ -323,7 +346,8 @@ struct GroupViewModelPaymentTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
         #expect(vm.balance(for: bob) == -10)
         settlements.events = []
@@ -367,7 +391,8 @@ struct GroupViewModelPaymentTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
         await vm.recordPayment(from: bob, to: alice, amount: 5)
         let p1 = try! #require(vm.settlements.first)
@@ -409,7 +434,8 @@ struct GroupViewModelPaymentTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
 
         await vm.recordPayment(from: bob, to: alice, amount: 5)
@@ -442,7 +468,8 @@ struct GroupViewModelPaymentTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
         #expect(vm.settlements.contains { $0.id == otherMembersPayment.id })
 
@@ -490,7 +517,8 @@ struct GroupViewModelPaymentTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
         await vm.recordPayment(from: bob, to: alice, amount: 10)
         #expect(vm.balance(for: bob) == 0)
@@ -538,7 +566,8 @@ struct GroupViewModelPaymentTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
         #expect(vm.balance(for: bob) == 0)
 
@@ -575,7 +604,8 @@ struct GroupViewModelPaymentTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
         await vm.recordPayment(from: bob, to: alice, amount: 10)
         let payment = try! #require(vm.settlements.first)
@@ -627,7 +657,8 @@ struct GroupViewModelPaymentTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
         await vm.recordPayment(from: bob, to: alice, amount: 10)
         let payment = try! #require(vm.settlements.first { $0.fromUserID == bob })
@@ -695,7 +726,8 @@ struct GroupViewModelPaymentTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
         settlements.events = []
 
@@ -744,7 +776,8 @@ struct GroupViewModelPaymentTests {
         let healthyVM = GroupViewModel(group: group, groupService: FakeGroupService(),
                                        expenseService: healthyExpenses,
                                        settlementService: healthySettlements,
-                                       currentUserIDProvider: { bob })
+                                       currentUserIDProvider: { bob },
+                                       isConnectedProvider: { true })
         await healthyVM.load(showError: false)
         #expect(healthyVM.balance(for: bob) == 0)
         #expect(!healthyVM.balanceLoadFailed)
@@ -757,7 +790,8 @@ struct GroupViewModelPaymentTests {
         settlements.fetchError = AppError.networkUnavailable
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
 
         // The number on screen really is the gross, pre-payment debt — the repayment exists on
@@ -790,7 +824,8 @@ struct GroupViewModelPaymentTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
         #expect(vm.balance(for: bob) == -8)
         settlements.events = []
@@ -865,7 +900,8 @@ struct PaymentRecomputeIsSynchronousTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
-                                currentUserIDProvider: { bob })
+                                currentUserIDProvider: { bob },
+                                isConnectedProvider: { true })
         await vm.load(showError: false)
 
         // Baseline: load() legitimately fetches splits. Everything after it must not.

@@ -102,6 +102,13 @@ final class GroupViewModel {
     /// its offline branch deterministically. `NetworkMonitor.shared.isConnected` is a real
     /// `NWPathMonitor`-backed singleton with a `private(set)` property — nothing in the test
     /// target could previously flip it, so the offline branch had zero coverage.
+    ///
+    /// ⚠️ **A test that omits this argument is not hermetic.** It falls through to the real
+    /// monitor and therefore to the host machine's network path, and `load()` then silently
+    /// takes its *offline* branch — reading `CacheService.shared` instead of the injected
+    /// fakes, which for a fresh group id is empty. The observable result is a balance of zero
+    /// with no error and no stale-data flag, indistinguishable from a wrong calculation.
+    /// 27 tests were flaking this way; see the header of `GroupViewModelSettlementTests.swift`.
     private let isConnectedProvider: @MainActor () -> Bool
 
     init(

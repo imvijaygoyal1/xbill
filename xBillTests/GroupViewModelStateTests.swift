@@ -121,7 +121,8 @@ struct DeletedExpenseTests {
         let expenseService = FakeExpenseService()
         let groupService = FakeGroupService()
         let vm = GroupViewModel(group: group, groupService: groupService, expenseService: expenseService,
-                                settlementService: FakeSettlementService())
+                                settlementService: FakeSettlementService(),
+                                isConnectedProvider: { true })
 
         let expense = makeExpense(payerID: UUID(), groupID: group.id)
         vm.recordCreatedExpense(expense)
@@ -153,7 +154,8 @@ struct BalanceLoadFailedFlagTests {
         let expenseService = FakeExpenseService()
         let groupService = FakeGroupService()
         let vm = GroupViewModel(group: group, groupService: groupService, expenseService: expenseService,
-                                settlementService: FakeSettlementService())
+                                settlementService: FakeSettlementService(),
+                                isConnectedProvider: { true })
 
         vm.expenses = [makeExpense(payerID: UUID(), groupID: group.id)]
         vm.hasKnownNonEmptyExpenses = true
@@ -170,7 +172,8 @@ struct BalanceLoadFailedFlagTests {
         let group = makeGroup()
         let expenseService = FakeExpenseService()
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(), expenseService: expenseService,
-                                settlementService: FakeSettlementService())
+                                settlementService: FakeSettlementService(),
+                                isConnectedProvider: { true })
 
         expenseService.expenses = [makeExpense(payerID: UUID(), groupID: group.id)]
         vm.balanceLoadFailed = true
@@ -195,7 +198,8 @@ struct ApplySavedExpenseTests {
         let group = makeGroup()
         let fake = FakeExpenseService()
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
-                                expenseService: fake, settlementService: FakeSettlementService())
+                                expenseService: fake, settlementService: FakeSettlementService(),
+                                isConnectedProvider: { true })
 
         let original = makeExpense(payerID: UUID(), groupID: group.id, amount: Decimal(string: "100.00")!)
         vm.expenses = [original]
@@ -230,7 +234,8 @@ struct ApplySavedExpenseTests {
         let group = makeGroup()
         let fake = FakeExpenseService()
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
-                                expenseService: fake, settlementService: FakeSettlementService())
+                                expenseService: fake, settlementService: FakeSettlementService(),
+                                isConnectedProvider: { true })
 
         let original = makeExpense(payerID: UUID(), groupID: group.id, amount: Decimal(string: "100.00")!)
         vm.expenses = [original]
@@ -250,12 +255,81 @@ struct ApplySavedExpenseTests {
         let group = makeGroup()
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: FakeExpenseService(),
-                                settlementService: FakeSettlementService())
+                                settlementService: FakeSettlementService(),
+                                isConnectedProvider: { true })
         vm.expenses = []
 
         let stranger = makeExpense(payerID: UUID(), groupID: group.id, amount: Decimal(string: "1.00")!)
         await vm.applySavedExpense(stranger)
 
         #expect(vm.expenses.isEmpty)
+    }
+}
+
+// MARK: - Which source load() reads
+
+/// The discriminator that identified the 2026-09-10 payment-suite flake, kept executable.
+///
+/// `isConnectedProvider` defaults to the real `NWPathMonitor` singleton, so a test that omits it
+/// is at the mercy of the host's network path. The failure is silent: no throw, no error alert,
+/// and `balanceLoadFailed` deliberately stays false, so the *only* difference between "we went
+/// offline and the cache was empty" and "the split maths is broken" is a zero balance. These two
+/// tests pin both sides of that fork, so the next person who sees a bare zero can tell which one
+/// they are looking at instead of re-deriving it.
+@Suite("Connectivity decides which source load() reads", .serialized)
+@MainActor
+struct LoadSourceByConnectivityTests {
+
+    private struct Fixture {
+        let group: BillGroup
+        let payer: UUID
+        let debtor: UUID
+        let expenses: FakeExpenseService
+    }
+
+    /// A group id is freshly generated, so `CacheService.shared` holds nothing for it — the same
+    /// state every test in the settlement suites starts from.
+    private func makeFixture() -> Fixture {
+        let group = makeGroup()
+        let payer = UUID(), debtor = UUID()
+        let expense = makeExpense(payerID: payer, groupID: group.id)
+        let expenses = FakeExpenseService()
+        expenses.expenses = [expense]
+        expenses.splits = [makeSplit(expenseID: expense.id, userID: debtor, amount: 10)]
+        return Fixture(group: group, payer: payer, debtor: debtor, expenses: expenses)
+    }
+
+    @Test("Online, load() reads the service")
+    func onlineReadsTheService() async {
+        let fixture = makeFixture()
+        let vm = GroupViewModel(group: fixture.group, groupService: FakeGroupService(),
+                                expenseService: fixture.expenses,
+                                settlementService: FakeSettlementService(),
+                                currentUserIDProvider: { fixture.debtor },
+                                isConnectedProvider: { true })
+        await vm.load(showError: false)
+
+        #expect(vm.expenses.count == 1)
+        #expect(vm.balance(for: fixture.debtor) == -10)
+    }
+
+    /// Same fakes, same fixtures, one flag different — and the debt disappears without a sound.
+    @Test("Offline with an empty cache yields a zero balance and no warning")
+    func offlineWithEmptyCacheIsSilentlyZero() async {
+        let fixture = makeFixture()
+        let vm = GroupViewModel(group: fixture.group, groupService: FakeGroupService(),
+                                expenseService: fixture.expenses,
+                                settlementService: FakeSettlementService(),
+                                currentUserIDProvider: { fixture.debtor },
+                                isConnectedProvider: { false })
+        await vm.load(showError: false)
+
+        #expect(vm.expenses.isEmpty, "the offline branch reads the cache, never the service")
+        #expect(vm.balance(for: fixture.debtor) == .zero)
+        #expect(vm.errorAlert == nil, "going offline is not an error")
+        // R2 raises the stale-data flag only for a group already known to have expenses. This
+        // one is not, so the zero above is presented as authoritative — which is precisely why
+        // an accidentally-offline test looks like a calculation bug.
+        #expect(vm.balanceLoadFailed == false)
     }
 }

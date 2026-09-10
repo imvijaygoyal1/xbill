@@ -1286,3 +1286,54 @@ with this table as its starting point, not a regression of something closed.
 isolation passes, this table is the prior data point — do not re-derive it. If the rate climbs or a
 third suite joins, the next step is instrumenting shared state (`NotificationStore`,
 `CacheService.defaults`) across suite boundaries, not another guess.
+
+---
+
+## FLAKE-02 — `GroupViewModel` tests read the host machine's real network path ✅
+
+**Closes the open thread above.** *"The run-2 failure — 'Recording a payment reduces the balance'
+in `GroupViewModelSettlementTests` — is **not explained**"* now is, and the mechanism has nothing
+to do with timing, `CacheService` keyspace collisions or `NotificationStore`. All three of those
+were ruled out correctly; the cause was in a place none of them looked.
+
+**Symptom.** A full-suite run on 2026-09-10 failed two tests that pass 16/16 in isolation:
+
+| test | message |
+|---|---|
+| `Recording a payment reduces the balance` | `(vm.balance(for: bob) → 0) == -10` |
+| `Recording and deleting a payment fetch no splits` | `(vm.balance(for: bob) → 10) == 0` |
+
+**Cause.** `GroupViewModel.init` takes `isConnectedProvider`, defaulting to
+`NetworkMonitor.shared.isConnected` — a real `NWPathMonitor` singleton. **27 of the 35
+`GroupViewModel` constructions in the test target omitted it**, so they depended on the host
+machine's network path. When a path update lands unsatisfied mid-run, `load()` takes its *offline*
+branch: `members` and `expenses` come from `CacheService.shared`, which for a freshly generated
+group id is empty. The carefully wired fakes two lines above are never read.
+
+The failure is silent by design. Nothing throws, `errorAlert` stays nil, and R2 leaves
+`balanceLoadFailed` false because the group is not known to have expenses. The only observable is a
+balance of zero — indistinguishable from a broken split calculation. In isolation the suite
+finishes in well under a second, usually before the first path update even arrives, so
+`isConnected` is still its initial `true`: hence "passes alone, fails in the full suite".
+
+**How it was isolated.** By mutation, not inspection. Forcing `isConnectedProvider: { false }` on
+those two tests reproduced **both failure messages verbatim** — `→ 0` and `→ 10` — on the first
+attempt. Three other hypotheses were considered and dropped without being tested, including the
+`computeBalances` coalescing early-return, which was the leading theory going in. It is
+**disproved** for these failures: `computeBalances()` is called only from `load()` and two methods
+these tests never invoke, so `isComputingBalances` cannot be true on entry and the early return
+cannot fire.
+
+**Fix.** All 27 sites now pass `isConnectedProvider: { true }` explicitly. The seam's doc comment
+in `GroupViewModel.swift` and the header of `GroupViewModelSettlementTests.swift` both record why
+omitting it is not a stylistic choice. New suite `LoadSourceByConnectivityTests`
+(`GroupViewModelStateTests.swift`) pins both sides of the fork — online reads the service, offline
+with an empty cache yields a silent zero with `balanceLoadFailed == false` — so the discriminator
+stays executable rather than living in a comment.
+
+**Verification.** 515/515 unit tests pass. The count rose from 513 by the two new tests.
+
+**The lesson.** A default argument that reaches a `.shared` singleton is a hidden dependency on the
+machine. `currentUserIDProvider` has the same shape and the same exposure — it defaults to
+`AuthService.shared.currentUserID`. Grep for defaults that resolve to a singleton before assuming a
+test target is hermetic.
