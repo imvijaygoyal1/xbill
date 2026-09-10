@@ -288,11 +288,13 @@ the third instance in this repo of a check that could not distinguish its two ou
 plus legacy `CFBundleIconFiles`; iOS resolves from those, and they carry no appearance variants. It
 must be `none` for dark/tinted to be possible at all. That part of the work stands.
 
-## Release status — v1.7 (9) — re-archived with the full day's work (2026-09-10)
+## Release status — v1.7 (9) — SUBMITTED FOR REVIEW 2026-09-10
 
-The 2026-09-09 archive was **deleted from Organizer** and rebuilt: build 9 was never uploaded, so
-the number was still free, and everything below now ships in one release rather than waiting for
-1.8.
+Uploaded and submitted. **Build 9 is now consumed** — the next submission needs build 10.
+
+The 2026-09-09 archive was deleted from Organizer and rebuilt before submitting, so everything from
+2026-09-10 shipped in this release rather than waiting for 1.8. Build 9 was still free at that point
+because nothing had been uploaded; that window is closed now.
 
 | Contents | |
 |---|---|
