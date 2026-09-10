@@ -94,6 +94,38 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-09-10 (latest) — HOME-01, and RACE-01 which it uncovered
+
+`HomeViewModel` had **no `init`**: three singletons as stored properties, `SettlementService` and
+`NetworkMonitor` inline, and nothing in the test target able to construct it. `loadAll` — the screen
+every user lands on, and the only place cross-group balances are summed — had **zero** unit
+coverage. It now takes five seams, all defaulted to the singletons, so every `HomeViewModel()` call
+site is unchanged. `HomeGroupDataProviding` / `HomeExpenseDataProviding` **refine** the existing
+protocols rather than widening them, so the `GroupViewModel` and `ActivityService` fakes are
+untouched.
+
+⚠️ **RACE-01 — the first tests found a live defect.** `computeBalances(for:)` opened with
+`guard !isComputingBalances else { return }`: a recompute arriving while one was in flight was
+**thrown away**. Harmless while both callers see the same group list, wrong the moment they do not —
+which is what a realtime event produces. Load #1 starts computing; a group appears; load #2 fetches
+the new list; #2's recompute is dropped; #1 publishes totals for the older list. **Home renders a
+total that omits a group it is simultaneously listing.** Nothing throws, both `await`s return.
+Reachable in normal use: `HomeView` has pull-to-refresh and `startRealtimeUpdates` calls `loadAll`
+per event, with nothing serialising them.
+
+Demonstrated failing first (`vm.groupNetBalances[second.id] → nil`, `netBalance` −10 not −35), then
+fixed with the coalescing loop `GroupViewModel` already uses (REV-05).
+
+Two traps hit on the way, both worth carrying:
+- The first test run said `** TEST SUCCEEDED **` with **0 tests** — the new file was not in the
+  target, because sources come from `project.yml` and `xcodegen generate` had not been run.
+  **After adding any file, regenerate, then read the structured result and check the count moved.**
+- A protocol requirement **cannot carry default arguments**. `ExpenseService.createExpense` defaults
+  its last four, so the requirement is spelled out in full and a protocol extension restores the
+  eight-argument form (different arity, so it forwards rather than recurses).
+
+522/522 unit tests pass, up from 515. Detail in `AUDIT_REPORT.md` under HOME-01.
+
 ## Recent Fix Log — 2026-09-10 (later) — FLAKE-03: the identity seam, audited
 
 FLAKE-02 closed with *"`currentUserIDProvider` has the same shape and the same exposure."* Audited:

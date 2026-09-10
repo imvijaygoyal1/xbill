@@ -1385,3 +1385,71 @@ not a test edit, and it should be a deliberate decision rather than a side effec
 **Verification.** 515/515 unit tests pass. Two compile errors were hit and fixed on the way
 (`currentUserIDProvider` must precede `isConnectedProvider` in the parameter list) — the first
 build masked the second file's errors, so the suite was run three times, not once.
+
+---
+
+## HOME-01 — `HomeViewModel` had no seams, no tests, and a real balance race ✅
+
+Opened by the FLAKE-03 sweep, closed 2026-09-10. Adding the seams was the point; the race is what
+the first tests found.
+
+### The seams
+
+`HomeViewModel` had **no `init`**. `GroupService.shared`, `ExpenseService.shared` and
+`AuthService.shared` were stored properties; `SettlementService.shared` and
+`NetworkMonitor.shared.isConnected` were reached inline. Nothing in the test target could construct
+the type, so `loadAll` — the screen every user lands on, and the only place cross-group balances are
+summed — had **zero** unit coverage.
+
+Two new protocols, `HomeGroupDataProviding` and `HomeExpenseDataProviding`, **refine** the existing
+`GroupDataProviding` / `ExpenseDataProviding` rather than widening them, so `FakeGroupService`,
+`FakeExpenseService` and `ActivityServiceTests.StubGroups` are untouched — a fake only implements
+the extra methods if it is standing in for Home. `HomeViewModel.init` now takes all five seams,
+defaulted to the singletons, so every existing `HomeViewModel()` call site is unchanged.
+
+One Swift detail worth keeping: a protocol requirement **cannot carry default arguments**, and
+`ExpenseService.createExpense` defaults its last four. The requirement is spelled out in full (a
+witness matches on the whole signature regardless) and a protocol extension restores the
+eight-argument form the app actually calls — a different arity, so it forwards rather than recurses.
+
+### RACE-01 — an overlapping `loadAll` was silently dropped ⚠️ was live
+
+`computeBalances(for:)` opened with `guard !isComputingBalances else { return }`. A recompute that
+arrived while one was in flight was **thrown away**. Harmless while both callers see the same group
+list — and wrong the moment they do not, which is precisely what a realtime event produces:
+
+1. load #1 reads `groups`, starts computing, is still fetching
+2. a group appears; load #2 fetches the **new** list and assigns it
+3. load #2's recompute is dropped, because #1 is still running
+4. #1 finishes and publishes totals for the list it read in step 1
+
+Home then renders a total that **omits a group it is simultaneously listing**. Nothing throws, both
+`await`s return, and the only symptom is a wrong number — the same silent shape as FLAKE-02.
+`HomeView` has pull-to-refresh and `startRealtimeUpdates` calls `loadAll` on every event, with
+nothing serialising them, so the ordering is reachable in normal use.
+
+**Demonstrated before it was fixed.** `HomeViewModelOrderingTests` parks load #1 inside its balance
+fetch, adds a group, runs load #2, then releases: with the old guard the test failed with
+`vm.groupNetBalances[second.id] → nil`, and `netBalance` was −10 instead of −35.
+
+**Fix:** the coalescing loop `GroupViewModel` already uses (REV-05) — set `shouldRecomputeBalances`
+and let the in-flight run go round again. What it deliberately does **not** promise is recorded in
+the code: a coalesced caller's `await` returns before the recompute it asked for has happened. The
+guarantee is that the last state wins once everything settles.
+
+### Coverage added
+
+`HomeViewModelTests.swift`, 7 tests: no-current-user is a no-op; online sums the cross-group
+balance; a settlement offsets the debt it repays; a failed settlements fetch raises the IMP-2 stale
+warning; offline never reaches the service; the archived fetch overlaps the balances (pinning the
+2026-09-10 perf change, by asserting the *overlap* rather than the result — the version that only
+checked both finished would have passed if they were re-serialised); and RACE-01 above.
+
+**Two process notes.** The first run reported `** TEST SUCCEEDED **` with **0 tests** — the new file
+was not in the target, because sources come from `project.yml` and `xcodegen generate` had not been
+run. That is verification rule 7 exactly: read the structured result, never the exit status. And the
+overlap test's first draft asserted immediately after the gate parked, which races the balance
+task's scheduling; it now yields until the condition holds, with a bound that still fails if the two
+were ever re-serialised.
+
+**Verification.** 522/522 unit tests pass, up from 515.

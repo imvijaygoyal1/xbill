@@ -154,6 +154,7 @@
 		9FCBA411853C06D848043A83 /* GroupStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120CE4CD8F77F9C169C04174 /* GroupStatsView.swift */; };
 		A39FA18B4B057799E1007694 /* GroupInviteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C7FA86BA6CFBFDE4B55D14 /* GroupInviteView.swift */; };
 		A3C97EE52AE95E47C7608669 /* XBillLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8774FF8110279703171745B /* XBillLayout.swift */; };
+		A3DAD17A6E628BEFDF169F4D /* HomeViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD28815C9DF1FC0144B59C56 /* HomeViewModelTests.swift */; };
 		A5AAAB569AA05321AD5732D1 /* XBillCardModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4D0D78A5AA944448B3F1160 /* XBillCardModifier.swift */; };
 		A6BD8AF110FAD6CF6DFE3F6D /* XBillActionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EB816E24270B4C654962814 /* XBillActionCard.swift */; };
 		A78D12BBE20A1D293E0DB55F /* xBillWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7019A0E1C1F524DA0A45BBD /* xBillWidgetBundle.swift */; };
@@ -463,6 +464,7 @@
 		A34645B53CEA1FC51CD867B1 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		A7B73F83FDE40A4AEFAB1A48 /* ExpenseRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseRecorderTests.swift; sourceTree = "<group>"; };
 		A9F05A200F1E19E50323CFDE /* JoinGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoinGroupView.swift; sourceTree = "<group>"; };
+		AD28815C9DF1FC0144B59C56 /* HomeViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModelTests.swift; sourceTree = "<group>"; };
 		B15941156CC3FE45D87BA4FD /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		B1AA80878C6019F39FCF7C81 /* AppLockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockView.swift; sourceTree = "<group>"; };
 		B2A12F54677D153F5CCF6D88 /* xBillWidgetCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = xBillWidgetCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -539,7 +541,7 @@
 		F7C7C6747484D59E4AF5F7F4 /* AmountBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountBadge.swift; sourceTree = "<group>"; };
 		FA59435ADAF303865175315B /* VisionParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionParsingTests.swift; sourceTree = "<group>"; };
 		FFA8CD2E5A8CA2C7892BB8A8 /* CheckBalanceIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckBalanceIntent.swift; sourceTree = "<group>"; };
-		"TEMP_C862E13E-A4D8-4812-8997-6F352430E048" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		"TEMP_1D29DDBE-75AC-4234-B0D8-F757C512E587" /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -951,6 +953,7 @@
 				0E5843A89FB9191BE4437CD6 /* GroupViewModelMaintenanceTests.swift */,
 				CB81F25178656E04A7806437 /* GroupViewModelSettlementTests.swift */,
 				D524ED62CCA0FC4141B077F7 /* GroupViewModelStateTests.swift */,
+				AD28815C9DF1FC0144B59C56 /* HomeViewModelTests.swift */,
 				672B1FD4F2EBEDAE1A6D2ABB /* InvitePreviewTests.swift */,
 				156AED98D88AA04B27A4110E /* LaunchAndLockTests.swift */,
 				F6C78E6A0ABDE9F56CDAEBAD /* NotificationPreferencesTests.swift */,
@@ -1042,10 +1045,10 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		"TEMP_F0EF0F6D-2F9F-4DA6-B636-EF69D4DC0B88" /* xBill */ = {
+		"TEMP_DE80D2FA-7F55-46DE-989D-75AD878042E3" /* xBill */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_C862E13E-A4D8-4812-8997-6F352430E048" /* Secrets.xcconfig */,
+				"TEMP_1D29DDBE-75AC-4234-B0D8-F757C512E587" /* Secrets.xcconfig */,
 			);
 			path = xBill;
 			sourceTree = "<group>";
@@ -1300,6 +1303,7 @@
 				D04816EEDFDC9CF26CFFAD40 /* GroupViewModelMaintenanceTests.swift in Sources */,
 				7890BDA73B7D81435114DA32 /* GroupViewModelSettlementTests.swift in Sources */,
 				D44C2AB28279A5C52919BDC5 /* GroupViewModelStateTests.swift in Sources */,
+				A3DAD17A6E628BEFDF169F4D /* HomeViewModelTests.swift in Sources */,
 				07AE0244428F5664CD97D714 /* InvitePreviewTests.swift in Sources */,
 				38ED23B0A2EDD70B3C7C5EDA /* LaunchAndLockTests.swift in Sources */,
 				8DA9A618E38C7635F701C062 /* NotificationPreferencesTests.swift in Sources */,
@@ -1564,7 +1568,7 @@
 /* Begin XCBuildConfiguration section */
 		0CFB3588FE0C35BD960A09D5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_C862E13E-A4D8-4812-8997-6F352430E048" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_1D29DDBE-75AC-4234-B0D8-F757C512E587" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1773,7 +1777,7 @@
 		};
 		8BB2B8C5B50C091B63730356 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_C862E13E-A4D8-4812-8997-6F352430E048" /* Secrets.xcconfig */;
+			baseConfigurationReference = "TEMP_1D29DDBE-75AC-4234-B0D8-F757C512E587" /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

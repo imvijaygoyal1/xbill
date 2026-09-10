@@ -54,6 +54,55 @@ protocol RemoteNotificationProviding: AnyObject, Sendable {
     func delete(id: UUID) async throws
 }
 
+/// The extra surface `HomeViewModel` needs, on top of what `GroupViewModel` uses.
+///
+/// HOME-01: `HomeViewModel` had **no `init` at all** — `GroupService.shared`,
+/// `ExpenseService.shared` and `AuthService.shared` were stored properties, `SettlementService`
+/// and `NetworkMonitor` were reached through `.shared` inline, and no test in the target could
+/// construct the type. `loadAll` — the screen every user lands on, and the one carrying the
+/// cross-group balance arithmetic — had zero unit coverage.
+///
+/// These refine the existing protocols rather than widening them, so `FakeGroupService`,
+/// `FakeExpenseService` and `ActivityServiceTests.StubGroups` are untouched: a fake only has to
+/// implement the extra methods if it is standing in for Home.
+@MainActor
+protocol HomeGroupDataProviding: GroupDataProviding {
+    func fetchArchivedGroups(for userID: UUID) async throws -> [BillGroup]
+    func createGroup(name: String, emoji: String, currency: String, createdBy: UUID) async throws -> BillGroup
+    func deleteGroup(groupId: UUID) async throws
+    func groupChanges(userID: UUID, groupIDs: [UUID]) async throws -> AsyncStream<Void>
+}
+
+@MainActor
+protocol HomeExpenseDataProviding: ExpenseDataProviding {
+    /// Spelled out in full because a protocol requirement cannot carry default arguments — the
+    /// concrete `ExpenseService.createExpense` defaults its last four, and a witness matches on
+    /// the whole signature regardless. The convenience below restores the short form for callers.
+    func createExpense(
+        groupID: UUID, title: String, amount: Decimal, currency: String,
+        payerID: UUID, category: Expense.Category, notes: String?, splits: [SplitInput],
+        originalAmount: Decimal?, originalCurrency: String?,
+        recurrence: Expense.Recurrence, nextOccurrenceDate: Date?
+    ) async throws -> Expense
+}
+
+extension HomeExpenseDataProviding {
+    /// The eight-argument form the app actually calls. A separate arity, so it forwards to the
+    /// requirement above rather than recursing into itself.
+    func createExpense(
+        groupID: UUID, title: String, amount: Decimal, currency: String,
+        payerID: UUID, category: Expense.Category, notes: String?, splits: [SplitInput]
+    ) async throws -> Expense {
+        try await createExpense(
+            groupID: groupID, title: title, amount: amount, currency: currency,
+            payerID: payerID, category: category, notes: notes, splits: splits,
+            originalAmount: nil, originalCurrency: nil,
+            recurrence: .none, nextOccurrenceDate: nil)
+    }
+}
+
 extension ExpenseService: ExpenseDataProviding {}
 extension RemoteNotificationService: RemoteNotificationProviding {}
 extension GroupService: GroupDataProviding {}
+extension GroupService: HomeGroupDataProviding {}
+extension ExpenseService: HomeExpenseDataProviding {}

@@ -29,6 +29,7 @@ final class HomeViewModel {
     var isLoading: Bool = false
     var errorAlert: ErrorAlert?
     @ObservationIgnored private var isComputingBalances = false
+    @ObservationIgnored private var shouldRecomputeBalances = false
     @ObservationIgnored private var realtimeTask: Task<Void, Never>?
 
     struct RecentEntry: Identifiable, Sendable {
@@ -50,9 +51,30 @@ final class HomeViewModel {
         let loadFailed:   Bool
     }
 
-    private let groupService = GroupService.shared
-    private let expenseService = ExpenseService.shared
-    private let auth = AuthService.shared
+    // HOME-01: these were `= GroupService.shared` / `= ExpenseService.shared` /
+    // `= AuthService.shared`, with `SettlementService.shared` and `NetworkMonitor.shared` reached
+    // inline further down. The type had no `init`, so nothing in the test target could construct
+    // it and `loadAll` — the screen every user lands on — had no unit coverage at all. The seams
+    // mirror `GroupViewModel`'s, including the argument order, so the two read the same way.
+    private let groupService: any HomeGroupDataProviding
+    private let expenseService: any HomeExpenseDataProviding
+    private let settlementService: any SettlementDataProviding
+    private let currentUserProvider: @MainActor () async throws -> User
+    private let isConnectedProvider: @MainActor () -> Bool
+
+    init(
+        groupService: any HomeGroupDataProviding = GroupService.shared,
+        expenseService: any HomeExpenseDataProviding = ExpenseService.shared,
+        settlementService: any SettlementDataProviding = SettlementService.shared,
+        currentUserProvider: @escaping @MainActor () async throws -> User = { try await AuthService.shared.currentUser() },
+        isConnectedProvider: @escaping @MainActor () -> Bool = { NetworkMonitor.shared.isConnected }
+    ) {
+        self.groupService = groupService
+        self.expenseService = expenseService
+        self.settlementService = settlementService
+        self.currentUserProvider = currentUserProvider
+        self.isConnectedProvider = isConnectedProvider
+    }
 
     // MARK: - Computed
 
@@ -62,7 +84,7 @@ final class HomeViewModel {
 
     func loadCurrentUser() async {
         do {
-            currentUser = try await auth.currentUser()
+            currentUser = try await currentUserProvider()
         } catch {
             AppDiagnostics.log(.balance, "HomeViewModel.loadCurrentUser.catch", [
                 ("silent", AppError.isSilent(error)),
@@ -80,12 +102,12 @@ final class HomeViewModel {
         }
 
         AppDiagnostics.log(.balance, "HomeViewModel.loadAll.enter", [
-            ("connected", NetworkMonitor.shared.isConnected),
+            ("connected", isConnectedProvider()),
             ("groups", groups.count),
             ("isLoading", isLoading)
         ])
 
-        if NetworkMonitor.shared.isConnected {
+        if isConnectedProvider() {
             isLoading = true
             defer { isLoading = false }
             do {
@@ -113,7 +135,7 @@ final class HomeViewModel {
             } catch {
                 AppDiagnostics.log(.balance, "HomeViewModel.loadAll.catch", [
                     ("silent", AppError.isSilent(error)),
-                    ("connected", NetworkMonitor.shared.isConnected),
+                    ("connected", isConnectedProvider()),
                     ("error", AppDiagnostics.describe(error))
                 ])
                 guard !AppError.isSilent(error) else { return }
@@ -243,10 +265,40 @@ final class HomeViewModel {
 
     // MARK: - Balance + Recent Expenses
 
+    /// Coalesces overlapping recomputes instead of dropping them.
+    ///
+    /// This used to be `guard !isComputingBalances else { return }` — a request that arrived while
+    /// a computation was in flight was thrown away. Harmless while both callers see the same group
+    /// list, and wrong the moment they do not, which is exactly what a realtime event produces:
+    ///
+    ///   1. load #1 reads `groups`, starts computing, and is still fetching
+    ///   2. a group appears; load #2 fetches the new list and assigns it
+    ///   3. load #2's recompute is dropped, because #1 is still running
+    ///   4. #1 finishes and publishes totals for the list it read in step 1
+    ///
+    /// Home then renders a total that omits a group it is simultaneously listing. Nothing throws
+    /// and both `await`s return — the numbers are just wrong. `HomeViewModelOrderingTests` drives
+    /// that exact ordering.
+    ///
+    /// Same shape as `GroupViewModel.computeBalances` (REV-05): the in-flight run re-checks the
+    /// flag and goes round again. Note what this does **not** promise — a caller whose request is
+    /// coalesced has its `await` return before the recompute it asked for has happened. The
+    /// guarantee is that the *last* state wins once everything settles, not that any individual
+    /// `await` observes it.
     private func computeBalances(for userID: UUID) async {
-        guard !isComputingBalances else { return }
+        if isComputingBalances {
+            shouldRecomputeBalances = true
+            return
+        }
         isComputingBalances = true
         defer { isComputingBalances = false }
+        repeat {
+            shouldRecomputeBalances = false
+            await performBalanceComputation(for: userID)
+        } while shouldRecomputeBalances
+    }
+
+    private func performBalanceComputation(for userID: UUID) async {
         var owed             = Decimal.zero
         var owing            = Decimal.zero
         var allEntries:      [RecentEntry]             = []
@@ -255,6 +307,7 @@ final class HomeViewModel {
 
         let groupService = self.groupService
         let expenseService = self.expenseService
+        let settlementService = self.settlementService
         await withTaskGroup(of: GroupBalanceData.self) { taskGroup in
             for group in groups {
                 taskGroup.addTask {
@@ -262,7 +315,8 @@ final class HomeViewModel {
                         group,
                         userID: userID,
                         groupService: groupService,
-                        expenseService: expenseService
+                        expenseService: expenseService,
+                        settlementService: settlementService
                     )
                 }
             }
@@ -313,13 +367,14 @@ final class HomeViewModel {
     private static func fullBalancesInGroup(
         _ group: BillGroup,
         userID: UUID,
-        groupService: GroupService,
-        expenseService: ExpenseService
+        groupService: any HomeGroupDataProviding,
+        expenseService: any HomeExpenseDataProviding,
+        settlementService: any SettlementDataProviding
     ) async -> GroupBalanceData {
         let loadFailed: Bool
         let expenses: [Expense]
         do {
-            expenses = try await expenseService.fetchExpenses(groupID: group.id)
+            expenses = try await expenseService.fetchExpenses(groupID: group.id, limit: nil)
             CacheService.shared.saveExpenses(expenses, groupID: group.id)
             loadFailed = false
         } catch {
@@ -346,7 +401,7 @@ final class HomeViewModel {
         let settlements: [Settlement]
         let settlementLoadFailed: Bool
         do {
-            settlements = try await SettlementService.shared.fetchSettlements(groupID: group.id)
+            settlements = try await settlementService.fetchSettlements(groupID: group.id)
             settlementLoadFailed = false
         } catch {
             // Unlike a failed splits fetch (which collapses balances toward zero), a failed
