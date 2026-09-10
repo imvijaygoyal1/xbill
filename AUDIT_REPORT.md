@@ -1337,3 +1337,51 @@ stays executable rather than living in a comment.
 machine. `currentUserIDProvider` has the same shape and the same exposure — it defaults to
 `AuthService.shared.currentUserID`. Grep for defaults that resolve to a singleton before assuming a
 test target is hermetic.
+
+---
+
+## FLAKE-03 — `currentUserIDProvider` audit: the same seam, one layer over ✅
+
+Follow-up to FLAKE-02, which ended with *"`currentUserIDProvider` has the same shape and the same
+exposure."* It does. Audited 2026-09-10, all findings closed except HOME-01 below.
+
+`AuthService.shared.currentUserID` reads `supabase.auth.currentUser?.id` — the SDK's **persisted**
+session, restored from the test host's storage. The identity a test runs under was therefore
+whatever session that simulator happened to hold, not something the test chose.
+
+**14 of 35 constructions omitted the argument.**
+
+| where | count | reads it? | severity |
+|---|---|---|---|
+| `GroupViewModel` — State/SettleUp/Coverage tests | 10 | only `recordPayment` does, and none of these tests calls it | **latent** |
+| `ActivityViewModel` — `P1NotificationTests` | 4 | pervasively — 15 sites, including `store.loadAll(userID:)`, `markAllRead(userID:)`, `delete(id:userID:)` | **live, but offline** |
+
+Nothing reached the network, because none of the 14 calls `load()`. The exposure was real and
+un-triggered — which is exactly the state FLAKE-02 was in until it triggered.
+
+**Three further findings in the same sweep:**
+
+- **Three bare `ActivityViewModel()` constructions held three live singletons at once** —
+  `ActivityService.shared` (wired to Supabase), `NotificationStore.shared`, and the session. One of
+  them called `NotificationStore.shared.clearAll()`, a cross-suite write into shared storage. All
+  three now take a per-test suffixed store, a pinned identity, and a new `InertActivityService`; the
+  `clearAll()` is gone because there is no longer anything shared to clear.
+- **`markReadAndDeleteUpdateVM` read `AuthService.shared.currentUserID` explicitly** and handed the
+  same value to its store. Self-consistent, so it never failed — but the identity was still the
+  machine's. Now a local `UUID()`.
+- **Three `ViewModelCoverageTests` sites built a `GroupViewModel` on `GroupService.shared`,
+  `ExpenseService.shared` and `SettlementService.shared`.** They only set properties directly, so
+  nothing dialled out. They take fakes now. (Their formatting was also mangled by the FLAKE-02
+  script and is repaired.)
+
+### HOME-01 — `HomeViewModel` has no injection seams and no tests ⚠️ open
+
+`HomeViewModel` has **no `init`**. It hard-wires `GroupService.shared`, `ExpenseService.shared` and
+`AuthService.shared` as stored properties, and **no test in the target constructs it**. `loadAll` —
+including the concurrency change made the same day — has zero unit coverage, and cannot get any
+without first adding the seams `GroupViewModel` already has. Not fixed here: that is a refactor,
+not a test edit, and it should be a deliberate decision rather than a side effect of this sweep.
+
+**Verification.** 515/515 unit tests pass. Two compile errors were hit and fixed on the way
+(`currentUserIDProvider` must precede `isConnectedProvider` in the parameter list) — the first
+build masked the second file's errors, so the suite was run three times, not once.

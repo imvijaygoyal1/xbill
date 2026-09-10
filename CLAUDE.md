@@ -94,6 +94,35 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+## Recent Fix Log — 2026-09-10 (later) — FLAKE-03: the identity seam, audited
+
+FLAKE-02 closed with *"`currentUserIDProvider` has the same shape and the same exposure."* Audited:
+it does. `AuthService.shared.currentUserID` reads the Supabase SDK's **persisted** session, so the
+identity a test ran under was whatever the simulator happened to hold.
+
+**14 of 35 constructions omitted it** — 10 `GroupViewModel` (latent: only `recordPayment` reads the
+seam, and none of those tests calls it) and 4 `ActivityViewModel` (which reads it in 15 places).
+Nothing reached the network, because none of the 14 calls `load()`. That is precisely the state
+FLAKE-02 was in until it fired.
+
+Three further findings in the same sweep, all closed:
+- Three bare `ActivityViewModel()` constructions held `ActivityService.shared` (Supabase-wired),
+  `NotificationStore.shared` **and** the session at once; one called
+  `NotificationStore.shared.clearAll()`, a cross-suite write. They now take a suffixed store, a
+  pinned identity and a new `InertActivityService`.
+- `markReadAndDeleteUpdateVM` read the live session explicitly and fed it to its store —
+  self-consistent, never failed, still machine state. Now a local `UUID()`.
+- Three `ViewModelCoverageTests` sites built a `GroupViewModel` on `GroupService.shared`,
+  `ExpenseService.shared` and `SettlementService.shared`. Fakes now.
+
+⚠️ **HOME-01 is open.** `HomeViewModel` has **no `init`** — it hard-wires three singletons as stored
+properties, and no test constructs it. `loadAll`, including the concurrency change made the same
+day, has **zero unit coverage** and cannot get any without adding the seams `GroupViewModel`
+already has. Left as a deliberate decision, not a side effect of this sweep. Detail in
+`AUDIT_REPORT.md` under FLAKE-03.
+
+515/515 unit tests pass.
+
 ## Recent Fix Log — 2026-09-10 — FLAKE-02: 27 tests were reading the machine's network
 
 **The payment-suite flake is explained.** `AUDIT_REPORT.md` had it logged as *"not explained"*

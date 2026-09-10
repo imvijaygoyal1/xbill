@@ -26,6 +26,10 @@ import Foundation
 import Testing
 @testable import xBill
 
+/// Pinned identity — see `coverageUserID` in `ViewModelCoverageTests.swift`.
+private let settleUpTestUserID = UUID()
+
+
 @MainActor
 private func makeGroup() -> BillGroup {
     BillGroup(id: UUID(), name: "Trip", emoji: "✈️", createdBy: UUID(), isArchived: false, currency: "USD", createdAt: Date())
@@ -175,6 +179,7 @@ struct SettleUpDisplayStateTests {
 
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
+                                currentUserIDProvider: { settleUpTestUserID },
                                 isConnectedProvider: { false })
         await vm.load(showError: false)
 

@@ -13,6 +13,11 @@ import Foundation
 import Testing
 @testable import xBill
 
+/// Pinned identity — see `coverageUserID` in `ViewModelCoverageTests.swift` for why the default
+/// (`AuthService.shared.currentUserID`) must never be relied on from a test.
+private let stateTestUserID = UUID()
+
+
 // MARK: - Fakes
 
 @MainActor
@@ -122,6 +127,7 @@ struct DeletedExpenseTests {
         let groupService = FakeGroupService()
         let vm = GroupViewModel(group: group, groupService: groupService, expenseService: expenseService,
                                 settlementService: FakeSettlementService(),
+                                currentUserIDProvider: { stateTestUserID },
                                 isConnectedProvider: { true })
 
         let expense = makeExpense(payerID: UUID(), groupID: group.id)
@@ -155,6 +161,7 @@ struct BalanceLoadFailedFlagTests {
         let groupService = FakeGroupService()
         let vm = GroupViewModel(group: group, groupService: groupService, expenseService: expenseService,
                                 settlementService: FakeSettlementService(),
+                                currentUserIDProvider: { stateTestUserID },
                                 isConnectedProvider: { true })
 
         vm.expenses = [makeExpense(payerID: UUID(), groupID: group.id)]
@@ -173,6 +180,7 @@ struct BalanceLoadFailedFlagTests {
         let expenseService = FakeExpenseService()
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(), expenseService: expenseService,
                                 settlementService: FakeSettlementService(),
+                                currentUserIDProvider: { stateTestUserID },
                                 isConnectedProvider: { true })
 
         expenseService.expenses = [makeExpense(payerID: UUID(), groupID: group.id)]
@@ -199,6 +207,7 @@ struct ApplySavedExpenseTests {
         let fake = FakeExpenseService()
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: fake, settlementService: FakeSettlementService(),
+                                currentUserIDProvider: { stateTestUserID },
                                 isConnectedProvider: { true })
 
         let original = makeExpense(payerID: UUID(), groupID: group.id, amount: Decimal(string: "100.00")!)
@@ -235,6 +244,7 @@ struct ApplySavedExpenseTests {
         let fake = FakeExpenseService()
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: fake, settlementService: FakeSettlementService(),
+                                currentUserIDProvider: { stateTestUserID },
                                 isConnectedProvider: { true })
 
         let original = makeExpense(payerID: UUID(), groupID: group.id, amount: Decimal(string: "100.00")!)
@@ -256,6 +266,7 @@ struct ApplySavedExpenseTests {
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: FakeExpenseService(),
                                 settlementService: FakeSettlementService(),
+                                currentUserIDProvider: { stateTestUserID },
                                 isConnectedProvider: { true })
         vm.expenses = []
 

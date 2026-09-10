@@ -9,6 +9,17 @@ import Foundation
 import Testing
 @testable import xBill
 
+/// Pinned identity for the `GroupViewModel` seams below.
+///
+/// `currentUserIDProvider` defaults to `AuthService.shared.currentUserID`, which resolves from the
+/// Supabase SDK's *persisted* session in the test host — machine state, not test state. None of
+/// these tests reads it today (only `recordPayment` does), so this closes a latent exposure rather
+/// than a live one; see FLAKE-02 in AUDIT_REPORT.md for the same seam caught after it had already
+/// cost two suites. A real UUID rather than `nil`, so a future `recordPayment` here is attributed
+/// rather than silently refused as unauthenticated.
+private let coverageUserID = UUID()
+
+
 private let fixedDate = Date(timeIntervalSince1970: 1_700_000_000)
 
 private func makeUser(
@@ -263,7 +274,11 @@ struct GroupViewModelCoverageTests {
             createdAt: fixedDate.addingTimeInterval(60)
         )
         let vm = GroupViewModel(group: group,
-    isConnectedProvider: { true })
+                                groupService: FakeGroupService(),
+                                expenseService: FakeExpenseService(),
+                                settlementService: FakeSettlementService(),
+                                currentUserIDProvider: { coverageUserID },
+                                isConnectedProvider: { true })
         vm.members = [
             makeUser("Active", id: activeID, isActive: true),
             makeUser("Inactive", id: inactiveID, isActive: false)
@@ -285,7 +300,11 @@ struct GroupViewModelCoverageTests {
         let existing = makeExpense(groupID: group.id, title: "Existing")
         let created = makeExpense(groupID: group.id, title: "Created")
         let vm = GroupViewModel(group: group,
-    isConnectedProvider: { true })
+                                groupService: FakeGroupService(),
+                                expenseService: FakeExpenseService(),
+                                settlementService: FakeSettlementService(),
+                                currentUserIDProvider: { coverageUserID },
+                                isConnectedProvider: { true })
         vm.expenses = [existing]
 
         vm.recordCreatedExpense(created)
@@ -299,7 +318,11 @@ struct GroupViewModelCoverageTests {
     func canChangeCurrencyDependsOnExpenses() {
         let group = makeCoverageGroup(currency: "USD")
         let vm = GroupViewModel(group: group,
-    isConnectedProvider: { true })
+                                groupService: FakeGroupService(),
+                                expenseService: FakeExpenseService(),
+                                settlementService: FakeSettlementService(),
+                                currentUserIDProvider: { coverageUserID },
+                                isConnectedProvider: { true })
 
         #expect(vm.canChangeCurrency)
 

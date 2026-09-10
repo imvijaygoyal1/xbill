@@ -344,24 +344,45 @@ struct NotificationItemFactoryTests {
 @MainActor
 struct ActivityViewModelUnreadTests {
 
+    /// `ActivityViewModel()` with no arguments is three live singletons at once:
+    /// `ActivityService.shared` (which talks to Supabase), `NotificationStore.shared`, and
+    /// `AuthService.shared.currentUserID` — a session the SDK restores from the test host's
+    /// *persisted* storage, so the identity these tests ran under was machine state. None of
+    /// these tests calls `load()`, so nothing reached the network; the exposure was latent.
+    /// It is closed rather than argued about — see FLAKE-02 in AUDIT_REPORT.md for what the
+    /// same shape cost when it was left in place on `isConnectedProvider`.
+    private func makeViewModel() -> (ActivityViewModel, NotificationStore, UUID) {
+        let userID = UUID()
+        let suffix = UUID().uuidString
+        let store = NotificationStore(
+            itemsKey:      "p1_unread_items_\(suffix)",
+            lastViewedKey: "p1_unread_viewed_\(suffix)",
+            pendingReadKey: "p1_unread_pending_\(suffix)")
+        let vm = ActivityViewModel(service: InertActivityService(),
+                                   store: store,
+                                   currentUserIDProvider: { userID })
+        return (vm, store, userID)
+    }
+
     @Test("hasUnread is false when unreadCount is zero")
     func hasUnreadFalseWhenZero() {
-        let vm = ActivityViewModel()
+        let (vm, _, _) = makeViewModel()
         vm.unreadCount = 0
         #expect(!vm.hasUnread)
     }
 
     @Test("hasUnread is true when unreadCount is positive")
     func hasUnreadTrueWhenPositive() {
-        let vm = ActivityViewModel()
+        let (vm, _, _) = makeViewModel()
         vm.unreadCount = 3
         #expect(vm.hasUnread)
     }
 
+    /// Used to call `NotificationStore.shared.clearAll()`, which every other suite shares.
+    /// The per-test store makes the clear unnecessary as well as unshared.
     @Test("markAllRead zeros unreadCount on vm")
     func markAllReadZerosVM() {
-        NotificationStore.shared.clearAll()
-        let vm = ActivityViewModel()
+        let (vm, _, _) = makeViewModel()
         vm.unreadCount = 5
         vm.markAllRead()
         #expect(vm.unreadCount == 0)
@@ -381,7 +402,10 @@ struct ActivityViewModelUnreadTests {
             itemsKey: "p1_items_\(suffix)",
             lastViewedKey: "p1_viewed_\(suffix)",
             pendingReadKey: "p1_pending_\(suffix)")
-        let userID = AuthService.shared.currentUserID
+        // Was `AuthService.shared.currentUserID` — the live, persisted session. The test kept
+        // itself consistent by handing the same value to the store, but the identity it ran
+        // under was still whatever session the simulator happened to hold.
+        let userID = UUID()
         let item = NotificationItem(
             id:        UUID(),
             eventType: .expenseAdded,
@@ -394,7 +418,9 @@ struct ActivityViewModelUnreadTests {
         )
         store.merge([item], userID: userID)
 
-        let vm = ActivityViewModel(store: store)
+        let vm = ActivityViewModel(service: InertActivityService(),
+                                   store: store,
+                                   currentUserIDProvider: { userID })
         vm.items = [item]
         vm.unreadCount = vm.items.filter { !$0.isRead }.count
         #expect(vm.unreadCount == 1)
@@ -461,4 +487,18 @@ struct NotificationItemCodableTests {
         #expect(decoded.eventType == .settlementMade)
         #expect(decoded.title     == "Bob settled up")
     }
+}
+
+
+/// A do-nothing `ActivityReadWriting` for tests that construct an `ActivityViewModel` but never
+/// exercise its server calls. The point is not what it returns — it is that the view model is not
+/// holding `ActivityService.shared`, which is wired to Supabase.
+@MainActor
+final class InertActivityService: ActivityReadWriting {
+    func fetchRecentActivity(userID: UUID, limit: Int) async throws -> [NotificationItem] { [] }
+    func reconcilePendingReadStates(userID: UUID) async {}
+    func markRead(id: UUID) async -> Bool { true }
+    func markUnread(id: UUID) async -> Bool { true }
+    func markAllRead(userID: UUID) async -> Bool { true }
+    func delete(id: UUID) async -> Bool { true }
 }
