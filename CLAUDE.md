@@ -95,6 +95,32 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
 
+
+## Recent Fix Log — 2026-09-11 — PERF-02: get_group_balances deployed (migration 059)
+
+The home screen's per-group **members, splits and settlements** fetches are gone, replaced by one
+RPC covering every group. Two groups: 8 requests → **3**. Ten groups: 40 → **11**. Expenses stay
+per-group because Recent Expenses needs the rows.
+
+`SECURITY INVOKER` — every table it reads is already readable by the caller through the queries it
+replaces, so RLS does the work and the function holds no privilege of its own. Verified after
+deploy: `proacl` is `{postgres=X, authenticated=X, service_role=X}` — **no bare PUBLIC, no anon** —
+and with no session it returns **0 rows**. On device: `owed=43.26 owing=0`, matching the database
+exactly, with **0 RPC failures**.
+
+⚠️ **It did not make the screen faster, and that is expected.** Load times `263/327/357/901 ms`
+against PERF-01's `422/322/309 ms` — medians effectively equal. After PERF-01 the critical path was
+already two sequential waits; PERF-02 makes it `RPC` then `expenses`, still two. What it buys is
+that the request **count** stops scaling with group count.
+
+**Next step if latency matters:** the expenses fetches depend only on the group list, not on the RPC
+result, so starting them concurrently with the RPC collapses two sequential round trips into one.
+
+The client still falls back to the local computation if the call fails **or any balance will not
+parse** — an unparseable balance must never read as zero, which would silently cancel a debt. Remove
+the fallback once this has a release behind it. Detail in `AUDIT_REPORT.md` under PERF-02.
+
+
 ## Recent Fix Log — 2026-09-10 (v1.8 work begins) — PERF-01: four fetches per group, in a queue
 
 `fullBalancesInGroup` fetched expenses, then members, then splits, then settlements — **four round

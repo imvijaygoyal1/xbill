@@ -1503,3 +1503,59 @@ defaulted to the real implementations, stubbed in `HomeFixture`.
 ⚠️ **Causation is not established.** The seam is correct on its own merits regardless. After it,
 **5 consecutive full-suite runs passed 532/532**, against a prior rate of 1 failure in 3 — suggestive,
 not proof. If that gate timeout recurs, this paragraph is the starting point, not a closed case.
+
+---
+
+## PERF-02 — `get_group_balances()`: one request for every group ✅ deployed 2026-09-11
+
+Migration **059**, deployed and verified. The home screen's per-group **members, splits and
+settlements** fetches are replaced by a single RPC covering every group the caller belongs to.
+
+| groups | before today | after PERF-01 | after PERF-02 |
+|---|---|---|---|
+| 2 | 8 requests, queued | 8, overlapped | **3** |
+| 10 | 40 requests, queued | 40, overlapped | **11** |
+
+Expenses remain per-group: Recent Expenses needs the rows themselves.
+
+### Verified after deploy
+
+| Check | Result |
+|---|---|
+| `prosecdef` | **INVOKER** — RLS enforces access; no privilege of its own |
+| `proacl` | `{postgres=X, authenticated=X, service_role=X}` — **no bare PUBLIC entry, no `anon`** |
+| No session | `select count(*) from get_group_balances()` → **0 rows** |
+| With a session | 6 rows, balances summing to **exactly 0.00 within each group** |
+| **On device** | `loadAll.success … owed=43.26 owing=0`, matching the database's 19.81 + 23.45, with **0 RPC failures** — so the server path ran, not the fallback |
+
+### ⚠️ It did not make the screen faster, and that is expected
+
+Device, four cold launches: load `263 / 327 / 357 / 901 ms` against PERF-01's `422 / 322 / 309 ms`.
+**Medians are effectively equal** (~342 vs ~322 ms). No improvement is claimed.
+
+The reason is structural and worth writing down: after PERF-01 the critical path was already only
+**two sequential waits** — `max(expenses→splits, members, settlements)` — because the four per-group
+fetches ran concurrently. PERF-02 makes it `RPC` **then** `expenses`: still two sequential waits.
+Fewer requests, same depth.
+
+**What PERF-02 actually buys** is that the request *count* stops scaling with group count — eight
+requests become three for a two-group user, forty become eleven for a ten-group user. That is server
+load, data volume, and headroom, not latency on this device with this data.
+
+**The next step, if latency matters:** the expenses fetches do not depend on the RPC result, only on
+the group list. Starting them concurrently with the RPC collapses the critical path from two
+sequential round trips to one. Not done here.
+
+### Safety
+
+The client falls back to the per-group computation if the call fails **or if any balance will not
+parse**. An unparseable balance must never read as zero — that silently cancels a debt. The fallback
+also means an undeployed migration degrades to the previous behaviour rather than a blank screen; it
+should be removed once this has a release behind it.
+
+### A test that could never have failed
+
+The first version of the float-boundary test asserted `Decimal(10.10) != Decimal(string: "10.10")`.
+It does not — that value round-trips — so the test was ceremony. Replaced with an exact accumulation
+across two groups, and the overstated comments in the migration and the model were corrected to
+claim only what had been observed. Rule 12, found in my own new code within the hour.
