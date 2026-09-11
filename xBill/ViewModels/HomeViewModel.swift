@@ -63,19 +63,30 @@ final class HomeViewModel {
     private let settlementService: any SettlementDataProviding
     private let currentUserProvider: @MainActor () async throws -> User
     private let isConnectedProvider: @MainActor () -> Bool
+    /// Two side effects that leave the process: `CSSearchableIndex.indexSearchableItems` and
+    /// `WidgetCenter.reloadAllTimelines` are both XPC calls to system daemons. Seamed so the unit
+    /// suite does not write to the simulator's real Spotlight index or poke the widget daemon on
+    /// every `loadAll` — a genuine side effect from a unit test, and one whose cost is not under
+    /// the test's control.
+    private let indexGroupsForSearch: @MainActor ([BillGroup]) -> Void
+    private let reloadWidgets: @MainActor () -> Void
 
     init(
         groupService: any HomeGroupDataProviding = GroupService.shared,
         expenseService: any HomeExpenseDataProviding = ExpenseService.shared,
         settlementService: any SettlementDataProviding = SettlementService.shared,
         currentUserProvider: @escaping @MainActor () async throws -> User = { try await AuthService.shared.currentUser() },
-        isConnectedProvider: @escaping @MainActor () -> Bool = { NetworkMonitor.shared.isConnected }
+        isConnectedProvider: @escaping @MainActor () -> Bool = { NetworkMonitor.shared.isConnected },
+        indexGroupsForSearch: @escaping @MainActor ([BillGroup]) -> Void = { SpotlightService.indexGroups($0) },
+        reloadWidgets: @escaping @MainActor () -> Void = { WidgetCenter.shared.reloadAllTimelines() }
     ) {
         self.groupService = groupService
         self.expenseService = expenseService
         self.settlementService = settlementService
         self.currentUserProvider = currentUserProvider
         self.isConnectedProvider = isConnectedProvider
+        self.indexGroupsForSearch = indexGroupsForSearch
+        self.reloadWidgets = reloadWidgets
     }
 
     // MARK: - Computed
@@ -161,7 +172,7 @@ final class HomeViewModel {
             do {
                 groups = try await groupService.fetchGroups(for: user.id)
                 CacheService.shared.saveGroups(groups)
-                SpotlightService.indexGroups(groups)
+                indexGroupsForSearch(groups)
                 // PERF: archived groups are not shown on Home, so awaiting them before the
                 // balances put a whole round trip on the critical path for data nothing on this
                 // screen renders. Measured on device before the change: groups 90 ms, archived
@@ -411,18 +422,16 @@ final class HomeViewModel {
 
         let primaryCurrency = mergedByCurrency.count == 1 ? (mergedByCurrency.keys.first ?? "USD") : "USD"
         CacheService.shared.saveBalance(netBalance: netBalance, totalOwed: totalOwed, totalOwing: totalOwing, currency: primaryCurrency)
-        WidgetCenter.shared.reloadAllTimelines()
+        reloadWidgets()
     }
 
-    private static func fullBalancesInGroup(
-        _ group: BillGroup,
-        userID: UUID,
-        groupService: any HomeGroupDataProviding,
-        expenseService: any HomeExpenseDataProviding,
-        settlementService: any SettlementDataProviding
-    ) async -> GroupBalanceData {
-        let loadFailed: Bool
+    /// `splits` is the only fetch that needs another's result, so the two stay chained here.
+    private static func expensesAndSplits(
+        for group: BillGroup,
+        using expenseService: any HomeExpenseDataProviding
+    ) async -> (expenses: [Expense], loadFailed: Bool, splits: [UUID: [Split]], splitLoadFailed: Bool) {
         let expenses: [Expense]
+        let loadFailed: Bool
         do {
             expenses = try await expenseService.fetchExpenses(groupID: group.id, limit: nil)
             CacheService.shared.saveExpenses(expenses, groupID: group.id)
@@ -432,34 +441,73 @@ final class HomeViewModel {
             loadFailed = true
         }
 
-        let members: [User]
         do {
-            members = try await groupService.fetchMembers(groupID: group.id, includeInactive: true)
+            let splits = try await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService)
+            return (expenses, loadFailed, splits, false)
+        } catch {
+            return (expenses, loadFailed, [:], true)
+        }
+    }
+
+    /// A members failure deliberately does **not** raise `loadFailed`: names going missing shows as
+    /// missing names, not as a wrong number.
+    private static func members(
+        for group: BillGroup,
+        using groupService: any HomeGroupDataProviding
+    ) async -> [User] {
+        do {
+            let members = try await groupService.fetchMembers(groupID: group.id, includeInactive: true)
             CacheService.shared.saveMembers(members, groupID: group.id)
+            return members
         } catch {
-            members = CacheService.shared.loadMembers(groupID: group.id)
+            return CacheService.shared.loadMembers(groupID: group.id)
         }
-        let splitsMap: [UUID: [Split]]
-        let splitLoadFailed: Bool
+    }
+
+    /// Unlike a failed splits fetch (which collapses balances toward zero), a failed settlements
+    /// fetch makes every split count as unpaid — the largest possible wrong number, and silently so
+    /// unless this feeds `loadFailed` in the caller (IMP-2).
+    private static func settlements(
+        for group: BillGroup,
+        using settlementService: any SettlementDataProviding
+    ) async -> (settlements: [Settlement], loadFailed: Bool) {
         do {
-            splitsMap = try await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService)
-            splitLoadFailed = false
+            return (try await settlementService.fetchSettlements(groupID: group.id), false)
         } catch {
-            splitsMap = [:]
-            splitLoadFailed = true
+            return ([], true)
         }
-        let settlements: [Settlement]
-        let settlementLoadFailed: Bool
-        do {
-            settlements = try await settlementService.fetchSettlements(groupID: group.id)
-            settlementLoadFailed = false
-        } catch {
-            // Unlike a failed splits fetch (which collapses balances toward zero), a failed
-            // settlements fetch makes every split count as unpaid — the largest possible wrong
-            // number, and silently so unless this feeds `loadFailed` below (IMP-2).
-            settlements = []
-            settlementLoadFailed = true
-        }
+    }
+
+    /// One group's contribution to the home-screen totals.
+    ///
+    /// PERF: these four fetches used to run **one after another** — expenses, then members, then
+    /// splits, then settlements — for every group. Two groups meant eight round trips with only
+    /// the groups themselves overlapping, and it grew with each group joined.
+    ///
+    /// Only splits depends on expenses. Members and settlements depend on nothing, so the chain is
+    /// really `expenses → splits` alongside `members` alongside `settlements`: two sequential waits
+    /// instead of four. Each branch keeps its own `do`/`catch` and its own cache fallback, so the
+    /// failure behaviour is unchanged — in particular a members failure still does **not** raise
+    /// `loadFailed`, while any of the other three does.
+    ///
+    /// The next step, if this is still not fast enough, is a server-side `get_group_balances` that
+    /// makes it one request for all groups rather than four per group. That is a schema change and
+    /// deliberately not bundled here.
+    private static func fullBalancesInGroup(
+        _ group: BillGroup,
+        userID: UUID,
+        groupService: any HomeGroupDataProviding,
+        expenseService: any HomeExpenseDataProviding,
+        settlementService: any SettlementDataProviding
+    ) async -> GroupBalanceData {
+        async let expensesAndSplits = expensesAndSplits(for: group, using: expenseService)
+        async let fetchedMembers    = members(for: group, using: groupService)
+        async let fetchedSettlements = settlements(for: group, using: settlementService)
+
+        let (expenses, loadFailed, splitsMap, splitLoadFailed) = await expensesAndSplits
+        let members = await fetchedMembers
+        let (settlements, settlementLoadFailed) = await fetchedSettlements
+
         let balances  = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap, settlements: settlements)
         let net       = balances[userID] ?? .zero
         let owed      = net > .zero ? net  : .zero

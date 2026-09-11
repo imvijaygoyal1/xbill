@@ -94,6 +94,34 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 - Never deploy migrations or modify live Supabase data without explicit approval. Read-only
   queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
 
+
+## Recent Fix Log — 2026-09-10 (v1.8 work begins) — PERF-01: four fetches per group, in a queue
+
+`fullBalancesInGroup` fetched expenses, then members, then splits, then settlements — **four round
+trips one after another, per group**. Only splits needs expenses. Now `expenses → splits` runs
+alongside `members` alongside `settlements`: two waits instead of four. Every branch keeps its own
+`do`/`catch` and cache fallback, so failure behaviour is unchanged — a members failure still does
+not raise `loadFailed`; the other three still do.
+
+Proven **structurally**: `perGroupFetchesOverlap` parks the head of the chain and asserts the
+independent two have already started. Written first, watched fail. Asserting the four results
+instead would have passed with them still sequential.
+
+Device, 3 cold launches, 2 groups: load **500/368/404 → 422/322/309 ms**, view→settle
+**621/487/427 → 476/412/377 ms**. ⚠️ Mean improves but **the ranges overlap** — not distinguishable
+from noise at n=3, and not claimed as a win. The change that scales with group *count* is a
+server-side `get_group_balances`; that is a schema change and was not bundled.
+
+⚠️ **Found on the way: the unit suite was calling system daemons.** At 1.8 the suite failed once in
+three runs on a gate timeout. Every new Home test made real XPC calls to Spotlight and the widget
+daemon, because `SpotlightService.indexGroups` and `WidgetCenter.reloadAllTimelines()` were invoked
+directly — a unit test writing to the simulator's real Spotlight index. Both are seams now, stubbed
+in the fixture. **Causation not established**; 5 consecutive 532/532 runs after, against 1-in-3
+before. Detail in `AUDIT_REPORT.md` under PERF-01.
+
+**Version is now 1.8 (10).** v1.7 (9) is in review; build 9 is consumed.
+
+
 ## Recent Fix Log — 2026-09-10 (latest) — HOME-01, and RACE-01 which it uncovered
 
 `HomeViewModel` had **no `init`**: three singletons as stored properties, `SettlementService` and

@@ -27,6 +27,7 @@ final class FakeHomeGroupService: HomeGroupDataProviding {
 
     private(set) var fetchGroupsCount = 0
     private(set) var fetchArchivedCount = 0
+    private(set) var fetchMembersCount = 0
     private(set) var deletedGroupIDs: [UUID] = []
 
     /// Parks `fetchArchivedGroups` so a test can observe what else is in flight while it waits.
@@ -45,7 +46,8 @@ final class FakeHomeGroupService: HomeGroupDataProviding {
     }
 
     func fetchMembers(groupID: UUID, includeInactive: Bool) async throws -> [User] {
-        members[groupID] ?? []
+        fetchMembersCount += 1
+        return members[groupID] ?? []
     }
 
     func addMember(groupId: UUID, userId: UUID) async throws {}
@@ -141,13 +143,18 @@ private struct HomeFixture {
              avatarURL: nil, isActive: true, createdAt: Date())
     }
 
+    /// Spotlight indexing and the widget reload are stubbed out. Both are XPC calls to system
+    /// daemons; a unit suite has no business writing to the simulator's real Spotlight index, and
+    /// their cost under a parallel run is not something the test controls.
     func makeViewModel(connected: Bool = true) -> HomeViewModel {
         let user = currentUser
         return HomeViewModel(groupService: groups,
                              expenseService: expenses,
                              settlementService: settlements,
                              currentUserProvider: { user },
-                             isConnectedProvider: { connected })
+                             isConnectedProvider: { connected },
+                             indexGroupsForSearch: { _ in },
+                             reloadWidgets: { })
     }
 }
 
@@ -333,6 +340,43 @@ struct HomeViewModelOrderingTests {
         await joiner.value
         #expect(joinerFinished)
         #expect(vm.netBalance == -10)
+    }
+
+    /// Within a single group, `fullBalancesInGroup` fetched expenses, then members, then splits,
+    /// then settlements — **four round trips one after another, per group**. Only splits needs
+    /// expenses; members and settlements need nothing. Two groups meant eight sequential-per-group
+    /// requests, and it grows with every group joined.
+    ///
+    /// Asserting the four results would pass equally well if they were still sequential, so this
+    /// parks the head of the chain and checks the independent two have *already started*.
+    @Test("Members and settlements do not wait for the expenses fetch")
+    func perGroupFetchesOverlap() async {
+        let fixture = HomeFixture()
+        let vm = fixture.makeViewModel()
+        await vm.loadCurrentUser()
+
+        fixture.expenses.fetchGate.arm()
+        let load = Task { await vm.loadAll() }
+        await fixture.expenses.fetchGate.waitUntilParked()
+
+        // Bounded yield rather than an instant assert: reaching the gate only means the expenses
+        // task suspended, not that its siblings have been scheduled. If they were still chained
+        // behind it they could never start while it is parked, so the bound still discriminates.
+        var yields = 0
+        while (fixture.groups.fetchMembersCount == 0
+               || !fixture.settlements.events.contains("fetch.start")) && yields < 200 {
+            await Task.yield()
+            yields += 1
+        }
+
+        #expect(fixture.groups.fetchMembersCount > 0,
+                "the members fetch must not queue behind the expenses fetch")
+        #expect(fixture.settlements.events.contains("fetch.start"),
+                "nor must the settlements fetch")
+
+        fixture.expenses.fetchGate.release()
+        await load.value
+        #expect(vm.netBalance == -10, "and the result must still be right")
     }
 
     /// A realtime event and a pull-to-refresh both call `loadAll`, and nothing serialises them.

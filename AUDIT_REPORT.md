@@ -1453,3 +1453,53 @@ task's scheduling; it now yields until the condition holds, with a bound that st
 were ever re-serialised.
 
 **Verification.** 522/522 unit tests pass, up from 515.
+
+---
+
+## PERF-01 — four sequential fetches per group on the home screen ✅ (v1.8)
+
+`fullBalancesInGroup` fetched **expenses, then members, then splits, then settlements** — four round
+trips one after another, for every group. Groups ran in parallel with each other, so a group's own
+chain was the critical path. Two groups meant eight requests; ten groups, forty.
+
+Only splits depends on expenses. Members and settlements depend on nothing, so the shape is
+`expenses → splits` alongside `members` alongside `settlements`: **two sequential waits instead of
+four**. Each branch keeps its own `do`/`catch` and cache fallback, so failure behaviour is
+unchanged — in particular a members failure still does **not** raise `loadFailed` (names going
+missing shows as missing names, not a wrong number) while the other three do.
+
+**Proven structurally, not by stopwatch.** `perGroupFetchesOverlap` parks the head of the chain and
+asserts the independent two have already started. Written first and watched fail
+(`fetchMembersCount → 0`); asserting the four *results* instead would have passed just as well with
+them still sequential.
+
+**End-to-end, three device cold launches** (iPhone 16 Pro, 2 groups):
+
+| | before (v1.7 post-dedup) | after |
+|---|---|---|
+| load duration | 500 / 368 / 404 ms | 422 / 322 / 309 ms |
+| view → balances settle | 621 / 487 / 427 ms | 476 / 412 / 377 ms |
+
+⚠️ Mean load ~424 → ~351 ms, **but the ranges overlap** — at n=3 this is not distinguishable from
+noise, and is reported as such rather than as a 17% win.
+
+**What this does not fix.** The count is still four requests per group; this only stops them
+queueing. The change that scales with group count is a server-side `get_group_balances` returning
+all groups in one request. That is a schema change and deliberately not bundled here.
+
+**Residual, not a defect:** on a cold launch where the first load finishes before
+`didBecomeActive` arrives, a second full load still runs (observed in 2 of 3 launches: `enters 2`).
+It is a refresh after the balances are already on screen, so nobody waits for it. Skipping the first
+`didBecomeActive` would remove it, at the cost of more launch-path special-casing.
+
+### Found while fixing it — unit tests were calling system daemons
+
+At 1.8 the full suite failed **once in three runs**: `balancesOverlapTheArchivedFetch` timed out on
+its gate. Every new Home test was making real XPC calls to the Spotlight and widget daemons on each
+load, because `SpotlightService.indexGroups` and `WidgetCenter.reloadAllTimelines()` were invoked
+directly — a unit suite writing to the simulator's real Spotlight index. Both are now seams
+defaulted to the real implementations, stubbed in `HomeFixture`.
+
+⚠️ **Causation is not established.** The seam is correct on its own merits regardless. After it,
+**5 consecutive full-suite runs passed 532/532**, against a prior rate of 1 failure in 3 — suggestive,
+not proof. If that gate timeout recurs, this paragraph is the starting point, not a closed case.
