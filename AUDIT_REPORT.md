@@ -844,7 +844,7 @@ icon components, and the App Icon asset. **Nothing fixed — this is the finding
 |---|---|---|---|---|
 | ICON-01 | `xBill/DesignSystem/Components/XBillVisualAssets.swift:177` vs `xBill/Models/Expense.swift:75` | **Three category-icon vocabularies exist and the fixed one is not the one that ships.** `Expense.Category.symbolName` (DesignSystem) is what `XBillCategoryIcon` renders, and it reaches four everyday surfaces — expense rows, notification rows, Add Expense category chips, Group Details filter chips. `Expense.Category.systemImage` (Models) is rendered from **one** place, `ReceiptReviewView.swift:243`. Commit `1eed83e` (2026-08-16) — *"Fix three colliding or misleading category icons"* — landed on `systemImage`, so the defects it fixed are **still live everywhere users actually look**: `symbolName` still maps `.accommodation → "house.fill"`, which is the Home tab's glyph (`MainTabView.swift:40`) — the exact collision `Expense.swift:79` carries a comment forbidding. It also uses `"sparkles"` for `.other`, which since iOS 18 reads as Apple Intelligence, and narrows `.transport` to `"airplane"` and `.entertainment` to `"popcorn.fill"`. A third vocabulary, `Expense.Category.emoji` (`CategoryIconView.swift:11`), is **dead** — zero call sites. `NATIVE_PATTERNS.md:159` documents a **fourth** table (`car.fill`, `theatermasks.fill`, `cross.fill`, `ellipsis.circle.fill`) matching none of them. | ✅ Fixed | Delete `symbolName` and `emoji`; point `XBillCategoryIcon` at `Expense.Category.systemImage`, the one with the reasoning in comments. Then correct `NATIVE_PATTERNS.md:159` to match, or delete that table and cite the enum. One vocabulary, defined next to the model it describes. |
 | ICON-02 | `XBillVisualAssets.swift:113` | **Every category icon fails the 3:1 non-text contrast minimum in dark mode.** The glyph is hardcoded `.foregroundStyle(AppColors.primary)` (`#6C35FF`) over `category.categoryBackground.opacity(0.9)` — but the `Cat*` colorsets carry **dark appearance variants** that go dark while the glyph does not move. Computed ratios: `.accommodation` **2.47:1**, `.transport` **2.41:1**, `.food` **2.47:1** — the whole set lands 2.4–2.5:1. Light mode is fine (≈5.1:1) because those variants are pale tints, which is why this reads as correct in every screenshot taken in light mode. | ✅ Fixed | Derive the glyph colour from the swatch instead of pinning it: either a per-category foreground token beside each `Cat*` colorset, or `AppColors.textPrimary` over the tint. Verify by computing the ratio in both appearances, not by looking at it. |
-| ICON-03 | `xBill/Assets.xcassets/AppIcon.appiconset/Contents.json` | **No dark or tinted app-icon variants**, and no Icon Composer `.icon`. `grep -c appearances` → **0**. On iOS 18+ the home screen's Dark and Tinted modes fall back to the light artwork; on iOS 26 the icon gets none of the Liquid Glass layering. The art is a white receipt on `#3B3287` — high-contrast in light mode and conspicuously wrong beside tinted neighbours. | ⬜ Open | Add `luminosity: dark` and `tinted` entries. For iOS 26, rebuild as an Icon Composer `.icon` with separated layers (card, ruled lines, avatar row) so the system composes all four appearances from one source. |
+| ICON-03 ⬜ | `xBill/Assets.xcassets/AppIcon.appiconset/Contents.json` | **CONFIRMED 2026-09-11, see the note below the table.** **No dark or tinted app-icon variants**, and no Icon Composer `.icon`. `grep -c appearances` → **0**. On iOS 18+ the home screen's Dark and Tinted modes fall back to the light artwork; on iOS 26 the icon gets none of the Liquid Glass layering. The art is a white receipt on `#3B3287` — high-contrast in light mode and conspicuously wrong beside tinted neighbours. | ⬜ Open | Add `luminosity: dark` and `tinted` entries. For iOS 26, rebuild as an Icon Composer `.icon` with separated layers (card, ruled lines, avatar row) so the system composes all four appearances from one source. |
 | ICON-04 | `xBill/Assets.xcassets/AppIcon.appiconset/Icon-1024.png` | **The artwork carries more detail than the size it is used at can render.** At the 60pt home-screen size the receipt is ≈26pt wide, its four ruled lines are sub-pixel, and the three avatar circles hold two-letter initials (`AL`/`MR`/`JT`) that resolve to smudges. Legible only at 1024. | ⬜ Open | Reduce to one idea that survives 60pt — the receipt card with a single fold, or the split chevron alone. Check by rendering to 60×60 and 40×40 and looking at those, not at the 1024. |
 | ICON-05 | `Assets/` (repo root) | **A second, divergent, dead App Icon set.** `project.yml:41` bundles only `xBill/**/*.xcassets`, so this copy ships nowhere — but all 15 PNGs **differ** from the shipping set, and this copy has **corner radii baked into the artwork**, which iOS would mask a second time. It also holds two files the real set lacks (`Icon-20@1x`, `Icon-40@1x`). An edit here changes nothing and looks like it worked. | ✅ Fixed | Delete `Assets/`. While there: the shipping set is the legacy 15-size list; since Xcode 14 a single 1024 `universal` entry is enough, and collapsing it removes 14 files that can drift. |
 | ICON-06 | app-wide | **`symbolRenderingMode` is used zero times; `symbolVariant` zero; `imageScale` zero.** `NATIVE_PATTERNS.md:134` requires hierarchical or palette rendering and `:157` requires `.symbolVariant(.fill)` on selected state — neither rule is applied anywhere. Every symbol renders flat monochrome, so multi-layer glyphs (`bell.badge.fill`, `person.badge.plus.fill`, `envelope.badge.fill`) lose the depth cue their badge layer exists to provide. Separately, **17** symbols are sized with fixed `.font(.system(size:))` against **12** on text styles; the fixed ones do not scale with Dynamic Type. Two are 13pt inline icons sitting beside scaling `Text` (`ForgotPasswordView.swift:89`, `:226`), so they shrink relative to their own label as the user enlarges type. | 🟡 Partly fixed | Apply `.symbolRenderingMode(.hierarchical)` at the component level (`XBillActionRow`, `XBillNotificationRow`, `XBillSettingsRow`) rather than per call site. Move the two inline 13pt icons to `.font(.xbillCaption)`; leave the large decorative hero glyphs fixed. |
@@ -1644,3 +1644,35 @@ alone.
 
 **Verification.** 537/537. Device, four cold launches: `292 / 185 / 228 / 195 ms`, `owed=43.26`
 every time, `balances.unavailable = 0`.
+
+
+---
+
+## ICON-03 — confirmed 2026-09-11, this time with evidence that holds
+
+The original finding was **withdrawn** on 2026-09-08 because the test behind it was invalid:
+`simctl ui appearance dark` sets the *system* appearance, not the Home Screen **icon** appearance,
+so it never demonstrated anything. The finding itself was right; only the method was wrong.
+
+It is now confirmed two ways that do not depend on looking at anything:
+
+| Source | Result |
+|---|---|
+| `AppIcon.appiconset/Contents.json` | 16 image entries, **0** carrying `appearances` |
+| The installed build's compiled `Assets.car` (`assetutil --info`) | 5 AppIcon entries, appearance set `{(none)}` |
+
+So iOS has no dark or tinted artwork to use and falls back to the light icon in every appearance.
+The owner checked on device: **"in dark mode, icon seems same"** — which is exactly the predicted
+behaviour, and is the confirmation.
+
+**Whether that is a defect is a separate question, and Dark is the wrong place to look.** The mark
+is white on `#3B3287`, already dark, so the light artwork standing in for Dark can look perfectly
+correct — and by the owner's eye it does. **Tinted** is where a missing variant usually shows,
+because iOS derives a monochrome version from the light artwork and the fine detail ICON-04
+describes — four sub-pixel ruled lines, three avatar circles carrying two-letter initials —
+collapses. That check is outstanding.
+
+**If a variant is wanted, it need not be a rebrand.** A dark variant is the *same mark* on a
+different backdrop, not new artwork — which matters, because ICON-04 is closed on the owner's
+instruction that the icon is a brand and cannot change quickly. Adding appearances does not reopen
+that.
