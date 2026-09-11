@@ -71,6 +71,10 @@ protocol HomeGroupDataProviding: GroupDataProviding {
     func createGroup(name: String, emoji: String, currency: String, createdBy: UUID) async throws -> BillGroup
     func deleteGroup(groupId: UUID) async throws
     func groupChanges(userID: UUID, groupIDs: [UUID]) async throws -> AsyncStream<Void>
+
+    /// PERF-02. One request covering every group the caller is an active member of, replacing the
+    /// per-group members, splits and settlements fetches.
+    func groupBalances() async throws -> [GroupBalanceRow]
 }
 
 @MainActor

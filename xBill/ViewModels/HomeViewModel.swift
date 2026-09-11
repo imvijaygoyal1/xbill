@@ -190,7 +190,11 @@ final class HomeViewModel {
                 async let archived: Void = loadArchivedGroups()
                 async let balances: Void = computeBalances(for: user.id)
                 _ = await (archived, balances)
-                AppDiagnostics.log(.balance, "HomeViewModel.loadAll.success", [("groups", groups.count)])
+                AppDiagnostics.log(.balance, "HomeViewModel.loadAll.success", [
+                    ("groups", groups.count),
+                    ("owed", "\(totalOwed)"),
+                    ("owing", "\(totalOwing)")
+                ])
             } catch {
                 AppDiagnostics.log(.balance, "HomeViewModel.loadAll.catch", [
                     ("silent", AppError.isSilent(error)),
@@ -369,10 +373,31 @@ final class HomeViewModel {
         let groupService = self.groupService
         let expenseService = self.expenseService
         let settlementService = self.settlementService
+
+        // PERF-02: one request for every group's members and balances, instead of three per group.
+        // `nil` means the call failed — the per-group path below is then used unchanged, so a
+        // server-side problem degrades to the old behaviour rather than to a blank screen. Remove
+        // the fallback once the RPC has a release behind it.
+        var rowsByGroup: [UUID: [GroupBalanceRow]]?
+        do {
+            let rows = try await groupService.groupBalances()
+            rowsByGroup = Dictionary(grouping: rows, by: \.groupID)
+        } catch {
+            AppDiagnostics.log(.balance, "HomeViewModel.groupBalances.catch", [
+                ("error", AppDiagnostics.describe(error))
+            ])
+            rowsByGroup = nil
+        }
+
         await withTaskGroup(of: GroupBalanceData.self) { taskGroup in
             for group in groups {
+                let rows = rowsByGroup?[group.id]
                 taskGroup.addTask {
-                    await Self.fullBalancesInGroup(
+                    if let rows, let fromRPC = await Self.balancesFromRows(
+                        rows, group: group, userID: userID, expenseService: expenseService) {
+                        return fromRPC
+                    }
+                    return await Self.fullBalancesInGroup(
                         group,
                         userID: userID,
                         groupService: groupService,
@@ -423,6 +448,58 @@ final class HomeViewModel {
         let primaryCurrency = mergedByCurrency.count == 1 ? (mergedByCurrency.keys.first ?? "USD") : "USD"
         CacheService.shared.saveBalance(netBalance: netBalance, totalOwed: totalOwed, totalOwing: totalOwing, currency: primaryCurrency)
         reloadWidgets()
+    }
+
+    /// Builds a group's contribution from `get_group_balances()` rows, fetching only the expenses
+    /// the Recent Expenses list needs.
+    ///
+    /// Returns `nil` if any balance fails to parse — a malformed number must not be read as zero,
+    /// which would silently understate a debt. The caller then falls back to computing it locally.
+    ///
+    /// `rows` is never empty for a group the caller belongs to: the function joins `group_members`,
+    /// so the caller's own row is always present. An empty array therefore means the RPC did not
+    /// know about this group, and deserves the local path rather than a confident zero.
+    private static func balancesFromRows(
+        _ rows: [GroupBalanceRow],
+        group: BillGroup,
+        userID: UUID,
+        expenseService: any HomeExpenseDataProviding
+    ) async -> GroupBalanceData? {
+        guard !rows.isEmpty else { return nil }
+
+        var balances: [UUID: Decimal] = [:]
+        for row in rows {
+            guard let value = row.decimalBalance else { return nil }
+            balances[row.userID] = value
+        }
+
+        let members = rows.map(\.user)
+        let expenses: [Expense]
+        let loadFailed: Bool
+        do {
+            expenses = try await expenseService.fetchExpenses(groupID: group.id, limit: nil)
+            CacheService.shared.saveExpenses(expenses, groupID: group.id)
+            loadFailed = false
+        } catch {
+            expenses = CacheService.shared.loadExpenses(groupID: group.id)
+            loadFailed = true
+        }
+        CacheService.shared.saveMembers(members, groupID: group.id)
+
+        let net   = balances[userID] ?? .zero
+        let owed  = net > .zero ? net  : .zero
+        let owing = net < .zero ? -net : .zero
+        return GroupBalanceData(
+            groupID: group.id, owed: owed, owing: owing, netBalance: net,
+            memberCount: members.filter(\.isActive).count,
+            entries: expenses.map { RecentEntry(expense: $0, members: members) },
+            // The group's own currency, matching the local path. The RPC returns it too; they are
+            // the same column.
+            currency: group.currency,
+            balances: balances,
+            names: Dictionary(uniqueKeysWithValues: members.map { ($0.id, $0.displayName) }),
+            loadFailed: loadFailed
+        )
     }
 
     /// `splits` is the only fetch that needs another's result, so the two stay chained here.

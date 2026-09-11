@@ -64,6 +64,21 @@ final class FakeHomeGroupService: HomeGroupDataProviding {
     func groupChanges(userID: UUID, groupIDs: [UUID]) async throws -> AsyncStream<Void> {
         AsyncStream { $0.finish() }
     }
+
+    // MARK: PERF-02
+
+    /// `nil` means the RPC is unavailable and the view model should fall back to the per-group
+    /// path — which is what an undeployed migration looks like from the client.
+    var balanceRows: [GroupBalanceRow]?
+    var balanceRowsError: Error?
+    private(set) var groupBalancesCount = 0
+
+    func groupBalances() async throws -> [GroupBalanceRow] {
+        groupBalancesCount += 1
+        if let balanceRowsError { throw balanceRowsError }
+        guard let balanceRows else { throw AppError.serverError("no rows configured") }
+        return balanceRows
+    }
 }
 
 @MainActor
@@ -434,5 +449,142 @@ struct HomeViewModelOrderingTests {
         #expect(vm.groups.count == 2, "the new group is listed…")
         #expect(vm.groupNetBalances[second.id] == -25, "…so its balance must be there too")
         #expect(vm.netBalance == -35)
+    }
+}
+
+// MARK: - PERF-02 — one request instead of three per group
+
+/// `get_group_balances()` replaces the per-group members, splits and settlements fetches. These
+/// pin the two things that make it worth doing (one call regardless of group count, and the same
+/// numbers as the path it replaces) and the one that makes it safe to ship (a failure falls back
+/// rather than showing nothing).
+@Suite("HomeViewModel — balances from the server", .serialized)
+@MainActor
+struct HomeViewModelServerBalanceTests {
+
+    private static let alice = UUID()
+    private static let bob   = UUID()
+
+    private static func row(group: UUID, user: UUID, name: String,
+                            active: Bool = true, balance: String) -> GroupBalanceRow {
+        GroupBalanceRow(
+            groupID: group, currency: "USD", userID: user,
+            email: "\(name.lowercased())@example.com", displayName: name,
+            avatarURL: nil, venmoHandle: nil, paypalHandle: nil,
+            isActive: active, createdAt: Date(), balance: balance)
+    }
+
+    /// Two groups, so "one call" is distinguishable from "one call per group".
+    private func twoGroupFixture() -> (HomeFixture, BillGroup) {
+        let fixture = HomeFixture()
+        let second = BillGroup(id: UUID(), name: "Flat", emoji: "🏠", createdBy: Self.alice,
+                               isArchived: false, currency: "USD", createdAt: Date())
+        fixture.groups.groups = [fixture.group, second]
+        fixture.groups.balanceRows = [
+            Self.row(group: fixture.group.id, user: fixture.bob,   name: "Bob",   balance: "-10.00"),
+            Self.row(group: fixture.group.id, user: fixture.alice, name: "Alice", balance: "10.00"),
+            Self.row(group: second.id,        user: fixture.bob,   name: "Bob",   balance: "-25.50"),
+            Self.row(group: second.id,        user: fixture.alice, name: "Alice", balance: "25.50")
+        ]
+        return (fixture, second)
+    }
+
+    @Test("Two groups cost one balances request, not three fetches each")
+    func oneRequestForEveryGroup() async {
+        let (fixture, _) = twoGroupFixture()
+        let vm = fixture.makeViewModel()
+        await vm.loadCurrentUser()
+        await vm.loadAll()
+
+        #expect(fixture.groups.groupBalancesCount == 1, "one call, for both groups")
+        #expect(fixture.groups.fetchMembersCount == 0, "members come from the same response")
+        #expect(fixture.settlements.events.isEmpty, "so do settlements")
+        // Expenses are still per-group: the Recent Expenses list needs the rows themselves.
+        #expect(fixture.expenses.fetchExpensesCount == 2)
+    }
+
+    @Test("The totals match what the rows say")
+    func totalsComeFromTheRows() async {
+        let (fixture, second) = twoGroupFixture()
+        let vm = fixture.makeViewModel()
+        await vm.loadCurrentUser()
+        await vm.loadAll()
+
+        #expect(vm.groupNetBalances[fixture.group.id] == Decimal(string: "-10.00"))
+        #expect(vm.groupNetBalances[second.id] == Decimal(string: "-25.50"))
+        #expect(vm.totalOwing == Decimal(string: "35.50"))
+        #expect(vm.totalOwed == .zero)
+        #expect(vm.groupMemberCounts[fixture.group.id] == 2)
+        #expect(vm.errorAlert == nil)
+    }
+
+    /// Fractional balances must accumulate exactly across groups.
+    ///
+    /// This is what `balance` crossing as a *string* buys. It asserts the outcome — an exact sum —
+    /// rather than trying to demonstrate a particular float artefact: an earlier version of this
+    /// test claimed `Decimal(10.10)` differs from `Decimal(string: "10.10")` and it does not, so
+    /// that assertion could never have failed. Summed cents are the property worth pinning.
+    @Test("Fractional balances accumulate exactly across groups")
+    func fractionalBalancesAccumulateExactly() async {
+        let (fixture, second) = twoGroupFixture()
+        fixture.groups.balanceRows = [
+            Self.row(group: fixture.group.id, user: fixture.bob,   name: "Bob",   balance: "-10.10"),
+            Self.row(group: fixture.group.id, user: fixture.alice, name: "Alice", balance: "10.10"),
+            Self.row(group: second.id,        user: fixture.bob,   name: "Bob",   balance: "-20.20"),
+            Self.row(group: second.id,        user: fixture.alice, name: "Alice", balance: "20.20")
+        ]
+        let vm = fixture.makeViewModel()
+        await vm.loadCurrentUser()
+        await vm.loadAll()
+
+        #expect(vm.totalOwing == Decimal(string: "30.30"), "cents must not drift in the sum")
+        #expect(vm.netBalance == Decimal(string: "-30.30"))
+    }
+
+    /// Inactive members still appear — they can hold a balance — but must not be counted as
+    /// members of the group.
+    @Test("A removed member keeps their balance and leaves the member count")
+    func inactiveMemberCounted() async {
+        let fixture = HomeFixture()
+        fixture.groups.balanceRows = [
+            Self.row(group: fixture.group.id, user: fixture.bob, name: "Bob", balance: "-10.00"),
+            Self.row(group: fixture.group.id, user: fixture.alice, name: "Alice",
+                     active: false, balance: "10.00")
+        ]
+        let vm = fixture.makeViewModel()
+        await vm.loadCurrentUser()
+        await vm.loadAll()
+
+        #expect(vm.groupMemberCounts[fixture.group.id] == 1, "only the active one is counted")
+        #expect(vm.groupNetBalances[fixture.group.id] == Decimal(string: "-10.00"))
+    }
+
+    /// What an undeployed migration looks like from the client. It must not blank the screen.
+    @Test("A failed balances call falls back to computing them locally")
+    func failureFallsBackToTheLocalPath() async {
+        let fixture = HomeFixture()
+        fixture.groups.balanceRowsError = AppError.serverError("function does not exist")
+        let vm = fixture.makeViewModel()
+        await vm.loadCurrentUser()
+        await vm.loadAll()
+
+        #expect(fixture.groups.fetchMembersCount > 0, "the local path ran")
+        #expect(vm.netBalance == -10, "and produced the same answer")
+        #expect(vm.errorAlert == nil, "a fallback that worked is not an error")
+    }
+
+    /// A balance that will not parse must never be read as zero — that silently cancels a debt.
+    @Test("An unparseable balance falls back rather than reading as zero")
+    func unparseableBalanceFallsBack() async {
+        let fixture = HomeFixture()
+        fixture.groups.balanceRows = [
+            Self.row(group: fixture.group.id, user: fixture.bob, name: "Bob", balance: "not a number")
+        ]
+        let vm = fixture.makeViewModel()
+        await vm.loadCurrentUser()
+        await vm.loadAll()
+
+        #expect(fixture.groups.fetchMembersCount > 0, "it fell back")
+        #expect(vm.netBalance == -10, "rather than reporting a settled group")
     }
 }

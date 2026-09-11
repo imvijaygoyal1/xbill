@@ -111,6 +111,21 @@ final class GroupService {
         }
     }
 
+    // MARK: - Home balances
+
+    /// `public.get_group_balances()` — one row per (group, member) for the caller's active,
+    /// non-archived groups, carrying the member's profile and their net balance there.
+    ///
+    /// Takes no parameters on purpose: the function keys on `auth.uid()`, so there is no argument
+    /// that could ask for somebody else's groups. It is `SECURITY INVOKER`, so RLS still decides
+    /// what the caller may read.
+    func groupBalances() async throws -> [GroupBalanceRow] {
+        try await supabase.client
+            .rpc("get_group_balances")
+            .execute()
+            .value
+    }
+
     // MARK: - Create
 
     func createGroup(name: String, emoji: String, currency: String, createdBy: UUID) async throws -> BillGroup {
