@@ -375,31 +375,29 @@ final class HomeViewModel {
         let settlementService = self.settlementService
 
         // PERF-02: one request for every group's members and balances, instead of three per group.
-        // `nil` means the call failed — the per-group path below is then used unchanged, so a
-        // server-side problem degrades to the old behaviour rather than to a blank screen. Remove
-        // the fallback once the RPC has a release behind it.
-        var rowsByGroup: [UUID: [GroupBalanceRow]]?
-        do {
-            let rows = try await groupService.groupBalances()
-            rowsByGroup = Dictionary(grouping: rows, by: \.groupID)
-        } catch {
-            AppDiagnostics.log(.balance, "HomeViewModel.groupBalances.catch", [
-                ("error", AppDiagnostics.describe(error))
-            ])
-            rowsByGroup = nil
-        }
+        // PERF-03: the expense fetches depend only on the group list, **not** on the balances, so
+        // they start at the same time as the RPC rather than after it. That is the difference
+        // between two sequential round trips and one — PERF-02 alone cut the request count without
+        // touching the depth of the critical path, which is why it did not show on the clock.
+        let groupsSnapshot = groups
+        async let fetchedRows = Self.groupBalanceRows(using: groupService)
+        async let fetchedExpenses = Self.expensesForAllGroups(groupsSnapshot, using: expenseService)
+        let rowsByGroup = await fetchedRows
+        let expensesByGroup = await fetchedExpenses
 
         await withTaskGroup(of: GroupBalanceData.self) { taskGroup in
             for group in groups {
                 let rows = rowsByGroup?[group.id]
+                let fetched = expensesByGroup[group.id] ?? ExpenseFetch(expenses: [], loadFailed: true)
                 taskGroup.addTask {
                     if let rows, let fromRPC = await Self.balancesFromRows(
-                        rows, group: group, userID: userID, expenseService: expenseService) {
+                        rows, group: group, userID: userID, expenses: fetched) {
                         return fromRPC
                     }
                     return await Self.fullBalancesInGroup(
                         group,
                         userID: userID,
+                        expenses: fetched,
                         groupService: groupService,
                         expenseService: expenseService,
                         settlementService: settlementService
@@ -450,8 +448,59 @@ final class HomeViewModel {
         reloadWidgets()
     }
 
-    /// Builds a group's contribution from `get_group_balances()` rows, fetching only the expenses
-    /// the Recent Expenses list needs.
+    /// One group's expenses, and whether the read failed. A failure falls back to the cache, so
+    /// the rows may be stale rather than absent — which is why the flag travels with them.
+    private struct ExpenseFetch: Sendable {
+        let expenses: [Expense]
+        let loadFailed: Bool
+    }
+
+    /// `nil` when the RPC is unavailable, which sends every group down the local path. Kept
+    /// separate so it can be started concurrently with the expense fetches.
+    private static func groupBalanceRows(
+        using groupService: any HomeGroupDataProviding
+    ) async -> [UUID: [GroupBalanceRow]]? {
+        do {
+            return Dictionary(grouping: try await groupService.groupBalances(), by: \.groupID)
+        } catch {
+            AppDiagnostics.log(.balance, "HomeViewModel.groupBalances.catch", [
+                ("error", AppDiagnostics.describe(error))
+            ])
+            return nil
+        }
+    }
+
+    /// Every group's expenses, fetched concurrently. Needed by Recent Expenses either way, and by
+    /// the local balance path when the RPC is unavailable — so it runs regardless, and in parallel
+    /// with the RPC rather than behind it.
+    private static func expensesForAllGroups(
+        _ groups: [BillGroup],
+        using expenseService: any HomeExpenseDataProviding
+    ) async -> [UUID: ExpenseFetch] {
+        await withTaskGroup(of: (UUID, ExpenseFetch).self) { taskGroup in
+            for group in groups {
+                taskGroup.addTask {
+                    do {
+                        let expenses = try await expenseService.fetchExpenses(groupID: group.id, limit: nil)
+                        CacheService.shared.saveExpenses(expenses, groupID: group.id)
+                        return (group.id, ExpenseFetch(expenses: expenses, loadFailed: false))
+                    } catch {
+                        let cached = CacheService.shared.loadExpenses(groupID: group.id)
+                        return (group.id, ExpenseFetch(expenses: cached, loadFailed: true))
+                    }
+                }
+            }
+            var result: [UUID: ExpenseFetch] = [:]
+            for await (id, fetch) in taskGroup { result[id] = fetch }
+            return result
+        }
+    }
+
+    /// Builds a group's contribution from `get_group_balances()` rows and already-fetched expenses.
+    ///
+    /// It performs no I/O — everything it needs has been fetched by the time it is called. It stays
+    /// `async` only because it is `@MainActor` and the task group's closure is not, so the `await`
+    /// is the actor hop rather than a wait on anything.
     ///
     /// Returns `nil` if any balance fails to parse — a malformed number must not be read as zero,
     /// which would silently understate a debt. The caller then falls back to computing it locally.
@@ -463,7 +512,7 @@ final class HomeViewModel {
         _ rows: [GroupBalanceRow],
         group: BillGroup,
         userID: UUID,
-        expenseService: any HomeExpenseDataProviding
+        expenses fetched: ExpenseFetch
     ) async -> GroupBalanceData? {
         guard !rows.isEmpty else { return nil }
 
@@ -474,16 +523,8 @@ final class HomeViewModel {
         }
 
         let members = rows.map(\.user)
-        let expenses: [Expense]
-        let loadFailed: Bool
-        do {
-            expenses = try await expenseService.fetchExpenses(groupID: group.id, limit: nil)
-            CacheService.shared.saveExpenses(expenses, groupID: group.id)
-            loadFailed = false
-        } catch {
-            expenses = CacheService.shared.loadExpenses(groupID: group.id)
-            loadFailed = true
-        }
+        let expenses = fetched.expenses
+        let loadFailed = fetched.loadFailed
         CacheService.shared.saveMembers(members, groupID: group.id)
 
         let net   = balances[userID] ?? .zero
@@ -502,27 +543,15 @@ final class HomeViewModel {
         )
     }
 
-    /// `splits` is the only fetch that needs another's result, so the two stay chained here.
-    private static func expensesAndSplits(
-        for group: BillGroup,
+    /// Splits for expenses that have already been fetched. Used only by the local fallback path.
+    private static func splits(
+        for expenses: [Expense],
         using expenseService: any HomeExpenseDataProviding
-    ) async -> (expenses: [Expense], loadFailed: Bool, splits: [UUID: [Split]], splitLoadFailed: Bool) {
-        let expenses: [Expense]
-        let loadFailed: Bool
+    ) async -> (splits: [UUID: [Split]], loadFailed: Bool) {
         do {
-            expenses = try await expenseService.fetchExpenses(groupID: group.id, limit: nil)
-            CacheService.shared.saveExpenses(expenses, groupID: group.id)
-            loadFailed = false
+            return (try await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService), false)
         } catch {
-            expenses = CacheService.shared.loadExpenses(groupID: group.id)
-            loadFailed = true
-        }
-
-        do {
-            let splits = try await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService)
-            return (expenses, loadFailed, splits, false)
-        } catch {
-            return (expenses, loadFailed, [:], true)
+            return ([:], true)
         }
     }
 
@@ -573,15 +602,18 @@ final class HomeViewModel {
     private static func fullBalancesInGroup(
         _ group: BillGroup,
         userID: UUID,
+        expenses fetched: ExpenseFetch,
         groupService: any HomeGroupDataProviding,
         expenseService: any HomeExpenseDataProviding,
         settlementService: any SettlementDataProviding
     ) async -> GroupBalanceData {
-        async let expensesAndSplits = expensesAndSplits(for: group, using: expenseService)
-        async let fetchedMembers    = members(for: group, using: groupService)
+        let expenses = fetched.expenses
+        let loadFailed = fetched.loadFailed
+        async let fetchedSplits      = splits(for: expenses, using: expenseService)
+        async let fetchedMembers     = members(for: group, using: groupService)
         async let fetchedSettlements = settlements(for: group, using: settlementService)
 
-        let (expenses, loadFailed, splitsMap, splitLoadFailed) = await expensesAndSplits
+        let (splitsMap, splitLoadFailed) = await fetchedSplits
         let members = await fetchedMembers
         let (settlements, settlementLoadFailed) = await fetchedSettlements
 

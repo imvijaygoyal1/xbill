@@ -73,8 +73,12 @@ final class FakeHomeGroupService: HomeGroupDataProviding {
     var balanceRowsError: Error?
     private(set) var groupBalancesCount = 0
 
+    /// Parks the RPC, so a test can see what else is in flight while it waits.
+    let balancesGate = InterleavingGate()
+
     func groupBalances() async throws -> [GroupBalanceRow] {
         groupBalancesCount += 1
+        await balancesGate.waitIfArmed()
         if let balanceRowsError { throw balanceRowsError }
         guard let balanceRows else { throw AppError.serverError("no rows configured") }
         return balanceRows
@@ -98,8 +102,12 @@ final class FakeHomeExpenseService: HomeExpenseDataProviding {
         return expenses[groupID] ?? []
     }
 
+    /// Parks `fetchSplits`, the head of the fallback path's only real chain.
+    let splitsGate = InterleavingGate()
+
     func fetchSplits(expenseIDs: [UUID]) async throws -> [Split] {
-        splits.filter { expenseIDs.contains($0.expenseID) }
+        await splitsGate.waitIfArmed()
+        return splits.filter { expenseIDs.contains($0.expenseID) }
     }
 
     func deleteExpense(id: UUID) async throws {}
@@ -358,25 +366,32 @@ struct HomeViewModelOrderingTests {
     }
 
     /// Within a single group, `fullBalancesInGroup` fetched expenses, then members, then splits,
-    /// then settlements — **four round trips one after another, per group**. Only splits needs
-    /// expenses; members and settlements need nothing. Two groups meant eight sequential-per-group
-    /// requests, and it grows with every group joined.
+    /// then settlements — **four round trips one after another**. Only splits needs expenses, so
+    /// the depth is now two: `expenses`, then `splits`/`members`/`settlements` together.
     ///
-    /// Asserting the four results would pass equally well if they were still sequential, so this
-    /// parks the head of the chain and checks the independent two have *already started*.
-    @Test("Members and settlements do not wait for the expenses fetch")
+    /// This is the fallback path — the RPC is left unconfigured, which is what an undeployed
+    /// migration looks like.
+    ///
+    /// **This test used to park the expenses fetch and assert that members had already started.**
+    /// PERF-03 hoisted the expense fetches to run alongside the balances RPC, so members and
+    /// settlements now begin after expenses rather than beside them, and that assertion failed.
+    /// It was asserting an implementation detail rather than the property that matters: splits
+    /// *always* waited for expenses, so `expenses → splits` was the critical path before and after
+    /// and the depth is unchanged at two. What is worth pinning — and is pinned here — is that the
+    /// three fetches which *can* overlap actually do.
+    @Test("Members and settlements do not wait for the splits fetch")
     func perGroupFetchesOverlap() async {
-        let fixture = HomeFixture()
+        let fixture = HomeFixture()      // no balance rows configured → the local path
         let vm = fixture.makeViewModel()
         await vm.loadCurrentUser()
 
-        fixture.expenses.fetchGate.arm()
+        fixture.expenses.splitsGate.arm()
         let load = Task { await vm.loadAll() }
-        await fixture.expenses.fetchGate.waitUntilParked()
+        await fixture.expenses.splitsGate.waitUntilParked()
 
-        // Bounded yield rather than an instant assert: reaching the gate only means the expenses
-        // task suspended, not that its siblings have been scheduled. If they were still chained
-        // behind it they could never start while it is parked, so the bound still discriminates.
+        // Bounded yield rather than an instant assert: reaching the gate only means the splits
+        // task suspended, not that its siblings have been scheduled. If they were chained behind
+        // it they could never start while it is parked, so the bound still discriminates.
         var yields = 0
         while (fixture.groups.fetchMembersCount == 0
                || !fixture.settlements.events.contains("fetch.start")) && yields < 200 {
@@ -385,11 +400,11 @@ struct HomeViewModelOrderingTests {
         }
 
         #expect(fixture.groups.fetchMembersCount > 0,
-                "the members fetch must not queue behind the expenses fetch")
+                "the members fetch must not queue behind the splits fetch")
         #expect(fixture.settlements.events.contains("fetch.start"),
                 "nor must the settlements fetch")
 
-        fixture.expenses.fetchGate.release()
+        fixture.expenses.splitsGate.release()
         await load.value
         #expect(vm.netBalance == -10, "and the result must still be right")
     }
@@ -557,6 +572,38 @@ struct HomeViewModelServerBalanceTests {
 
         #expect(vm.groupMemberCounts[fixture.group.id] == 1, "only the active one is counted")
         #expect(vm.groupNetBalances[fixture.group.id] == Decimal(string: "-10.00"))
+    }
+
+    /// PERF-03. PERF-02 cut the request count but not the depth of the critical path: the expense
+    /// fetches ran *after* the RPC returned, so it was still two sequential round trips and the
+    /// clock did not move. Expenses depend only on the group list, so they now start with the RPC.
+    ///
+    /// Asserting the totals would pass equally well if they were chained again, so this parks the
+    /// RPC and checks the expense fetches have already gone out.
+    @Test("The expense fetches do not wait for the balances RPC")
+    func expensesOverlapTheBalancesRequest() async {
+        let (fixture, _) = twoGroupFixture()
+        let vm = fixture.makeViewModel()
+        await vm.loadCurrentUser()
+
+        fixture.groups.balancesGate.arm()
+        let load = Task { await vm.loadAll() }
+        await fixture.groups.balancesGate.waitUntilParked()
+
+        // Bounded yield: reaching the gate only means the RPC suspended, not that the expense
+        // tasks have been scheduled. Chained again, they could not start at all while it is
+        // parked, so the bound still discriminates.
+        var yields = 0
+        while fixture.expenses.fetchExpensesCount < 2 && yields < 200 {
+            await Task.yield()
+            yields += 1
+        }
+        #expect(fixture.expenses.fetchExpensesCount == 2,
+                "both groups' expenses must be in flight while the RPC is still parked")
+
+        fixture.groups.balancesGate.release()
+        await load.value
+        #expect(vm.totalOwing == Decimal(string: "35.50"), "and the result must still be right")
     }
 
     /// What an undeployed migration looks like from the client. It must not blank the screen.
