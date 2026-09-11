@@ -316,9 +316,15 @@ the third instance in this repo of a check that could not distinguish its two ou
 plus legacy `CFBundleIconFiles`; iOS resolves from those, and they carry no appearance variants. It
 must be `none` for dark/tinted to be possible at all. That part of the work stands.
 
-## Release status — v1.7 (9) — SUBMITTED FOR REVIEW 2026-09-10
+## Release status — v1.7 (9) — ✅ APPROVED 2026-09-11
 
-Uploaded and submitted. **Build 9 is now consumed** — the next submission needs build 10.
+Eighth release, **eighth first-pass approval**. Submitted 2026-09-10, approved the next day.
+Build 9 is consumed; **1.8 is at build 10**.
+
+Tagged `v1.7-b9` / `v1.7-approved` on `e4a5b43`. The archive was built from the tree at `22d3900`;
+the three commits after it are documentation only, so that commit carries the exact submitted code.
+**v1.5 and v1.6 tags were backfilled at the same time** — tagging had lapsed after v1.4, which is
+the gap that made a release boundary unrecoverable on the other project. Tag every submission.
 
 The 2026-09-09 archive was deleted from Organizer and rebuilt before submitting, so everything from
 2026-09-10 shipped in this release rather than waiting for 1.8. Build 9 was still free at that point
