@@ -97,6 +97,27 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 
 
 
+
+## Recent Fix Log — 2026-09-11 (later still) — PERF-04: the local balance fallback is gone
+
+Migration 059 is deployed, so the fallback's purpose — surviving an undeployed RPC — is gone. **86
+lines** of duplicate balance computation removed, plus `HomeViewModel.settlementService`, which had
+no other caller.
+
+⚠️ **Not only a deletion.** The fallback also covered a *transient* RPC failure, and the obvious
+replacement is wrong: leaving zeros on screen. A zero is indistinguishable from "settled up" and
+would tell someone a debt had been paid. So when balances cannot be computed, the **previous figures
+stay**, the stale warning is raised, and Recent Expenses still refreshes. It is **all-or-nothing
+across groups** — skipping one bad group would understate the total, which is worse than showing
+yesterday's numbers under a warning.
+
+Two tests were removed *with the code they described*: the settlement-arithmetic pair (Home no
+longer fetches settlements — that maths is migration 059's job now) and `perGroupFetchesOverlap`
+(its last caller went with the fallback). Three replace them, all about the failure path.
+
+537/537. Device: `292/185/228/195 ms`, `owed=43.26` every launch, `balances.unavailable = 0`.
+
+
 ## Recent Fix Log — 2026-09-11 (later) — PERF-03: the home screen is ~4× faster than this morning
 
 PERF-02 cut the request count but not the **depth** of the critical path — the expense fetches ran

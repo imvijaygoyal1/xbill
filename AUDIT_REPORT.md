@@ -1601,3 +1601,46 @@ waited for expenses, so `expenses → splits` was the critical path before and a
 path's depth is unchanged at two waits. The test now parks the *splits* fetch and asserts that the
 three fetches which genuinely can overlap do. Same property, correctly expressed — not a test
 relaxed to match the code.
+
+
+---
+
+## PERF-04 — the local balance fallback removed ✅ (v1.8)
+
+Migration 059 is deployed, so the fallback's original purpose — surviving an undeployed RPC — is
+gone. **86 lines** of duplicate balance computation went with it, along with
+`HomeViewModel.settlementService`, which had no other caller.
+
+**This was not only a deletion.** The fallback also covered a *transient* RPC failure, so removing
+it needed a failure path, and the obvious one is wrong: leaving zeros on screen. A zero is
+indistinguishable from "settled up" and would tell someone a debt had been paid — the same reason
+`GroupBalanceRow.decimalBalance` returns `nil` rather than defaulting.
+
+What happens now when balances cannot be computed:
+
+| | |
+|---|---|
+| balances | **previous figures stay on screen**, never replaced by zeros |
+| warning | "Some balances may be stale" |
+| Recent Expenses | still refreshes — it does not depend on the balances |
+
+**All-or-nothing across groups.** If any single group cannot be built, no group's figures are
+replaced. Skipping the bad group would drop its share of the totals and quietly understate what the
+user is owed, which is worse than showing yesterday's numbers under a warning.
+
+### Two tests removed, and why that is not lowering the bar
+
+- The **settlement arithmetic** tests (a settlement cancelling a debt; a settlements fetch failure
+  raising the warning) drove `FakeSettlementService`. Home no longer fetches settlements at all —
+  that arithmetic is migration 059's job now, where it is reproduced including the self-split and
+  null-payer rules. Rewriting them client-side would have asserted nothing.
+- **`perGroupFetchesOverlap`** pinned PERF-01's per-group fetch ordering. Removing the fallback
+  deleted its last caller, so there is no ordering left to assert.
+  `expensesOverlapTheBalancesRequest` pins the ordering that now exists.
+
+Three new tests replace them: a failed request keeps the previous figures and warns; a failed
+request still refreshes the expense list; an unparseable balance leaves **every** group's figures
+alone.
+
+**Verification.** 537/537. Device, four cold launches: `292 / 185 / 228 / 195 ms`, `owed=43.26`
+every time, `balances.unavailable = 0`.

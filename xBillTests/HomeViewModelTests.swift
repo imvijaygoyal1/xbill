@@ -102,12 +102,10 @@ final class FakeHomeExpenseService: HomeExpenseDataProviding {
         return expenses[groupID] ?? []
     }
 
-    /// Parks `fetchSplits`, the head of the fallback path's only real chain.
-    let splitsGate = InterleavingGate()
-
+    /// Home no longer fetches splits — `get_group_balances()` folds them into the balance. Kept
+    /// because `ExpenseDataProviding` requires it and other suites use this fake.
     func fetchSplits(expenseIDs: [UUID]) async throws -> [Split] {
-        await splitsGate.waitIfArmed()
-        return splits.filter { expenseIDs.contains($0.expenseID) }
+        splits.filter { expenseIDs.contains($0.expenseID) }
     }
 
     func deleteExpense(id: UUID) async throws {}
@@ -139,7 +137,6 @@ private struct HomeFixture {
     let expense: Expense
     let groups = FakeHomeGroupService()
     let expenses = FakeHomeExpenseService()
-    let settlements = FakeSettlementService()
 
     /// Alice paid 30; Bob owes 10 of it. Seen as Bob, the net is **-10**.
     init() {
@@ -158,7 +155,18 @@ private struct HomeFixture {
                  avatarURL: nil, isActive: true, createdAt: Date())
         ]
         expenses.expenses[groupID] = [expense]
-        expenses.splits = [Split(id: UUID(), expenseID: expense.id, userID: bob, amount: 10)]
+        // Balances come from `get_group_balances()` now, not from splits — the fixture mirrors the
+        // deployed world, where the RPC answers. Alice paid 30 and Bob owes 10 of it.
+        groups.balanceRows = [
+            GroupBalanceRow(groupID: groupID, currency: "USD", userID: bob,
+                            email: "bob@example.com", displayName: "Bob", avatarURL: nil,
+                            venmoHandle: nil, paypalHandle: nil, isActive: true,
+                            createdAt: Date(), balance: "-10.00"),
+            GroupBalanceRow(groupID: groupID, currency: "USD", userID: alice,
+                            email: "alice@example.com", displayName: "Alice", avatarURL: nil,
+                            venmoHandle: nil, paypalHandle: nil, isActive: true,
+                            createdAt: Date(), balance: "10.00")
+        ]
     }
 
     var currentUser: User {
@@ -173,7 +181,6 @@ private struct HomeFixture {
         let user = currentUser
         return HomeViewModel(groupService: groups,
                              expenseService: expenses,
-                             settlementService: settlements,
                              currentUserProvider: { user },
                              isConnectedProvider: { connected },
                              indexGroupsForSearch: { _ in },
@@ -216,37 +223,14 @@ struct HomeViewModelLoadTests {
         #expect(vm.errorAlert == nil)
     }
 
-    /// A recorded payment cancels the debt. This is the arithmetic IMP-2 protects: if the
-    /// settlements read fails the split still counts as unpaid, which is the largest possible
-    /// wrong number rather than a small one.
-    @Test("A settlement offsets the debt it repays")
-    func settlementOffsetsTheDebt() async {
-        let fixture = HomeFixture()
-        fixture.settlements.stored = [
-            Settlement(id: UUID(), groupID: fixture.group.id, fromUserID: fixture.bob,
-                       toUserID: fixture.alice, amount: 10, currency: "USD",
-                       recordedBy: fixture.bob, createdAt: Date())
-        ]
-        let vm = fixture.makeViewModel()
-        await vm.loadCurrentUser()
-        await vm.loadAll()
-
-        #expect(vm.netBalance == .zero)
-        #expect(vm.groupNetBalances[fixture.group.id] == .zero)
-    }
-
-    @Test("A failed settlements fetch warns that balances may be stale")
-    func settlementsFailureRaisesTheStaleWarning() async {
-        let fixture = HomeFixture()
-        fixture.settlements.fetchError = AppError.serverError("ledger unavailable")
-        let vm = fixture.makeViewModel()
-        await vm.loadCurrentUser()
-        await vm.loadAll()
-
-        // The gross, pre-payment debt is what gets shown — so it must not be shown silently.
-        #expect(vm.netBalance == -10)
-        #expect(vm.errorAlert?.title == "Some balances may be stale")
-    }
+    /// Home no longer fetches settlements, splits or members: `get_group_balances()` folds all
+    /// three into one server-side figure. Two tests lived here that drove
+    /// `FakeSettlementService` — one for a settlement cancelling a debt, one for a settlements
+    /// fetch failure raising the stale warning. Both asserted arithmetic the client stopped doing,
+    /// so they were removed rather than rewritten to assert nothing: the settlement maths is now
+    /// the SQL's job (migration 059 reproduces `SplitCalculator.netBalances`, including the
+    /// self-split and null-payer rules), and the stale warning is covered below by the balances
+    /// request failing.
 
     /// The mirror of FLAKE-02, from the other side: offline must read the cache and must not
     /// reach the service. `CacheService.shared` is a process-wide singleton, so this test asserts
@@ -365,49 +349,16 @@ struct HomeViewModelOrderingTests {
         #expect(vm.netBalance == -10)
     }
 
-    /// Within a single group, `fullBalancesInGroup` fetched expenses, then members, then splits,
-    /// then settlements — **four round trips one after another**. Only splits needs expenses, so
-    /// the depth is now two: `expenses`, then `splits`/`members`/`settlements` together.
+    /// `perGroupFetchesOverlap` stood here. It pinned PERF-01 — that within one group the four
+    /// fetches did not queue behind each other — by parking one and asserting its siblings had
+    /// already started.
     ///
-    /// This is the fallback path — the RPC is left unconfigured, which is what an undeployed
-    /// migration looks like.
-    ///
-    /// **This test used to park the expenses fetch and assert that members had already started.**
-    /// PERF-03 hoisted the expense fetches to run alongside the balances RPC, so members and
-    /// settlements now begin after expenses rather than beside them, and that assertion failed.
-    /// It was asserting an implementation detail rather than the property that matters: splits
-    /// *always* waited for expenses, so `expenses → splits` was the critical path before and after
-    /// and the depth is unchanged at two. What is worth pinning — and is pinned here — is that the
-    /// three fetches which *can* overlap actually do.
-    @Test("Members and settlements do not wait for the splits fetch")
-    func perGroupFetchesOverlap() async {
-        let fixture = HomeFixture()      // no balance rows configured → the local path
-        let vm = fixture.makeViewModel()
-        await vm.loadCurrentUser()
-
-        fixture.expenses.splitsGate.arm()
-        let load = Task { await vm.loadAll() }
-        await fixture.expenses.splitsGate.waitUntilParked()
-
-        // Bounded yield rather than an instant assert: reaching the gate only means the splits
-        // task suspended, not that its siblings have been scheduled. If they were chained behind
-        // it they could never start while it is parked, so the bound still discriminates.
-        var yields = 0
-        while (fixture.groups.fetchMembersCount == 0
-               || !fixture.settlements.events.contains("fetch.start")) && yields < 200 {
-            await Task.yield()
-            yields += 1
-        }
-
-        #expect(fixture.groups.fetchMembersCount > 0,
-                "the members fetch must not queue behind the splits fetch")
-        #expect(fixture.settlements.events.contains("fetch.start"),
-                "nor must the settlements fetch")
-
-        fixture.expenses.splitsGate.release()
-        await load.value
-        #expect(vm.netBalance == -10, "and the result must still be right")
-    }
+    /// **Removed with the code it described, not because it failed.** PERF-02 moved the members,
+    /// splits and settlements fetches to the server, and removing the local fallback deleted the
+    /// last caller. Nothing client-side does per-group balance fetching any more, so there is no
+    /// ordering left to assert. What replaced it is `expensesOverlapTheBalancesRequest`, which
+    /// pins the ordering that now exists: expenses alongside the balances request, one round trip
+    /// rather than two.
 
     /// A realtime event and a pull-to-refresh both call `loadAll`, and nothing serialises them.
     ///
@@ -446,8 +397,18 @@ struct HomeViewModelOrderingTests {
         fixture.groups.groups = [fixture.group, second]
         fixture.groups.members[second.id] = fixture.groups.members[fixture.group.id]
         fixture.expenses.expenses[second.id] = [secondExpense]
-        fixture.expenses.splits.append(
-            Split(id: UUID(), expenseID: secondExpense.id, userID: fixture.bob, amount: 25))
+        // The server knows about the new group too — balances are all-or-nothing now, so rows
+        // covering only the first group would correctly refuse to publish a partial total.
+        fixture.groups.balanceRows?.append(contentsOf: [
+            GroupBalanceRow(groupID: second.id, currency: "USD", userID: fixture.bob,
+                            email: "bob@example.com", displayName: "Bob", avatarURL: nil,
+                            venmoHandle: nil, paypalHandle: nil, isActive: true,
+                            createdAt: Date(), balance: "-25.00"),
+            GroupBalanceRow(groupID: second.id, currency: "USD", userID: fixture.alice,
+                            email: "alice@example.com", displayName: "Alice", avatarURL: nil,
+                            venmoHandle: nil, paypalHandle: nil, isActive: true,
+                            createdAt: Date(), balance: "25.00")
+        ])
 
         // 3. The realtime stream's load — `force`, because the event says the row changed now.
         //    It joins #1 rather than racing it, and requires one further pass afterwards. Started
@@ -513,7 +474,6 @@ struct HomeViewModelServerBalanceTests {
 
         #expect(fixture.groups.groupBalancesCount == 1, "one call, for both groups")
         #expect(fixture.groups.fetchMembersCount == 0, "members come from the same response")
-        #expect(fixture.settlements.events.isEmpty, "so do settlements")
         // Expenses are still per-group: the Recent Expenses list needs the rows themselves.
         #expect(fixture.expenses.fetchExpensesCount == 2)
     }
@@ -606,32 +566,53 @@ struct HomeViewModelServerBalanceTests {
         #expect(vm.totalOwing == Decimal(string: "35.50"), "and the result must still be right")
     }
 
-    /// What an undeployed migration looks like from the client. It must not blank the screen.
-    @Test("A failed balances call falls back to computing them locally")
-    func failureFallsBackToTheLocalPath() async {
+    /// There is no local fallback any more, so a failed balances request must not leave zeros on
+    /// screen. A zero reads as "settled up" — it would tell someone a debt had been paid.
+    @Test("A failed balances request keeps the previous figures and warns")
+    func failureKeepsPreviousFigures() async {
         let fixture = HomeFixture()
-        fixture.groups.balanceRowsError = AppError.serverError("function does not exist")
+        let vm = fixture.makeViewModel()
+        await vm.loadCurrentUser()
+        await vm.loadAll()
+        #expect(vm.netBalance == -10, "a good load first")
+
+        // Now the request starts failing, and a refresh arrives.
+        fixture.groups.balanceRowsError = AppError.serverError("balances unavailable")
+        await vm.loadAll()
+
+        #expect(vm.netBalance == -10, "the last known figure stays — NOT replaced by zero")
+        #expect(vm.errorAlert?.title == "Some balances may be stale")
+    }
+
+    /// Recent Expenses does not depend on the balances, so it still refreshes when they fail.
+    @Test("A failed balances request still refreshes the expense list")
+    func failureStillRefreshesTheList() async {
+        let fixture = HomeFixture()
+        fixture.groups.balanceRowsError = AppError.serverError("balances unavailable")
         let vm = fixture.makeViewModel()
         await vm.loadCurrentUser()
         await vm.loadAll()
 
-        #expect(fixture.groups.fetchMembersCount > 0, "the local path ran")
-        #expect(vm.netBalance == -10, "and produced the same answer")
-        #expect(vm.errorAlert == nil, "a fallback that worked is not an error")
+        #expect(vm.recentExpenses.map(\.expense.id) == [fixture.expense.id])
+        #expect(vm.errorAlert?.title == "Some balances may be stale")
     }
 
-    /// A balance that will not parse must never be read as zero — that silently cancels a debt.
-    @Test("An unparseable balance falls back rather than reading as zero")
-    func unparseableBalanceFallsBack() async {
+    /// A balance that will not parse must never be read as zero, and must not take only *its* group
+    /// down either: dropping one group would understate the total across all of them.
+    @Test("An unparseable balance leaves every group's figures alone")
+    func unparseableBalanceIsAllOrNothing() async {
         let fixture = HomeFixture()
+        let vm = fixture.makeViewModel()
+        await vm.loadCurrentUser()
+        await vm.loadAll()
+        #expect(vm.netBalance == -10)
+
         fixture.groups.balanceRows = [
             Self.row(group: fixture.group.id, user: fixture.bob, name: "Bob", balance: "not a number")
         ]
-        let vm = fixture.makeViewModel()
-        await vm.loadCurrentUser()
         await vm.loadAll()
 
-        #expect(fixture.groups.fetchMembersCount > 0, "it fell back")
         #expect(vm.netBalance == -10, "rather than reporting a settled group")
+        #expect(vm.errorAlert?.title == "Some balances may be stale")
     }
 }

@@ -60,7 +60,6 @@ final class HomeViewModel {
     // mirror `GroupViewModel`'s, including the argument order, so the two read the same way.
     private let groupService: any HomeGroupDataProviding
     private let expenseService: any HomeExpenseDataProviding
-    private let settlementService: any SettlementDataProviding
     private let currentUserProvider: @MainActor () async throws -> User
     private let isConnectedProvider: @MainActor () -> Bool
     /// Two side effects that leave the process: `CSSearchableIndex.indexSearchableItems` and
@@ -74,7 +73,6 @@ final class HomeViewModel {
     init(
         groupService: any HomeGroupDataProviding = GroupService.shared,
         expenseService: any HomeExpenseDataProviding = ExpenseService.shared,
-        settlementService: any SettlementDataProviding = SettlementService.shared,
         currentUserProvider: @escaping @MainActor () async throws -> User = { try await AuthService.shared.currentUser() },
         isConnectedProvider: @escaping @MainActor () -> Bool = { NetworkMonitor.shared.isConnected },
         indexGroupsForSearch: @escaping @MainActor ([BillGroup]) -> Void = { SpotlightService.indexGroups($0) },
@@ -82,7 +80,6 @@ final class HomeViewModel {
     ) {
         self.groupService = groupService
         self.expenseService = expenseService
-        self.settlementService = settlementService
         self.currentUserProvider = currentUserProvider
         self.isConnectedProvider = isConnectedProvider
         self.indexGroupsForSearch = indexGroupsForSearch
@@ -364,15 +361,8 @@ final class HomeViewModel {
     }
 
     private func performBalanceComputation(for userID: UUID) async {
-        var owed             = Decimal.zero
-        var owing            = Decimal.zero
-        var allEntries:      [RecentEntry]             = []
-        var mergedByCurrency:[String: [UUID: Decimal]] = [:]
-        var allNames:        [UUID: String]            = [:]
-
         let groupService = self.groupService
         let expenseService = self.expenseService
-        let settlementService = self.settlementService
 
         // PERF-02: one request for every group's members and balances, instead of three per group.
         // PERF-03: the expense fetches depend only on the group list, **not** on the balances, so
@@ -385,50 +375,56 @@ final class HomeViewModel {
         let rowsByGroup = await fetchedRows
         let expensesByGroup = await fetchedExpenses
 
-        await withTaskGroup(of: GroupBalanceData.self) { taskGroup in
-            for group in groups {
-                let rows = rowsByGroup?[group.id]
-                let fetched = expensesByGroup[group.id] ?? ExpenseFetch(expenses: [], loadFailed: true)
-                taskGroup.addTask {
-                    if let rows, let fromRPC = await Self.balancesFromRows(
-                        rows, group: group, userID: userID, expenses: fetched) {
-                        return fromRPC
-                    }
-                    return await Self.fullBalancesInGroup(
-                        group,
-                        userID: userID,
-                        expenses: fetched,
-                        groupService: groupService,
-                        expenseService: expenseService,
-                        settlementService: settlementService
-                    )
-                }
+        guard let rowsByGroup else {
+            presentBalancesUnavailable(groups: groupsSnapshot, expenses: expensesByGroup,
+                                       reason: "the balances request failed")
+            return
+        }
+
+        // All-or-nothing. A group that cannot be built is not skipped: skipping it would drop its
+        // share of the totals and quietly understate what the user is owed, which is worse than
+        // showing the previous figures under a warning.
+        var built: [GroupBalanceData] = []
+        for group in groupsSnapshot {
+            let fetched = expensesByGroup[group.id] ?? ExpenseFetch(expenses: [], loadFailed: true)
+            guard let data = Self.balancesFromRows(rowsByGroup[group.id] ?? [], group: group,
+                                                   userID: userID, expenses: fetched) else {
+                presentBalancesUnavailable(groups: groupsSnapshot, expenses: expensesByGroup,
+                                           reason: "no usable balance for \(group.name)")
+                return
             }
-            for await data in taskGroup {
-                owed  += data.owed
-                owing += data.owing
-                allEntries.append(contentsOf: data.entries)
-                for (uid, bal) in data.balances {
-                    mergedByCurrency[data.currency, default: [:]][uid, default: .zero] += bal
-                }
-                allNames.merge(data.names) { _, new in new }
-                groupMemberCounts[data.groupID] = data.memberCount
-                groupNetBalances[data.groupID]  = data.netBalance
-                if data.loadFailed, errorAlert == nil {
-                    errorAlert = ErrorAlert(
-                        title: "Some balances may be stale",
-                        message: "xBill could not refresh one or more groups. Cached data is shown when available."
-                    )
-                }
+            built.append(data)
+        }
+
+        var owed              = Decimal.zero
+        var owing             = Decimal.zero
+        var allEntries:       [RecentEntry]             = []
+        var mergedByCurrency: [String: [UUID: Decimal]] = [:]
+        var allNames:         [UUID: String]            = [:]
+
+        for data in built {
+            owed  += data.owed
+            owing += data.owing
+            allEntries.append(contentsOf: data.entries)
+            for (uid, bal) in data.balances {
+                mergedByCurrency[data.currency, default: [:]][uid, default: .zero] += bal
+            }
+            allNames.merge(data.names) { _, new in new }
+            groupMemberCounts[data.groupID] = data.memberCount
+            groupNetBalances[data.groupID]  = data.netBalance
+            // The balances themselves came from the server and are sound; this flags only that a
+            // group's expense list fell back to the cache, so Recent Expenses may be behind.
+            if data.loadFailed, errorAlert == nil {
+                errorAlert = ErrorAlert(
+                    title: "Some balances may be stale",
+                    message: "xBill could not refresh one or more groups. Cached data is shown when available."
+                )
             }
         }
 
         totalOwed      = owed
         totalOwing     = owing
-        recentExpenses = allEntries
-            .sorted { $0.expense.createdAt > $1.expense.createdAt }
-            .prefix(10)
-            .map { $0 }
+        recentExpenses = Self.newestEntries(allEntries)
 
         // Cross-group debt simplification: merge balances across groups per currency
         var suggestions: [SettlementSuggestion] = []
@@ -446,6 +442,41 @@ final class HomeViewModel {
         let primaryCurrency = mergedByCurrency.count == 1 ? (mergedByCurrency.keys.first ?? "USD") : "USD"
         CacheService.shared.saveBalance(netBalance: netBalance, totalOwed: totalOwed, totalOwing: totalOwing, currency: primaryCurrency)
         reloadWidgets()
+    }
+
+    /// Balances could not be computed this time.
+    ///
+    /// **The previous figures stay on screen** rather than being replaced by zeros. A zero is
+    /// indistinguishable from "settled up" and would tell the user a debt had been paid — the same
+    /// reason `GroupBalanceRow.decimalBalance` returns `nil` instead of defaulting. The warning is
+    /// how the user learns the numbers may be behind.
+    ///
+    /// Recent Expenses does not depend on the balances, so it still refreshes; its member names
+    /// come from the cache, which is where the previous load left them.
+    private func presentBalancesUnavailable(groups: [BillGroup],
+                                            expenses: [UUID: ExpenseFetch],
+                                            reason: String) {
+        AppDiagnostics.log(.balance, "HomeViewModel.balances.unavailable", [
+            ("reason", reason),
+            ("groups", groups.count)
+        ])
+        var entries: [RecentEntry] = []
+        for group in groups {
+            let fetched = expenses[group.id] ?? ExpenseFetch(expenses: [], loadFailed: true)
+            let members = CacheService.shared.loadMembers(groupID: group.id)
+            entries.append(contentsOf: fetched.expenses.map { RecentEntry(expense: $0, members: members) })
+        }
+        recentExpenses = Self.newestEntries(entries)
+        if errorAlert == nil {
+            errorAlert = ErrorAlert(
+                title: "Some balances may be stale",
+                message: "xBill could not refresh one or more groups. Cached data is shown when available."
+            )
+        }
+    }
+
+    private static func newestEntries(_ entries: [RecentEntry]) -> [RecentEntry] {
+        entries.sorted { $0.expense.createdAt > $1.expense.createdAt }.prefix(10).map { $0 }
     }
 
     /// One group's expenses, and whether the read failed. A failure falls back to the cache, so
@@ -498,9 +529,8 @@ final class HomeViewModel {
 
     /// Builds a group's contribution from `get_group_balances()` rows and already-fetched expenses.
     ///
-    /// It performs no I/O — everything it needs has been fetched by the time it is called. It stays
-    /// `async` only because it is `@MainActor` and the task group's closure is not, so the `await`
-    /// is the actor hop rather than a wait on anything.
+    /// Performs no I/O: everything it needs has been fetched by the time it is called. It is no
+    /// longer `async` — the task group it used to run inside is gone with the local fallback path.
     ///
     /// Returns `nil` if any balance fails to parse — a malformed number must not be read as zero,
     /// which would silently understate a debt. The caller then falls back to computing it locally.
@@ -513,7 +543,7 @@ final class HomeViewModel {
         group: BillGroup,
         userID: UUID,
         expenses fetched: ExpenseFetch
-    ) async -> GroupBalanceData? {
+    ) -> GroupBalanceData? {
         guard !rows.isEmpty else { return nil }
 
         var balances: [UUID: Decimal] = [:]
@@ -543,90 +573,4 @@ final class HomeViewModel {
         )
     }
 
-    /// Splits for expenses that have already been fetched. Used only by the local fallback path.
-    private static func splits(
-        for expenses: [Expense],
-        using expenseService: any HomeExpenseDataProviding
-    ) async -> (splits: [UUID: [Split]], loadFailed: Bool) {
-        do {
-            return (try await SplitCalculator.fetchSplitsMap(for: expenses, using: expenseService), false)
-        } catch {
-            return ([:], true)
-        }
-    }
-
-    /// A members failure deliberately does **not** raise `loadFailed`: names going missing shows as
-    /// missing names, not as a wrong number.
-    private static func members(
-        for group: BillGroup,
-        using groupService: any HomeGroupDataProviding
-    ) async -> [User] {
-        do {
-            let members = try await groupService.fetchMembers(groupID: group.id, includeInactive: true)
-            CacheService.shared.saveMembers(members, groupID: group.id)
-            return members
-        } catch {
-            return CacheService.shared.loadMembers(groupID: group.id)
-        }
-    }
-
-    /// Unlike a failed splits fetch (which collapses balances toward zero), a failed settlements
-    /// fetch makes every split count as unpaid — the largest possible wrong number, and silently so
-    /// unless this feeds `loadFailed` in the caller (IMP-2).
-    private static func settlements(
-        for group: BillGroup,
-        using settlementService: any SettlementDataProviding
-    ) async -> (settlements: [Settlement], loadFailed: Bool) {
-        do {
-            return (try await settlementService.fetchSettlements(groupID: group.id), false)
-        } catch {
-            return ([], true)
-        }
-    }
-
-    /// One group's contribution to the home-screen totals.
-    ///
-    /// PERF: these four fetches used to run **one after another** — expenses, then members, then
-    /// splits, then settlements — for every group. Two groups meant eight round trips with only
-    /// the groups themselves overlapping, and it grew with each group joined.
-    ///
-    /// Only splits depends on expenses. Members and settlements depend on nothing, so the chain is
-    /// really `expenses → splits` alongside `members` alongside `settlements`: two sequential waits
-    /// instead of four. Each branch keeps its own `do`/`catch` and its own cache fallback, so the
-    /// failure behaviour is unchanged — in particular a members failure still does **not** raise
-    /// `loadFailed`, while any of the other three does.
-    ///
-    /// The next step, if this is still not fast enough, is a server-side `get_group_balances` that
-    /// makes it one request for all groups rather than four per group. That is a schema change and
-    /// deliberately not bundled here.
-    private static func fullBalancesInGroup(
-        _ group: BillGroup,
-        userID: UUID,
-        expenses fetched: ExpenseFetch,
-        groupService: any HomeGroupDataProviding,
-        expenseService: any HomeExpenseDataProviding,
-        settlementService: any SettlementDataProviding
-    ) async -> GroupBalanceData {
-        let expenses = fetched.expenses
-        let loadFailed = fetched.loadFailed
-        async let fetchedSplits      = splits(for: expenses, using: expenseService)
-        async let fetchedMembers     = members(for: group, using: groupService)
-        async let fetchedSettlements = settlements(for: group, using: settlementService)
-
-        let (splitsMap, splitLoadFailed) = await fetchedSplits
-        let members = await fetchedMembers
-        let (settlements, settlementLoadFailed) = await fetchedSettlements
-
-        let balances  = SplitCalculator.netBalances(expenses: expenses, splits: splitsMap, settlements: settlements)
-        let net       = balances[userID] ?? .zero
-        let owed      = net > .zero ? net  : .zero
-        let owing     = net < .zero ? -net : .zero
-        let entries   = expenses.map { RecentEntry(expense: $0, members: members) }
-        let names     = Dictionary(uniqueKeysWithValues: members.map { ($0.id, $0.displayName) })
-        let data      = GroupBalanceData(groupID: group.id, owed: owed, owing: owing, netBalance: net,
-                                         memberCount: members.filter(\.isActive).count, entries: entries,
-                                         currency: group.currency, balances: balances, names: names,
-                                         loadFailed: loadFailed || splitLoadFailed || settlementLoadFailed)
-        return data
-    }
 }
