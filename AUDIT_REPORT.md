@@ -1559,3 +1559,45 @@ The first version of the float-boundary test asserted `Decimal(10.10) != Decimal
 It does not — that value round-trips — so the test was ceremony. Replaced with an exact accumulation
 across two groups, and the overstated comments in the migration and the model were corrected to
 claim only what had been observed. Rule 12, found in my own new code within the hour.
+
+
+---
+
+## PERF-03 — the expense fetches start with the RPC, not after it ✅ (v1.8)
+
+PERF-02 cut the request count but not the **depth** of the critical path: the expense fetches ran
+after the RPC returned, so it was still two sequential round trips and the clock did not move.
+Expenses depend only on the group list, not on the balances, so they now start alongside the RPC.
+
+**Device, six cold launches each** (iPhone 16 Pro, 2 groups, `loadAll.enter` → `loadAll.success`):
+
+| | samples | median |
+|---|---|---|
+| PERF-02 | 263 / 327 / 357 / **901** | ~342 ms |
+| PERF-03 | 179 / 180 / 204 / 245 / 252 / **1251** | **224 ms** |
+
+Each batch carries one outlier an order of magnitude above the rest; the tail is network-dominated
+and this change does not touch it. Setting those aside, the two sets are `263–357` and `179–252` —
+**they do not overlap**, which is what was missing from the PERF-01 and PERF-02 measurements and why
+neither was claimed as a win. This one is.
+
+**The whole arc of the day**, view appears → balances on screen:
+
+| | |
+|---|---|
+| v1.7 as shipped | 787 ms / 1.07 s / 1.21 s |
+| after PERF-03 | 234 / 243 / 261 / 316 / 332 ms |
+
+Balances read `owed=43.26 owing=0` on every launch, matching the database, with **0 RPC failures**.
+
+### One existing test changed, and why that is not weakening it
+
+`perGroupFetchesOverlap` parked the expenses fetch and asserted members had already started.
+Hoisting the expense fetches means members and settlements now begin *after* expenses rather than
+beside them, so it failed — correctly.
+
+It was asserting an implementation detail rather than the property that matters. Splits **always**
+waited for expenses, so `expenses → splits` was the critical path before and after, and the fallback
+path's depth is unchanged at two waits. The test now parks the *splits* fetch and asserts that the
+three fetches which genuinely can overlap do. Same property, correctly expressed — not a test
+relaxed to match the code.

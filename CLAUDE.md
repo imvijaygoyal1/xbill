@@ -96,6 +96,30 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 
 
 
+
+## Recent Fix Log — 2026-09-11 (later) — PERF-03: the home screen is ~4× faster than this morning
+
+PERF-02 cut the request count but not the **depth** of the critical path — the expense fetches ran
+after the RPC returned, still two sequential round trips. They depend only on the group list, so
+they now start alongside the RPC.
+
+Device, six cold launches, `loadAll` duration: **179/180/204/245/252** ms (plus one 1251 ms
+outlier), median **224 ms**, against PERF-02's **263/327/357** (plus one 901 ms outlier), median
+~342 ms. Each batch has exactly one network outlier the change cannot touch; setting those aside the
+two sets **do not overlap**. That is the thing PERF-01 and PERF-02 both lacked, which is why neither
+was claimed as a win — this one is.
+
+**View appears → balances on screen, across the day:** `787 ms / 1.07 s / 1.21 s` as v1.7 shipped →
+**234 / 243 / 261 / 316 / 332 ms**. Totals read `owed=43.26 owing=0` every launch, matching the
+database, 0 RPC failures.
+
+⚠️ `perGroupFetchesOverlap` was **re-expressed, not relaxed**. It parked the expenses fetch and
+asserted members had already started; hoisting the expense fetches broke that. Splits always waited
+for expenses, so `expenses → splits` was the critical path before and after and the fallback path's
+depth is unchanged at two. It now parks the splits fetch and pins that the three fetches which can
+overlap do. Detail in `AUDIT_REPORT.md` under PERF-03.
+
+
 ## Recent Fix Log — 2026-09-11 — PERF-02: get_group_balances deployed (migration 059)
 
 The home screen's per-group **members, splits and settlements** fetches are gone, replaced by one
