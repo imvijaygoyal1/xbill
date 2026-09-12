@@ -79,23 +79,35 @@ final class VisionService {
 
     // MARK: - Public Entry Points
 
-    func scanReceipt(from image: UIImage) async throws -> ScanResult {
+    /// - Parameter usesFoundationModels: pass `false` to skip Tier 1 and parse with the heuristics
+    ///   alone. **Only the benchmark does this, and it is not a performance switch — it is what
+    ///   makes the result reproducible.** Tier 1 is a language model: nine runs of the same 22
+    ///   receipts scored totals anywhere from 18 to 20, because four of them take that path. A
+    ///   measurement that moves by two receipts between runs cannot detect a one-receipt
+    ///   regression, and cannot tell whether a change helped or the dice did.
+    ///
+    ///   It is a parameter rather than a property on the singleton deliberately: a mutable flag on
+    ///   a shared object is read by whatever else happens to be running in a parallel suite.
+    func scanReceipt(from image: UIImage,
+                     usesFoundationModels: Bool = true) async throws -> ScanResult {
         try checkImageQuality(image)
-        return try await processScan(images: [image])
+        return try await processScan(images: [image], usesFoundationModels: usesFoundationModels)
     }
 
     /// Processes all pages from a multi-page document scan, combining OCR results.
-    func scanMultiPage(from images: [UIImage]) async throws -> ScanResult {
+    func scanMultiPage(from images: [UIImage],
+                       usesFoundationModels: Bool = true) async throws -> ScanResult {
         guard !images.isEmpty else {
             throw AppError.validationFailed("No pages captured.")
         }
         if let first = images.first { try checkImageQuality(first) }
-        return try await processScan(images: images)
+        return try await processScan(images: images, usesFoundationModels: usesFoundationModels)
     }
 
     // MARK: - Core Pipeline
 
-    private func processScan(images: [UIImage]) async throws -> ScanResult {
+    private func processScan(images: [UIImage],
+                             usesFoundationModels: Bool) async throws -> ScanResult {
         let pageCount = Double(images.count)
 
         // OCR each page; shift Y so pages stack vertically without overlap
@@ -139,7 +151,7 @@ final class VisionService {
         let detectedLang = detectLanguage(from: ocrText)
 
         // Tier 1 — Apple Foundation Models (iOS 26+, Apple Intelligence device)
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), usesFoundationModels {
             let fm = FoundationModelService.shared
             if fm.isAvailable {
                 do {

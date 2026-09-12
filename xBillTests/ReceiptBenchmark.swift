@@ -240,51 +240,53 @@ private struct Aggregate {
 
 /// Accuracy floors the suite fails below.
 ///
-/// ## The pipeline is NOT deterministic — this is the single most important thing here
+/// ## It is deterministic now, and that took switching Tier 1 off
 ///
-/// Nine runs of the **same corpus against the same code**, 2026-09-11/12:
+/// It was not. Nine runs of the **same corpus against the same code** on 2026-09-11 scored totals
+/// anywhere from **18 to 20 of 22**, because `VisionService` routes to Apple Foundation Models
+/// when available and a language model does not answer identically twice. A measurement that
+/// moves by two receipts cannot detect a one-receipt regression, and cannot tell whether a change
+/// helped or the dice did.
 ///
-/// | metric | values | spread |
+/// The benchmark now passes `usesFoundationModels: false`. Two runs on 2026-09-12 produced
+/// **byte-identical reports** — every per-receipt row, not just the aggregates.
+///
+/// ## Switching Tier 1 off also raised every number
+///
+/// | metric | Tier 1 mixed in (9 runs) | heuristics only (2 runs) |
 /// |---|---|---|
-/// | TOTAL correct | 18, 19, 20, 20, 20, 19, 18, 19, 18 | **18–20 of 22 (82–91%)** |
-/// | TAX correct | 19, then 20 × 8 | 19–20 |
-/// | Item count exact | 15, 14, 14, 14, 15, 14, 14, 14, 15 | 14–15 |
-/// | Price recall | 86, 84, 86, 86, 86, 86, 86, 87, 88 | 84–88% |
-/// | Name recall | 78, 76, 77, 77, 77, 76, 78, 77, 83 | **76–83%** |
+/// | TOTAL correct | 18–20 of 22 (82–91%) | **21/22 (95%)** |
+/// | TAX correct | 19–20 | 20/22 |
+/// | Item count exact | 14–15 (64–68%) | **16/22 (73%)** |
+/// | Price recall | 84–88% | **90%** |
+/// | Name recall | 76–83% | 80% |
 ///
-/// The ninth run widened name recall by five points on its own, which is the honest reason these
-/// are stated as ranges and re-checked rather than fixed after one pass.
+/// Consistent with the per-receipt evidence: the three worst item-level failures — Kroger's zero
+/// prices and `3.3334`, Wayfair's missed `-7.00` discount, Chuko Ramen's invented zero-priced
+/// lines — were all on the Apple Intelligence tier.
 ///
-/// The cause is Tier 1: `VisionService` routes to Apple Foundation Models when available, and a
-/// language model does not return the same answer twice. Four receipts (01, 03, 04, 13) take that
-/// path on the simulator.
+/// ⚠️ **This does not by itself say to turn Tier 1 off in the app**, and the default is unchanged
+/// (`usesFoundationModels: true`). The corpus is 22 English, mostly-US receipts from one person.
+/// Tier 1 exists partly to give cultural context to non-English receipts
+/// (`VisionService.swift:601`), and this corpus cannot speak to that at all. It is a product
+/// question with real evidence behind it, recorded in `AUDIT_REPORT.md` under SCAN-TIER-01.
 ///
-/// **So there is no single accuracy figure.** Quoting "91% totals" from one report — which is what
-/// happened before these eight runs existed — reports the best sample as though it were the value.
-/// It is 82–91%.
+/// ## The floors
 ///
-/// ## What that does to the floors
+/// With the measurement deterministic they sit **one step below the measured value**, which is
+/// now meaningful: a one-receipt regression fails the suite. Under the old non-determinism they
+/// had to sit three below and could only catch a two-receipt swing.
 ///
-/// They sit **one below the observed minimum of eight runs**, not below a single measurement.
-/// A floor at the minimum fires on noise, and a gate that fires on noise gets deleted — the first
-/// draft had totals at 19 and would have failed two of these eight runs.
+/// Raise them when an improvement lands, or the improvement is unprotected.
 ///
-/// The cost is bluntness: with totals ranging 18–20 naturally, this can only catch a regression of
-/// about **two receipts or more**. A single-receipt regression is invisible. The fix is not a
-/// tighter floor — it is to make the benchmark deterministic by forcing the heuristic tier
-/// (`fm.isAvailable`, `VisionService.swift:144`) and reporting Tier 1 separately. That is worth
-/// doing before any model work, because a model cannot be evaluated against a moving baseline.
-///
-/// Raise the floors when an improvement lands, or the improvement is unprotected.
-///
-/// Deliberately NOT gated: **confidence calibration**. Its "wrong" side is the mean over the two
-/// or three receipts whose total is wrong, and which receipts those are changes between runs.
+/// Deliberately NOT gated: **confidence calibration**. Its "wrong" side is the mean over the one
+/// or two receipts whose total is wrong — too few to threshold.
 private enum Floor {
-    static let totalsOK       = 17      // of 22 — observed 18–20 across 9 runs
-    static let taxesOK        = 18      // of 22 — observed 19–20
-    static let itemCountExact = 13      // of 22 — observed 14–15
-    static let priceRecall    = 0.80    // observed 0.84–0.88
-    static let nameRecall     = 0.72    // observed 0.76–0.83
+    static let totalsOK       = 20      // of 22 — deterministic 21
+    static let taxesOK        = 19      // of 22 — deterministic 20
+    static let itemCountExact = 15      // of 22 — deterministic 16
+    static let priceRecall    = 0.87    // deterministic 0.90
+    static let nameRecall     = 0.77    // deterministic 0.80
     /// The pipeline throwing on a real receipt is never acceptable, and has never happened, so
     /// this one is absolute rather than a floor with slack.
     static let maxRefused     = 0
@@ -361,7 +363,11 @@ struct ReceiptBenchmark {
                 continue
             }
             do {
-                let result = try await VisionService.shared.scanReceipt(from: image)
+                // Tier 1 off: see `usesFoundationModels`. A language model in the loop made this
+                // measurement swing by two receipts between identical runs, which is wider than
+                // most regressions it exists to catch.
+                let result = try await VisionService.shared.scanReceipt(
+                    from: image, usesFoundationModels: false)
                 scores.append(score(id: id, label: label, result: result))
             } catch {
                 scores.append(Score(

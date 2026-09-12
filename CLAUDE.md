@@ -98,6 +98,36 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 
 
 
+
+## Recent Fix Log — 2026-09-12 — the receipt benchmark is deterministic, and Tier 1 is losing
+
+**The benchmark now gates instead of only reporting**, and — more importantly — it is
+**reproducible**. It was not: nine runs of the same corpus against the same code scored totals
+anywhere from **18 to 20 of 22**, because `VisionService` routes to Apple Foundation Models and a
+language model does not answer identically twice. A measurement that moves by two receipts cannot
+detect a one-receipt regression.
+
+`scanReceipt(from:usesFoundationModels:)` is a new **parameter**, not a property on the singleton —
+a mutable flag on a shared object is read by whatever else is running in a parallel suite. The
+benchmark passes `false`. Two runs then produced **byte-identical reports**, every per-receipt row.
+
+⚠️ **SCAN-TIER-01: switching Tier 1 off raised every number.** Totals `18–20 → 21/22`, item-count
+exact `14–15 → 16/22`, price recall `84–88% → 90%`. It matches the per-receipt evidence: Kroger's
+zero prices and `3.3334`, Wayfair's missed `-7.00` discount and Chuko Ramen's invented zero-priced
+lines were **all** on the Apple Intelligence tier.
+
+**App behaviour is unchanged — the default is still `true`.** The corpus is 22 English, mostly-US
+receipts from one person and contains **no non-English receipt at all**, which is the case Tier 1
+exists for. Settle it on a physical device with non-English receipts added. Full detail in
+`AUDIT_REPORT.md` under SCAN-TIER-01.
+
+With the measurement stable the floors moved from three below the value to **one** below it, so a
+single-receipt regression now fails the suite.
+
+**Accuracy, stated properly: 21/22 totals (95%) deterministic on the heuristic tier.** The earlier
+"91%" was one sample of a range that ran 82–91%.
+
+
 ## Recent Fix Log — 2026-09-11 (later still) — PERF-04: the local balance fallback is gone
 
 Migration 059 is deployed, so the fallback's purpose — surviving an undeployed RPC — is gone. **86

@@ -1739,3 +1739,104 @@ self-congratulation.
 3. ⬜ **Derive per-line labels** — the prerequisite, and independently useful as a diagnosis.
 4. ⬜ **Re-measure.** If item-count exactness is still short of ~90%, the classifier has earned its
    place; if the rules got there, a model would be added complexity for nothing.
+
+---
+
+## SCAN-TIER-01 — Apple Intelligence is scoring worse than the heuristics on this corpus ⚠️ decision needed
+
+Found 2026-09-12 while making the benchmark deterministic. **No app behaviour was changed** —
+`usesFoundationModels` defaults to `true` and only the benchmark opts out.
+
+`VisionService` routes to Apple Foundation Models when available (Tier 1) and falls back to
+heuristics (Tier 2). Running the same 22 receipts with Tier 1 **off**:
+
+| metric | Tier 1 mixed in (9 runs) | heuristics only (2 runs) |
+|---|---|---|
+| TOTAL correct | 18–20 of 22 (82–91%) | **21/22 (95%)** |
+| TAX correct | 19–20 | 20/22 |
+| Item count exact | 14–15 (64–68%) | **16/22 (73%)** |
+| Price recall | 84–88% | **90%** |
+| Name recall | 76–83% | 80% |
+
+Every metric improved. It matches the per-receipt evidence gathered before the switch existed: the
+three worst item-level failures were **all** on the Apple Intelligence tier —
+
+| receipt | tier | what it did |
+|---|---|---|
+| 01 Kroger | Apple Intelligence | total wrong; `AVOCADO=0`, `KRO ONIONS RED BAG=0`, and `3.3334` (a unit price) where `6.99` was expected |
+| 04 Wayfair | Apple Intelligence | missed the `10GRANDOPENING=-7` discount line entirely |
+| 13 Chuko Ramen | Apple Intelligence | invented three zero-priced modifier lines and missed the real `0.87` fee |
+
+### Why this is not yet an instruction to switch it off
+
+- **The corpus cannot speak for the feature's main purpose.** 22 English, mostly-US receipts from
+  one person. Tier 1 exists partly to give cultural context to non-English receipts
+  (`VisionService.swift:601`), and there is not a single non-English receipt in the corpus.
+- **Simulator ≠ device.** Tier 1 availability and model version may differ on a real iOS 26 phone.
+  Every number here is from the iPhone 17 Pro simulator, iOS 26.5.
+- 4 of 22 receipts took the Tier 1 path; the comparison rests on those four.
+
+### What would settle it
+
+Run the corpus on a physical iOS 26 device with Tier 1 on and off — the benchmark already supports
+both, and already writes its report into the test process's Documents on device. Add non-English
+receipts before deciding, since that is the case Tier 1 is there for.
+
+**Until then the default stays `true`.** This is recorded so the decision is made on evidence rather
+than on which tier sounds more advanced.
+
+---
+
+## FLAKE-04 — a 12-second timeout turns test-host starvation into a wrong balance ⚠️ open
+
+Two tests failed in a full-suite run on 2026-09-12 with the **exact FLAKE-02 error text**:
+
+```
+Recording a payment reduces the balance          (vm.balance(for: bob) → 0) == -10
+Recording and deleting a payment fetch no splits (vm.balance(for: bob) → 10) == 0
+```
+
+**It is not FLAKE-02.** Both tests still carry `isConnectedProvider: { true }`, so the offline
+branch — the mechanism proved by mutation on 2026-09-10 — cannot be reached. Same symptom, different
+cause. The symptom is not diagnostic: *any* path that leaves `splitsMap` empty ends here, because
+`computeBalances` then `continue`s without calling `applyDerivedBalances`.
+
+### The evidence is the duration, not the message
+
+| test | in the full suite | in isolation |
+|---|---|---|
+| `paymentPathsDoNotRefetchSplits` | **48 s** | 0.095 s |
+| `recordReducesBalance` | **48 s** | 0.01 s |
+| `deleteRestoresBalance` (passed) | 0.032 s | — |
+| `failedInsertIsReported` (passed) | 0.032 s | — |
+
+Their own siblings in the same suite ran in 32 **milli**seconds. Only the two failing tests dilated,
+by a factor of roughly 1,500–5,000. And 48 s is a multiple of **12** — the exact value in
+`withTimeout(duration: .seconds(12))`, which `load()` and `computeBalances()` each wrap a fetch in.
+
+`withTimeout` races `operation()` against `Task.sleep(for:)`. The fakes return instantly, but they
+are `@MainActor`; the sleep is a timer and needs no actor. Starve the MainActor for twelve seconds
+and **the sleep wins against a fake that never touched the network** — the fetch "times out",
+`splitsMap` stays empty, and the balance reads zero.
+
+### Differential run
+
+| | result |
+|---|---|
+| the two payment suites alone | **17/17 pass** |
+| the same suites + `ReceiptBenchmark` | **18/18 pass** |
+| the whole 537-test suite | **2 fail** |
+
+So the benchmark alone does not cause it; it needs full-suite parallel load. **The starvation source
+is not identified** and is deliberately not guessed at here.
+
+### The defect worth fixing
+
+**A wall-clock timeout inside code under test makes the test depend on the machine's scheduling.**
+It is the same family as FLAKE-02 (host network) and FLAKE-03 (host session): a dependency on the
+environment that no fake can override. The fix is to make the duration injectable, the way
+connectivity and identity already are, so a test can pass a duration that cannot fire — rather than
+racing a real twelve-second clock against a parallel test suite.
+
+Not done here: it changes `GroupViewModel`'s surface and several call sites, and today's change is
+confined to the receipt benchmark.
