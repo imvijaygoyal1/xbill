@@ -1889,7 +1889,7 @@ investigation rather than being closed because the symptoms it produced have bee
 
 ---
 
-## SCAN-PERF-01 — Vision OCR runs synchronously on the main actor ⚠️ open, production defect
+## SCAN-PERF-01 — Vision OCR runs synchronously on the main actor ✅ fixed 2026-09-12
 
 **This is what stalls the test suite, and it is not a test problem.**
 
@@ -1941,3 +1941,36 @@ It is a production change to a service with 1,196 lines and its own test suites,
 own pass with a before/after measurement on a device — not a tail-end edit to a session about
 benchmark determinism. The test-side stall is a symptom and should **not** be papered over by
 excluding the benchmark from the default run; that would hide the finding that matters.
+
+
+### SCAN-PERF-01 — fixed 2026-09-12
+
+`recognizeText`, `preprocessForOCR` and `preferredRecognitionLanguages` are now `nonisolated`. A
+`nonisolated async` method runs on the cooperative pool instead of inheriting the caller's actor, so
+the blocking `VNImageRequestHandler.perform` occupies a pool thread rather than the one drawing the
+UI.
+
+**Verified by the measurement that found it** — the full suite *with* `ReceiptBenchmark`:
+
+| | ≥40 s | 10–40 s | 1–10 s | <1 s | slowest test other than the benchmark |
+|---|---|---|---|---|---|
+| before | **185** | 0 | 1 | 351 | **48 s** |
+| after | **0** | 1 (the benchmark, 36 s) | 195 | 341 | **2 s** |
+
+The stalled cohort is gone: 185 → 0, and the worst non-benchmark test drops from 48 s to 2 s. The
+195 now in the 1–10 s band are ordinary CPU contention with a Vision workload, not actor starvation.
+The benchmark itself also fell from 44 s to 36 s. **537/537.**
+
+Strict concurrency caught two things reading would not have: `ciContext` and `receiptCustomWords`
+are `static let`s on a `@MainActor` type and therefore inherit its isolation, so moving the work off
+the actor while still reading them would have been a data race rather than a fix. `ciContext` is
+`nonisolated(unsafe)` — `CIContext` is documented immutable and thread-safe, which is why one
+instance is shared — and `receiptCustomWords` is plain `nonisolated`, `[String]` being Sendable.
+
+⚠️ **There is no automated guard against re-isolating it.** Re-adding main-actor isolation would
+still compile. The canary is the suite's own duration distribution: if the ≥40 s cohort returns,
+this is the first thing to check. The numbers above are the baseline to compare against.
+
+⚠️ **The user-facing half is still unobserved.** The UI has not been watched during a scan on a
+device, before or after. The argument that a scan could not animate its progress indicator remains
+an inference from the code — sound, but not a measurement.

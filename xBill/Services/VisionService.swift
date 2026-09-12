@@ -66,10 +66,17 @@ final class VisionService {
     private init() {}
 
     // Shared CIContext — Metal GPU pipeline is expensive to create; reuse across all calls.
-    private static let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+    //
+    // `nonisolated(unsafe)` because SCAN-PERF-01 moved preprocessing off the main actor and a
+    // static on a `@MainActor` type inherits that isolation. `CIContext` is documented immutable
+    // and safe to use from multiple threads, which is the whole reason one instance is shared here
+    // — the annotation records that rather than asserting it for convenience.
+    nonisolated(unsafe) private static let ciContext = CIContext(options: [.useSoftwareRenderer: false])
 
     // Receipt domain vocabulary injected into Vision to improve recognition accuracy.
-    private static let receiptCustomWords: [String] = [
+    // `nonisolated` for SCAN-PERF-01: read from the OCR pass, which no longer runs on the main
+    // actor. A `let` array of `String` is Sendable, so no `unsafe` is needed.
+    nonisolated private static let receiptCustomWords: [String] = [
         "SUBTOTAL", "TAX", "TIP", "GRATUITY", "TOTAL", "GRAND TOTAL",
         "TOTAL DUE", "AMOUNT DUE", "BALANCE DUE", "SERVICE CHARGE",
         "GST", "HST", "VAT", "INCL", "EXCL", "COMP", "VOID",
@@ -378,7 +385,9 @@ final class VisionService {
     /// Produces cleaner text edges which reduces character misreads.
     /// Each step has a graceful fallback — if a filter is unavailable the
     /// pipeline continues with whatever it has so far.
-    private func preprocessForOCR(_ image: UIImage) -> UIImage {
+    /// `nonisolated` for SCAN-PERF-01 — CoreImage work with no actor state, and it runs on the
+    /// same pool thread as the OCR pass that follows it.
+    nonisolated private func preprocessForOCR(_ image: UIImage) -> UIImage {
         guard let cgImage = image.cgImage else { return image }
         var current = CIImage(cgImage: cgImage)
 
@@ -413,7 +422,20 @@ final class VisionService {
 
     // MARK: - Gap 3: Enhanced OCR Configuration
 
-    private func recognizeText(in image: UIImage) async throws -> [OCRLine] {
+    /// SCAN-PERF-01: `nonisolated`, so the OCR pass does **not** run on the main actor.
+    ///
+    /// `VisionService` is `@MainActor`, and `VNImageRequestHandler.perform` is **synchronous** — it
+    /// does the entire recognition inline. Inside a `withCheckedThrowingContinuation` body on a
+    /// main-actor method, that held the main actor for the whole pass: measured at roughly **two
+    /// seconds per receipt**. In the app that is the main thread, so a scan could not animate its
+    /// own progress indicator; in the test suite the benchmark's 22 receipts starved **185** other
+    /// `@MainActor` tests for 40+ seconds each, which is how this was found.
+    ///
+    /// A `nonisolated async` method runs on the cooperative pool rather than inheriting the
+    /// caller's actor, so the blocking `perform` now occupies a pool thread instead of the one
+    /// drawing the UI. Everything it touches is actor-free: `Self.ciContext` (a `CIContext`, thread
+    /// safe and reused), `Self.receiptCustomWords` (a `static let`), and `Locale.preferredLanguages`.
+    nonisolated private func recognizeText(in image: UIImage) async throws -> [OCRLine] {
         // Gap 1: preprocess before extracting cgImage for OCR
         let processed = preprocessForOCR(image)
         guard let cgImage = processed.cgImage else {
@@ -468,7 +490,7 @@ final class VisionService {
         }
     }
 
-    private func preferredRecognitionLanguages() -> [String] {
+    nonisolated private func preferredRecognitionLanguages() -> [String] {
         var langs = Array(Locale.preferredLanguages.prefix(3))
         if !langs.contains(where: { $0.hasPrefix("en") }) {
             langs.append("en-US")

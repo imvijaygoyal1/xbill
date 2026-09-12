@@ -100,6 +100,31 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 
 
 
+
+## Recent Fix Log — 2026-09-12 (latest) — SCAN-PERF-01 fixed: OCR is off the main actor
+
+`recognizeText`, `preprocessForOCR` and `preferredRecognitionLanguages` are `nonisolated`, so the
+blocking `VNImageRequestHandler.perform` runs on the cooperative pool instead of the main actor.
+
+Verified with the measurement that found it — full suite **with** the benchmark:
+
+| | ≥40 s | slowest non-benchmark test |
+|---|---|---|
+| before | **185 tests** | **48 s** |
+| after | **0** | **2 s** |
+
+537/537. The benchmark itself fell 44 s → 36 s.
+
+Strict concurrency earned its keep: `ciContext` and `receiptCustomWords` are `static let`s on a
+`@MainActor` type and inherit its isolation, so moving the work off-actor while still reading them
+would have been a data race, not a fix.
+
+⚠️ **No automated guard** — re-isolating it would still compile. The canary is the suite's duration
+distribution; if the ≥40 s cohort returns, look here first.
+⚠️ **The UI has still never been watched during a scan on a device**, before or after. That half
+remains an inference from the code.
+
+
 ## Recent Fix Log — 2026-09-12 (later) — what stalled the suite: OCR on the main actor
 
 **Answer: `VisionService` is `@MainActor` and `VNImageRequestHandler.perform` is synchronous.**
@@ -116,7 +141,7 @@ The differential that settled it:
 The 185 were not slow — most are pure parsing tests over synthetic `OCRLine` values, and only two
 files in the whole target touch real Vision. They were alive and never scheduled.
 
-⚠️ **This is a production defect, not a test one (`SCAN-PERF-01`).** The app scans through the same
+✅ **Fixed the same day** — see below. ⚠️ **It was a production defect, not a test one (`SCAN-PERF-01`).** The app scans through the same
 path, so **a receipt scan blocks the main thread for the duration of the OCR** — about two seconds
 here, longer on an older phone. Stated from the code; the UI has **not** been watched during a scan
 on a device, and that check should come first.
