@@ -23,3 +23,17 @@ The four rules that are violated most often:
 
 Do not deploy migrations or modify live Supabase data without explicit approval. Read-only
 queries for diagnosis are fine and are often the fastest way to confirm a hypothesis.
+
+Two more, both learned the expensive way in September 2026:
+
+5. **A default argument that resolves to a `.shared` singleton is a hidden dependency on the
+   machine.** 27 tests silently read the host's real network path and 14 the live Supabase session;
+   the only symptom was a balance of zero, indistinguishable from broken arithmetic. The same
+   applies to a **wall-clock timeout** inside code under test — see FLAKE-02/03/04/05.
+6. **The symptom is not the diagnosis.** Two separate defects produced byte-identical error text;
+   what told them apart was a test *duration* (48 s against 0.032 s for its own siblings). Check
+   `xcresulttool get test-results test-details --test-id ...` before re-diagnosing a familiar
+   message.
+
+Current state lives in `CLAUDE.md` → "Release status". As of 2026-09-12: **v1.7 (9) approved and
+live**, repo on **1.8 (10)** with PERF-01…04 and SCAN-PERF-01 landed and migration 059 deployed.
