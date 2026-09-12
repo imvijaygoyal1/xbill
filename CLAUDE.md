@@ -121,8 +121,11 @@ would have been a data race, not a fix.
 
 ⚠️ **No automated guard** — re-isolating it would still compile. The canary is the suite's duration
 distribution; if the ≥40 s cohort returns, look here first.
-⚠️ **The UI has still never been watched during a scan on a device**, before or after. That half
-remains an inference from the code.
+**Measured on device:** `VisionService.ocr ms=538 main=false` (iPhone 16 Pro, real receipt).
+`main=false` is the fix on real hardware; `ms=538` is how long the main thread would have been held.
+⚠️ **The earlier "~2 s per receipt" was wrong** — that was the simulator benchmark average
+(44 s ÷ 22) quoted as if it described a phone. On device it is a **half-second stutter, not a
+freeze**. The DEBUG probe stays; `main=true` in a scan log is the re-isolation signal.
 
 
 ## Recent Fix Log — 2026-09-12 (later) — what stalled the suite: OCR on the main actor

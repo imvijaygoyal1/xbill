@@ -483,7 +483,16 @@ final class VisionService {
             let orientation = CGImagePropertyOrientation(image.imageOrientation)
             let handler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
             do {
+                // SCAN-PERF-01 probe. `perform` is synchronous, so whichever thread reaches this
+                // line is held for the whole recognition. `main=false` is the fix working; logging
+                // the duration alongside it says how long the UI *would* have been frozen.
+                let began = ContinuousClock.now
+                let onMain = Thread.isMainThread
                 try handler.perform([request])
+                AppDiagnostics.log(.lifecycle, "VisionService.ocr", [
+                    ("ms", (ContinuousClock.now - began).ocrMilliseconds),
+                    ("main", onMain)
+                ])
             } catch {
                 continuation.resume(throwing: AppError.from(error))
             }
@@ -1226,5 +1235,13 @@ private extension CGImagePropertyOrientation {
         case .rightMirrored: self = .rightMirrored
         @unknown default:    self = .up
         }
+    }
+}
+
+
+// SCAN-PERF-01 probe support. `AppDiagnostics` is DEBUG-only, so this costs nothing in Release.
+private extension Duration {
+    var ocrMilliseconds: Int {
+        Int(components.seconds * 1_000 + components.attoseconds / 1_000_000_000_000_000)
     }
 }

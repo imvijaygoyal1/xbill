@@ -1971,6 +1971,22 @@ instance is shared — and `receiptCustomWords` is plain `nonisolated`, `[String
 still compile. The canary is the suite's own duration distribution: if the ≥40 s cohort returns,
 this is the first thing to check. The numbers above are the baseline to compare against.
 
-⚠️ **The user-facing half is still unobserved.** The UI has not been watched during a scan on a
-device, before or after. The argument that a scan could not animate its progress indicator remains
-an inference from the code — sound, but not a measurement.
+### Measured on device 2026-09-12 — and the estimate was too high
+
+A DEBUG probe inside the `perform` call, on an iPhone 16 Pro scanning a real receipt:
+
+```
+VisionService.ocr ms=538 main=false
+```
+
+`main=false` confirms the fix on real hardware rather than only in the simulator suite. `ms=538`
+is how long the main thread **would** have been held before it.
+
+⚠️ **The earlier "about two seconds per receipt" was wrong** — it was the benchmark average
+(44 s ÷ 22) on a simulator, quoted as though it described a phone. On device it is roughly a
+**half-second stutter, not a freeze**. The test-suite effect was large and is measured; the
+user-facing effect is real but modest, and saying so is more useful than keeping the bigger number.
+
+The probe stays: `AppDiagnostics` is DEBUG-only, so it costs nothing in Release, and it is the
+closest thing to a guard against someone re-isolating this — `main=true` in a scan log is the
+signal.
