@@ -1787,7 +1787,7 @@ than on which tier sounds more advanced.
 
 ---
 
-## FLAKE-04 — a 12-second timeout turns test-host starvation into a wrong balance ⚠️ open
+## FLAKE-04 — a 12-second timeout turns test-host starvation into a wrong balance ✅ fixed
 
 Two tests failed in a full-suite run on 2026-09-12 with the **exact FLAKE-02 error text**:
 
@@ -1840,3 +1840,49 @@ racing a real twelve-second clock against a parallel test suite.
 
 Not done here: it changes `GroupViewModel`'s surface and several call sites, and today's change is
 confined to the receipt benchmark.
+
+
+### FLAKE-04 — fixed 2026-09-12
+
+`GroupViewModel` now takes `fetchTimeout: Duration = .seconds(12)`, used at both `withTimeout`
+sites. **Production is unchanged**; 37 test constructions pass `testFetchTimeout` (one hour), a
+named constant carrying the reasoning rather than a bare number repeated 37 times.
+
+The failure mode is now **unreachable, not merely unlikely** — a 48-second stall cannot trip a
+3600-second timeout. That distinction matters here, because the full suite had passed many times
+before this ever surfaced, so a green run would have proved almost nothing on its own.
+
+**The evidence is unusually clean.** After the fix the two tests **passed while still running for
+41 seconds**. The starvation is still happening; the timeout simply stops it corrupting the result.
+
+It is the third seam of the same family:
+
+| seam | host dependency it removes |
+|---|---|
+| `isConnectedProvider` | the machine's network — FLAKE-02 |
+| `currentUserIDProvider` | the machine's session — FLAKE-03 |
+| `fetchTimeout` | the machine's scheduling — FLAKE-04 |
+
+### FLAKE-05 — the same mistake in the test harness, written the same week
+
+Fixing FLAKE-04 surfaced a fourth instance immediately: `InterleavingGate.timeout` was **5 seconds**,
+with a comment asserting it was *"orders of magnitude longer than the microseconds a correct
+interleaving needs"*. That premise was never measured and is false — the host stalls a single test
+for 41–48 seconds, so a **correct** interleaving can simply not be scheduled in time.
+`balancesOverlapTheArchivedFetch` failed with *"no call reached the gate within 5.0 seconds"*: a
+defect report about a defect that was not there.
+
+Raised to 120 s — still ending a genuinely stranded continuation long before CI gives up, with a
+note that it must never be tightened back toward the observed stall.
+
+**Verification:** 537/537.
+
+### ⬜ Still unexplained: what stalls a single test for 41–48 seconds
+
+Known: it needs the **full** suite — the two payment suites alone pass 17/17, and alongside
+`ReceiptBenchmark` 18/18. Magnitude measured at 41 s and 48 s on separate runs, against 32 ms for
+sibling tests in the same suite.
+
+Not known: the cause. **Deliberately not guessed at** — the fixes above do not depend on it. But a
+suite where one test can stall for 48 seconds is a problem in its own right, and worth its own
+investigation rather than being closed because the symptoms it produced have been handled.

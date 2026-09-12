@@ -43,7 +43,8 @@ struct GroupViewModelMaintenanceTests {
         GroupViewModel(group: group, groupService: groupService, expenseService: expenseService,
                        settlementService: FakeSettlementService(),
                        currentUserIDProvider: { UUID() },
-                       isConnectedProvider: { connected })
+                       isConnectedProvider: { connected },
+                       fetchTimeout: testFetchTimeout)
     }
 
     // MARK: - Recurring instantiation

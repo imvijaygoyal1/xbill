@@ -74,7 +74,8 @@ struct SettleUpDisplayStateTests {
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
                                 currentUserIDProvider: { bob },
-                                isConnectedProvider: { true })
+                                isConnectedProvider: { true },
+                                fetchTimeout: testFetchTimeout)
         await vm.load(showError: false)
 
         #expect(vm.balanceLoadFailed)
@@ -98,7 +99,8 @@ struct SettleUpDisplayStateTests {
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
                                 currentUserIDProvider: { bob },
-                                isConnectedProvider: { true })
+                                isConnectedProvider: { true },
+                                fetchTimeout: testFetchTimeout)
         await vm.load(showError: false)
 
         #expect(!vm.settlementSuggestions.isEmpty)
@@ -123,7 +125,8 @@ struct SettleUpDisplayStateTests {
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
                                 currentUserIDProvider: { bob },
-                                isConnectedProvider: { false })
+                                isConnectedProvider: { false },
+                                fetchTimeout: testFetchTimeout)
         await vm.load(showError: false)
 
         #expect(vm.settlements.isEmpty)
@@ -148,7 +151,8 @@ struct SettleUpDisplayStateTests {
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
                                 currentUserIDProvider: { bob },
-                                isConnectedProvider: { true })
+                                isConnectedProvider: { true },
+                                fetchTimeout: testFetchTimeout)
         await vm.load(showError: false)   // online: populates vm.settlements
         #expect(!vm.settlements.isEmpty)
         #expect(!vm.balanceLoadFailed)
@@ -161,7 +165,8 @@ struct SettleUpDisplayStateTests {
         let offlineVM = GroupViewModel(group: group, groupService: FakeGroupService(),
                                        expenseService: expenses, settlementService: settlements,
                                        currentUserIDProvider: { bob },
-                                       isConnectedProvider: { false })
+                                       isConnectedProvider: { false },
+                                       fetchTimeout: testFetchTimeout)
         offlineVM.settlements = vm.settlements
         await offlineVM.load(showError: false)
 
@@ -180,7 +185,8 @@ struct SettleUpDisplayStateTests {
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
                                 currentUserIDProvider: { settleUpTestUserID },
-                                isConnectedProvider: { false })
+                                isConnectedProvider: { false },
+                                fetchTimeout: testFetchTimeout)
         await vm.load(showError: false)
 
         #expect(!vm.balanceLoadFailed)
@@ -206,7 +212,8 @@ struct SettleUpDisplayStateTests {
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: expenses, settlementService: settlements,
                                 currentUserIDProvider: { alice },
-                                isConnectedProvider: { true })
+                                isConnectedProvider: { true },
+                                fetchTimeout: testFetchTimeout)
         // Seed state as if this group was already known non-empty, matching how `load()`'s
         // catch branch restores from cache/prior state rather than the failed fetch.
         vm.expenses = [e]

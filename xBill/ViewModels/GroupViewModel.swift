@@ -110,6 +110,19 @@ final class GroupViewModel {
     /// with no error and no stale-data flag, indistinguishable from a wrong calculation.
     /// 27 tests were flaking this way; see the header of `GroupViewModelSettlementTests.swift`.
     private let isConnectedProvider: @MainActor () -> Bool
+    /// How long a fetch may take before `load()` and `computeBalances()` give up.
+    ///
+    /// **FLAKE-04.** This was the literal `.seconds(12)`, which made every test that calls `load()`
+    /// race a real wall clock against whatever else the machine was doing. `withTimeout` pits the
+    /// operation against `Task.sleep`; the fakes are `@MainActor` and the sleep is not, so starving
+    /// the MainActor for twelve seconds under full-suite load made **a fake that never touched the
+    /// network "time out"**. `splitsMap` stayed empty, the balance read zero, and the failure wore
+    /// the exact error text of FLAKE-02 — a completely different bug. Two tests ran for **48
+    /// seconds** (a multiple of 12) while their own siblings ran in 32 milliseconds.
+    ///
+    /// A timeout is a production concern. A test should be able to say "not this run", the same way
+    /// it already says which network and which session to use — the third member of that family.
+    private let fetchTimeout: Duration
 
     init(
         group: BillGroup,
@@ -117,13 +130,15 @@ final class GroupViewModel {
         expenseService: any ExpenseDataProviding = ExpenseService.shared,
         settlementService: any SettlementDataProviding = SettlementService.shared,
         currentUserIDProvider: @escaping @MainActor () -> UUID? = { AuthService.shared.currentUserID },
-        isConnectedProvider: @escaping @MainActor () -> Bool = { NetworkMonitor.shared.isConnected }
+        isConnectedProvider: @escaping @MainActor () -> Bool = { NetworkMonitor.shared.isConnected },
+        fetchTimeout: Duration = .seconds(12)
     ) {
         self.groupService = groupService
         self.expenseService = expenseService
         self.settlementService = settlementService
         self.currentUserIDProvider = currentUserIDProvider
         self.isConnectedProvider = isConnectedProvider
+        self.fetchTimeout = fetchTimeout
         self.group = group
         let cachedMembers = CacheService.shared.loadMembers(groupID: group.id)
         let cachedExpenses = CacheService.shared.loadExpenses(groupID: group.id)
@@ -237,7 +252,7 @@ final class GroupViewModel {
                 // here on is tagged with a higher generation than this fetch and survives it.
                 let settlementsGeneration = beginSettlementsFetch()
                 let (fetchedMembers, fetchedExpenses, fetchedSettlements) =
-                    try await withTimeout(duration: .seconds(12)) {
+                    try await withTimeout(duration: fetchTimeout) {
                         async let membersTask     = groupService.fetchMembers(groupID: groupID, includeInactive: true)
                         async let expensesTask    = expenseService.fetchExpenses(groupID: groupID, limit: nil)
                         async let settlementsTask = settlementService.fetchSettlements(groupID: groupID)
@@ -489,7 +504,7 @@ final class GroupViewModel {
             do {
                 let currentExpenses = expenses
                 let expenseService = expenseService
-                let fetchedSplitsMap = try await withTimeout(duration: .seconds(12)) {
+                let fetchedSplitsMap = try await withTimeout(duration: fetchTimeout) {
                     try await SplitCalculator.fetchSplitsMap(for: currentExpenses, using: expenseService)
                 }
                 splitsMap = fetchedSplitsMap

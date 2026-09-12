@@ -18,6 +18,22 @@ import Testing
 private let stateTestUserID = UUID()
 
 
+/// A fetch timeout long enough that it cannot fire, for tests whose fakes return instantly.
+///
+/// **FLAKE-04.** `GroupViewModel` defaults to `.seconds(12)`, and `withTimeout` races the operation
+/// against `Task.sleep`. The fakes are `@MainActor`; the sleep is not. Starving the MainActor for
+/// twelve seconds under full-suite load made a fake that never touched the network "time out",
+/// leaving `splitsMap` empty and the balance at zero — wearing the exact error text of FLAKE-02,
+/// which is a different bug entirely. Two tests ran for **48 seconds** (a multiple of 12) while
+/// their own siblings ran in 32 ms.
+///
+/// A timeout is a production concern. These tests say "not this run" — the same move as
+/// `isConnectedProvider` and `currentUserIDProvider`, and for the same reason: a dependency on the
+/// host that no fake can override. Use it at every `GroupViewModel` construction that calls
+/// `load()`; a test that actually wants to exercise the timeout passes its own short duration, and
+/// `withTimeout` itself is covered directly in `ViewModelCoverageTests`.
+let testFetchTimeout: Duration = .seconds(3600)
+
 // MARK: - Fakes
 
 @MainActor
@@ -128,7 +144,8 @@ struct DeletedExpenseTests {
         let vm = GroupViewModel(group: group, groupService: groupService, expenseService: expenseService,
                                 settlementService: FakeSettlementService(),
                                 currentUserIDProvider: { stateTestUserID },
-                                isConnectedProvider: { true })
+                                isConnectedProvider: { true },
+                                fetchTimeout: testFetchTimeout)
 
         let expense = makeExpense(payerID: UUID(), groupID: group.id)
         vm.recordCreatedExpense(expense)
@@ -162,7 +179,8 @@ struct BalanceLoadFailedFlagTests {
         let vm = GroupViewModel(group: group, groupService: groupService, expenseService: expenseService,
                                 settlementService: FakeSettlementService(),
                                 currentUserIDProvider: { stateTestUserID },
-                                isConnectedProvider: { true })
+                                isConnectedProvider: { true },
+                                fetchTimeout: testFetchTimeout)
 
         vm.expenses = [makeExpense(payerID: UUID(), groupID: group.id)]
         vm.hasKnownNonEmptyExpenses = true
@@ -181,7 +199,8 @@ struct BalanceLoadFailedFlagTests {
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(), expenseService: expenseService,
                                 settlementService: FakeSettlementService(),
                                 currentUserIDProvider: { stateTestUserID },
-                                isConnectedProvider: { true })
+                                isConnectedProvider: { true },
+                                fetchTimeout: testFetchTimeout)
 
         expenseService.expenses = [makeExpense(payerID: UUID(), groupID: group.id)]
         vm.balanceLoadFailed = true
@@ -208,7 +227,8 @@ struct ApplySavedExpenseTests {
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: fake, settlementService: FakeSettlementService(),
                                 currentUserIDProvider: { stateTestUserID },
-                                isConnectedProvider: { true })
+                                isConnectedProvider: { true },
+                                fetchTimeout: testFetchTimeout)
 
         let original = makeExpense(payerID: UUID(), groupID: group.id, amount: Decimal(string: "100.00")!)
         vm.expenses = [original]
@@ -245,7 +265,8 @@ struct ApplySavedExpenseTests {
         let vm = GroupViewModel(group: group, groupService: FakeGroupService(),
                                 expenseService: fake, settlementService: FakeSettlementService(),
                                 currentUserIDProvider: { stateTestUserID },
-                                isConnectedProvider: { true })
+                                isConnectedProvider: { true },
+                                fetchTimeout: testFetchTimeout)
 
         let original = makeExpense(payerID: UUID(), groupID: group.id, amount: Decimal(string: "100.00")!)
         vm.expenses = [original]
@@ -267,7 +288,8 @@ struct ApplySavedExpenseTests {
                                 expenseService: FakeExpenseService(),
                                 settlementService: FakeSettlementService(),
                                 currentUserIDProvider: { stateTestUserID },
-                                isConnectedProvider: { true })
+                                isConnectedProvider: { true },
+                                fetchTimeout: testFetchTimeout)
         vm.expenses = []
 
         let stranger = makeExpense(payerID: UUID(), groupID: group.id, amount: Decimal(string: "1.00")!)
@@ -317,7 +339,8 @@ struct LoadSourceByConnectivityTests {
                                 expenseService: fixture.expenses,
                                 settlementService: FakeSettlementService(),
                                 currentUserIDProvider: { fixture.debtor },
-                                isConnectedProvider: { true })
+                                isConnectedProvider: { true },
+                                fetchTimeout: testFetchTimeout)
         await vm.load(showError: false)
 
         #expect(vm.expenses.count == 1)
@@ -332,7 +355,8 @@ struct LoadSourceByConnectivityTests {
                                 expenseService: fixture.expenses,
                                 settlementService: FakeSettlementService(),
                                 currentUserIDProvider: { fixture.debtor },
-                                isConnectedProvider: { false })
+                                isConnectedProvider: { false },
+                                fetchTimeout: testFetchTimeout)
         await vm.load(showError: false)
 
         #expect(vm.expenses.isEmpty, "the offline branch reads the cache, never the service")

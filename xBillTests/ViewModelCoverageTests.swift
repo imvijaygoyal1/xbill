@@ -278,7 +278,8 @@ struct GroupViewModelCoverageTests {
                                 expenseService: FakeExpenseService(),
                                 settlementService: FakeSettlementService(),
                                 currentUserIDProvider: { coverageUserID },
-                                isConnectedProvider: { true })
+                                isConnectedProvider: { true },
+                                fetchTimeout: testFetchTimeout)
         vm.members = [
             makeUser("Active", id: activeID, isActive: true),
             makeUser("Inactive", id: inactiveID, isActive: false)
@@ -304,7 +305,8 @@ struct GroupViewModelCoverageTests {
                                 expenseService: FakeExpenseService(),
                                 settlementService: FakeSettlementService(),
                                 currentUserIDProvider: { coverageUserID },
-                                isConnectedProvider: { true })
+                                isConnectedProvider: { true },
+                                fetchTimeout: testFetchTimeout)
         vm.expenses = [existing]
 
         vm.recordCreatedExpense(created)
@@ -322,7 +324,8 @@ struct GroupViewModelCoverageTests {
                                 expenseService: FakeExpenseService(),
                                 settlementService: FakeSettlementService(),
                                 currentUserIDProvider: { coverageUserID },
-                                isConnectedProvider: { true })
+                                isConnectedProvider: { true },
+                                fetchTimeout: testFetchTimeout)
 
         #expect(vm.canChangeCurrency)
 
