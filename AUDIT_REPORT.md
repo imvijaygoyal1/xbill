@@ -1990,3 +1990,13 @@ user-facing effect is real but modest, and saying so is more useful than keeping
 The probe stays: `AppDiagnostics` is DEBUG-only, so it costs nothing in Release, and it is the
 closest thing to a guard against someone re-isolating this — `main=true` in a scan log is the
 signal.
+
+**Owner's observation, same build:** *"it was smooth, no freeze."* So the fixed build is confirmed
+on both counts — it measures clean and it looks clean.
+
+⚠️ **What that does NOT establish is that the old build stuttered.** Only the fixed build was ever
+watched. The severity of what was fixed remains an inference from 538 ms of main-thread blocking,
+not an observation. Settling it would take an A/B: build once with the isolation restored, scan,
+watch, then reinstall. Not done — offered and not taken up, which is a reasonable trade for a
+half-second effect. **If anyone later asks "was this ever a real user problem?", the honest answer
+is that it was never observed, only measured.**
