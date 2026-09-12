@@ -1886,3 +1886,58 @@ sibling tests in the same suite.
 Not known: the cause. **Deliberately not guessed at** — the fixes above do not depend on it. But a
 suite where one test can stall for 48 seconds is a problem in its own right, and worth its own
 investigation rather than being closed because the symptoms it produced have been handled.
+
+---
+
+## SCAN-PERF-01 — Vision OCR runs synchronously on the main actor ⚠️ open, production defect
+
+**This is what stalls the test suite, and it is not a test problem.**
+
+### The measurement that found it
+
+| run | duration distribution |
+|---|---|
+| Full suite **with** `ReceiptBenchmark` | **185 tests ≥40 s**, 351 <1 s — bimodal, nothing between |
+| Full suite **without** it | **0 tests ≥40 s** — slowest is 1.00 s |
+
+Removing one suite collapses the entire stalled cohort. The 185 were not doing slow work: most are
+pure parsing tests over synthetic `OCRLine` values that normally run in microseconds, and only two
+files in the target touch real Vision. They were alive and **never scheduled**.
+
+### The cause
+
+`VisionService` is `@MainActor` (`VisionService.swift:63`), and `recognizeText` calls
+
+```swift
+try handler.perform([request])       // VNImageRequestHandler — synchronous, blocking
+```
+
+inside a `withCheckedThrowingContinuation` body, which runs on the caller's executor — the main
+actor. `preprocessForOCR` (CoreImage) is on it too. So the entire OCR pass holds the main actor for
+its full duration.
+
+The benchmark takes **44 s for 22 receipts ≈ 2 s of main-actor time per receipt**, and every
+`@MainActor` test alive in that window queues behind it. That is the 41–48 s stall, and it explains
+why the payment suites are fine beside the benchmark alone (18 competitors interleave) but not in a
+537-test run.
+
+### Why it matters outside the test suite
+
+The app scans through the same path. **Every receipt scan blocks the main thread for roughly the
+duration of the OCR** — around two seconds on this hardware, longer on an older phone or a larger
+photo. A blocked main thread cannot animate the progress indicator that is presumably shown during
+the scan.
+
+⚠️ **Stated from the code, not from observation.** The reasoning above is static; the UI has not
+been watched during a scan on a device, and that check should come before any fix is designed.
+
+### The fix, and why it was not done here
+
+Move the OCR off the main actor: `preprocessForOCR` and `recognizeText` have no reason to be
+main-actor-bound, and the request-configuration values they need (`preferredRecognitionLanguages`,
+orientation) can be computed on the actor and handed to a detached pass.
+
+It is a production change to a service with 1,196 lines and its own test suites, and it deserves its
+own pass with a before/after measurement on a device — not a tail-end edit to a session about
+benchmark determinism. The test-side stall is a symptom and should **not** be papered over by
+excluding the benchmark from the default run; that would hide the finding that matters.

@@ -99,6 +99,35 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 
 
 
+
+## Recent Fix Log — 2026-09-12 (later) — what stalled the suite: OCR on the main actor
+
+**Answer: `VisionService` is `@MainActor` and `VNImageRequestHandler.perform` is synchronous.**
+Every OCR pass holds the main actor for its whole duration — the benchmark spends **44 s on 22
+receipts, ≈2 s per receipt** — and every `@MainActor` test alive in that window queues behind it.
+
+The differential that settled it:
+
+| run | distribution |
+|---|---|
+| full suite **with** `ReceiptBenchmark` | **185 tests ≥40 s**, 351 <1 s |
+| full suite **without** it | **0 tests ≥40 s**, slowest 1.00 s |
+
+The 185 were not slow — most are pure parsing tests over synthetic `OCRLine` values, and only two
+files in the whole target touch real Vision. They were alive and never scheduled.
+
+⚠️ **This is a production defect, not a test one (`SCAN-PERF-01`).** The app scans through the same
+path, so **a receipt scan blocks the main thread for the duration of the OCR** — about two seconds
+here, longer on an older phone. Stated from the code; the UI has **not** been watched during a scan
+on a device, and that check should come first.
+
+**Do not "fix" this by excluding the benchmark from the default run.** That hides the finding.
+
+Earlier the same day: FLAKE-04 (`fetchTimeout` injectable) and FLAKE-05 (`InterleavingGate` 5 s →
+120 s) stopped that stall from *corrupting* results — the two payment tests then passed while still
+running 41 s. This is the cause underneath both.
+
+
 ## Recent Fix Log — 2026-09-12 — the receipt benchmark is deterministic, and Tier 1 is losing
 
 **The benchmark now gates instead of only reporting**, and — more importantly — it is
