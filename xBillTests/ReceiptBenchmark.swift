@@ -5,8 +5,11 @@
 //  Copyright © 2026 Vijay Goyal. All rights reserved.
 //
 //  Scores the real scan pipeline against a corpus of photographed receipts with hand-written
-//  ground truth. This is a **measurement**, not a gate: it asserts nothing about accuracy,
-//  because there is no threshold anyone has earned the right to assert yet.
+//  ground truth.
+//
+//  It was a measurement and **not** a gate: it asserted nothing, so accuracy could fall from 91%
+//  to 50% and the suite would stay green. Twenty-two receipts scored on every run, protecting
+//  nothing. It now asserts floors — see `Floor` below for what they are and how they were chosen.
 //
 //  It is gated on the **corpus being present**, not on an environment variable — env vars do not
 //  reliably reach a test process through xcodebuild, and a gate that silently fails closed is
@@ -173,11 +176,12 @@ private func report(_ scores: [Score]) -> String {
 
     out += rule + "\n"
     let n = Double(scores.count)
-    let totalsOK = scores.filter(\.totalOK).count
-    let taxesOK  = scores.filter(\.taxOK).count
-    let exact    = scores.filter { $0.itemsParsed == $0.itemsExpected }.count
-    let avgPrice = scores.map(\.priceRecall).reduce(0, +) / n
-    let avgName  = scores.map(\.nameRecall).reduce(0, +) / n
+    let agg = Aggregate(scores)
+    let totalsOK = agg.totalsOK
+    let taxesOK  = agg.taxesOK
+    let exact    = agg.itemCountExact
+    let avgPrice = agg.priceRecall
+    let avgName  = agg.nameRecall
 
     out += "TOTAL correct     \(totalsOK)/\(scores.count)   \(Int((Double(totalsOK)/n*100).rounded()))%\n"
     out += "TAX correct       \(taxesOK)/\(scores.count)   \(Int((Double(taxesOK)/n*100).rounded()))%\n"
@@ -186,7 +190,7 @@ private func report(_ scores: [Score]) -> String {
     out += "Name recall       \(Int((avgName*100).rounded()))%   (ground-truth item names surviving)\n"
 
     let scanned = scores.filter { $0.failure == nil }
-    let refused = scores.count - scanned.count
+    let refused = agg.refused
     if refused > 0 {
         out += "\nREFUSED           \(refused)/\(scores.count)   the pipeline threw and produced nothing\n"
     }
@@ -207,6 +211,85 @@ private func report(_ scores: [Score]) -> String {
     return out
 }
 
+// MARK: - Aggregate
+
+/// The numbers the report prints and the gate asserts, computed **once**.
+///
+/// They were separate expressions in two places for about ten minutes, which is exactly how a
+/// gate comes to assert something the report does not show.
+private struct Aggregate {
+    let count: Int
+    let totalsOK: Int
+    let taxesOK: Int
+    let itemCountExact: Int
+    let priceRecall: Double
+    let nameRecall: Double
+    let refused: Int
+
+    init(_ scores: [Score]) {
+        let n = Double(scores.count)
+        count          = scores.count
+        totalsOK       = scores.filter(\.totalOK).count
+        taxesOK        = scores.filter(\.taxOK).count
+        itemCountExact = scores.filter { $0.itemsParsed == $0.itemsExpected }.count
+        priceRecall    = n == 0 ? 0 : scores.map(\.priceRecall).reduce(0, +) / n
+        nameRecall     = n == 0 ? 0 : scores.map(\.nameRecall).reduce(0, +) / n
+        refused        = scores.filter { $0.failure != nil }.count
+    }
+}
+
+/// Accuracy floors the suite fails below.
+///
+/// ## The pipeline is NOT deterministic — this is the single most important thing here
+///
+/// Nine runs of the **same corpus against the same code**, 2026-09-11/12:
+///
+/// | metric | values | spread |
+/// |---|---|---|
+/// | TOTAL correct | 18, 19, 20, 20, 20, 19, 18, 19, 18 | **18–20 of 22 (82–91%)** |
+/// | TAX correct | 19, then 20 × 8 | 19–20 |
+/// | Item count exact | 15, 14, 14, 14, 15, 14, 14, 14, 15 | 14–15 |
+/// | Price recall | 86, 84, 86, 86, 86, 86, 86, 87, 88 | 84–88% |
+/// | Name recall | 78, 76, 77, 77, 77, 76, 78, 77, 83 | **76–83%** |
+///
+/// The ninth run widened name recall by five points on its own, which is the honest reason these
+/// are stated as ranges and re-checked rather than fixed after one pass.
+///
+/// The cause is Tier 1: `VisionService` routes to Apple Foundation Models when available, and a
+/// language model does not return the same answer twice. Four receipts (01, 03, 04, 13) take that
+/// path on the simulator.
+///
+/// **So there is no single accuracy figure.** Quoting "91% totals" from one report — which is what
+/// happened before these eight runs existed — reports the best sample as though it were the value.
+/// It is 82–91%.
+///
+/// ## What that does to the floors
+///
+/// They sit **one below the observed minimum of eight runs**, not below a single measurement.
+/// A floor at the minimum fires on noise, and a gate that fires on noise gets deleted — the first
+/// draft had totals at 19 and would have failed two of these eight runs.
+///
+/// The cost is bluntness: with totals ranging 18–20 naturally, this can only catch a regression of
+/// about **two receipts or more**. A single-receipt regression is invisible. The fix is not a
+/// tighter floor — it is to make the benchmark deterministic by forcing the heuristic tier
+/// (`fm.isAvailable`, `VisionService.swift:144`) and reporting Tier 1 separately. That is worth
+/// doing before any model work, because a model cannot be evaluated against a moving baseline.
+///
+/// Raise the floors when an improvement lands, or the improvement is unprotected.
+///
+/// Deliberately NOT gated: **confidence calibration**. Its "wrong" side is the mean over the two
+/// or three receipts whose total is wrong, and which receipts those are changes between runs.
+private enum Floor {
+    static let totalsOK       = 17      // of 22 — observed 18–20 across 9 runs
+    static let taxesOK        = 18      // of 22 — observed 19–20
+    static let itemCountExact = 13      // of 22 — observed 14–15
+    static let priceRecall    = 0.80    // observed 0.84–0.88
+    static let nameRecall     = 0.72    // observed 0.76–0.83
+    /// The pipeline throwing on a real receipt is never acceptable, and has never happened, so
+    /// this one is absolute rather than a floor with slack.
+    static let maxRefused     = 0
+}
+
 // MARK: - Suite
 
 @Suite("Receipt scan benchmark")
@@ -218,9 +301,14 @@ struct ReceiptBenchmark {
     /// `#filePath` points into the developer's checkout, which exists on a simulator run and
     /// **does not exist on a physical device** — the sandbox cannot see the Mac's filesystem. The
     /// corpus is copied into the test bundle by a build phase so the same suite runs in both
-    /// places, which matters because **Tier 1 (Apple Intelligence) only exists on device**: every
-    /// number this benchmark has produced so far describes Tier 2 heuristics alone.
-    private var corpusDir: URL {
+    /// places.
+    ///
+    /// ⚠️ This used to say *"Tier 1 (Apple Intelligence) only exists on device: every number this
+    /// benchmark has produced describes Tier 2 heuristics alone."* **That is no longer true.** The
+    /// 2026-09-11 simulator reports (iPhone 17 Pro, iOS 26.5) show receipts 01, 03, 04 and 13
+    /// parsed by the `Apple Intelligence` tier, so the simulator now runs Tier 1 and the numbers
+    /// below are a mix of both. Check the `tier` column before attributing a result to either.
+    nonisolated private static var corpusDir: URL {
         if let override = ProcessInfo.processInfo.environment["XBILL_RECEIPT_CORPUS"] {
             return URL(fileURLWithPath: override)
         }
@@ -235,14 +323,29 @@ struct ReceiptBenchmark {
             .appendingPathComponent("ReceiptCorpus")
     }
 
-    @Test("Scores the shipped pipeline against the labelled corpus")
+    /// Whether there is anything to score.
+    ///
+    /// This drives `.enabled(if:)` rather than an early `return`, so a machine without the corpus
+    /// reports the test as **skipped**. A fresh clone has no receipts and that is correct — but
+    /// "no corpus" must never be indistinguishable from "22 receipts, all good". That is the exact
+    /// false green this file produced once before: *"no corpus" in 0.024s, and passed.*
+    nonisolated static var corpusIsPresent: Bool {
+        let labels = corpusDir.appendingPathComponent("labels")
+        let files = try? FileManager.default.contentsOfDirectory(at: labels, includingPropertiesForKeys: nil)
+        return !(files?.filter { $0.pathExtension == "json" }.isEmpty ?? true)
+    }
+
+    @Test("Scores the shipped pipeline against the labelled corpus",
+          .enabled(if: ReceiptBenchmark.corpusIsPresent))
     func benchmark() async throws {
         let fm = FileManager.default
+        let corpusDir = Self.corpusDir
         let labelsDir = corpusDir.appendingPathComponent("labels")
         let imagesDir = corpusDir.appendingPathComponent("images")
         guard let labelFiles = try? fm.contentsOfDirectory(at: labelsDir, includingPropertiesForKeys: nil),
               !labelFiles.isEmpty else {
-            print("\n[benchmark] No corpus at \(corpusDir.path) — nothing to measure.\n")
+            // The trait said the corpus was there, so it going missing mid-run is a real fault.
+            Issue.record("Corpus vanished between the enablement check and the run: \(corpusDir.path)")
             return
         }
 
@@ -291,5 +394,23 @@ struct ReceiptBenchmark {
             .replacingOccurrences(of: ":", with: "-")
         try? text.write(to: outDir.appendingPathComponent("receipt-benchmark-\(stamp).txt"),
                         atomically: true, encoding: .utf8)
+
+        // The gate. Asserted after the report is printed and written, so a failing run still
+        // leaves the full per-receipt evidence behind rather than only a threshold message.
+        let agg = Aggregate(scores)
+        #expect(agg.refused <= Floor.maxRefused,
+                "the pipeline threw on \(agg.refused) of \(agg.count) real receipts")
+        #expect(agg.totalsOK >= Floor.totalsOK,
+                "TOTAL correct \(agg.totalsOK)/\(agg.count), floor \(Floor.totalsOK)")
+        #expect(agg.taxesOK >= Floor.taxesOK,
+                "TAX correct \(agg.taxesOK)/\(agg.count), floor \(Floor.taxesOK)")
+        #expect(agg.itemCountExact >= Floor.itemCountExact,
+                "item count exact \(agg.itemCountExact)/\(agg.count), floor \(Floor.itemCountExact)")
+        #expect(agg.priceRecall >= Floor.priceRecall,
+                Comment(rawValue: String(format: "price recall %.2f, floor %.2f",
+                                         agg.priceRecall, Floor.priceRecall)))
+        #expect(agg.nameRecall >= Floor.nameRecall,
+                Comment(rawValue: String(format: "name recall %.2f, floor %.2f",
+                                         agg.nameRecall, Floor.nameRecall)))
     }
 }

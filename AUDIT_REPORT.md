@@ -1676,3 +1676,66 @@ collapses. That check is outstanding.
 different backdrop, not new artwork — which matters, because ICON-04 is closed on the owner's
 instruction that the icon is a brand and cannot change quickly. Adding appearances does not reopen
 that.
+
+---
+
+## SCAN-ML-01 — a trainable model for receipt parsing: what it would be, and what it needs ⬜ planned
+
+Raised by the owner 2026-09-11 and **kept as a live objective**, not a someday. This records the
+shape and — more importantly — the data arithmetic, because that is the part that decides whether
+it can work.
+
+### What would be trained
+
+**Not OCR.** Vision is Apple's and closed; its misreads (`Gus` for `Gms`, `SMARIWATER`, `Sulata`
+for `Sujata`) cannot be fixed by any model trained on the text it produces, because by then the
+text is already wrong. Those need `OCRLine.alternates`, which the pipeline already carries and
+does not yet use.
+
+**A line classifier.** What fails is deciding *what each line is*: item / total / subtotal / tax /
+tip / discount / header / payment / junk. That is ordinary text classification — Create ML on the
+Mac, a `.mlmodel` of tens of KB in the bundle, inference per line, offline, no privacy change.
+Features already exist on `OCRLine`: `text`, `midX` (prices sit in a right-hand column), `midY`
+(totals sit low), `height`, `confidence`.
+
+It would attack the two biggest failure classes directly — junk kept on the line
+(`365992 Tortilla Chips`, `1 Coke`) and non-items captured as items (`O T A L=28.35`,
+`Time: 05:23PM=0.3`).
+
+### The data, counted rather than guessed
+
+| | |
+|---|---|
+| Receipts | **22** |
+| Labelled item rows | **91** |
+| Per-line labels | **none — they do not exist yet** |
+
+The ground truth is item-level (`name`, `qty`, `unitPrice`), not per-line. Per-line labels can be
+derived mostly automatically — lines matching an expected item become `item`, lines matching the
+recorded `total`/`tax`/`tip`/`subtotal` become those, the rest default to `junk`, then the residue
+is hand-corrected. Hours, not weeks. **That derivation is the real prerequisite, and it is worth
+doing even if no model ships**: it turns "item count exact 15/22" into a per-line confusion matrix
+that says exactly which lines the heuristics misclassify.
+
+**The positive class is the constraint.** 91 item lines against several hundred non-item lines is
+roughly 1:9, and 91 positives is thin for generalisation. Long grocery receipts carry the weight —
+receipt 12 alone has 21 items, 08 has 14, 01 has 10 — so roughly **40–60 more receipts, weighted
+toward groceries**, would take the positive class to the 400–500 range. The owner has more
+receipts available; this is what they are most valuable for.
+
+### The trap to avoid
+
+22 receipts are **one person's** shopping — Kroger, Patel Brothers, Starbucks, a few restaurants. A
+classifier trained on them learns those formats and can do worse on an unseen chain while the
+benchmark still looks good, because the benchmark is the same receipts. **Hold a portion of the new
+receipts back as a test set the model never trains on.** Without that split the accuracy number is
+self-congratulation.
+
+### Sequence
+
+1. ✅ **Gate the benchmark** — done. Without it, a model cannot be shown to help.
+2. ⬜ **Rule fixes + `alternates`** — deterministic, testable, and they raise the baseline a model
+   must beat rather than letting it take credit for them.
+3. ⬜ **Derive per-line labels** — the prerequisite, and independently useful as a diagnosis.
+4. ⬜ **Re-measure.** If item-count exactness is still short of ~90%, the classifier has earned its
+   place; if the rules got there, a model would be added complexity for nothing.
