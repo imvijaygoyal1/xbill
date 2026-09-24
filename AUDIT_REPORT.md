@@ -1740,12 +1740,14 @@ self-congratulation.
    (SCAN-RULE-01/02/03 below). `alternates` are **already** consumed for candidate *prices*
    (Gap 7, `VisionService.swift:867`); what remains is using them for *names*, which is where the
    OCR misreads live.
+   ✅ **The metric this step is judged by was itself repaired first** — SCAN-METRIC-01, 2026-09-24.
 3. ⬜ **Derive per-line labels** — the prerequisite, and independently useful as a diagnosis.
 4. ⬜ **Re-measure.** If item-count exactness is still short of ~90%, the classifier has earned its
    place; if the rules got there, a model would be added complexity for nothing.
 
-**Item-count exactness so far: 16/22 (73%) → 19/22 (86%)** on rules alone, all three fixes
-deterministic and floor-locked.
+**So far, on rules alone, all deterministic and floor-locked:** item-count exactness
+**16/22 (73%) → 19/22 (86%)**, and name recall **0.56 → 0.81** as measured by the corrected
+metric (the old one reported no change at all).
 
 ---
 
@@ -1777,12 +1779,67 @@ in one — so the rule provably cannot eat a real name. A leading bare quantity 
 it is `1`: at quantity one there is no arithmetic to lose, whereas stripping `2` from
 `2 LITER PEPSI` would rewrite a product name that was printed as such.
 
-⚠️ **This fix does not move the benchmark, and that is a finding about the benchmark.**
-`ReceiptBenchmark.swift:110` matches names with a **two-way substring** test, so
-`365992 tortilla chips` already "contained" `tortilla chips` and scored as a hit. Name recall stayed
-at 80% while 11 of 11 targeted names became clean, with zero collateral damage on the other
-receipts. **The name metric therefore overstates quality and cannot be used to judge name work** —
-worth fixing before step 3 uses it to decide whether a classifier is needed.
+⚠️ **This fix did not move the benchmark, and that was a finding about the benchmark.** The name
+metric was a **two-way substring** test, so `365992 tortilla chips` already "contained"
+`tortilla chips` and scored as a hit. 11 of 11 targeted names became clean and the figure stayed at
+exactly 80%. **Fixed the next day — see SCAN-METRIC-01.** Re-measured under the corrected metric,
+this fix was worth **+25 points of name recall (0.56 → 0.81)**.
+
+---
+
+## SCAN-METRIC-01 — the benchmark's name metric could not see its own subject ✅ fixed 2026-09-24
+
+**The instrument was broken, and because it was trusted that was worse than having no instrument.**
+
+`score(id:label:result:)` matched a parsed item name against the ground-truth name with a two-way
+substring test over a punctuation-and-case-stripped string:
+
+```swift
+if parsedNames.contains(where: { $0.contains(expected) || expected.contains($0) })
+```
+
+`365992 tortilla chips` **contains** `tortilla chips`. So did every name carrying a till SKU, PLU,
+UPC or a glued-on price. SCAN-RULE-02 stripped that junk from **11 of 11** such names across 8
+receipts and `Name recall` moved by **zero thousandths**: 0.804 before, 0.804 after.
+
+A second, independent inflation: unlike price recall directly above it, the loop **never consumed**
+a matched name, so one parsed row could satisfy several ground-truth names — a receipt listing
+`BANANAS` twice scored both from a single parse.
+
+### The fix
+
+Greedy nearest match by **Levenshtein similarity**, length-relative, with consumption, above a
+threshold of **0.85**.
+
+**The threshold was chosen from the corpus, not picked as a round number.** Across all 22 receipts
+the best-match similarities separate cleanly:
+
+| band | what it is | examples |
+|---|---|---|
+| **0.86–0.96** | character-level OCR noise; plainly the same item | `150gas`/`150gms`, `2ibs`/`2lbs`, `200mi`/`200ml`, `selvalur`/`sclvalor`, `turiale`/`turialb` |
+| **0.52–0.83** | an extra token glued on — a defect a reader would see | `bfrpineapplecoco699f` (the price is in the name), `wtbananas`, `5pkgogglesmulticoloraoqjy`, `24241chiqbananas1b049`, `sulatagold208`, `smartwaier507` |
+
+The lower band is what remains to fix, largely via `OCRLine.alternates`, so a metric that scores
+them as misses points at the real work instead of concealing it.
+
+### Effect
+
+| metric | old (substring) | new (edit distance ≥ 0.85) |
+|---|---|---|
+| name recall **before** SCAN-RULE-02 | 0.804 | **0.560** |
+| name recall **after** SCAN-RULE-02 | 0.804 | **0.810** |
+
+Floor **re-baselined** 0.77 → 0.78 (deterministic 0.81); it was not "raised" — it measures a
+different thing, and no name figure recorded before 2026-09-24 is comparable. The report now says
+so in its own legend.
+
+The per-receipt column became diagnostic rather than flat: **16 of 22 receipts are at 100%** and
+the failures concentrate in six — CVS 0%, Burlington 0%, Patel Brothers 24%, Kroger 30% and 50%,
+Bhavani 79%. That is the input step 3 needs.
+
+**`BenchmarkMetricTests` holds it honest** — 7 tests, the first of which asserts that
+`365992 Tortilla Chips` does **not** match `Tortilla Chips`. A metric used to decide whether a
+model is worth building has to be able to see what it is judging.
 
 ---
 

@@ -101,7 +101,44 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 
 
 
-## Recent Fix Log — 2026-09-23 (latest) — SCAN-RULE-01/02/03: three parser rules, 73% → 86%
+## Recent Fix Log — 2026-09-24 (latest) — SCAN-METRIC-01: the benchmark could not see its own subject
+
+**The measuring instrument was broken, and being trusted made that worse than having none.**
+
+`ReceiptBenchmark` scored item names with a **two-way substring** test, so
+`365992 tortilla chips` *contained* the truth `tortilla chips` and counted as a hit with the till's
+SKU still attached. The previous day's SCAN-RULE-02 stripped that junk from **11 of 11** such names
+across 8 receipts and the number moved by **zero thousandths** — 0.804 before, 0.804 after. It also
+never consumed a matched name, so one parsed row could satisfy several ground-truth names.
+
+Replaced with greedy nearest match by **Levenshtein similarity ≥ 0.85**, with consumption.
+**The threshold came from the corpus, not from taste** — the 22 receipts' best-match similarities
+split into character-level OCR noise at 0.86–0.96 (`150gas`/`150gms`, `selvalur`/`sclvalor`) and
+names with an extra token glued on at 0.52–0.83 (`bfrpineapplecoco699f` — the price is in the name
+— `wtbananas`, `24241chiqbananas1b049`).
+
+| name recall | old (substring) | new (edit distance) |
+|---|---|---|
+| before SCAN-RULE-02 | 0.804 | **0.560** |
+| after SCAN-RULE-02 | 0.804 | **0.810** |
+
+⚠️ **No name figure recorded before 2026-09-24 is comparable with one after.** The floor was
+**re-baselined** 0.77 → 0.78, not raised; the report prints that warning in its own legend.
+
+The per-receipt column is now diagnostic instead of flat: **16 of 22 receipts at 100%**, failures
+concentrated in six (CVS 0%, Burlington 0%, Patel Brothers 24%, Kroger 30% and 50%, Bhavani 79%).
+That is the input SCAN-ML-01 step 3 needs.
+
+`BenchmarkMetricTests` (7 tests) holds it honest; the first asserts `365992 Tortilla Chips` does
+**not** match `Tortilla Chips`.
+
+**The rule worth keeping:** before trusting a metric to judge a fix, check it can see the defect
+the fix removes. Run the fix and confirm the number moves — if it does not, find out whether the
+fix failed or the metric is blind, because from the score those are indistinguishable.
+
+---
+
+## Recent Fix Log — 2026-09-23 — SCAN-RULE-01/02/03: three parser rules, 73% → 86%
 
 Step 2 of SCAN-ML-01 — **raise the rule baseline before deciding a model is needed.** All three are
 deterministic and floor-locked; item-count exactness **16/22 → 19/22**.
@@ -116,10 +153,9 @@ deterministic and floor-locked; item-count exactness **16/22 → 19/22**.
 
 **Three things worth carrying forward, each of which cost a wrong first attempt:**
 
-1. ⚠️ **The benchmark's name metric cannot see name quality.** `ReceiptBenchmark.swift:110` matches
-   with a **two-way substring** test, so `365992 tortilla chips` already "contained" the truth
-   `tortilla chips`. SCAN-RULE-02 cleaned 11 of 11 targeted names with zero collateral damage and
-   name recall did not move off 80%. **Fix the metric before step 3 uses it to judge a classifier.**
+1. ⚠️ **The benchmark's name metric could not see name quality** — SCAN-RULE-02 cleaned 11 of 11
+   targeted names and name recall did not move off 80%. ✅ **Fixed the next day (SCAN-METRIC-01,
+   above).** Under the corrected metric this fix was worth **+25 points, 0.56 → 0.81**.
 2. **Check the corpus before writing a rule, not after.** `stripCatalogCode` is a *standalone
    token* rule rather than "starts with a digit" because the labels contain `5PK GOGGLES` and
    `10GRANDOPENING`. One `grep` over the labels established that no truth name holds a standalone

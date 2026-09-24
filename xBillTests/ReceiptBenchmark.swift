@@ -86,9 +86,53 @@ private struct Score {
     let expectedItems: [String]
 }
 
-private func normalise(_ s: String) -> String {
+func normalise(_ s: String) -> String {
     s.lowercased().filter { $0.isLetter || $0.isNumber }
 }
+
+/// Levenshtein edit distance. Two rows of `Int`, so it is O(n) in memory and fine at these lengths.
+func editDistance(_ a: [Character], _ b: [Character]) -> Int {
+    if a == b { return 0 }
+    if a.isEmpty { return b.count }
+    if b.isEmpty { return a.count }
+    var prev = Array(0...b.count)
+    var cur  = [Int](repeating: 0, count: b.count + 1)
+    for i in 1...a.count {
+        cur[0] = i
+        for j in 1...b.count {
+            cur[j] = min(prev[j] + 1,
+                         cur[j - 1] + 1,
+                         prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1))
+        }
+        swap(&prev, &cur)
+    }
+    return prev[b.count]
+}
+
+/// 1.0 for identical normalised names, falling to 0.0. Length-relative, so a fixed number of
+/// wrong characters costs more on a short name than a long one — which is right: `WT BANANAS`
+/// against `BANANAS` is a worse error than two bad characters in a thirty-character name.
+func nameSimilarity(_ a: String, _ b: String) -> Double {
+    let x = Array(normalise(a)), y = Array(normalise(b))
+    let longest = max(x.count, y.count)
+    guard longest > 0 else { return 1 }
+    return 1 - Double(editDistance(x, y)) / Double(longest)
+}
+
+/// How close a parsed name must be to a ground-truth name to count as recovered.
+///
+/// **Chosen from the corpus, not picked as a round number.** Measured across all 22 receipts, the
+/// best-match similarities separate into two groups with the boundary at 0.85:
+///
+/// - **0.86–0.96 — character-level OCR noise, and the name is plainly the same item.**
+///   `150gas`/`150gms`, `2ibs`/`2lbs`, `200mi`/`200ml`, `selvalur`/`sclvalor`, `turiale`/`turialb`.
+/// - **0.52–0.83 — an extra token is glued on, which is a defect a reader would see.**
+///   `bfrpineapplecoco699f` (the price is in the name), `wtbananas`, `5pkgogglesmulticoloraoqjy`,
+///   `24241chiqbananas1b049`, `sulatagold208`, `smartwaier507`.
+///
+/// The second group is what remains to fix — mostly via `OCRLine.alternates` — so a metric that
+/// counts them as misses points at the real work instead of hiding it.
+let nameMatchThreshold = 0.85
 
 private func score(id: String, label: Label, result: ScanResult) -> Score {
     // Price recall as a multiset intersection.
@@ -101,13 +145,31 @@ private func score(id: String, label: Label, result: ScanResult) -> Score {
         }
     }
 
-    // Name recall: a parsed name counts if it contains the expected name or vice versa, after
-    // stripping punctuation and case. Deliberately loose — we are measuring whether the name
-    // survived at all, not whether it round-tripped exactly.
-    let parsedNames = result.receipt.items.map { normalise($0.name) }.filter { !$0.isEmpty }
+    // Name recall: greedy nearest match above `nameMatchThreshold`, consuming each parsed name as
+    // it is used — the same multiset discipline as price recall above.
+    //
+    // ⚠️ THIS REPLACED A METRIC THAT COULD NOT SEE ITS OWN SUBJECT (2026-09-24). It was a two-way
+    // substring test, so `365992 tortilla chips` *contained* the truth `tortilla chips` and scored
+    // as a hit with the till's SKU still glued to the front. SCAN-RULE-02 then cleaned 11 of 11
+    // such names across 8 receipts and this number did not move a thousandth: 0.804 before, 0.804
+    // after. Recomputed over the same two runs, the metric below reads **0.560 → 0.810**.
+    //
+    // It also had no consumption, so one parsed name could satisfy several ground-truth names —
+    // a receipt listing `BANANAS` twice scored both from a single parsed row.
+    //
+    // Keep the test that holds this honest (`BenchmarkMetricTests`). A metric used to decide
+    // whether a model is worth building has to be able to see the thing it is judging.
+    var namePool = result.receipt.items.map { normalise($0.name) }.filter { !$0.isEmpty }
     var nameHits = 0
     for expected in label.items.map({ normalise($0.name) }) where !expected.isEmpty {
-        if parsedNames.contains(where: { $0.contains(expected) || expected.contains($0) }) {
+        var best = 0.0
+        var bestIdx: Int?
+        for (i, parsed) in namePool.enumerated() {
+            let s = nameSimilarity(parsed, expected)
+            if s > best { best = s; bestIdx = i }
+        }
+        if let bestIdx, best >= nameMatchThreshold {
+            namePool.remove(at: bestIdx)
             nameHits += 1
         }
     }
@@ -187,7 +249,10 @@ private func report(_ scores: [Score]) -> String {
     out += "TAX correct       \(taxesOK)/\(scores.count)   \(Int((Double(taxesOK)/n*100).rounded()))%\n"
     out += "Item count exact  \(exact)/\(scores.count)   \(Int((Double(exact)/n*100).rounded()))%\n"
     out += "Price recall      \(Int((avgPrice*100).rounded()))%   (ground-truth line amounts found)\n"
-    out += "Name recall       \(Int((avgName*100).rounded()))%   (ground-truth item names surviving)\n"
+    out += "Name recall       \(Int((avgName*100).rounded()))%   (within \(nameMatchThreshold) similarity of the ground-truth name)\n"
+    out += "  Names are matched by edit distance, not substring, so a till SKU or a price left\n"
+    out += "  glued to the name counts as a MISS. Do not compare this with any figure recorded\n"
+    out += "  before 2026-09-24 — the old metric could not see junk attached to a correct name.\n"
 
     let scanned = scores.filter { $0.failure == nil }
     let refused = agg.refused
@@ -286,7 +351,11 @@ private enum Floor {
     static let taxesOK        = 19      // of 22 — deterministic 20
     static let itemCountExact = 18      // of 22 — deterministic 19 since SCAN-RULE-03
     static let priceRecall    = 0.87    // deterministic 0.90
-    static let nameRecall     = 0.77    // deterministic 0.80
+    /// ⚠️ NOT comparable with any name figure from before 2026-09-24. The metric changed that day
+    /// from a substring test to edit distance (see `score`), so this floor was re-baselined rather
+    /// than raised. Under the new metric the same corpus read **0.56 before SCAN-RULE-02 and 0.81
+    /// after** — the improvement the old metric reported as exactly zero.
+    static let nameRecall     = 0.78    // deterministic 0.81
     /// The pipeline throwing on a real receipt is never acceptable, and has never happened, so
     /// this one is absolute rather than a floor with slack.
     static let maxRefused     = 0
