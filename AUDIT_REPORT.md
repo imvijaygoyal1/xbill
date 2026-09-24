@@ -1689,8 +1689,9 @@ it can work.
 
 **Not OCR.** Vision is Apple's and closed; its misreads (`Gus` for `Gms`, `SMARIWATER`, `Sulata`
 for `Sujata`) cannot be fixed by any model trained on the text it produces, because by then the
-text is already wrong. Those need `OCRLine.alternates`, which the pipeline already carries and
-does not yet use.
+text is already wrong. Those need `OCRLine.alternates` — which the pipeline carries and, as of
+2026-09-23, uses **only for candidate prices** (Gap 7). Nothing yet reconsiders a *name* against its
+alternates, which is exactly where those misreads sit.
 
 **A line classifier.** What fails is deciding *what each line is*: item / total / subtotal / tax /
 tip / discount / header / payment / junk. That is ordinary text classification — Create ML on the
@@ -1734,11 +1735,77 @@ self-congratulation.
 ### Sequence
 
 1. ✅ **Gate the benchmark** — done. Without it, a model cannot be shown to help.
-2. ⬜ **Rule fixes + `alternates`** — deterministic, testable, and they raise the baseline a model
-   must beat rather than letting it take credit for them.
+2. 🔄 **Rule fixes + `alternates`** — deterministic, testable, and they raise the baseline a model
+   must beat rather than letting it take credit for them. Three rule fixes landed 2026-09-23
+   (SCAN-RULE-01/02/03 below). `alternates` are **already** consumed for candidate *prices*
+   (Gap 7, `VisionService.swift:867`); what remains is using them for *names*, which is where the
+   OCR misreads live.
 3. ⬜ **Derive per-line labels** — the prerequisite, and independently useful as a diagnosis.
 4. ⬜ **Re-measure.** If item-count exactness is still short of ~90%, the classifier has earned its
    place; if the rules got there, a model would be added complexity for nothing.
+
+**Item-count exactness so far: 16/22 (73%) → 19/22 (86%)** on rules alone, all three fixes
+deterministic and floor-locked.
+
+---
+
+## SCAN-RULE-01 — a label on the row above was consumed as an item name ✅ fixed 2026-09-23
+
+`parseWithHeuristics` classified a row using only the *price* row's own text. When OCR put a label
+on its own line — `TOTAL`, the letter-spaced `O T A L`, `Tax 1 - 8.00 %` — the row beneath carried
+that label in as a **name** and it became an item, while the amount never reached `total` or `tax`.
+
+Fix: `isTotalLabel(_:)` (length-guarded to ≤12 dense characters, excludes `subtotal`, tolerates a
+dropped leading character) plus re-resolution of the row's class from **both** the carried label and
+the row's own extracted name. Effect: receipt 15 `TOTAL=13.07` and receipt 07 `O T A L=28.35`
+removed as items; receipt 12 `Tax 1 - 8.00 %=136.13` correctly classified as tax.
+**Item count exact 16/22 → 18/22.** 6 tests.
+
+---
+
+## SCAN-RULE-02 — tills' own catalogue codes were glued to item names ✅ fixed 2026-09-23
+
+11 names across 8 receipts carried the till's SKU, PLU or UPC into the item name: `365992 Tortilla
+Chips`, `1158 ORG ARUGULA`, `K982032 5PK GOGGLES`, `E 7113 LYCHEE`, `THERMACARE 195882990040`, and
+a bare leading `1 ` on six receipts.
+
+Fix: `stripCatalogCode(from:)`, applied after `stripQuantityPrefix`. The rule is **standalone
+token**, not "starts with a digit", and that distinction is the fix: `5PK GOGGLES` and
+`10GRANDOPENING` are ground-truth names that begin with digits *glued to letters*. Checked against
+the corpus before writing it — **no** label contains a standalone run of 4+ digits, and none ends
+in one — so the rule provably cannot eat a real name. A leading bare quantity is stripped only when
+it is `1`: at quantity one there is no arithmetic to lose, whereas stripping `2` from
+`2 LITER PEPSI` would rewrite a product name that was printed as such.
+
+⚠️ **This fix does not move the benchmark, and that is a finding about the benchmark.**
+`ReceiptBenchmark.swift:110` matches names with a **two-way substring** test, so
+`365992 tortilla chips` already "contained" `tortilla chips` and scored as a hit. Name recall stayed
+at 80% while 11 of 11 targeted names became clean, with zero collateral damage on the other
+receipts. **The name metric therefore overstates quality and cannot be used to judge name work** —
+worth fixing before step 3 uses it to decide whether a classifier is needed.
+
+---
+
+## SCAN-RULE-03 — the till's timestamp was being sold as an item ✅ fixed 2026-09-23
+
+Kroger prints the time on its own line; the row beneath inherited it and `Time: 05:12PM=3` and
+`Time: 05:23PM=0.3` appeared as items on receipts 01 and 11.
+
+`isMeasurementOnly` cannot reject these — `Time: 05:12PM` is 50% letters, well above its 0.3 ratio
+— so this is a second predicate, `isReceiptMetadata(_:)`, keyed on a clock time. No ground-truth
+name in the corpus contains `HH:MM` and no product plausibly would.
+
+**Two mistakes worth keeping, both caught by tests rather than by reading:**
+
+- The first regex ended in `\b`. There is no word boundary between the `12` and the `PM` of
+  `05:12PM`, so it matched nothing on the exact rows it exists for. Now `(?<!\d)\d{1,2}:\d{2}(?!\d)`.
+- The guard was first placed **before** the carried-name substitution, where it only ever saw the
+  row's own text. The timestamp arrives *as* the carried name, so the fix changed nothing until the
+  guard moved below the carry. The benchmark, not the unit test, exposed this — the unit test was
+  passing on a direct call to the predicate.
+
+**Item count exact 18/22 → 19/22 (86%);** confidence-calibration gap +0.27 → +0.29. Both runs after
+the fix byte-identical apart from the timestamp line. Floor raised to 18.
 
 ---
 

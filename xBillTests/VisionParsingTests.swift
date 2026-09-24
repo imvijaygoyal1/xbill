@@ -170,6 +170,180 @@ struct VisionParsingTests {
         #expect(!parsed.receipt.items.contains { $0.name.contains("TOTAL") },
                 "The total line must not be captured as a purchasable item.")
     }
+
+    // MARK: - SCAN-RULE-01: a label on one row, its amount on the next
+    //
+    // From the corpus: receipt 15 produced `TOTAL=13.07` as an item and 07 produced
+    // `O T A L=28.35`. Both are the same defect — the parser holds a name-only row for the row
+    // below, but classifies using only the *price* row's text. By the time "TOTAL" is consumed as
+    // a carried name, nothing has asked whether it was a label.
+
+    @Test("A total label on its own row still reads as the total, not an item")
+    func totalLabelOnItsOwnRowIsNotAnItem() {
+        let rows: [[OCRLine]] = [
+            [line("CORNER STORE", y: 0.05)],
+            [line("Buffalo Flower", x: 0.2, y: 0.30), line("12.00", x: 0.85, y: 0.30)],
+            [line("TOTAL", x: 0.2, y: 0.60)],
+            [line("13.07", x: 0.85, y: 0.66)]
+        ]
+        let parsed = service.parseWithHeuristics(rows: rows)
+
+        #expect(parsed.receipt.total == Decimal(string: "13.07"))
+        #expect(parsed.receipt.items.count == 1)
+        #expect(!parsed.receipt.items.contains { $0.name.uppercased().contains("TOTAL") })
+    }
+
+    @Test("A letter-spaced total label is recognised across the split")
+    func letterSpacedTotalLabelIsNotAnItem() {
+        // Receipt 07: OCR dropped the leading T and spaced the rest — "O T A L".
+        let rows: [[OCRLine]] = [
+            [line("MARKET", y: 0.05)],
+            [line("Tortilla Chips", x: 0.2, y: 0.30), line("2.29", x: 0.85, y: 0.30)],
+            [line("O T A L", x: 0.2, y: 0.60)],
+            [line("28.35", x: 0.85, y: 0.66)]
+        ]
+        let parsed = service.parseWithHeuristics(rows: rows)
+
+        #expect(!parsed.receipt.items.contains { $0.name.contains("O T A L") },
+                "A spaced total label must not survive as an item.")
+        #expect(parsed.receipt.items.count == 1)
+    }
+
+    @Test("A tax label on its own row accumulates as tax")
+    func taxLabelOnItsOwnRowIsTax() {
+        let rows: [[OCRLine]] = [
+            [line("SHOP", y: 0.05)],
+            [line("Widget", x: 0.2, y: 0.30), line("10.00", x: 0.85, y: 0.30)],
+            [line("TAX", x: 0.2, y: 0.55)],
+            [line("0.80", x: 0.85, y: 0.60)]
+        ]
+        let parsed = service.parseWithHeuristics(rows: rows)
+
+        #expect(parsed.receipt.tax == Decimal(string: "0.80"))
+        #expect(parsed.receipt.items.count == 1, "Tax must not become an item.")
+    }
+
+    @Test("A letter-spaced total sharing a row with its amount is still a total")
+    func letterSpacedTotalOnOneRowIsNotAnItem() {
+        // Receipt 07 again, but here OCR kept the amount on the same row: `O T A L  28.35`.
+        let rows: [[OCRLine]] = [
+            [line("MARKET", y: 0.05)],
+            [line("Tortilla Chips", x: 0.2, y: 0.30), line("2.29", x: 0.85, y: 0.30)],
+            [line("O T A L", x: 0.2, y: 0.60), line("28.35", x: 0.85, y: 0.60)]
+        ]
+        let parsed = service.parseWithHeuristics(rows: rows)
+
+        #expect(parsed.receipt.total == Decimal(string: "28.35"))
+        #expect(parsed.receipt.items.count == 1)
+    }
+
+    /// The relaxed label match is deliberately length-guarded. A real item name that merely
+    /// contains those letters must survive.
+    @Test("An ordinary item name is not mistaken for a total label")
+    func ordinaryNamesSurviveTheRelaxedLabelMatch() {
+        #expect(!service.isTotalLabel("Oat Milk"))
+        #expect(!service.isTotalLabel("SUBTOTAL"))
+        #expect(!service.isTotalLabel("Sub Total"))
+        #expect(!service.isTotalLabel("Pivotal Software Annual Licence"))
+        #expect(service.isTotalLabel("TOTAL"))
+        #expect(service.isTotalLabel("O T A L"))
+    }
+
+    /// The carried name must still work for its original purpose: a genuine item whose name and
+    /// price are on separate rows (SCAN-13). Fixing the label case must not break this one.
+    @Test("A split item still joins its name to the price below")
+    func splitItemStillJoins() {
+        let rows: [[OCRLine]] = [
+            [line("DELI", y: 0.05)],
+            [line("ORGANIC BANANAS", x: 0.2, y: 0.30)],
+            [line("1.29", x: 0.85, y: 0.35)],
+            [line("TOTAL", x: 0.2, y: 0.60), line("1.29", x: 0.85, y: 0.60)]
+        ]
+        let parsed = service.parseWithHeuristics(rows: rows)
+
+        #expect(parsed.receipt.items.count == 1)
+        #expect(parsed.receipt.items.first?.name == "ORGANIC BANANAS")
+    }
+
+    // MARK: - stripCatalogCode (SCAN-RULE-02)
+
+    /// The four junk-prefix shapes the labelled corpus actually contains. Each was reaching the
+    /// benchmark glued to the front of the name, so the item was counted but never matched.
+    @Test("A leading SKU or PLU is removed")
+    func leadingCatalogCodeIsRemoved() {
+        #expect(service.stripCatalogCode(from: "365992 Tortilla Chips") == "Tortilla Chips")
+        #expect(service.stripCatalogCode(from: "1158 ORG ARUGULA") == "ORG ARUGULA")
+        #expect(service.stripCatalogCode(from: "K982032 5PK GOGGLES:MULITCOLORAO")
+                == "5PK GOGGLES:MULITCOLORAO")
+        #expect(service.stripCatalogCode(from: "E 7113 LYCHEE") == "LYCHEE",
+                "the department letter must go with its PLU, not be left orphaned as `E`")
+    }
+
+    /// The reason the rule is *standalone token* and not "starts with a digit". Both of these are
+    /// ground-truth names in the corpus, and a looser rule would corrupt both.
+    @Test("Digits glued to letters are part of the name")
+    func gluedDigitsSurvive() {
+        #expect(service.stripCatalogCode(from: "5PK GOGGLES") == "5PK GOGGLES")
+        #expect(service.stripCatalogCode(from: "10GRANDOPENING") == "10GRANDOPENING")
+    }
+
+    @Test("A trailing UPC is removed")
+    func trailingUPCIsRemoved() {
+        #expect(service.stripCatalogCode(from: "THERMACARE 195882990040") == "THERMACARE")
+    }
+
+    /// Only `1`. At quantity one there is no arithmetic to lose; stripping a larger number would
+    /// silently rewrite product names that begin with one.
+    @Test("A written-out quantity of one is removed, and only one")
+    func leadingQuantityOfOneIsRemoved() {
+        #expect(service.stripCatalogCode(from: "1 Coke") == "Coke")
+        #expect(service.stripCatalogCode(from: "2 LITER PEPSI") == "2 LITER PEPSI",
+                "stripping this would turn a product name into a quantity that was never printed")
+    }
+
+    /// Stripping must never win by emptying the field — a bare code is rejected upstream, and an
+    /// empty name here would be strictly worse than the code it replaced.
+    @Test("Stripping never empties the name")
+    func strippingNeverEmptiesTheName() {
+        #expect(service.stripCatalogCode(from: "365992") == "365992")
+        #expect(service.stripCatalogCode(from: "195882990040") == "195882990040")
+    }
+
+    // MARK: - isReceiptMetadata (SCAN-RULE-03)
+
+    /// These two reached the corpus as items priced `3` and `0.3`. `isMeasurementOnly` cannot
+    /// reject them: `Time: 05:12PM` is 50% letters, well above its 0.3 ratio.
+    @Test("A till timestamp is not an item")
+    func timestampRowsAreRejected() {
+        #expect(service.isReceiptMetadata("Time: 05:12PM"))
+        #expect(service.isReceiptMetadata("Time: 05:23PM"))
+        #expect(service.isMeasurementOnly("Time: 05:12PM") == false,
+                "documents why a second predicate was needed rather than widening the first")
+    }
+
+    /// The placement test, and the one that actually caught the bug. Kroger prints the time on a
+    /// line of its own, so the timestamp reaches the item branch as a **carried** name, not as the
+    /// row's own text. The first version of this guard ran before the carry and changed nothing:
+    /// `Time: 05:12PM=3` still appeared in the benchmark output.
+    @Test("A timestamp carried from the row above is still not an item")
+    func carriedTimestampIsRejected() {
+        let rows: [[OCRLine]] = [
+            [line("KROGER", y: 0.05)],
+            [line("SIMPLE TRUTH MILK PC", x: 0.2, y: 0.30), line("3.99", x: 0.85, y: 0.30)],
+            [line("Time: 05:12PM", x: 0.2, y: 0.60)],
+            [line("3.00", x: 0.85, y: 0.63)],
+        ]
+        let parsed = service.parseWithHeuristics(rows: rows)
+        #expect(parsed.receipt.items.map(\.name) == ["SIMPLE TRUTH MILK PC"],
+                "got \(parsed.receipt.items.map(\.name))")
+    }
+
+    @Test("Ordinary item names are not treated as metadata")
+    func realNamesAreNotMetadata() {
+        for name in ["Tortilla Chips", "ORG ARUGULA", "5PK GOGGLES:MULITCOLORAO", "THERMACARE"] {
+            #expect(service.isReceiptMetadata(name) == false, "\(name) was rejected as metadata")
+        }
+    }
 }
 
 // MARK: - Money crossing the JSON boundary

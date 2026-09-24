@@ -284,7 +284,7 @@ private struct Aggregate {
 private enum Floor {
     static let totalsOK       = 20      // of 22 — deterministic 21
     static let taxesOK        = 19      // of 22 — deterministic 20
-    static let itemCountExact = 15      // of 22 — deterministic 16
+    static let itemCountExact = 18      // of 22 — deterministic 19 since SCAN-RULE-03
     static let priceRecall    = 0.87    // deterministic 0.90
     static let nameRecall     = 0.77    // deterministic 0.80
     /// The pipeline throwing on a real receipt is never acceptable, and has never happened, so

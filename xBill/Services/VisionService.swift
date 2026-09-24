@@ -793,25 +793,44 @@ final class VisionService {
             // Any row with an amount consumes the held name, whether or not it needs it.
             let carriedName = heldName
             heldName = nil
+
+            // SCAN-RULE-01: classification above saw only *this* row's text, which for a split
+            // label row is a bare amount. "TOTAL" then arrives as a carried name and becomes an
+            // item — corpus receipt 15 produced `TOTAL=13.07`, receipt 07 `O T A L=28.35`.
+            // Re-resolve from the carried label, but only when this row has no name of its own,
+            // so a genuine split item (SCAN-13) still joins its two halves.
+            let ownName = (leftText.isEmpty ? stripPrice(from: fullText) : leftText)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let rowHasOwnName = !(ownName.isEmpty || ownName.count < 2 || isMeasurementOnly(ownName))
+            let carriedLabel  = rowHasOwnName ? nil : carriedName?.lowercased()
+            // The label may also sit on this row beside its amount, where `isTotalLine` misses it
+            // because the dense text is `otal28.35` — corpus receipt 07. Checking the *extracted
+            // name* rather than the whole line keeps the relaxed match away from the digits.
+            let isTotalHere   = isTotal
+                || (carriedLabel.map(isTotalLabel) ?? false)
+                || (rowHasOwnName && isTotalLabel(ownName))
+            func labelled(_ key: String) -> Bool {
+                lower.contains(key) || (carriedLabel?.contains(key) ?? false)
+            }
             // A discount is a real line on the receipt and must survive to the review screen; if it
             // is dropped, items no longer sum to the total and the user sees an unexplained
             // mismatch. Normalised to a negative so the arithmetic works without special cases.
             let isDiscount = rawAmount < .zero || isDiscountLine(lower)
             let amount     = isDiscount ? -abs(rawAmount) : rawAmount
 
-            if isTotal {
+            if isTotalHere {
                 if let existing = total { total = max(existing, amount) } else { total = amount }
-            } else if lower.contains("tax") || lower.contains("gst")
-                        || lower.contains("hst") || lower.contains("vat") {
+            } else if labelled("tax") || labelled("gst")
+                        || labelled("hst") || labelled("vat") {
                 // SCAN-16: ACCUMULATE, do not assign. Multiple tax lines are different rates applied
                 // to different subtotals, and their sum is the tax. Assigning let the last line
                 // win, so ALDI's `A:Taxable @0.00%  0.00` erased the 0.28 above it — a bug masked
                 // until SCAN-15 stopped discarding zero amounts.
                 tax = (tax ?? .zero) + amount
-            } else if lower.contains("tip") || lower.contains("gratuity")
-                        || lower.contains("service charge") || lower.contains("svchrg") {
+            } else if labelled("tip") || labelled("gratuity")
+                        || labelled("service charge") || labelled("svchrg") {
                 tip = amount
-            } else if lower.contains("subtotal") || lower.contains("sub total") {
+            } else if labelled("subtotal") || labelled("sub total") {
                 continue
             } else {
                 var name = leftText.isEmpty ? stripPrice(from: fullText) : leftText
@@ -827,6 +846,11 @@ final class VisionService {
                     guard let carriedName else { continue }
                     name = carriedName
                 }
+                // The till's own timestamp is not an item, however plausible its letter ratio.
+                // Checked *after* the carry above, not before: Kroger prints the time on its own
+                // line, so the row holding the price inherits it as a name — and the first
+                // version of this guard, which ran before the carry, never saw it.
+                if isReceiptMetadata(name) { continue }
 
                 // A discount is always a single line worth its face value. Routing it through
                 // `parseQuantity` would divide a negative by a parsed quantity for no benefit —
@@ -834,7 +858,7 @@ final class VisionService {
                 let (qty, unitPrice) = isDiscount
                     ? (1, amount)
                     : parseQuantity(from: name, totalPrice: amount)
-                let cleanName        = stripQuantityPrefix(from: name)
+                let cleanName        = stripCatalogCode(from: stripQuantityPrefix(from: name))
 
                 // Gap 7: collect alternate prices from OCR candidate strings for this row's
                 // price column — used by the reconciliation pass if math doesn't close.
@@ -959,6 +983,20 @@ final class VisionService {
     ///   containing `sub`, so when row grouping put `Subtotal` and `GRAND TOTAL` in one row the
     ///   real total was thrown away with it. A lookbehind rejects only the `total` that `sub`
     ///   actually prefixes.
+    /// SCAN-RULE-01: a *label-only* row — "TOTAL", "O T A L", "TAX" — where the amount sits on
+    /// the row below.
+    ///
+    /// Tolerating a dropped leading character (`otal`) is safe here in a way it is not on a full
+    /// line, because the row contains nothing but the label: the length guard is what makes it
+    /// safe. Corpus receipt 07 reads `O T A L`, which densifies to `otal` and so never matched
+    /// `isTotalLine`'s `(?<!sub)total`.
+    func isTotalLabel(_ text: String) -> Bool {
+        let dense = text.lowercased().filter { !$0.isWhitespace }
+        guard dense.count <= 12 else { return false }
+        if dense.contains("subtotal") || dense.contains("ubtotal") { return false }
+        return dense.contains("total") || dense.contains("otal")
+    }
+
     func isTotalLine(_ lower: String) -> Bool {
         let dense = lower.filter { !$0.isWhitespace }
         // `change due` is a different number and must not be read as the amount charged.
@@ -1028,6 +1066,20 @@ final class VisionService {
     /// Keys on **letter content**, because that is what separates a name from a measurement.
     /// Unit tokens are stripped first: `lb` reaches OCR as `1b` often enough that leaving it in
     /// would let `1.47 1b @ 3.99/1b` pass as a two-letter name.
+    /// A row carrying the till's own bookkeeping — a timestamp — rather than something bought.
+    ///
+    /// `isMeasurementOnly` cannot catch these: `Time: 05:12PM` is 50% letters, comfortably above
+    /// its 0.3 ratio, so it was reaching the corpus as an item priced `3` and `0.3` on two
+    /// different receipts. A clock time is the tight, checkable signal — no ground-truth name in
+    /// the corpus contains `HH:MM`, and no product plausibly would.
+    func isReceiptMetadata(_ name: String) -> Bool {
+        // Digit lookarounds, not `\b`: there is no word boundary between the `12` and the `PM`
+        // of `05:12PM`, so a trailing `\b` matched nothing on the exact rows this exists for.
+        guard let regex = try? NSRegularExpression(pattern: #"(?<!\d)\d{1,2}:\d{2}(?!\d)"#)
+        else { return false }
+        return regex.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) != nil
+    }
+
     func isMeasurementOnly(_ name: String) -> Bool {
         // Units are stripped only as WHOLE TOKENS. Substring matching ate real names: "Tea"
         // contains "ea", leaving one letter and suppressing a legitimate item.
@@ -1082,6 +1134,41 @@ final class VisionService {
             }
         }
         return text
+    }
+
+    /// Removes a till's own catalogue codes from an item name — the SKU or PLU some tills
+    /// print before the description, and the UPC some print after it.
+    ///
+    /// The rule is *standalone token*, not "starts with a digit", and that distinction is the
+    /// whole fix. Measured against the labelled corpus: **no** ground-truth name contains a
+    /// standalone run of 4+ digits and none ends in one, so this cannot eat a real name — while
+    /// `5PK GOGGLES` and `10GRANDOPENING`, which begin with digits *glued to letters*, are
+    /// correct as printed and are left alone.
+    func stripCatalogCode(from text: String) -> String {
+        // Order matters: the department-letter form must run before the bare digit-run form,
+        // which would otherwise strip `7113` and leave an orphaned `E`.
+        let patterns = [
+            #"^[A-Za-z]\s+\d{4,}\s+"#,      // `E 7113 LYCHEE` — department letter, then PLU
+            #"^\d{4,}\s+"#,                 // `365992 Tortilla Chips`, `1158 ORG ARUGULA`
+            #"^[A-Za-z]{1,2}\d{5,}\s+"#,     // `K982032 5PK GOGGLES` — letter-prefixed SKU
+            // `1 Coke` — a quantity of one, written out. Only `1`: at quantity one there is no
+            // arithmetic to lose, whereas stripping the `2` from `2 LITER PEPSI` would silently
+            // rewrite a product name. No corpus label starts with a standalone digit at all.
+            #"^1\s+(?=[A-Za-z])"#,
+            #"\s+\d{8,}$"#,                 // `THERMACARE 195882990040` — a trailing UPC/EAN
+        ]
+        var result = text
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            let range    = NSRange(result.startIndex..., in: result)
+            let stripped = regex.stringByReplacingMatches(in: result, range: range, withTemplate: "")
+                .trimmingCharacters(in: .whitespaces)
+            // Never strip a name down to nothing. A row that is *only* a code is rejected
+            // upstream by `isMeasurementOnly`; an empty name here would be strictly worse than
+            // the code it replaced.
+            if !stripped.isEmpty { result = stripped }
+        }
+        return result
     }
 
     func stripPrice(from text: String) -> String {

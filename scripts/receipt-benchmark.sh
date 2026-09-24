@@ -17,6 +17,5 @@ echo "Corpus: $(ls "$CORPUS/images" | wc -l | tr -d ' ') images, $(ls "$CORPUS/l
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -project xBill.xcodeproj -scheme xBill \
   -destination "id=$SIM" \
-  -only-testing:xBillTests/ReceiptBenchmark \
-
-  2>&1 | sed -n '/RECEIPT SCAN BENCHMARK/,/^$/p'
+  -only-testing:xBillTests/ReceiptBenchmark 2>&1 \
+  | sed -n '/RECEIPT SCAN BENCHMARK/,/^$/p'

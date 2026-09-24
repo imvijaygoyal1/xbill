@@ -101,7 +101,44 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 
 
 
-## Recent Fix Log — 2026-09-12 (latest) — SCAN-PERF-01 fixed: OCR is off the main actor
+## Recent Fix Log — 2026-09-23 (latest) — SCAN-RULE-01/02/03: three parser rules, 73% → 86%
+
+Step 2 of SCAN-ML-01 — **raise the rule baseline before deciding a model is needed.** All three are
+deterministic and floor-locked; item-count exactness **16/22 → 19/22**.
+
+- **SCAN-RULE-01** — a label OCR put on its own line (`TOTAL`, the letter-spaced `O T A L`,
+  `Tax 1 - 8.00 %`) was carried into the row below as a *name* and sold as an item, while its
+  amount never reached `total` or `tax`. Rows are now re-classified from the carried label as well
+  as their own text. `16 → 18`.
+- **SCAN-RULE-02** — 11 names across 8 receipts carried the till's SKU/PLU/UPC (`365992 Tortilla
+  Chips`, `THERMACARE 195882990040`, a bare leading `1 `). `stripCatalogCode(from:)` removes them.
+- **SCAN-RULE-03** — Kroger's own timestamp was an item (`Time: 05:12PM=3`). `18 → 19`.
+
+**Three things worth carrying forward, each of which cost a wrong first attempt:**
+
+1. ⚠️ **The benchmark's name metric cannot see name quality.** `ReceiptBenchmark.swift:110` matches
+   with a **two-way substring** test, so `365992 tortilla chips` already "contained" the truth
+   `tortilla chips`. SCAN-RULE-02 cleaned 11 of 11 targeted names with zero collateral damage and
+   name recall did not move off 80%. **Fix the metric before step 3 uses it to judge a classifier.**
+2. **Check the corpus before writing a rule, not after.** `stripCatalogCode` is a *standalone
+   token* rule rather than "starts with a digit" because the labels contain `5PK GOGGLES` and
+   `10GRANDOPENING`. One `grep` over the labels established that no truth name holds a standalone
+   4+ digit run — so the rule provably cannot eat a real name.
+3. **A predicate can be right and still be in the wrong place.** The timestamp guard passed its
+   unit test on a direct call while changing nothing end to end: the timestamp arrives as the
+   **carried** name, and the guard sat above the carry. The benchmark caught it; the unit test
+   could not. There is now a two-row fixture test for the carried path specifically.
+   (The regex was also wrong at first — a trailing `\b` never matches between the `12` and `PM` of
+   `05:12PM`.)
+
+Next in SCAN-ML-01: `OCRLine.alternates`. Note they are **not** unused — `VisionService.swift:867`
+already feeds them to price reconciliation (Gap 7). The gap is *names*: nothing reconsiders a name
+against its alternates, which is precisely where the OCR misreads (`SMARIWATER`, `Sulata`/`Sujata`)
+live. Then step 3's per-line labels.
+
+---
+
+## Recent Fix Log — 2026-09-12 — SCAN-PERF-01 fixed: OCR is off the main actor
 
 `recognizeText`, `preprocessForOCR` and `preferredRecognitionLanguages` are `nonisolated`, so the
 blocking `VNImageRequestHandler.perform` runs on the cooperative pool instead of the main actor.
