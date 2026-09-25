@@ -1787,6 +1787,55 @@ this fix was worth **+25 points of name recall (0.56 → 0.81)**.
 
 ---
 
+## SCAN-RULE-05 — Vision splits a price in two, and each half pairs with a different item ✅ fixed 2026-09-24
+
+On a faded receipt Vision stops reading an amount as one unit and emits the dollars and the cents
+as **separate observations**. Their `midY` values then interleave across adjacent lines — on corpus
+receipt 12, `49` sits at 0.2942 and its own `F $15.` at 0.2950, so the cents sort *above* the
+dollars — and `groupIntoRows` files the two halves in different rows, pairing each with the wrong
+name.
+
+**The failure is silent, which is what makes it dangerous.** A verified `15.49` became `4.49` and a
+`4.00` became `2.49`. Each wrong figure is a perfectly plausible amount, so nothing downstream can
+flag it; only the labelled corpus shows it at all.
+
+`mergeSplitPrices(_:)` rejoins them before grouping. Deliberately narrow: the left part must **end**
+in a decimal separator, the right part must be **exactly two digits** (a trailing tax flag such as
+`Tx1` may ride along), it must sit to the right, and within half a line height. A complete amount
+like `F $1.99` ends in a digit and is never touched.
+
+⚠️ **It must be two passes.** A single in-order pass emits the cents fragment before reaching the
+dollars fragment that should absorb it — Vision often returns `49` *before* its own `F $15.` — so
+the fragment came out twice. Caught by test, not by reading.
+
+### What it actually bought, and the more useful finding
+
+Receipt 12 price recall **38% → 43%**. Corpus totals unchanged (price 94%, name 86%, item-exact
+19/22), no regression. Kept because a price read as the *wrong plausible amount* is the worst defect
+class in a money app, and this is a correct, tested fix for it.
+
+**But it did not unlock receipt 12, and the reason matters more than the fix.** Measuring the two
+columns independently:
+
+- Skew was the obvious hypothesis and it is **wrong** — the name/price offset is +0.0016 with
+  stdev 0.0020 against a ~0.010 line pitch, and does not grow down the page. ⚠️ The first
+  measurement that *appeared* to confirm skew was circular: it compared lines *within* rows that
+  grouping had already assigned. Compare the columns independently or the answer is guaranteed.
+- **Four of the 21 prices were never recognised at all** — `Swad Andra Peanuts 3.5LB`,
+  `Swad Moong Dal 4LB`, `Maggi 560g`, `SNACKS` have no price observation anywhere near them. That
+  is a capture limit on a faded receipt. No parser recovers a number Vision never read, and
+  `alternates` cannot either: there is no observation to hold an alternative.
+
+### Bearing on SCAN-ML-01
+
+**A line classifier would not fix receipt 12.** Its residual failure is fragment geometry and
+missing observations, not misclassified lines. That is direct evidence for step 4, and it argues
+that the corpus's weakest receipts are limited by *capture*, not by the decision the model would
+make. Worth weighing before committing to the model — and an argument for image-quality work
+(deskew, contrast, multi-shot) ranking above it.
+
+---
+
 ## SCAN-RULE-04 — OCR's stray space hid a price, and the price stayed in the name ✅ fixed 2026-09-24
 
 Vision returns `6. 99` for Kroger's tight line spacing. Neither `extractDecimal` nor `stripPrice`

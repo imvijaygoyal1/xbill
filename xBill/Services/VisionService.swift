@@ -151,7 +151,7 @@ final class VisionService {
         // height, which is the thing that actually determines line spacing. Heights were already
         // compressed by `pageCount` above, so multi-page stacking is handled without a separate
         // adjustment here.
-        let rows    = groupIntoRows(allLines)
+        let rows    = groupIntoRows(mergeSplitPrices(allLines))
         let ocrText      = rows.map { $0.map(\.text).joined(separator: " ") }.joined(separator: "\n")
 
         let txDate       = extractTransactionDate(from: ocrText)
@@ -435,7 +435,9 @@ final class VisionService {
     /// caller's actor, so the blocking `perform` now occupies a pool thread instead of the one
     /// drawing the UI. Everything it touches is actor-free: `Self.ciContext` (a `CIContext`, thread
     /// safe and reused), `Self.receiptCustomWords` (a `static let`), and `Locale.preferredLanguages`.
-    nonisolated private func recognizeText(in image: UIImage) async throws -> [OCRLine] {
+    /// Internal, not private, so diagnostics can see the rows Vision actually returned. Every
+    /// other pure step of the pipeline is already reachable for the same reason.
+    nonisolated func recognizeText(in image: UIImage) async throws -> [OCRLine] {
         // Gap 1: preprocess before extracting cgImage for OCR
         let processed = preprocessForOCR(image)
         guard let cgImage = processed.cgImage else {
@@ -592,6 +594,71 @@ final class VisionService {
 
     /// - Parameter threshold: pass `nil` (the default) to derive it from the text height. An
     ///   explicit value still wins, so callers that know better can say so.
+    /// Rejoins a price Vision returned as two observations — `F $15.` and `49` — into one line.
+    ///
+    /// SCAN-RULE-05. On a faded receipt Vision stops reading the amount as a single unit and
+    /// emits the dollars and the cents separately. Their `midY` values then **interleave across
+    /// adjacent receipt lines** (`49` at 0.2942 sorts *above* its own `F $15.` at 0.2950), so
+    /// `groupIntoRows` puts the two halves in different rows and pairs each with the wrong name.
+    ///
+    /// On corpus receipt 12 that turned a verified `15.49` into `4.49` and `4.00` into `2.49` —
+    /// silently, because each half is a perfectly plausible amount on its own.
+    ///
+    /// Deliberately narrow. A fragment only merges when the left part **ends** in a decimal
+    /// separator, the right part is **exactly two digits** (optionally followed by a tax flag such
+    /// as `Tx1`), it sits to the right, and it is within half a line height vertically. A complete
+    /// amount such as `F $1.99` ends in a digit and is never touched.
+    func mergeSplitPrices(_ lines: [OCRLine]) -> [OCRLine] {
+        let dollarsPattern = #"[\$£€₹¥￥₩]?\s*\d{1,6}[.,]\s*$"#
+        let centsPattern   = #"^\d{2}(?![\d.,])"#
+        guard let dollarsRE = try? NSRegularExpression(pattern: dollarsPattern),
+              let centsRE   = try? NSRegularExpression(pattern: centsPattern) else { return lines }
+
+        func matches(_ re: NSRegularExpression, _ text: String) -> Bool {
+            re.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+        }
+
+        // Half a line height, measured the same way `groupIntoRows` derives its own threshold, so
+        // the two passes agree about what "the same line" means.
+        let heights = lines.map(\.height).filter { $0 > 0 }.sorted()
+        let median  = heights.isEmpty ? 0.012 : heights[heights.count / 2]
+        let window  = median / 2
+
+        // TWO passes, and that is not incidental. A single in-order pass emits the cents
+        // fragment before it reaches the dollars fragment that should absorb it — Vision often
+        // returns `49` *before* its own `F $15.` — so the fragment came out twice.
+        var mergedInto  = [Int: Int]()   // dollars index -> cents index
+        var consumed    = Set<Int>()
+        for (i, line) in lines.enumerated() {
+            guard matches(dollarsRE, line.text) else { continue }
+            var bestIdx: Int?
+            var bestDy  = CGFloat.greatestFiniteMagnitude
+            for (j, other) in lines.enumerated()
+            where j != i && !consumed.contains(j) && other.midX > line.midX {
+                let dy = abs(other.midY - line.midY)
+                guard dy <= window, matches(centsRE, other.text), dy < bestDy else { continue }
+                bestDy = dy; bestIdx = j
+            }
+            if let bestIdx {
+                mergedInto[i] = bestIdx
+                consumed.insert(bestIdx)
+            }
+        }
+
+        var out: [OCRLine] = []
+        for (i, line) in lines.enumerated() where !consumed.contains(i) {
+            guard let centsIdx = mergedInto[i] else { out.append(line); continue }
+            let cents = lines[centsIdx]
+            out.append(OCRLine(text: line.text.trimmingCharacters(in: .whitespaces) + cents.text,
+                               midX: line.midX,
+                               midY: line.midY,
+                               height: line.height,
+                               confidence: min(line.confidence, cents.confidence),
+                               alternates: line.alternates + cents.alternates))
+        }
+        return out
+    }
+
     func groupIntoRows(_ lines: [OCRLine], threshold: CGFloat? = nil) -> [[OCRLine]] {
         let threshold = threshold ?? derivedRowThreshold(lines) ?? Self.fixedRowThreshold
         let sorted = lines.sorted { $0.midY < $1.midY }

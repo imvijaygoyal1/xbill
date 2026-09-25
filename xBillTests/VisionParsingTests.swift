@@ -309,6 +309,83 @@ struct VisionParsingTests {
         #expect(service.stripCatalogCode(from: "195882990040") == "195882990040")
     }
 
+    // MARK: - mergeSplitPrices (SCAN-RULE-05)
+
+    private func priceLine(_ text: String, x: CGFloat, y: CGFloat) -> OCRLine {
+        OCRLine(text: text, midX: x, midY: y, height: 0.012, confidence: 0.9)
+    }
+
+    /// Receipt 12, the exact geometry. `49` sits at a *lower* y than its own `F $15.`, so grouping
+    /// put the halves in different rows and gave Laxmi the 4.49 belonging to the line below —
+    /// silently, because 4.49 is a perfectly plausible amount.
+    @Test("A price split into dollars and cents is rejoined")
+    func splitPriceIsRejoined() {
+        let lines = [
+            priceLine("Laxmi Green Cardamom 200g", x: 0.30, y: 0.2989),
+            priceLine("49",     x: 0.83, y: 0.2942),
+            priceLine("F $15.", x: 0.74, y: 0.2950),
+        ]
+        let merged = service.mergeSplitPrices(lines)
+        #expect(merged.count == 2, "got \(merged.map(\.text))")
+        #expect(merged.contains { $0.text.contains("15.49") }, "got \(merged.map(\.text))")
+    }
+
+    /// A complete amount ends in a digit, so it must never absorb its neighbour. Without this the
+    /// pass would happily glue two adjacent prices together.
+    @Test("A complete price is never merged with the next one")
+    func completePriceIsUntouched() {
+        let lines = [
+            priceLine("F $1.99", x: 0.77, y: 0.1925),
+            priceLine("F $21.99", x: 0.76, y: 0.2025),
+        ]
+        #expect(service.mergeSplitPrices(lines).count == 2)
+    }
+
+    /// The fragment must be to the RIGHT and vertically close. A cents-looking token from another
+    /// column, or from two lines away, is not part of this price.
+    @Test("Only a near, right-hand fragment is absorbed")
+    func onlyNearRightFragmentMerges() {
+        let farBelow = [
+            priceLine("F $15.", x: 0.74, y: 0.2950),
+            priceLine("49",     x: 0.83, y: 0.3400),   // a whole line away
+        ]
+        #expect(service.mergeSplitPrices(farBelow).count == 2)
+
+        let toTheLeft = [
+            priceLine("F $15.", x: 0.74, y: 0.2950),
+            priceLine("49",     x: 0.30, y: 0.2950),   // left column
+        ]
+        #expect(service.mergeSplitPrices(toTheLeft).count == 2)
+    }
+
+    /// Patel Brothers prints a tax flag after the amount. The cents fragment carries it.
+    @Test("A trailing tax flag rides along with the cents")
+    func taxFlagRidesAlong() {
+        let lines = [
+            priceLine("$4.",      x: 0.76, y: 0.4175),
+            priceLine("99 Tx1",   x: 0.86, y: 0.4150),
+        ]
+        let merged = service.mergeSplitPrices(lines)
+        #expect(merged.count == 1)
+        #expect(service.extractDecimal(from: merged[0].text) == Decimal(string: "4.99"))
+    }
+
+    /// One fragment cannot be spent twice — two split prices on neighbouring lines must resolve to
+    /// two distinct amounts, not both claim the nearest cents.
+    @Test("A cents fragment is consumed by only one price")
+    func fragmentIsConsumedOnce() {
+        let lines = [
+            priceLine("F $15.", x: 0.74, y: 0.2950),
+            priceLine("49",     x: 0.83, y: 0.2942),
+            priceLine("$4.",    x: 0.77, y: 0.3033),
+            priceLine("00",     x: 0.83, y: 0.3042),
+        ]
+        let merged = service.mergeSplitPrices(lines).map(\.text)
+        #expect(merged.count == 2, "got \(merged)")
+        #expect(merged.contains { $0.contains("15.49") }, "got \(merged)")
+        #expect(merged.contains { $0.contains("4.00") }, "got \(merged)")
+    }
+
     // MARK: - SCAN-RULE-04
 
     /// Kroger prints `WT` before anything sold by weight. Note `SWT` (sweet) sits in the very same

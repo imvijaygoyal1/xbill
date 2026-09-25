@@ -101,7 +101,43 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 
 
 
-## Recent Fix Log — 2026-09-24 (latest, later) — SCAN-RULE-04: a stray space hid a price
+## Recent Fix Log — 2026-09-24 (latest) — SCAN-RULE-05, and why receipt 12 stays broken
+
+On a faded receipt Vision emits the dollars and the cents of one amount as **separate
+observations**, and their `midY` interleaves across adjacent lines (`49` at 0.2942 sorts *above* its
+own `F $15.` at 0.2950). `groupIntoRows` then files the halves in different rows and pairs each with
+the wrong name — turning a verified `15.49` into `4.49`. **Silent**, because every wrong figure is a
+plausible amount. `mergeSplitPrices(_:)` rejoins them before grouping.
+
+⚠️ **Two passes, not one.** A single in-order pass emits the cents fragment before reaching the
+dollars fragment that should absorb it, so it comes out twice. Caught by test, not by reading.
+
+### The investigation is worth more than the fix
+
+Receipt 12 (Patel Brothers, the corpus's acknowledged hardest) went 38% → 43% price recall and the
+corpus totals did not move. Digging into why:
+
+- **Skew was the obvious hypothesis and it is wrong.** Name/price offset is +0.0016, stdev 0.0020,
+  against a ~0.010 line pitch, and it does not grow down the page.
+- ☠️ **My first measurement "confirmed" skew and was circular** — it compared lines *within* rows
+  that grouping had already assigned, so they were close by construction. **Compare the columns
+  independently**, or the answer is guaranteed before you start.
+- **Four of the 21 prices were never recognised at all.** `Swad Andra Peanuts 3.5LB`,
+  `Swad Moong Dal 4LB`, `Maggi 560g`, `SNACKS` have no price observation anywhere near them. That
+  is a capture limit, not a parsing one — and `alternates` cannot help either, because there is no
+  observation to hold an alternative.
+
+**Bearing on the model:** a line classifier would not fix receipt 12. Its residual failure is
+fragment geometry and missing observations, not misclassified lines. The corpus's weakest receipts
+are limited by **capture**, which argues image-quality work (deskew, contrast, multi-shot) ranks
+above the classifier. Weigh this at SCAN-ML-01 step 4.
+
+`recognizeText` is now internal rather than private so this diagnosis can be repeated; the
+throwaway dump test was deleted.
+
+---
+
+## Recent Fix Log — 2026-09-24 — SCAN-RULE-04: a stray space hid a price
 
 Vision returns `6. 99` for Kroger's tight line spacing. Neither `extractDecimal` nor `stripPrice`
 tolerated a space around the separator, so the amount was **neither read as the price nor stripped
