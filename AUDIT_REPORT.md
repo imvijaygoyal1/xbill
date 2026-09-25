@@ -715,7 +715,7 @@ together, in that order.
 | **Fix** | `deliver()` retries the other environment on `BadDeviceToken`. Success delivers the push **and** corrects `device_tokens.environment` in place, so every row that predates 048 self-heals on its next notification instead of waiting for that device to update. Rejection on both hosts reports `BadDeviceToken(both:<reason>)`, which rules the environment out rather than blaming it. The send report is now logged permanently. |
 | **Verification** | The owner's row flipped `production` → `sandbox` — a write that only occurs on a successful retry — and the owner confirmed the notification on the device. `scripts/check-apns-routing.sh` extended to require `deliver()` by name and mutation-tested against a function bypassing it. |
 
-## PUSH-03 — a second device silently unregisters the first (2026-08-25, found not fixed)
+## PUSH-03 — a second device silently unregisters the first ✅ fixed 2026-08-25
 
 | Field | Value |
 |---|---|
@@ -845,6 +845,27 @@ icon components, and the App Icon asset. **Nothing fixed — this is the finding
 | ICON-01 | `xBill/DesignSystem/Components/XBillVisualAssets.swift:177` vs `xBill/Models/Expense.swift:75` | **Three category-icon vocabularies exist and the fixed one is not the one that ships.** `Expense.Category.symbolName` (DesignSystem) is what `XBillCategoryIcon` renders, and it reaches four everyday surfaces — expense rows, notification rows, Add Expense category chips, Group Details filter chips. `Expense.Category.systemImage` (Models) is rendered from **one** place, `ReceiptReviewView.swift:243`. Commit `1eed83e` (2026-08-16) — *"Fix three colliding or misleading category icons"* — landed on `systemImage`, so the defects it fixed are **still live everywhere users actually look**: `symbolName` still maps `.accommodation → "house.fill"`, which is the Home tab's glyph (`MainTabView.swift:40`) — the exact collision `Expense.swift:79` carries a comment forbidding. It also uses `"sparkles"` for `.other`, which since iOS 18 reads as Apple Intelligence, and narrows `.transport` to `"airplane"` and `.entertainment` to `"popcorn.fill"`. A third vocabulary, `Expense.Category.emoji` (`CategoryIconView.swift:11`), is **dead** — zero call sites. `NATIVE_PATTERNS.md:159` documents a **fourth** table (`car.fill`, `theatermasks.fill`, `cross.fill`, `ellipsis.circle.fill`) matching none of them. | ✅ Fixed | Delete `symbolName` and `emoji`; point `XBillCategoryIcon` at `Expense.Category.systemImage`, the one with the reasoning in comments. Then correct `NATIVE_PATTERNS.md:159` to match, or delete that table and cite the enum. One vocabulary, defined next to the model it describes. |
 | ICON-02 | `XBillVisualAssets.swift:113` | **Every category icon fails the 3:1 non-text contrast minimum in dark mode.** The glyph is hardcoded `.foregroundStyle(AppColors.primary)` (`#6C35FF`) over `category.categoryBackground.opacity(0.9)` — but the `Cat*` colorsets carry **dark appearance variants** that go dark while the glyph does not move. Computed ratios: `.accommodation` **2.47:1**, `.transport` **2.41:1**, `.food` **2.47:1** — the whole set lands 2.4–2.5:1. Light mode is fine (≈5.1:1) because those variants are pale tints, which is why this reads as correct in every screenshot taken in light mode. | ✅ Fixed | Derive the glyph colour from the swatch instead of pinning it: either a per-category foreground token beside each `Cat*` colorset, or `AppColors.textPrimary` over the tint. Verify by computing the ratio in both appearances, not by looking at it. |
 | ICON-03 ⬜ | `xBill/Assets.xcassets/AppIcon.appiconset/Contents.json` | **CONFIRMED 2026-09-11, see the note below the table.** **No dark or tinted app-icon variants**, and no Icon Composer `.icon`. `grep -c appearances` → **0**. On iOS 18+ the home screen's Dark and Tinted modes fall back to the light artwork; on iOS 26 the icon gets none of the Liquid Glass layering. The art is a white receipt on `#3B3287` — high-contrast in light mode and conspicuously wrong beside tinted neighbours. | ⬜ Open | Add `luminosity: dark` and `tinted` entries. For iOS 26, rebuild as an Icon Composer `.icon` with separated layers (card, ruled lines, avatar row) so the system composes all four appearances from one source. |
+
+**Attempted and reverted 2026-09-25 — read this before trying again.** Dark and tinted variants
+were generated from `Icon-1024.png` (transparency-keyed for dark, grayscale for tinted), rendered
+flat at 60pt and 40pt, and both read clearly. Two things then stopped it:
+
+1. **The legacy per-size format silently ignores appearance entries.** Adding `appearances` blocks
+   alongside the existing per-size images built cleanly and produced **nothing** — the compiled
+   `Assets.car` still held only `any/light`. The JSON said two appearances; the artifact said none.
+2. **Converting to the modern single-size universal form made it worse**, not better: the compiled
+   catalog then carried only a 1024 entry, the generated per-size icons were gone, and the
+   appearances *still* did not appear.
+
+⚠️ **`xcrun assetutil --info` does not emit a `Luminosity` key on this toolchain** — **no** asset in
+the whole catalog reports one, including existing dark-mode colours. So the check above is
+**inconclusive**, not proof of failure. It cannot be used to verify this work.
+
+**What a real attempt needs:** a verification method that actually observes the appearance — the
+icon inspected on a device with Dark and Tinted home screens, or an Icon Composer `.icon` whose
+output can be checked directly — plus a deliberate decision about dropping the per-size PNGs.
+This is visible branding immediately before a release, so it was reverted rather than shipped on
+an unverifiable change.
 | ICON-04 | `xBill/Assets.xcassets/AppIcon.appiconset/Icon-1024.png` | **The artwork carries more detail than the size it is used at can render.** At the 60pt home-screen size the receipt is ≈26pt wide, its four ruled lines are sub-pixel, and the three avatar circles hold two-letter initials (`AL`/`MR`/`JT`) that resolve to smudges. Legible only at 1024. | ⬜ Open | Reduce to one idea that survives 60pt — the receipt card with a single fold, or the split chevron alone. Check by rendering to 60×60 and 40×40 and looking at those, not at the 1024. |
 | ICON-05 | `Assets/` (repo root) | **A second, divergent, dead App Icon set.** `project.yml:41` bundles only `xBill/**/*.xcassets`, so this copy ships nowhere — but all 15 PNGs **differ** from the shipping set, and this copy has **corner radii baked into the artwork**, which iOS would mask a second time. It also holds two files the real set lacks (`Icon-20@1x`, `Icon-40@1x`). An edit here changes nothing and looks like it worked. | ✅ Fixed | Delete `Assets/`. While there: the shipping set is the legacy 15-size list; since Xcode 14 a single 1024 `universal` entry is enough, and collapsing it removes 14 files that can drift. |
 | ICON-06 | app-wide | **`symbolRenderingMode` is used zero times; `symbolVariant` zero; `imageScale` zero.** `NATIVE_PATTERNS.md:134` requires hierarchical or palette rendering and `:157` requires `.symbolVariant(.fill)` on selected state — neither rule is applied anywhere. Every symbol renders flat monochrome, so multi-layer glyphs (`bell.badge.fill`, `person.badge.plus.fill`, `envelope.badge.fill`) lose the depth cue their badge layer exists to provide. Separately, **17** symbols are sized with fixed `.font(.system(size:))` against **12** on text styles; the fixed ones do not scale with Dynamic Type. Two are 13pt inline icons sitting beside scaling `Text` (`ForgotPasswordView.swift:89`, `:226`), so they shrink relative to their own label as the user enlarges type. | 🟡 Partly fixed | Apply `.symbolRenderingMode(.hierarchical)` at the component level (`XBillActionRow`, `XBillNotificationRow`, `XBillSettingsRow`) rather than per call site. Move the two inline 13pt icons to `.font(.xbillCaption)`; leave the large decorative hero glyphs fixed. |
@@ -907,7 +928,18 @@ defect — Supabase grants `anon` EXECUTE explicitly on every new function in `p
 | `handle_new_user`, `set_group_member_snapshot` | yes | trigger functions |
 | `add_or_reactivate_group_member`, `deactivate_group_member` | yes | explicit `auth.uid() IS NULL` RAISE |
 | `create_recurring_expense_instance` | **no** | ✅ **checked here.** Uses `auth.uid()` *nowhere*, which looks alarming, but its `UPDATE … WHERE public.is_group_member(group_id)` matches zero rows for an anonymous caller and it returns NULL at `IF NOT FOUND`. **Fails closed.** |
-| `add_expense_with_splits`, `block_user`, `create_group_with_member`, `respond_to_friend_request`, `send_friend_request` | **no** | ⬜ **NOT verified.** All five reference `auth.uid()` and none has an explicit `auth.uid() IS NULL` guard. Probably fail closed the way the others do — but "probably" is exactly the word that preceded `SECDEF-01`. |
+| `block_user`, `send_friend_request` (038), `create_group_with_member` (024) | **no** | ✅ **Verified 2026-09-25 by reading the definitions.** All three open with an explicit `IF <caller> IS NULL THEN RAISE EXCEPTION`. The blanket claim below that "none has an explicit guard" was **wrong for these three** — they were the best case, not the worst. |
+| `add_expense_with_splits` | **no** | ✅ **Closed by migration 055** as `SECDEF-03`. The old `auth.uid() <> p_paid_by` was **inert** for an anonymous caller (`NULL <> uuid` → NULL, never TRUE), so only the membership check stopped an unauthenticated write. 055 replaces it with an explicit NULL check. |
+| `respond_to_friend_request` | **no** | ✅ **Closed by migration 056.** It had no guard at all and survived only because `addressee_id = auth.uid()` is NULL for an anonymous caller — PostgREST answered **204 No Content**, i.e. success, to a caller with no identity. 056 adds the explicit guard and revokes `anon` EXECUTE by name. |
+
+⚠️ **This table said "⬜ NOT verified — none has an explicit guard" for all five until 2026-09-25.
+It was stale in both directions**: three already had the strongest possible guard, and the other two
+had been fixed by migrations 055 and 056. Re-read the definitions before quoting a verdict here.
+
+**Still worth confirming at release time:** migrations 056–058 are *written*; 059 is recorded as
+deployed and Supabase applies in order, so they are almost certainly live — but the runbook's
+`migrations local = remote` check is what proves it, and "almost certainly" is the word this very
+section warns about.
 
 **Not a 1.6 blocker** — nothing here is newly introduced, and no exploit is demonstrated. But the
 last five deserve the same treatment the first eight got, and the pattern is now familiar enough to
@@ -1374,7 +1406,7 @@ un-triggered — which is exactly the state FLAKE-02 was in until it triggered.
   nothing dialled out. They take fakes now. (Their formatting was also mangled by the FLAKE-02
   script and is repaired.)
 
-### HOME-01 — `HomeViewModel` has no injection seams and no tests ⚠️ open
+### HOME-01 — `HomeViewModel` has no injection seams and no tests ✅ superseded — see the closed HOME-01 section below
 
 `HomeViewModel` has **no `init`**. It hard-wires `GroupService.shared`, `ExpenseService.shared` and
 `AuthService.shared` as stored properties, and **no test in the target constructs it**. `loadAll` —
