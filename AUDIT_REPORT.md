@@ -1787,6 +1787,51 @@ this fix was worth **+25 points of name recall (0.56 → 0.81)**.
 
 ---
 
+## SCAN-RULE-04 — OCR's stray space hid a price, and the price stayed in the name ✅ fixed 2026-09-24
+
+Vision returns `6. 99` for Kroger's tight line spacing. Neither `extractDecimal` nor `stripPrice`
+tolerated a space around the decimal separator, so on that row the amount was **neither read as the
+price nor stripped from the name**: the item was named `BFR PINEAPPLE COCO 6. 99 F` and billed
+**3.00** — a figure picked up from a neighbouring row. A money bug, not a cosmetic one.
+
+Also fixed here: Kroger's `WT` weight-sold marker (`WT BANANAS` → `BANANAS`), a whole-token rule so
+that `SWT` in the very same name survives. No corpus label uses `WT` as a word.
+
+### The two-sided trap, which cost two attempts
+
+The space tolerance interacts with SCAN-09's **optional** integer part, and both directions break a
+real receipt:
+
+| attempt | pattern | what broke |
+|---|---|---|
+| allow the space everywhere | `(?:\d{1,6})?\s?[.,]\s?\d{2}` | `450 W. 33rd Street` read as **0.33** — Starbucks grew a third item out of its own shop address. Item-count exact **19 → 18**. |
+| forbid the space without an integer part | `(?:\d{1,6}\s?[.,]\s?\d{2})\|(?:[.,]\d{2})` | CVS prints its bottle deposit `. 05` **spaced**; the line vanished. Price recall **94 → 93**. |
+| ✅ shipped | `…\|(?:(?<![A-Za-z])[.,]\s?\d{2})` | neither |
+
+**The distinguishing feature is not the space — it is that `W.` is a letter abbreviation.** A
+lookbehind for a letter separates the two cases and keeps both receipts.
+
+### Effect
+
+| metric | before | after |
+|---|---|---|
+| Price recall | 90% | **94%** |
+| Name recall | 81% | **86%** |
+| Item count exact | 19/22 | 19/22 (no regression) |
+
+Per receipt: Kroger 01 **6/10 → 8/10 items**, price 40 → 70%, name 30 → 60%, and
+`BFR PINEAPPLE COCO` now correctly priced 6.99; Kroger 11 name 50 → 100%; ALDI 07 price 89 → 100%;
+Patel Brothers 12 **8/21 → 12/21**; CVS 19 3/6 → 4/6. Floors raised: price 0.87 → 0.91, name
+0.78 → 0.83. Deterministic across two runs.
+
+⚠️ **`alternates` was the announced next step and the corpus said otherwise.** Reading the
+parsed-vs-expected evidence first showed only two or three names in 22 receipts actually need OCR
+alternates (`Sulata`/`Sujata`, `SMARIWATER`/`SMARTWATER`); the rest of the sub-threshold names were
+rule-fixable junk, and the largest single loss is **rows dropped entirely** — 13 on receipt 12,
+2 on receipt 01, 2 on 19. Row loss is the next thing worth attacking, not name polish.
+
+---
+
 ## SCAN-METRIC-01 — the benchmark's name metric could not see its own subject ✅ fixed 2026-09-24
 
 **The instrument was broken, and because it was trusted that was worse than having no instrument.**

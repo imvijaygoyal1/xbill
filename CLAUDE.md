@@ -101,7 +101,42 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 
 
 
-## Recent Fix Log — 2026-09-24 (latest) — SCAN-METRIC-01: the benchmark could not see its own subject
+## Recent Fix Log — 2026-09-24 (latest, later) — SCAN-RULE-04: a stray space hid a price
+
+Vision returns `6. 99` for Kroger's tight line spacing. Neither `extractDecimal` nor `stripPrice`
+tolerated a space around the separator, so the amount was **neither read as the price nor stripped
+from the name**: the item read `BFR PINEAPPLE COCO 6. 99 F` and was billed **3.00**, a figure taken
+from a neighbouring row. Money, not cosmetics. Also: Kroger's `WT` weight marker (`WT BANANAS` →
+`BANANAS`), whole-token so `SWT` in the same name survives.
+
+| metric | before | after |
+|---|---|---|
+| Price recall | 90% | **94%** |
+| Name recall | 81% | **86%** |
+| Item count exact | 19/22 | 19/22 |
+
+⚠️ **The two-sided trap, which cost two attempts — read this before touching the money regex.**
+The space tolerance interacts with SCAN-09's *optional* integer part, and both obvious fixes break
+a real receipt:
+
+- Allow the space everywhere → `450 W. 33rd Street` reads as **0.33**, and Starbucks grows a third
+  item out of its own shop address. Item-exact 19 → 18.
+- Forbid the space when there is no integer part → CVS prints its bottle deposit `. 05` **spaced**
+  and the line vanishes. Price recall 94 → 93.
+
+**The distinguishing feature is not the space; it is that `W.` is a letter abbreviation.** Shipped
+form uses a lookbehind: `(?:\d{1,6}\s?[.,]\s?\d{2})|(?:(?<![A-Za-z])[.,]\s?\d{2})`. Both receipts
+have tests.
+
+⚠️ **`alternates` was the announced next step and the corpus overruled it.** Reading the
+parsed-vs-expected evidence first showed only two or three names in 22 receipts genuinely need OCR
+alternates (`Sulata`/`Sujata`, `SMARIWATER`/`SMARTWATER`); the rest of the sub-threshold names were
+rule-fixable junk. **The largest single loss is rows dropped entirely** — 13 on receipt 12, plus 2
+each on 01 and 19. Row loss, not name polish, is the next thing worth attacking.
+
+---
+
+## Recent Fix Log — 2026-09-24 — SCAN-METRIC-01: the benchmark could not see its own subject
 
 **The measuring instrument was broken, and being trusted made that worse than having none.**
 

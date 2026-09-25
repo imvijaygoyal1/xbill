@@ -350,12 +350,12 @@ private enum Floor {
     static let totalsOK       = 20      // of 22 — deterministic 21
     static let taxesOK        = 19      // of 22 — deterministic 20
     static let itemCountExact = 18      // of 22 — deterministic 19 since SCAN-RULE-03
-    static let priceRecall    = 0.87    // deterministic 0.90
+    static let priceRecall    = 0.91    // deterministic 0.94 since SCAN-RULE-04
     /// ⚠️ NOT comparable with any name figure from before 2026-09-24. The metric changed that day
     /// from a substring test to edit distance (see `score`), so this floor was re-baselined rather
     /// than raised. Under the new metric the same corpus read **0.56 before SCAN-RULE-02 and 0.81
     /// after** — the improvement the old metric reported as exactly zero.
-    static let nameRecall     = 0.78    // deterministic 0.81
+    static let nameRecall     = 0.83    // deterministic 0.86 since SCAN-RULE-04
     /// The pipeline throwing on a real receipt is never acceptable, and has never happened, so
     /// this one is absolute rather than a floor with slack.
     static let maxRefused     = 0

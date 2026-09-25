@@ -309,6 +309,63 @@ struct VisionParsingTests {
         #expect(service.stripCatalogCode(from: "195882990040") == "195882990040")
     }
 
+    // MARK: - SCAN-RULE-04
+
+    /// Kroger prints `WT` before anything sold by weight. Note `SWT` (sweet) sits in the very same
+    /// name, which is why this is a whole-token rule.
+    @Test("A weight-sold marker is removed without touching a similar word")
+    func weightMarkerIsRemoved() {
+        #expect(service.stripCatalogCode(from: "WT BANANAS") == "BANANAS")
+        #expect(service.stripCatalogCode(from: "WT POTATO SWT ORANGE") == "POTATO SWT ORANGE")
+        #expect(service.stripCatalogCode(from: "WTF SAUCE") == "WTF SAUCE",
+                "glued, so not the marker")
+    }
+
+    /// OCR returns `6. 99` for Kroger's tight line spacing. Before this, the pattern matched
+    /// nothing on that row: the amount was neither read as the price nor stripped from the name,
+    /// and the item was billed **3.00 instead of 6.99** from a neighbouring row's figure.
+    @Test("A price with OCR's stray space is read, and read correctly")
+    func decimalWithStraySpaceIsRead() {
+        #expect(service.extractDecimal(from: "BFR PINEAPPLE COCO 6. 99 F") == Decimal(string: "6.99"))
+        #expect(service.extractDecimal(from: "ITEM 12 . 50") == Decimal(string: "12.50"))
+        #expect(service.extractDecimal(from: "ITEM 4.99") == Decimal(string: "4.99"))
+    }
+
+    /// If only `extractDecimal` widened, the price would be read and then left glued to the name —
+    /// exactly the defect SCAN-RULE-02 exists to remove. The two patterns must move together.
+    @Test("A price with a stray space is also stripped from the name")
+    func decimalWithStraySpaceIsStripped() {
+        #expect(service.stripPrice(from: "BFR PINEAPPLE COCO 6. 99").trimmingCharacters(in: .whitespaces)
+                == "BFR PINEAPPLE COCO")
+    }
+
+    /// The regression the first version of SCAN-RULE-04 caused, kept as a test. Tolerating the
+    /// stray space alongside SCAN-09's *optional* integer part made `W. 33rd` read as `.33`, and
+    /// Starbucks grew a third item out of its own shop address.
+    @Test("A street address is not a price")
+    func streetAddressIsNotAPrice() {
+        #expect(service.extractDecimal(from: "450 W. 33rd Street") == nil)
+        #expect(service.extractDecimal(from: "1200 N. 45th Ave") == nil)
+    }
+
+    /// The no-integer form is still needed — CVS prints its bottle deposit as `.05`, and OCR
+    /// returns it spaced. The first attempt at the address fix refused the space here too and
+    /// silently dropped that line, costing a point of price recall. Both forms must work.
+    @Test("A sub-unit amount with no leading zero is still read, spaced or not")
+    func subUnitAmountStillRead() {
+        #expect(service.extractDecimal(from: "BOTTLE DEPOSIT .05") == Decimal(string: "0.05"))
+        #expect(service.extractDecimal(from: "BOTTLE DEPOSIT . 05") == Decimal(string: "0.05"),
+                "OCR spaces this; refusing it dropped the line from receipt 19 entirely")
+    }
+
+    /// The widened pattern must not start reading percentages or three-decimal rates as money —
+    /// SCAN-10 was exactly that bug and its guards have to survive.
+    @Test("Widening for stray spaces does not reopen SCAN-10")
+    func rateIsStillNotAnAmount() {
+        #expect(service.extractDecimal(from: "NY 8.875% TAX  .89") == Decimal(string: "0.89"))
+        #expect(service.extractDecimal(from: "Tax 1 - 8.00 %") == nil)
+    }
+
     // MARK: - isReceiptMetadata (SCAN-RULE-03)
 
     /// These two reached the corpus as items priced `3` and `0.3`. `isMeasurementOnly` cannot

@@ -1155,6 +1155,10 @@ final class VisionService {
             // arithmetic to lose, whereas stripping the `2` from `2 LITER PEPSI` would silently
             // rewrite a product name. No corpus label starts with a standalone digit at all.
             #"^1\s+(?=[A-Za-z])"#,
+            // `WT BANANAS`, `WT POTATO SWT ORANGE` — Kroger's weight-sold marker, not part of the
+            // name. Whole token only, so `SWT` (sweet) in the very same name survives. No corpus
+            // label uses `WT` as a word anywhere.
+            #"^[Ww][Tt]\s+(?=\S)"#,
             #"\s+\d{8,}$"#,                 // `THERMACARE 195882990040` — a trailing UPC/EAN
         ]
         var result = text
@@ -1174,7 +1178,10 @@ final class VisionService {
     func stripPrice(from text: String) -> String {
         // Character class kept identical to `extractDecimal`'s. When it was narrower, a yen or
         // won line had its digits stripped and the bare symbol left behind: "BURGER ¥".
-        let pattern = #"[\$£€₹¥￥₩]?\s*\d{1,6}[.,]\d{2}\s*$"#
+        // SCAN-RULE-04: kept in step with `extractDecimal`'s `\s?` around the separator. If only
+        // that one widens, the price is read correctly and then left glued to the name — the very
+        // defect SCAN-RULE-02 existed to remove.
+        let pattern = #"[\$£€₹¥￥₩]?\s*\d{1,6}\s?[.,]\s?\d{2}\s*$"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
         let range = NSRange(text.startIndex..., in: text)
         return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
@@ -1199,7 +1206,20 @@ final class VisionService {
         //             SCAN-09 hid the real amount and SCAN-10 supplied a wrong one.
         //   (?!\s*%)  a rate printed to exactly two decimals is indistinguishable by digit count;
         //             only the percent sign gives it away. `7.00%` and `8.00 %` both occur.
-        let pattern = #"([-−])?\s*[\$£€₹¥￥₩]?\s*((?:\d{1,6})?[.,]\d{2})(?!\d)(?!\s*%)\s*([-−])?"#
+        // SCAN-RULE-04: `\s?` around the separator. Vision returns `6. 99` for Kroger's tight
+        // line spacing, which matched nothing — so the amount was neither read as the price nor
+        // stripped from the name, and the row took a neighbouring row's figure instead. A money
+        // bug, not a cosmetic one: the item was billed 3.00 instead of 6.99.
+        // Two alternatives. The second is SCAN-09's no-integer form (`.05`, CVS's bottle deposit),
+        // and its `(?<![A-Za-z])` is what separates money from an abbreviation:
+        //
+        //   `450 W. 33rd Street`  — the dot follows a LETTER. Not money.
+        //   `BOTTLE DEPOSIT . 05` — the dot follows a space. Money.
+        //
+        // Getting this wrong in either direction costs a real receipt. Allowing a space after the
+        // dot unconditionally made Starbucks grow a third item out of its own shop address
+        // (`0.33`); refusing the space there instead lost CVS's `.05` deposit line entirely.
+        let pattern = #"([-−])?\s*[\$£€₹¥￥₩]?\s*((?:\d{1,6}\s?[.,]\s?\d{2})|(?:(?<![A-Za-z])[.,]\s?\d{2}))(?!\d)(?!\s*%)\s*([-−])?"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
         let range = NSRange(string.startIndex..., in: string)
         // M-12: use lastMatch so that on lines like "2x BURGER 4.99 9.98" we
@@ -1207,7 +1227,11 @@ final class VisionService {
         let matches = regex.matches(in: string, range: range)
         guard let match = matches.last,
               let capRange = Range(match.range(at: 2), in: string) else { return nil }
-        var raw = string[capRange].replacingOccurrences(of: ",", with: ".")
+        // The capture may now hold OCR's stray space (`6. 99`); it must go before `Decimal(string:)`,
+        // which would otherwise stop at the space and silently return 6.
+        var raw = string[capRange]
+            .replacingOccurrences(of: ",", with: ".")
+            .filter { !$0.isWhitespace }
         // `Decimal(string:)` accepts ".05", but only because of a leading-zero convention that is
         // not worth depending on across locales — normalise it here instead.
         if raw.hasPrefix(".") { raw = "0" + raw }
