@@ -846,26 +846,33 @@ icon components, and the App Icon asset. **Nothing fixed — this is the finding
 | ICON-02 | `XBillVisualAssets.swift:113` | **Every category icon fails the 3:1 non-text contrast minimum in dark mode.** The glyph is hardcoded `.foregroundStyle(AppColors.primary)` (`#6C35FF`) over `category.categoryBackground.opacity(0.9)` — but the `Cat*` colorsets carry **dark appearance variants** that go dark while the glyph does not move. Computed ratios: `.accommodation` **2.47:1**, `.transport` **2.41:1**, `.food` **2.47:1** — the whole set lands 2.4–2.5:1. Light mode is fine (≈5.1:1) because those variants are pale tints, which is why this reads as correct in every screenshot taken in light mode. | ✅ Fixed | Derive the glyph colour from the swatch instead of pinning it: either a per-category foreground token beside each `Cat*` colorset, or `AppColors.textPrimary` over the tint. Verify by computing the ratio in both appearances, not by looking at it. |
 | ICON-03 ⬜ | `xBill/Assets.xcassets/AppIcon.appiconset/Contents.json` | **CONFIRMED 2026-09-11, see the note below the table.** **No dark or tinted app-icon variants**, and no Icon Composer `.icon`. `grep -c appearances` → **0**. On iOS 18+ the home screen's Dark and Tinted modes fall back to the light artwork; on iOS 26 the icon gets none of the Liquid Glass layering. The art is a white receipt on `#3B3287` — high-contrast in light mode and conspicuously wrong beside tinted neighbours. | ⬜ Open | Add `luminosity: dark` and `tinted` entries. For iOS 26, rebuild as an Icon Composer `.icon` with separated layers (card, ruled lines, avatar row) so the system composes all four appearances from one source. |
 
-**Attempted and reverted 2026-09-25 — read this before trying again.** Dark and tinted variants
-were generated from `Icon-1024.png` (transparency-keyed for dark, grayscale for tinted), rendered
-flat at 60pt and 40pt, and both read clearly. Two things then stopped it:
+✅ **FIXED 2026-09-25.** `Icon-1024-dark.png` (transparency-keyed, 82% transparent so iOS
+composites its own ground) and `Icon-1024-tinted.png` (grayscale, contrast +25%) were generated
+from the existing 1024 artwork and added as `appearances` entries beside the legacy per-size
+images. Both were rendered flat at 60pt and 40pt and read clearly.
 
-1. **The legacy per-size format silently ignores appearance entries.** Adding `appearances` blocks
-   alongside the existing per-size images built cleanly and produced **nothing** — the compiled
-   `Assets.car` still held only `any/light`. The JSON said two appearances; the artifact said none.
-2. **Converting to the modern single-size universal form made it worse**, not better: the compiled
-   catalog then carried only a 1024 entry, the generated per-size icons were gone, and the
-   appearances *still* did not appear.
+**Verified from the shipped device artifact**, not the JSON: `Assets.car` for
+`generic/platform=iOS` contains **18 `(default/light)` + 1 `UIAppearanceDark` + 1
+`ISAppearanceTintable`**, with every original per-size width intact
+(29…180, 1024) and `CFBundleIcons.CFBundlePrimaryIcon.CFBundleIconName = AppIcon` unchanged.
 
-⚠️ **`xcrun assetutil --info` does not emit a `Luminosity` key on this toolchain** — **no** asset in
-the whole catalog reports one, including existing dark-mode colours. So the check above is
-**inconclusive**, not proof of failure. It cannot be used to verify this work.
+☠️ **Two traps cost a full revert-and-retry cycle here. Read them before touching app-icon assets.**
 
-**What a real attempt needs:** a verification method that actually observes the appearance — the
-icon inspected on a device with Dark and Tinted home screens, or an Icon Composer `.icon` whose
-output can be checked directly — plus a deliberate decision about dropping the per-size PNGs.
-This is visible branding immediately before a release, so it was reverted rather than shipped on
-an unverifiable change.
+1. **A simulator build thins the catalog.** The identical change compiled for
+   `iphonesimulator` produces **no** appearance variants at all. Verifying an app icon against a
+   simulator artifact will always say the feature failed. Compile for `iphoneos` — `xcrun actool
+   --platform iphoneos` is enough and takes seconds.
+2. **The key in `assetutil --info` output is `Appearance`, not `Luminosity`.** Searching for
+   `Luminosity` returns nothing for *every* asset in the catalog, including existing dark-mode
+   colours, so it reads exactly like a negative result. It is not one.
+
+Between them these produced a confident, wrong conclusion — the work was reverted once as
+"unverifiable" when it had in fact been correct the first time. The legacy per-size format accepts
+appearance entries perfectly well; converting the set to the modern single-size universal form is
+**not** required and is worse (it drops the generated per-size icons).
+
+ICON-04 (the artwork carries more detail than 60pt renders) remains open and independent: at 40pt
+the ruled lines and avatar initials are smudges in all three appearances.
 | ICON-04 | `xBill/Assets.xcassets/AppIcon.appiconset/Icon-1024.png` | **The artwork carries more detail than the size it is used at can render.** At the 60pt home-screen size the receipt is ≈26pt wide, its four ruled lines are sub-pixel, and the three avatar circles hold two-letter initials (`AL`/`MR`/`JT`) that resolve to smudges. Legible only at 1024. | ⬜ Open | Reduce to one idea that survives 60pt — the receipt card with a single fold, or the split chevron alone. Check by rendering to 60×60 and 40×40 and looking at those, not at the 1024. |
 | ICON-05 | `Assets/` (repo root) | **A second, divergent, dead App Icon set.** `project.yml:41` bundles only `xBill/**/*.xcassets`, so this copy ships nowhere — but all 15 PNGs **differ** from the shipping set, and this copy has **corner radii baked into the artwork**, which iOS would mask a second time. It also holds two files the real set lacks (`Icon-20@1x`, `Icon-40@1x`). An edit here changes nothing and looks like it worked. | ✅ Fixed | Delete `Assets/`. While there: the shipping set is the legacy 15-size list; since Xcode 14 a single 1024 `universal` entry is enough, and collapsing it removes 14 files that can drift. |
 | ICON-06 | app-wide | **`symbolRenderingMode` is used zero times; `symbolVariant` zero; `imageScale` zero.** `NATIVE_PATTERNS.md:134` requires hierarchical or palette rendering and `:157` requires `.symbolVariant(.fill)` on selected state — neither rule is applied anywhere. Every symbol renders flat monochrome, so multi-layer glyphs (`bell.badge.fill`, `person.badge.plus.fill`, `envelope.badge.fill`) lose the depth cue their badge layer exists to provide. Separately, **17** symbols are sized with fixed `.font(.system(size:))` against **12** on text styles; the fixed ones do not scale with Dynamic Type. Two are 13pt inline icons sitting beside scaling `Text` (`ForgotPasswordView.swift:89`, `:226`), so they shrink relative to their own label as the user enlarges type. | 🟡 Partly fixed | Apply `.symbolRenderingMode(.hierarchical)` at the component level (`XBillActionRow`, `XBillNotificationRow`, `XBillSettingsRow`) rather than per call site. Move the two inline 13pt icons to `.font(.xbillCaption)`; leave the large decorative hero glyphs fixed. |
@@ -2270,15 +2277,19 @@ note that it must never be tightened back toward the observed stall.
 
 **Verification:** 537/537.
 
-### ⬜ Still unexplained: what stalls a single test for 41–48 seconds
+### ✅ Explained and fixed — what stalled a single test for 41–48 seconds
 
 Known: it needs the **full** suite — the two payment suites alone pass 17/17, and alongside
 `ReceiptBenchmark` 18/18. Magnitude measured at 41 s and 48 s on separate runs, against 32 ms for
 sibling tests in the same suite.
 
-Not known: the cause. **Deliberately not guessed at** — the fixes above do not depend on it. But a
-suite where one test can stall for 48 seconds is a problem in its own right, and worth its own
-investigation rather than being closed because the symptoms it produced have been handled.
+**The cause is `SCAN-PERF-01`, immediately below** — Vision OCR running synchronously on the main
+actor, which left 185 unrelated tests alive but never scheduled. Fixed 2026-09-12.
+
+✅ **Confirmed empirically 2026-09-25** against a current full run: **0 tests ≥ 40 s**. The slowest
+is `ReceiptBenchmark/benchmark()` at 37.5 s, which genuinely OCRs 22 images; the next slowest is
+2.07 s. The bimodal ≥40 s cohort no longer exists. This heading said "still unexplained" for two
+weeks after the answer was written directly beneath it.
 
 ---
 
