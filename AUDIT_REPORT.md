@@ -1741,9 +1741,12 @@ self-congratulation.
    (Gap 7, `VisionService.swift:867`); what remains is using them for *names*, which is where the
    OCR misreads live.
    ✅ **The metric this step is judged by was itself repaired first** — SCAN-METRIC-01, 2026-09-24.
-3. ⬜ **Derive per-line labels** — the prerequisite, and independently useful as a diagnosis.
-4. ⬜ **Re-measure.** If item-count exactness is still short of ~90%, the classifier has earned its
-   place; if the rules got there, a model would be added complexity for nothing.
+3. ✅ **Derive per-line labels** — done 2026-09-25 as a *capture* analysis, which turned out to be
+   the more decisive cut. See **SCAN-ML-01 step 3** below.
+4. 🔶 **Re-measure — done, and the answer is "not yet".** A line classifier addresses ~2 of ~39
+   defects (**about 5%**). 26% of item rows are missing a half Vision never returned, which no
+   model can reach. **Recommendation: capture quality first, then name cleanup, then more corpus.**
+   Revisit the model once the corpus is 60+ receipts and capture work has landed.
 
 **So far, on rules alone, all deterministic and floor-locked:** item-count exactness
 **16/22 (73%) → 19/22 (86%)**, and name recall **0.56 → 0.81** as measured by the corrected
@@ -1784,6 +1787,86 @@ metric was a **two-way substring** test, so `365992 tortilla chips` already "con
 `tortilla chips` and scored as a hit. 11 of 11 targeted names became clean and the figure stayed at
 exactly 80%. **Fixed the next day — see SCAN-METRIC-01.** Re-measured under the corrected metric,
 this fix was worth **+25 points of name recall (0.56 → 0.81)**.
+
+---
+
+## SCAN-ML-01 step 3 — the failure budget, measured ✅ done 2026-09-25
+
+**The question step 4 has to answer is not "how wrong is the pipeline" but "wrong in what way",
+because only one of the ways is something a trainable line classifier can fix.** A classifier picks
+a label for a line it can see. It cannot invent a line Vision never returned, and it cannot re-pair
+a price the geometry misfiled.
+
+`LineCaptureAnalysis` asks one question of the **raw OCR**, before any parsing, for each of the 91
+ground-truth item rows: *is the name present? is the price present?* — then crosses that with what
+the parser produced. Run it with `scripts/receipt-capture-analysis.sh`.
+
+### The failure budget
+
+| | rows | |
+|---|---|---|
+| ground-truth item rows | **91** | |
+| parsed correctly (name **and** price) | **64** | 70% |
+| — captured **both** halves | 67 | **the ceiling for any parser or model: 74%** |
+| — name only (price never read) | 12 | capture limit |
+| — price only (name never read) | 9 | capture limit |
+| — neither | 3 | capture limit |
+| missed **despite full evidence** | **10** | the only rows a parser or model can win back |
+| parsed rows matching no truth name | 12 | upper bound on spurious rows |
+
+**24 of 91 rows (26%) are missing a half that Vision never returned.** No parser and no model
+reaches those; they are a *capture* problem — faded receipts, bad lighting, one photo.
+
+### What the 22 remaining defects actually are
+
+Classified by hand from the report's own per-row lists:
+
+| cause | count | would a line classifier fix it? |
+|---|---|---|
+| geometry / name–price pairing (receipt 12) | ~6 | **no** |
+| name quality: OCR misreads + junk left attached | ~13 | **no** — `SMARIWATER 50.7`, `Sulata Gold 20.8`, `KARELA 18`, `GANESH BEANERT…` |
+| **row genuinely misclassified** | **2** | **yes** — `USO = 136.13` and `CHARGE = 13.55`, both totals sold as items |
+
+### The finding
+
+**A trainable line classifier addresses roughly 2 of ~39 defects — about 5% of the failure budget.**
+The dominant categories are capture (~26% of all rows), name quality, and pairing geometry. None of
+them is a labelling decision.
+
+⚠️ **And the rules are why.** Step 2 existed precisely to "raise the baseline a model must beat
+rather than letting it take credit for" — SCAN-RULE-01 was itself the big classification bug
+(labels on their own line carried into the row below and sold as items). Fixing it in rules removed
+most of what a classifier would have been credited with. **The plan worked as designed**; the
+honest consequence is that the classifier now has little left to do.
+
+### Recommendation for step 4
+
+**Do not build the classifier yet.** In order of expected value:
+
+1. **Capture quality** — 26% of rows are missing a half at the source. Deskew, contrast
+   normalisation, or multi-shot capture attack the single largest bucket, and nothing downstream
+   can substitute for them.
+2. **Name cleanup + `alternates` for names** — ~13 defects, and now measurable since SCAN-METRIC-01.
+3. **The 2 misclassified rows** — cheaper as two more rules than as a model.
+4. **More corpus** before any model. 22 receipts, one owner, simulator-only. The failures
+   concentrate in three receipts (08, 12, 19); generalisation is unproven either way.
+
+⚠️ **Caveats, stated because the recommendation rests on them.** 22 receipts from one person; all
+numbers from the simulator on the heuristic tier; the split of the 22 non-capture defects into
+causes is a hand classification of the report's row lists, not an automated count. Re-run the
+analysis after any corpus growth before trusting the 5% again.
+
+### Methodology note, learned the hard way
+
+The first version of this analysis compared the ground-truth name against **raw** OCR text and
+reported that ALDI captured 0 of 9 names — while the parser was getting all 9 right. It then
+claimed **64 rows parsed out of 56 captured**, which is impossible, and that arithmetic is the only
+reason the error was caught. The fix was to apply the parser's own name cleanup
+(`stripPrice` → `stripQuantityPrefix` → `stripCatalogCode`) before testing.
+
+**Same lesson as receipt 12's circular measurement**: an instrument that does not apply the same
+transformation as the thing it measures is measuring something else. Build the arithmetic
+cross-check in, so an impossible total gives it away.
 
 ---
 

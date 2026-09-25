@@ -101,7 +101,54 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 
 
 
-## Recent Fix Log — 2026-09-24 (latest) — SCAN-RULE-05, and why receipt 12 stays broken
+## Recent Fix Log — 2026-09-25 (latest) — SCAN-ML-01 step 3: the model is not the next move
+
+**Measured the failure budget instead of guessing at it.** `LineCaptureAnalysis` asks of the **raw
+OCR**, for each of the 91 ground-truth item rows, whether the name and the price were captured at
+all — then crosses that with what the parser produced. Run it with
+`scripts/receipt-capture-analysis.sh` (opt-in via `XBILL_CAPTURE_ANALYSIS=1`; it re-OCRs 22 images
+and would otherwise add ~90s to every suite run).
+
+| | rows |
+|---|---|
+| ground-truth item rows | **91** |
+| parsed correctly | **64 (70%)** |
+| captured both halves | 67 — **ceiling for any parser or model: 74%** |
+| missing a half Vision never returned | **24 (26%)** — capture limit, unreachable |
+| missed despite full evidence | **10** — the only rows we can win back |
+
+**Of the ~22 non-capture defects, exactly 2 are a misclassified row** (`USO = 136.13` and
+`CHARGE = 13.55`, totals sold as items). The rest are pairing geometry (~6, all receipt 12) and
+name quality (~13: `SMARIWATER 50.7`, `Sulata Gold 20.8`, `KARELA 18`).
+
+### ⛔ So: do not build the line classifier yet
+
+It addresses **~5% of the failure budget**. Order of expected value instead: **capture quality**
+(deskew / contrast / multi-shot — 26% of rows lose a half at the source), then name cleanup and
+`alternates` for names, then two more rules for the misclassified totals, then **more corpus**
+(22 receipts, one owner, simulator-only, failures concentrated in receipts 08/12/19).
+
+⚠️ **And the rules are why the classifier has little left to do — as designed.** Step 2 existed to
+"raise the baseline a model must beat rather than letting it take credit for them". SCAN-RULE-01
+*was* the big classification bug. Fixing it in rules removed most of what a model would have been
+credited with.
+
+### ☠️ Methodology, learned twice in two days
+
+The first version of this analysis compared truth names against **raw** OCR text and reported ALDI
+capturing 0 of 9 names — while the parser got all 9 right. It then claimed **64 rows parsed out of
+56 captured**, which is impossible, and that arithmetic is the only thing that caught it. The fix
+was to apply the parser's own cleanup (`stripPrice` → `stripQuantityPrefix` → `stripCatalogCode`)
+before testing.
+
+**Same lesson as receipt 12's circular measurement the day before:** an instrument that does not
+apply the same transformation as the thing it measures is measuring something else. **Put an
+arithmetic cross-check in every analysis** — an impossible total is the cheapest bug detector there
+is.
+
+---
+
+## Recent Fix Log — 2026-09-24 — SCAN-RULE-05, and why receipt 12 stays broken
 
 On a faded receipt Vision emits the dollars and the cents of one amount as **separate
 observations**, and their `midY` interleaves across adjacent lines (`49` at 0.2942 sorts *above* its
