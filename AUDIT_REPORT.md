@@ -1790,6 +1790,66 @@ this fix was worth **+25 points of name recall (0.56 → 0.81)**.
 
 ---
 
+## SCAN-CAP-01 — the downscale crushes the dimension that carries the detail ⚠️ measured, NOT changed
+
+A till receipt is tall and narrow. `preprocessForOCR` caps the **longest** side at 1200px, so
+corpus receipt 12 (713×3116, 21 items) is OCR'd at **274 pixels wide**. Receipt 08 lands at 329,
+receipt 01 at 379. That looked like an obvious cause of the 26% of rows whose price or name Vision
+never returned, so four configurations were measured over the full corpus.
+
+| configuration | TOTAL | TAX | item-exact | price | name | runtime |
+|---|---|---|---|---|---|---|
+| **1200 long cap (shipped)** | **21/22** | 20/22 | **19/22** | **94%** | 86% | ~3 min |
+| short-side floor 500 | **21/22** | **21/22** | 18/22 | 93% | 87% | ~2 min |
+| short-side floor 700 | 20/22 | 19/22 | **19/22** | 93% | 88% | ~2 min |
+| 2400 long cap | 19/22 | 20/22 | **19/22** | **94%** | **94%** | ~13 min |
+
+**The pattern is consistent: more resolution buys item names and costs totals.** More text is
+admitted, so the total and tax pickers face more candidate amounts. Receipt 12 alone goes
+12/21 → **17/21** items at higher resolution, and name recall gains **8 points** at 2400.
+
+### Why nothing was changed
+
+**Every difference in that table is a single receipt — 4.5% on a corpus of 22.** No configuration
+dominates, and the corpus cannot distinguish them. Re-tuning here at n=22 is fitting to 22
+photographs, so the shipped value stands and the measurement is recorded in the source instead.
+
+This is the strongest argument yet for growing the corpus: **it is a decision we cannot make**,
+not merely one we would make better with more data.
+
+### When the corpus grows
+
+Make **total/tax selection robust to extra candidates first**, then raise resolution — at which
+point the +8 points of name recall should arrive without the total loss. The order matters; doing
+it the other way round is what produced the regressions above.
+
+⚠️ Related and already learned: contrast + sharpening were added here on plausible reasoning,
+measured **harmful**, and removed 2026-08-23. This area punishes assumption. Re-run
+`scripts/receipt-benchmark.sh` for anything touching `preprocessForOCR`.
+
+---
+
+## SCAN-RULE-06 — payment rows sold as items, and size figures left on names ✅ fixed 2026-09-25
+
+Step 3 found exactly **two** genuinely misclassified rows in 22 receipts, and both are payment
+lines: CVS's `CHARGE = 13.55` and Patel Brothers' `USO = 136.13` (OCR of a total line). Both carry
+the receipt's **own total** as their amount, so each adds a phantom item at exactly the value a
+user is least likely to question. `isPaymentLine(_:)` rejects them — whole tokens only, checked
+against the corpus, and tested against near-misses (`CASHEWS`, `CHARGER CABLE`) that must survive.
+
+Also: a trailing bare decimal is a size, not part of the name — `SMARTWATER 50.7` (fl oz),
+`Sulata Gold 20.8`. A whole number is left alone, since it may belong to the name.
+
+| metric | before | after |
+|---|---|---|
+| Name recall | 86% | **88%** |
+| TOTAL / TAX / item-exact / price | 21/22 · 20/22 · 19/22 · 94% | unchanged |
+
+Name floor raised 0.83 → 0.85. Deterministic. The capture budget is unchanged by design: this
+removes phantom rows rather than recovering missing ones.
+
+---
+
 ## SCAN-ML-01 step 3 — the failure budget, measured ✅ done 2026-09-25
 
 **The question step 4 has to answer is not "how wrong is the pipeline" but "wrong in what way",

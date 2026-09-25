@@ -391,7 +391,30 @@ final class VisionService {
         guard let cgImage = image.cgImage else { return image }
         var current = CIImage(cgImage: cgImage)
 
-        // 1. Resize to max 1200px — bounds memory and processing time
+        // 1. Resize to max 1200px — bounds memory and processing time.
+        //
+        // ⚠️ SCAN-CAP-01 (2026-09-25): this cap is on the LONGEST side, which for a tall narrow
+        // receipt crushes the dimension carrying the character detail — corpus receipt 12 is
+        // 713×3116 and is OCR'd at **274 px wide** for 21 items. That looks obviously wrong, and
+        // four configurations were measured over the full corpus. **None of them dominates:**
+        //
+        //     short-side floor   TOTAL  TAX  item-exact  price  name   runtime
+        //     1200 long cap (shipped)  21/22  20/22  19/22   94%   86%   ~3 min
+        //     500                      21/22  21/22  18/22   93%   87%   ~2 min
+        //     700                      20/22  19/22  19/22   93%   88%   ~2 min
+        //     2400 long cap            19/22  20/22  19/22   94%   94%   ~13 min
+        //
+        // The pattern is consistent and worth knowing: **more resolution buys item names and costs
+        // totals.** More text is admitted, so the total/tax pickers face more candidate amounts.
+        // Receipt 12 alone goes 12/21 → 17/21 items at higher resolution.
+        //
+        // **Every difference above is a single receipt — 4.5% on a corpus of 22.** The corpus
+        // cannot distinguish these, so the shipped value stays until it is bigger. Do not re-tune
+        // this at n=22; that is fitting to 22 photographs.
+        //
+        // When the corpus grows: the promising order is to make total/tax selection robust to
+        // extra candidates FIRST, then raise resolution — at which point the name gain (+8 points
+        // at 2400) should come without the total loss.
         let maxDim: CGFloat = 1200
         let longestSide = max(current.extent.width, current.extent.height)
         if longestSide > maxDim {
@@ -913,6 +936,10 @@ final class VisionService {
                     guard let carriedName else { continue }
                     name = carriedName
                 }
+                // Nor is the row saying how the bill was paid — and that row usually carries the
+                // receipt's own total, so letting it through adds a phantom item at the worst
+                // possible value. SCAN-RULE-06.
+                if isPaymentLine(name) { continue }
                 // The till's own timestamp is not an item, however plausible its letter ratio.
                 // Checked *after* the carry above, not before: Kroger prints the time on its own
                 // line, so the row holding the price inherits it as a name — and the first
@@ -1139,6 +1166,27 @@ final class VisionService {
     /// its 0.3 ratio, so it was reaching the corpus as an item priced `3` and `0.3` on two
     /// different receipts. A clock time is the tight, checkable signal — no ground-truth name in
     /// the corpus contains `HH:MM`, and no product plausibly would.
+    /// A row describing how the bill was PAID, not something bought. SCAN-RULE-06.
+    ///
+    /// The step-3 capture analysis found exactly two genuinely misclassified rows in the whole
+    /// corpus, and both are this: CVS's `CHARGE = 13.55` and Patel Brothers' `USO = 136.13` (OCR
+    /// of a total line). Both carry the receipt's own total as their amount, so they inflate the
+    /// bill by a whole extra "item" at exactly the value a user would least notice.
+    ///
+    /// Whole tokens only, and checked against the corpus: no ground-truth item name contains any
+    /// of these as a word.
+    func isPaymentLine(_ name: String) -> Bool {
+        let words = Set(name.lowercased()
+            .split(whereSeparator: { !$0.isLetter })
+            .map(String.init))
+        let markers: Set<String> = [
+            "charge", "visa", "mastercard", "amex", "discover", "debit", "credit",
+            "cash", "change", "tender", "payment", "balance", "due", "approved",
+            "auth", "authorization", "cardholder", "chip", "contactless", "signature",
+        ]
+        return !words.isDisjoint(with: markers)
+    }
+
     func isReceiptMetadata(_ name: String) -> Bool {
         // Digit lookarounds, not `\b`: there is no word boundary between the `12` and the `PM`
         // of `05:12PM`, so a trailing `\b` matched nothing on the exact rows this exists for.
@@ -1226,6 +1274,10 @@ final class VisionService {
             // name. Whole token only, so `SWT` (sweet) in the very same name survives. No corpus
             // label uses `WT` as a word anywhere.
             #"^[Ww][Tt]\s+(?=\S)"#,
+            // `SMARTWATER 50.7` — a trailing size/volume figure the till prints after the name
+            // (50.7 FL OZ). A bare decimal, so a name ending in a whole number (`SNACKS 2`) is
+            // untouched, and no corpus label ends in one. SCAN-RULE-06.
+            #"\s+\d{1,4}[.,]\d{1,2}$"#,
             #"\s+\d{8,}$"#,                 // `THERMACARE 195882990040` — a trailing UPC/EAN
         ]
         var result = text

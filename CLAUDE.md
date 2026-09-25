@@ -101,7 +101,43 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 
 
 
-## Recent Fix Log — 2026-09-25 (latest) — SCAN-ML-01 step 3: the model is not the next move
+## Recent Fix Log — 2026-09-25 (latest, later) — SCAN-CAP-01 measured (not changed), SCAN-RULE-06 shipped
+
+### ⚠️ SCAN-CAP-01 — the downscale is wrong-headed, and the corpus cannot prove what to do
+
+A till receipt is tall and narrow; `preprocessForOCR` caps the **longest** side at 1200, so corpus
+receipt 12 (713×3116, 21 items) is OCR'd at **274 px wide**. Four configurations, full corpus:
+
+| configuration | TOTAL | TAX | item-exact | price | name | runtime |
+|---|---|---|---|---|---|---|
+| **1200 long cap (shipped)** | **21/22** | 20/22 | **19/22** | **94%** | 86% | ~3 min |
+| short-side floor 500 | **21/22** | **21/22** | 18/22 | 93% | 87% | ~2 min |
+| short-side floor 700 | 20/22 | 19/22 | **19/22** | 93% | 88% | ~2 min |
+| 2400 long cap | 19/22 | 20/22 | **19/22** | **94%** | **94%** | ~13 min |
+
+**More resolution buys names and costs totals** — more text admitted means more candidate amounts
+for the total/tax pickers. Receipt 12 goes 12/21 → **17/21** items at 2400; names gain **8 points**.
+
+**Nothing was changed.** Every difference is a single receipt — **4.5% at n=22** — and no
+configuration dominates. Re-tuning here is fitting to 22 photographs. ⛔ **Do not re-tune the
+downscale until the corpus is bigger.** The full table lives in the source at the cap itself.
+
+**When it is bigger:** make total/tax selection robust to extra candidates FIRST, then raise
+resolution. Doing it the other way round is exactly what produced the regressions above.
+
+### ✅ SCAN-RULE-06 — payment rows, and size figures on names
+
+Step 3's two genuinely misclassified rows were both payment lines carrying the receipt's **own
+total** (`CHARGE = 13.55`, `USO = 136.13`) — a phantom item at the value a user is least likely to
+question. `isPaymentLine(_:)` rejects them, whole tokens only, with tests for near-misses
+(`CASHEWS`, `CHARGER CABLE`) that must survive. Plus a trailing bare decimal is a size, not a name
+(`SMARTWATER 50.7`, `Sulata Gold 20.8`); a whole number is left alone.
+
+**Name recall 86% → 88%**, everything else unchanged, deterministic, floor 0.83 → 0.85.
+
+---
+
+## Recent Fix Log — 2026-09-25 — SCAN-ML-01 step 3: the model is not the next move
 
 **Measured the failure budget instead of guessing at it.** `LineCaptureAnalysis` asks of the **raw
 OCR**, for each of the 91 ground-truth item rows, whether the name and the price were captured at

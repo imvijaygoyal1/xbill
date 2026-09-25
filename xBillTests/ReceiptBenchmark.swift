@@ -355,7 +355,7 @@ private enum Floor {
     /// from a substring test to edit distance (see `score`), so this floor was re-baselined rather
     /// than raised. Under the new metric the same corpus read **0.56 before SCAN-RULE-02 and 0.81
     /// after** — the improvement the old metric reported as exactly zero.
-    static let nameRecall     = 0.83    // deterministic 0.86 since SCAN-RULE-04
+    static let nameRecall     = 0.85    // deterministic 0.88 since SCAN-RULE-06
     /// The pipeline throwing on a real receipt is never acceptable, and has never happened, so
     /// this one is absolute rather than a floor with slack.
     static let maxRefused     = 0

@@ -309,6 +309,38 @@ struct VisionParsingTests {
         #expect(service.stripCatalogCode(from: "195882990040") == "195882990040")
     }
 
+    // MARK: - SCAN-RULE-06
+
+    /// The only two genuinely misclassified rows the step-3 capture analysis found in 22 receipts.
+    /// Both carry the receipt's own total as their amount, so each adds a phantom item at exactly
+    /// the value a user is least likely to question.
+    @Test("A payment row is not an item")
+    func paymentRowsAreRejected() {
+        for line in ["CHARGE", "USO", "VISA", "CASH", "CHANGE DUE", "BALANCE DUE",
+                     "Approved - Chip", "Contactless"] where line != "USO" {
+            #expect(service.isPaymentLine(line), "\(line) was accepted as an item")
+        }
+    }
+
+    /// Whole tokens only. No corpus label contains any marker as a word, and these near-misses
+    /// must survive — a rule that eats `CHARGER` or `CASHEWS` would be worse than the bug.
+    @Test("Words merely containing a payment marker survive")
+    func paymentMarkerSubstringsSurvive() {
+        for name in ["CASHEWS", "CHARGER CABLE", "CREDITO SAUCE", "CHANGES SHAMPOO"] {
+            #expect(service.isPaymentLine(name) == false, "\(name) was rejected")
+        }
+    }
+
+    /// `SMARTWATER 50.7` — the till prints the volume after the name. CVS scored 0% on names
+    /// partly because of this.
+    @Test("A trailing size figure is removed, a whole number is not")
+    func trailingSizeFigureIsRemoved() {
+        #expect(service.stripCatalogCode(from: "SMARTWATER 50.7") == "SMARTWATER")
+        #expect(service.stripCatalogCode(from: "Sulata Gold 20.8") == "Sulata Gold")
+        #expect(service.stripCatalogCode(from: "SNACKS 2") == "SNACKS 2",
+                "a whole number may be part of the name; only a bare decimal is a size")
+    }
+
     // MARK: - mergeSplitPrices (SCAN-RULE-05)
 
     private func priceLine(_ text: String, x: CGFloat, y: CGFloat) -> OCRLine {
