@@ -34,10 +34,10 @@ struct SplitParticipantRow: View {
     /// detail. Do not rename one without updating every predicate that matches it.
     var idPrefix: String
 
-    let onToggle: () -> Void
-    let onAmount: (Decimal) -> Void
-    let onPercentage: (Decimal) -> Void
-    let onShares: (Int) -> Void
+    let onToggle: @MainActor @Sendable () -> Void
+    let onAmount: @MainActor @Sendable (Decimal) -> Void
+    let onPercentage: @MainActor @Sendable (Decimal) -> Void
+    let onShares: @MainActor @Sendable (Int) -> Void
 
     var body: some View {
         HStack(spacing: XBillSpacing.sm) {

@@ -140,3 +140,7 @@ final class RemoteNotificationService {
         return response.count ?? 0
     }
 }
+
+// Keep the Sendable protocol conformance next to the concrete type for Swift 6 strict
+// concurrency checking.
+extension RemoteNotificationService: RemoteNotificationProviding {}

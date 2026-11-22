@@ -71,11 +71,8 @@ final class PaymentLinkService: Sendable {
     /// the other, the amount shown to the user and the amount encoded in the payment URL can
     /// silently disagree by a cent. Keep them in step.
     ///
-    /// `nonisolated(unsafe)` is safe here specifically because `NumberFormatter` is thread-safe
-    /// on iOS 7+ *when configured once and never mutated afterward* — this instance is built
-    /// entirely inside this immutable `static let` initializer closure and every property is set
-    /// before the closure returns; nothing outside this closure ever touches it again.
-    nonisolated(unsafe) private static let amountFormatter: NumberFormatter = {
+    /// The formatter is configured once and never mutated afterward.
+    private static let amountFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.numberStyle = .decimal

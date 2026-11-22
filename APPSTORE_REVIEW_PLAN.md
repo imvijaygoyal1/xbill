@@ -1,6 +1,6 @@
 # xBill App Store Review Plan
 
-Last reviewed: 2026-07-15
+Last reviewed: 2026-11-22
 
 This plan tracks issues that can block or slow App Store review. It is intentionally limited to future work; do not treat any item here as implemented unless the referenced code or metadata has changed.
 
@@ -70,7 +70,7 @@ This plan tracks issues that can block or slow App Store review. It is intention
 - Status: fixed in app code and deployed to Supabase on 2026-07-15.
 - Current evidence: `ExpenseDetailView` has Report Content; `FriendDetailView` has Report User and Block User; `FriendService.blockUser(id:)` calls `block_user`; migration `038` removes existing friend rows, records a blocked row, and prevents future friend requests while a blocked row exists.
 - Current evidence: `SupabaseClient.swift` lets Debug fall back for previews/UI tests, but Release fails fast for missing, placeholder, non-HTTPS, or unresolved `$(...)` Supabase URL/key values.
-- Deployment evidence: `supabase db push --linked` applied `038_block_user_rpc.sql`; `supabase migration list` confirmed local and remote migration histories match through `038`.
+- Deployment evidence: `supabase db push --linked` applied `038_block_user_rpc.sql`; later migrations continue through `059`.
 - Plan:
   - Run one manual signed-in smoke test that blocks a friend and confirms the blocked pair cannot create a new friend request.
   - Add these moderation/support paths to reviewer notes if the submission asks how users can report or block abusive users.

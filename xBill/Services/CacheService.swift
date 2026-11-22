@@ -7,6 +7,7 @@
 
 import Foundation
 import CryptoKit
+import OSLog
 
 // MARK: - CacheService
 // Persists groups, expenses, and members to UserDefaults for offline reading.
@@ -40,6 +41,8 @@ extension CacheService {
 final class CacheService: Sendable {
     static let shared = CacheService()
     private init() {}
+
+    private static let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "CacheService")
 
     // Prefer shared App Group suite so widgets can read cached data.
     // Falls back to UserDefaults.standard when the group isn't registered yet.
@@ -96,7 +99,10 @@ final class CacheService: Sendable {
             currency: currency,
             available: true
         )
-        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        guard let data = try? JSONEncoder().encode(snapshot) else {
+            Self.logger.error("Unable to encode balance snapshot")
+            return
+        }
         CacheService.defaults.set(data, forKey: CacheService.balanceSnapshotKey)
     }
 
@@ -151,14 +157,33 @@ final class CacheService: Sendable {
     // contain only 3 decimal numbers already visible in the widget on the home screen.
 
     static func encrypt(_ data: Data) -> Data? {
-        guard let key = try? KeychainManager.shared.cacheEncryptionKey() else { return nil }
-        return try? AES.GCM.seal(data, using: key).combined
+        guard let key = try? KeychainManager.shared.cacheEncryptionKey() else {
+            logger.error("Unable to load cache encryption key")
+            return nil
+        }
+        do {
+            return try AES.GCM.seal(data, using: key).combined
+        } catch {
+            logger.error("Unable to encrypt cache data: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     static func decrypt(_ data: Data) -> Data? {
-        guard let key = try? KeychainManager.shared.cacheEncryptionKey() else { return nil }
-        guard let box = try? AES.GCM.SealedBox(combined: data) else { return nil }
-        return try? AES.GCM.open(box, using: key)
+        guard let key = try? KeychainManager.shared.cacheEncryptionKey() else {
+            logger.error("Unable to load cache decryption key")
+            return nil
+        }
+        guard let box = try? AES.GCM.SealedBox(combined: data) else {
+            logger.error("Unable to parse encrypted cache payload")
+            return nil
+        }
+        do {
+            return try AES.GCM.open(box, using: key)
+        } catch {
+            logger.error("Unable to decrypt cache data: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     // MARK: - Helpers
@@ -167,7 +192,10 @@ final class CacheService: Sendable {
         // JSONEncoder is not thread-safe; create a new instance per call.
         let enc = JSONEncoder()
         enc.dateEncodingStrategy = .secondsSince1970
-        guard let plain = try? enc.encode(value) else { return }
+        guard let plain = try? enc.encode(value) else {
+            Self.logger.error("Unable to encode cache value for key \(key, privacy: .public)")
+            return
+        }
         // M-03: if encryption fails (e.g. Keychain unavailable on first-unlock devices),
         // skip the write entirely rather than persisting plaintext financial data.
         guard let data = CacheService.encrypt(plain) else { return }
@@ -181,6 +209,11 @@ final class CacheService: Sendable {
         // JSONDecoder is not thread-safe; create a new instance per call.
         let dec = JSONDecoder()
         dec.dateDecodingStrategy = .secondsSince1970
-        return try? dec.decode(type, from: data)
+        do {
+            return try dec.decode(type, from: data)
+        } catch {
+            Self.logger.error("Unable to decode cache value for key \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 }

@@ -384,6 +384,10 @@ final class GroupService {
     }
 }
 
+// Keep Sendable protocol conformances in the same file as the concrete type for Swift 6.
+extension GroupService: GroupDataProviding {}
+extension GroupService: HomeGroupDataProviding {}
+
 private struct DeactivateGroupMemberParams: Encodable {
     let groupId: UUID
     let userId: UUID

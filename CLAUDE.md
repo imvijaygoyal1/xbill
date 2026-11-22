@@ -4524,20 +4524,16 @@ All 11 Critical and 37 High defects from the v3 senior developer audit (DEFECT_R
 date, not carried forward on trust — a "still open" list nobody re-checks becomes a lie (the
 scanner list in this file claimed six open items when five were fixed).
 
-### 1. Ship 1.6 — the work is done and reaches nobody
+### 1. Release 1.8 — current repository state
 
-`MARKETING_VERSION` is still **1.5 / build 7**, the release already approved and live. Everything
-from 2026-08-31 is on `main` and **unreleased**, so migration 051's `p_expected_updated_at DEFAULT
-NULL` means the server accepts a token **no shipped client sends**. The concurrency guard currently
-protects zero users.
+`MARKETING_VERSION` is **1.8 / build 10**. The current `main` branch includes the client half of
+the expense optimistic-concurrency guard: edits send the opaque `updated_at` token and map SQLSTATE
+`XB409` to a conflict alert. The remaining verification is a real two-device race, not a missing
+implementation. Migration 059 is the current expected backend migration.
 
-1.6 would carry: `CONC-01` (expense edits stop overwriting each other, SQLSTATE `XB409`), `CONC-02`
-(the redundant second write deleted), the `AddExpenseRPCParams` hand-written encode closing the last
-SPLIT-04 gap, +11 unit tests and +1 UI regression test.
-
-Needs a version bump and a `RELEASE_VERIFICATION.md` pass — including that file's two hard-won
-traps: **erase the simulator before the UI run**, and **read `aps-environment` from the exported
-IPA, never the archive**.
+Before submission, run the release verification pass — including the two hard-won traps: **erase
+the simulator before the UI run**, and **read `aps-environment` from the exported IPA, never the
+archive**.
 
 ### 2. Verification gaps, highest first
 
@@ -4614,7 +4610,7 @@ All 30 v3 Low defects resolved. Key changes:
 - Migration 027 ✅ — pushed to production DB (2026-05-13). CRIT-03 groups UPDATE (creator-only), M-22 groups DELETE (creator-only), CRIT-04 ious UPDATE WITH CHECK, CRIT-05 friends UPDATE (addressee, accepted/blocked only), CRIT-06 group_invites SELECT (creator or member), CRIT-07 device_tokens FOR ALL WITH CHECK, H-10 profiles email functional index, H-11 drop old 7-param add_expense_with_splits overload, M-20 join_group_via_invite single-use token (DROP+CREATE to preserve uuid return type)
 - Migration 028 ✅ — pushed to production DB (2026-05-13). M-21 creator DELETE policy on group_members so creator can remove any member.
 - Migration 050 ✅ — pushed to production DB (2026-08-29). Comment-only: records in the database that `splits.is_settled` is deprecated and permanent. No data, schema-shape or policy change. `migration list --linked` reads `050 | 050 | 050`.
-- Migration 051 ✅ — pushed to production DB (2026-08-31). `updated_by` column; `updated_at` backfilled to `created_at` on **60 of 62** rows and made `NOT NULL DEFAULT now()`; `update_expense_with_splits` DROP+CREATEd with `p_expected_updated_at timestamptz DEFAULT NULL`, raising SQLSTATE `XB409` on conflict. `migration list --linked` reads `051 | 051 | 051`; exactly **1** overload (the 9-arg one), `anon_exec = false` / `auth_exec = true`. Guard verified live in **both** directions without writing — stale token → `XB409`, real token → accepted — using a `DO` block whose closing `RAISE` rolls the probe back. ⚠️ **The client that sends the token is unreleased**, so `DEFAULT NULL` means no live user is protected yet.
+- Migration 051 ✅ — pushed to production DB (2026-08-31). `updated_by` column; `updated_at` backfilled to `created_at` on **60 of 62** rows and made `NOT NULL DEFAULT now()`; `update_expense_with_splits` DROP+CREATEd with `p_expected_updated_at timestamptz DEFAULT NULL`, raising SQLSTATE `XB409` on conflict. `migration list --linked` reads `051 | 051 | 051`; exactly **1** overload (the 9-arg one), `anon_exec = false` / `auth_exec = true`. Guard verified live in **both** directions without writing — stale token → `XB409`, real token → accepted — using a `DO` block whose closing `RAISE` rolls the probe back. The current `main` client sends the token; `DEFAULT NULL` remains for older-client compatibility.
 - Migration 052 ✅ — pushed to production DB (2026-08-31). `purge_ui_test_groups`: adds `PaymentReturn`, `ScrollProbe` and `Validation` to both prefix lists, and **revokes EXECUTE from `anon` by name**. ⚠️ **`anon` could previously execute this `SECURITY DEFINER` function** — its ownership guard is `IF caller_id IS NOT NULL AND …`, and `auth.uid()` is NULL for an anonymous caller, so the guard was *skipped*; an unauthenticated caller passing `p_created_by` + `p_execute => true` could delete another user's prefixed groups. Confirmed live (anon POST returned **HTTP 200** before, **401 / 42501** after) and 039's `REVOKE … FROM PUBLIC` did nothing, because Supabase grants `anon` EXECUTE explicitly. The NULL-caller path is kept deliberately: `scripts/purge-ui-test-groups.sh` runs on a privileged connection where `auth.uid()` is NULL. Then purged **51** orphaned groups (37 `PaymentReturn` since 2026-07-27 carrying 37 expenses/37 splits, 14 `ScrollProbe` since 2026-08-24); production went 63 → 26 expenses, 83 → 46 splits.
 - Migration 053 ✅ — pushed to production DB (2026-08-31). `search_profiles` and `lookup_profiles_by_email` gain an explicit `IF auth.uid() IS NULL THEN RAISE … 42501` guard, and `anon` is revoked **by name**. ⚠️ Both are `SECURITY DEFINER` (they bypass RLS on `profiles`) and both were anon-executable. They leaked nothing — but only because `WHERE p.id != auth.uid()` is `id != NULL` for an anonymous caller, which is never true. **The protection was SQL three-valued logic, not intent**, and `IS DISTINCT FROM` / `OR auth.uid() IS NULL` / a `COALESCE` default would each have turned it into an unauthenticated enumeration oracle over every display name and avatar — `lookup_profiles_by_email` additionally answers "is this email an xBill user?". Verified: anon probes went **HTTP 200 → 401/`42501`**, the `RAISE` fires for a NULL caller on a privileged connection, and `testFriendsAddSearchRegression` still passes for a signed-in user.
 - Migration 054 ✅ — pushed to production DB (2026-08-31). Drops two orphaned overloads — **H-11, third occurrence**: `add_expense_with_splits` had a 9-arg alongside the 13-arg, and `create_recurring_expense_instance` a 1-arg alongside the 3-arg. 013 changed an argument list with `CREATE OR REPLACE`, which creates a second overload rather than replacing; 027 dropped *a* stale one and this file has read as though that settled it since — it had not. Neither orphan was reachable (the client's `recurrence` is a non-optional `String` sent since `e008977`, 2026-04-13, an ancestor of every shipped build; the 1-arg has no defaults so a 3-key body cannot match), so this is latent cleanup, not a live fix. After: exactly **1** overload each, survivors 13-arg and 3-arg; `testCoreGroupExpenseArchiveRegression` and `testExpenseEditSendsConcurrencyTokenRegression` both pass. ⚠️ **Never change these argument lists with `CREATE OR REPLACE`** — DROP + CREATE, as 051 does.

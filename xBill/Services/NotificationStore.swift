@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 
 // MARK: - NotificationStore
 // Local-first persistence for in-app notification history.
@@ -14,6 +15,8 @@ import Foundation
 
 final class NotificationStore: @unchecked Sendable {
     static let shared = NotificationStore()
+
+    private let logger = Logger(subsystem: "com.vijaygoyal.xbill", category: "NotificationStore")
 
     private let itemsKey: String
     private let lastViewedKey: String
@@ -227,28 +230,49 @@ final class NotificationStore: @unchecked Sendable {
         let data = CacheService.decrypt(raw) ?? raw
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .secondsSince1970
-        guard let items = try? decoder.decode([NotificationItem].self, from: data) else { return [] }
-        return items
+        do {
+            return try decoder.decode([NotificationItem].self, from: data)
+        } catch {
+            logger.error("Unable to decode notification cache for key \(self.key(self.itemsKey, userID: userID), privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return []
+        }
     }
 
     private func _save(_ items: [NotificationItem], userID: UUID?) {
         let capped = Array(items.sorted { $0.createdAt > $1.createdAt }.prefix(maxCount))
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .secondsSince1970
-        guard let plain = try? encoder.encode(capped) else { return }
-        let data = CacheService.encrypt(plain) ?? plain
+        guard let plain = try? encoder.encode(capped) else {
+            logger.error("Unable to encode notification cache")
+            return
+        }
+        guard let data = CacheService.encrypt(plain) else {
+            logger.error("Unable to encrypt notification cache")
+            return
+        }
         CacheService.defaults.set(data, forKey: key(itemsKey, userID: userID))
     }
 
     private func _loadPendingReadStates(userID: UUID?) -> [String: Bool] {
         guard let raw = CacheService.defaults.data(forKey: key(pendingReadKey, userID: userID)) else { return [:] }
         let data = CacheService.decrypt(raw) ?? raw
-        return (try? JSONDecoder().decode([String: Bool].self, from: data)) ?? [:]
+        do {
+            return try JSONDecoder().decode([String: Bool].self, from: data)
+        } catch {
+            logger.error("Unable to decode pending notification read states: \(error.localizedDescription, privacy: .public)")
+            return [:]
+        }
     }
 
     private func _savePendingReadStates(_ states: [String: Bool], userID: UUID?) {
-        guard let plain = try? JSONEncoder().encode(states) else { return }
-        let data = CacheService.encrypt(plain) ?? plain
+        guard let plain = try? JSONEncoder().encode(states) else {
+            logger.error("Unable to encode pending notification read states")
+            return
+        }
+        guard let data = CacheService.encrypt(plain) else {
+            logger.error("Unable to encrypt pending notification read states")
+            return
+        }
         CacheService.defaults.set(data, forKey: key(pendingReadKey, userID: userID))
     }
 
@@ -256,12 +280,23 @@ final class NotificationStore: @unchecked Sendable {
     private func _loadDismissed(userID: UUID?) -> [String] {
         guard let raw = CacheService.defaults.data(forKey: key(dismissedKey, userID: userID)) else { return [] }
         let data = CacheService.decrypt(raw) ?? raw
-        return (try? JSONDecoder().decode([String].self, from: data)) ?? []
+        do {
+            return try JSONDecoder().decode([String].self, from: data)
+        } catch {
+            logger.error("Unable to decode dismissed notification history: \(error.localizedDescription, privacy: .public)")
+            return []
+        }
     }
 
     private func _saveDismissed(_ ids: [String], userID: UUID?) {
-        guard let plain = try? JSONEncoder().encode(ids) else { return }
-        let data = CacheService.encrypt(plain) ?? plain
+        guard let plain = try? JSONEncoder().encode(ids) else {
+            logger.error("Unable to encode dismissed notification history")
+            return
+        }
+        guard let data = CacheService.encrypt(plain) else {
+            logger.error("Unable to encrypt dismissed notification history")
+            return
+        }
         CacheService.defaults.set(data, forKey: key(dismissedKey, userID: userID))
     }
 }

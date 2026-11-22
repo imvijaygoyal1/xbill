@@ -104,9 +104,3 @@ extension HomeExpenseDataProviding {
             recurrence: .none, nextOccurrenceDate: nil)
     }
 }
-
-extension ExpenseService: ExpenseDataProviding {}
-extension RemoteNotificationService: RemoteNotificationProviding {}
-extension GroupService: GroupDataProviding {}
-extension GroupService: HomeGroupDataProviding {}
-extension ExpenseService: HomeExpenseDataProviding {}

@@ -48,8 +48,9 @@ supabase migration list --linked
 Expected:
 
 - Local and remote migration numbers match.
-- Current expected latest migration: **`054`** (drop stale RPC overloads, deployed 2026-08-31).
-  Verified local = remote through 054 on 2026-09-03.
+- Current expected latest migration: **`059`** (`get_group_balances`, deployed for v1.8).
+  Verify local = remote through 059 immediately before release; do not rely on this document as proof
+  of live state.
 
 > This line has been stale before — it read `041` from 2026-08-01 until 2026-09-03 while thirteen
 > further migrations shipped. **Update it in the same commit as any `supabase db push`.**

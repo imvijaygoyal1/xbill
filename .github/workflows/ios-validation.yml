@@ -1,0 +1,61 @@
+name: iOS Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: Static checks
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate shell scripts
+        run: |
+          set -euo pipefail
+          for script in scripts/*.sh; do
+            bash -n "$script"
+          done
+      - name: Validate APNs routing
+        run: bash scripts/check-apns-routing.sh
+      - name: Validate UI test identifiers
+        run: bash scripts/check-ui-test-identifiers.sh
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+  tests:
+    name: Unit and widget tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Run unit tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project xBill.xcodeproj \
+            -scheme xBill \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+            -only-testing:xBillTests \
+            -skip-testing:xBillTests/ReceiptBenchmark \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Run widget tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project xBill.xcodeproj \
+            -scheme xBill \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+            -only-testing:xBillWidgetTests \
+            CODE_SIGNING_ALLOWED=NO

@@ -577,9 +577,12 @@ together, in that order.
 
 | Item | Priority | Notes |
 |---|---|---|
-| App Store assets | P0 | Screenshots, preview video, keyword strategy — only remaining submission blocker. No code work required. |
-| App Group registration | Setup | Register `group.com.vijaygoyal.xbill` in Apple Developer Portal → Identifiers → App Groups before widget data sharing will work on a device. |
-| Apple JWT secret renewal | Maintenance | JWT secret for Sign in with Apple expires 2026-10-28. Regenerate before that date using `generate_apple_secret.js`. |
+| App Store assets | ✅ Verified in repository history | Screenshots, preview video, and keyword strategy were completed before the v1.7 approval. Reconfirm the current App Store Connect listing before the next submission. |
+| App Group registration | External verification required | Register and verify `group.com.vijaygoyal.xbill` in Apple Developer Portal → Identifiers → App Groups before widget data sharing will work on a device. |
+| Apple JWT secret renewal | Urgent external verification | The previous secret was documented as expiring 2026-10-28. Confirm it was regenerated in Supabase Auth → Sign In / Providers; rotate it using `generate_apple_secret.js` if not. |
+| CI validation | ✅ Fixed | Added `.github/workflows/ios-validation.yml` for shell checks, project generation, unit tests, and widget tests. |
+| Swift 6 concurrency diagnostics | ✅ Fixed in source | Moved Sendable conformances beside their concrete services, annotated split callbacks as main-actor sendable, and removed unnecessary unsafe annotations. |
+| Cache persistence observability | ✅ Fixed in source | Cache and notification encode/decode/encryption failures now emit structured OSLog errors instead of silently returning. |
 
 ## ASO-01 — No App Store review prompt (2026-08-12)
 
@@ -772,15 +775,14 @@ together, in that order.
 
 ## CONC-01/02 — Two people editing one expense overwrote each other (2026-08-31)
 
-Branch `worktree-expense-optimistic-concurrency`. **Migration 051 is DEPLOYED (2026-08-31) and
-verified live in both directions without writing. The client half is complete, green and
-UNRELEASED — `p_expected_updated_at DEFAULT NULL` means no shipped build sends a token, so no live
-user is protected yet.** Plan and spec:
+**Migration 051 is DEPLOYED (2026-08-31) and verified live in both directions without writing. The
+client half is now on `main`; `p_expected_updated_at DEFAULT NULL` remains only as compatibility
+support for older clients.** Plan and spec:
 `docs/superpowers/plans/2026-08-29-expense-optimistic-concurrency.md`.
 
 | ID | File | Issue | Status | Fix |
 |---|---|---|---|---|
-| CONC-01 | `supabase/migrations/051_expense_concurrency.sql`, `xBill/Models/Expense.swift`, `xBill/Services/ExpenseService.swift`, `xBill/Core/AppError.swift`, `xBill/Views/Expenses/ExpenseDetailView.swift` | `expenses.updated_at` was added by migration 043 on 2026-08-23 and **read by nothing**. Two people editing the same expense silently overwrote each other — last write wins, no conflict, no warning, and what is overwritten is money. Listed as unpaid debt in every release note since 1.2. | ⚠️ **Server deployed 2026-08-31; client fixed on branch, unreleased** | Compare-and-swap inside `update_expense_with_splits`: the client sends the `updated_at` it loaded as `p_expected_updated_at`; the RPC updates only if the row still carries it and raises SQLSTATE `XB409` otherwise. `AppError.isEditConflict` matches the structured `PostgrestError.code`, never message text. `ExpenseDetailView` refuses and reloads, naming the editor from `updated_by`. |
+| CONC-01 | `supabase/migrations/051_expense_concurrency.sql`, `xBill/Models/Expense.swift`, `xBill/Services/ExpenseService.swift`, `xBill/Core/AppError.swift`, `xBill/Views/Expenses/ExpenseDetailView.swift` | `expenses.updated_at` was added by migration 043 on 2026-08-23 and **read by nothing**. Two people editing the same expense silently overwrote each other — last write wins, no conflict, no warning, and what is overwritten is money. | ✅ Fixed on current `main`; two-device race still requires manual verification | Compare-and-swap inside `update_expense_with_splits`: the client sends the `updated_at` it loaded as `p_expected_updated_at`; the RPC updates only if the row still carries it and raises SQLSTATE `XB409` otherwise. `AppError.isEditConflict` matches the structured `PostgrestError.code`, never message text. `ExpenseDetailView` refuses and reloads, naming the editor from `updated_by`. |
 | CONC-02 | `xBill/ViewModels/GroupViewModel.swift`, `xBill/Services/ExpenseService.swift`, `xBill/Services/GroupDataProviding.swift`, `xBill/Views/Groups/GroupDetailView.swift` | **Found during design, not reported.** `GroupViewModel.updateExpense` wrote the expense a *second* time after `update_expense_with_splits` had already saved it. `.update(expense)` is a whole-struct write, so it sent the client's **stale `updated_at` back into the row** — undoing the guard microseconds after it passed. A wasted round-trip before CONC-01; a hole in the guard after it. | ✅ Fixed (client-only, no deploy needed) | **Deleted**, not guarded. `ExpenseService.updateExpense` was the only server-bound whole-struct `Expense` write in the app, so removing it — and the `ExpenseDataProviding` requirement — makes the clobber unrepresentable. Replaced by `GroupViewModel.applySavedExpense`, which swaps the row in place and recomputes. `grep -rn "updateExpense("` over `xBill/` and `xBillTests/` returns nothing. |
 
 ### Design decisions worth not re-deriving

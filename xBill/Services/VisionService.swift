@@ -67,11 +67,8 @@ final class VisionService {
 
     // Shared CIContext — Metal GPU pipeline is expensive to create; reuse across all calls.
     //
-    // `nonisolated(unsafe)` because SCAN-PERF-01 moved preprocessing off the main actor and a
-    // static on a `@MainActor` type inherits that isolation. `CIContext` is documented immutable
-    // and safe to use from multiple threads, which is the whole reason one instance is shared here
-    // — the annotation records that rather than asserting it for convenience.
-    nonisolated(unsafe) private static let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+    // CIContext is immutable and safe to share across the preprocessing tasks.
+    nonisolated private static let ciContext = CIContext(options: [.useSoftwareRenderer: false])
 
     // Receipt domain vocabulary injected into Vision to improve recognition accuracy.
     // `nonisolated` for SCAN-PERF-01: read from the OCR pass, which no longer runs on the main
@@ -1100,7 +1097,7 @@ final class VisionService {
         return regex.firstMatch(in: dense, range: NSRange(dense.startIndex..., in: dense)) != nil
     }
 
-    nonisolated(unsafe) static let nonSubTotalRegex = try? NSRegularExpression(pattern: #"(?<!sub)total"#)
+    nonisolated static let nonSubTotalRegex = try? NSRegularExpression(pattern: #"(?<!sub)total"#)
 
     /// Lines that carry an amount but are not items.
     ///
@@ -1141,9 +1138,8 @@ final class VisionService {
     /// A boundary is only asserted where the keyword's own edge is a word character, so
     /// `www.`, `.com` and `method:` keep matching.
     ///
-    /// `nonisolated(unsafe)` because `NSRegularExpression` is not `Sendable`, though Apple
-    /// documents it as thread-safe for matching; this instance is immutable after construction.
-    nonisolated(unsafe) static let metadataRegex: NSRegularExpression? = {
+    /// The expression is immutable after construction and only used for matching.
+    nonisolated static let metadataRegex: NSRegularExpression? = {
         let alternatives = metaKeywords.map { keyword -> String in
             let escaped = NSRegularExpression.escapedPattern(for: keyword)
             let leading  = keyword.first.map { $0.isLetter || $0.isNumber } == true ? #"\b"# : ""

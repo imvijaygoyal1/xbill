@@ -254,6 +254,11 @@ final class ExpenseService {
 
 }
 
+// Keep Sendable protocol conformances in the same file as the concrete type. Swift 6's
+// strict-concurrency checker rejects retroactive Sendable conformances declared elsewhere.
+extension ExpenseService: ExpenseDataProviding {}
+extension ExpenseService: HomeExpenseDataProviding {}
+
 // MARK: - RPC Payloads
 
 struct RPCSplitParam: Encodable {
