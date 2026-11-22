@@ -26,6 +26,8 @@ jobs:
         run: bash scripts/check-apns-routing.sh
       - name: Validate UI test identifiers
         run: bash scripts/check-ui-test-identifiers.sh
+      - name: Install XcodeGen
+        run: brew install xcodegen
       - name: Generate Xcode project
         run: xcodegen generate
 
@@ -38,6 +40,8 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+      - name: Install XcodeGen
+        run: brew install xcodegen
       - name: Generate Xcode project
         run: xcodegen generate
       - name: Run unit tests
