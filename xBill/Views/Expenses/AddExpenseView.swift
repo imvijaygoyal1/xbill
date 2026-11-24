@@ -207,8 +207,8 @@ struct AddExpenseView: View {
                                             currency: vm.currency,
                                             idPrefix: "xBill.addExpense",
                                             onToggle: { vm.toggle(participantID: input.userID) },
-                                            onAmount: { vm.setAmount($0, participantID: input.userID) },
-                                            onPercentage: { vm.setPercentage($0, participantID: input.userID) },
+                                            onAmount: { vm.setAmount(Decimal(string: $0) ?? .zero, participantID: input.userID) },
+                                            onPercentage: { vm.setPercentage(SplitParticipantRow.percentValue($0), participantID: input.userID) },
                                             onShares: { vm.adjustShares(by: $0, participantID: input.userID) }
                                         )
                                         .padding(.horizontal, XBillSpacing.base)

@@ -35,8 +35,11 @@ struct SplitParticipantRow: View {
     var idPrefix: String
 
     let onToggle: @MainActor @Sendable () -> Void
-    let onAmount: @MainActor @Sendable (Decimal) -> Void
-    let onPercentage: @MainActor @Sendable (Decimal) -> Void
+    // Keep Foundation.Decimal out of the Sendable closure ABI. Xcode 26.3's Swift
+    // compiler can crash in IRGen while emitting the Decimal bridge thunk here.
+    // The parent view models still receive Decimal after parsing at the call site.
+    let onAmount: @MainActor @Sendable (String) -> Void
+    let onPercentage: @MainActor @Sendable (String) -> Void
     let onShares: @MainActor @Sendable (Int) -> Void
 
     var body: some View {
@@ -59,7 +62,10 @@ struct SplitParticipantRow: View {
     private var trailingControl: some View {
         switch strategy {
         case .exact:
-            TextField("0.00", value: Binding(get: { input.amount }, set: onAmount),
+            TextField("0.00", value: Binding(
+                get: { input.amount },
+                set: { onAmount(String(describing: $0)) }
+            ),
                       format: .number.precision(.fractionLength(2)))
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
@@ -74,7 +80,7 @@ struct SplitParticipantRow: View {
                 HStack(spacing: 2) {
                     TextField("0", text: Binding(
                         get: { input.percentage == 0 ? "" : Self.percentText(input.percentage) },
-                        set: { onPercentage(Self.percentValue($0)) }
+                        set: onPercentage
                     ))
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)

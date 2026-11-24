@@ -384,8 +384,8 @@ struct ExpenseDetailView: View {
                                 subtitle: departedSubtitle(for: input.userID),
                                 idPrefix: "xBill.editExpense",
                                 onToggle: { editor.toggle(participantID: input.userID); splitsEdited = true },
-                                onAmount: { editor.setAmount($0, participantID: input.userID); splitsEdited = true },
-                                onPercentage: { editor.setPercentage($0, participantID: input.userID); splitsEdited = true },
+                                onAmount: { editor.setAmount(Decimal(string: $0) ?? .zero, participantID: input.userID); splitsEdited = true },
+                                onPercentage: { editor.setPercentage(SplitParticipantRow.percentValue($0), participantID: input.userID); splitsEdited = true },
                                 onShares: { editor.adjustShares(by: $0, participantID: input.userID); splitsEdited = true }
                             )
                         }
