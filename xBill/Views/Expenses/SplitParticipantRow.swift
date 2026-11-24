@@ -34,13 +34,12 @@ struct SplitParticipantRow: View {
     /// detail. Do not rename one without updating every predicate that matches it.
     var idPrefix: String
 
-    // These callbacks execute on the main actor and never cross an actor boundary.
-    // Keeping them non-Sendable avoids an Xcode 26.3 IRGen crash while emitting
-    // bridge thunks for closure parameters in this SwiftUI view.
-    let onToggle: @MainActor () -> Void
-    let onAmount: @MainActor (String) -> Void
-    let onPercentage: @MainActor (String) -> Void
-    let onShares: @MainActor (Int) -> Void
+    // These callbacks are synchronous UI actions. Keeping their types plain avoids
+    // an Xcode 26.3 IRGen crash when SwiftUI's Binding adds its own Sendable thunk.
+    let onToggle: () -> Void
+    let onAmount: (String) -> Void
+    let onPercentage: (String) -> Void
+    let onShares: (Int) -> Void
 
     var body: some View {
         HStack(spacing: XBillSpacing.sm) {
@@ -80,7 +79,7 @@ struct SplitParticipantRow: View {
                 HStack(spacing: 2) {
                     TextField("0", text: Binding(
                         get: { input.percentage == 0 ? "" : Self.percentText(input.percentage) },
-                        set: onPercentage
+                        set: { value in onPercentage(value) }
                     ))
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
