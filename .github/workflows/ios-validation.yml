@@ -57,6 +57,7 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
             -only-testing:xBillTests \
             -skip-testing:xBillTests/ReceiptBenchmark \
+            SWIFT_ENABLE_BATCH_MODE=NO \
             CODE_SIGNING_ALLOWED=NO
       - name: Run widget tests
         run: |
@@ -66,4 +67,5 @@ jobs:
             -scheme xBill \
             -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
             -only-testing:xBillWidgetTests \
+            SWIFT_ENABLE_BATCH_MODE=NO \
             CODE_SIGNING_ALLOWED=NO
