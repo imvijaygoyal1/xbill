@@ -34,13 +34,13 @@ struct SplitParticipantRow: View {
     /// detail. Do not rename one without updating every predicate that matches it.
     var idPrefix: String
 
-    let onToggle: @MainActor @Sendable () -> Void
-    // Keep Foundation.Decimal out of the Sendable closure ABI. Xcode 26.3's Swift
-    // compiler can crash in IRGen while emitting the Decimal bridge thunk here.
-    // The parent view models still receive Decimal after parsing at the call site.
-    let onAmount: @MainActor @Sendable (String) -> Void
-    let onPercentage: @MainActor @Sendable (String) -> Void
-    let onShares: @MainActor @Sendable (Int) -> Void
+    // These callbacks execute on the main actor and never cross an actor boundary.
+    // Keeping them non-Sendable avoids an Xcode 26.3 IRGen crash while emitting
+    // bridge thunks for closure parameters in this SwiftUI view.
+    let onToggle: @MainActor () -> Void
+    let onAmount: @MainActor (String) -> Void
+    let onPercentage: @MainActor (String) -> Void
+    let onShares: @MainActor (Int) -> Void
 
     var body: some View {
         HStack(spacing: XBillSpacing.sm) {
