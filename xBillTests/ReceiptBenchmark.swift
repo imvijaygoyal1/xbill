@@ -482,10 +482,10 @@ struct ReceiptBenchmark {
         #expect(agg.itemCountExact >= Floor.itemCountExact,
                 "item count exact \(agg.itemCountExact)/\(agg.count), floor \(Floor.itemCountExact)")
         #expect(agg.priceRecall >= Floor.priceRecall,
-                Comment(rawValue: String(format: "price recall %.2f, floor %.2f",
+                Testing.Comment(rawValue: String(format: "price recall %.2f, floor %.2f",
                                          agg.priceRecall, Floor.priceRecall)))
         #expect(agg.nameRecall >= Floor.nameRecall,
-                Comment(rawValue: String(format: "name recall %.2f, floor %.2f",
+                Testing.Comment(rawValue: String(format: "name recall %.2f, floor %.2f",
                                          agg.nameRecall, Floor.nameRecall)))
     }
 }
