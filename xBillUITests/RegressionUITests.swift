@@ -132,16 +132,23 @@ final class RegressionUITests: XCTestCase {
         let amountField = app.textFields["xBill.editExpense.amountField"]
         XCTAssertTrue(amountField.waitForExistence(timeout: 6), "Edit sheet amount field should be visible.")
         clearAndType("55.25", into: amountField)
+        // The field is trailing-aligned: a centre tap puts the caret BEFORE the old value, so the
+        // deletes remove nothing and the field reads "55.2542.5" (2026-11-28). Assert what was
+        // actually typed rather than trusting the helper.
+        XCTAssertEqual(amountField.value as? String, "55.25", "Amount field should hold exactly the new value.")
         dismissKeyboardIfNeeded()
 
         let save = app.buttons["xBill.editExpense.saveButton"]
         XCTAssertTrue(save.waitForExistence(timeout: 4), "Edit sheet should expose Save.")
+        // EDIT-01: on iOS 27 Save rendered permanently disabled and the tap was a silent no-op,
+        // which surfaced only as "the sheet did not dismiss". Fail here, with the real cause.
+        XCTAssertTrue(save.isEnabled, "Save must be enabled once the sheet shows a title.")
         save.tap()
 
         // The whole point: the save must COMPLETE. Against an unmigrated database this fails with
         // PGRST202 and the sheet stays up with an alert, so a dismissed sheet is the signal.
         XCTAssertFalse(app.staticTexts["Edit Expense"].waitForExistence(timeout: 8),
-                       "Edit sheet should dismiss on a successful save — it stays up on PGRST202.")
+                       "Edit sheet should dismiss on a successful save — it stays up if the RPC fails (e.g. PGRST202 against an unmigrated database).")
 
         let failureAlert = app.alerts.firstMatch
         if failureAlert.waitForExistence(timeout: 2) {
@@ -1283,7 +1290,11 @@ final class RegressionUITests: XCTestCase {
     }
 
     private func clearAndType(_ text: String, into element: XCUIElement) {
-        typeInto(element, String(repeating: XCUIKeyboardKey.delete.rawValue, count: 80))
+        XCTAssertTrue(focusTextInput(element), "Field should accept keyboard focus before clearing.")
+        // Park the caret at the END before deleting. A centre tap on a trailing-aligned field
+        // lands left of the text, and backspace at position 0 deletes nothing.
+        element.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+        element.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 80))
         element.typeText(text)
     }
 

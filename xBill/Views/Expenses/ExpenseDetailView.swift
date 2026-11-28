@@ -414,15 +414,10 @@ struct ExpenseDetailView: View {
                     Button("Cancel") { isEditing = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { Task { await saveEdit() } }
-                        .accessibilityIdentifier("xBill.editExpense.saveButton")
-                        .disabled(editTitle.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
-                        .overlay {
-                            if isSaving {
-                                ProgressView()
-                                    .allowsHitTesting(false)
-                            }
-                        }
+                    // Bindings, not values — see `EditExpenseSaveButton`.
+                    EditExpenseSaveButton(title: $editTitle, isSaving: $isSaving) {
+                        Task { await saveEdit() }
+                    }
                 }
             }
         }
@@ -652,5 +647,37 @@ struct ExpenseDetailView: View {
             groupName: "Weekend Trip",
             currentUserID: UUID()
         )
+    }
+}
+
+// MARK: - EditExpenseSaveButton
+
+/// The edit sheet's Save button, as its own view reading **bindings**.
+///
+/// EDIT-01 (2026-11-28, iOS 27.0): written inline as
+/// `.disabled(editTitle…isEmpty || isSaving)`, the toolbar was evaluated exactly once — from the
+/// copy of `ExpenseDetailView` the `.sheet` closure captured, where `editTitle` was still its
+/// initial `""` — and never re-evaluated. Save was therefore permanently disabled and expense
+/// editing was dead, while the form above it showed the correct title (a `TextField` reads through
+/// its binding, i.e. live storage). Instrumented: `toolbar eval title='' disabled=1`, logged after
+/// `openEditSheet` had set the real title.
+///
+/// A binding reads current storage on every evaluation, and a separate view gets its own
+/// dependency tracking, so the disabled state follows the real values. Do not inline this back.
+private struct EditExpenseSaveButton: View {
+    @Binding var title: String
+    @Binding var isSaving: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button("Save", action: action)
+            .accessibilityIdentifier("xBill.editExpense.saveButton")
+            .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
+            .overlay {
+                if isSaving {
+                    ProgressView()
+                        .allowsHitTesting(false)
+                }
+            }
     }
 }

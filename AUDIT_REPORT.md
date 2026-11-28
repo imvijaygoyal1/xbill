@@ -2406,3 +2406,23 @@ not an observation. Settling it would take an A/B: build once with the isolation
 watch, then reinstall. Not done — offered and not taken up, which is a reasonable trade for a
 half-second effect. **If anyone later asks "was this ever a real user problem?", the honest answer
 is that it was never observed, only measured.**
+
+
+## EDIT-01 — Expense edit Save permanently disabled on iOS 27 (2026-11-28)
+
+Found by `RegressionUITests/testExpenseEditSendsConcurrencyTokenRegression`, which had failed since
+2026-11-26 as *"edit sheet did not dismiss"*. The test's failure message named PGRST202. That
+wording was hardcoded and **wrong**: the server was never contacted.
+
+| ID | File | Issue | Status | Fix |
+|---|---|---|---|---|
+| EDIT-01 | `xBill/Views/Expenses/ExpenseDetailView.swift` | On the iOS 27.0 simulator the edit sheet's `ToolbarItem` was evaluated **once**, from the copy of `ExpenseDetailView` that the `.sheet` closure captured, where `editTitle` was still `""`. It was never re-evaluated, so `.disabled(editTitle…isEmpty \|\| isSaving)` stayed true and Save was a silent no-op. Instrumented: `toolbar eval title='' disabled=1`, logged *after* `openEditSheet` set the real title, while the form showed the right title (a `TextField` reads through its binding). XCUITest saw `label: 'Save', Disabled` from the moment the sheet opened; `saveEdit()` never ran. | ✅ Fixed (client-only). ⚠️ **Not checked on a physical device**, and not checked whether the shipped v1.7 build (Xcode 26 SDK) has the same problem on iOS 27 | Save moved into `EditExpenseSaveButton`, a view of its own that reads `@Binding`s. Bindings read live storage, and a separate view gets its own dependency tracking. Differential: removing `.disabled` alone → enabled, RPC ok, test passes; reverting only the app fix → fails at the new `Save must be enabled` assertion. |
+| EDIT-01b | `xBillUITests/RegressionUITests.swift` | `clearAndType` tapped the centre of a trailing-aligned field, so the caret landed **before** the old value and 80 backspaces deleted nothing: the field read `55.2542.5`, which `Decimal(string:)` parses as `55.2542`. This test bug was hidden behind EDIT-01. | ✅ Fixed | The caret is now parked at the trailing edge before deleting. The test asserts the field's value is exactly `55.25`, and that Save `isEnabled` before tapping. |
+
+**Ruled out (previous session):** stale PostgREST schema cache. Migrations are at 059, exactly one
+9-argument `update_expense_with_splits`, `authenticated` has EXECUTE. `NOTIFY pgrst` changed nothing.
+
+**Verification:** targeted test 1/1, mutation check as above, full regression **23/23**
+(`TestResults/Coverage/2026.11.28_12-18-29-regression-ui.xcresult`), disposable groups purged and
+verified with `rows: []`. Screen recording and logs from the failing run are in the earlier
+`2026.11.26_15-17-17-regression-ui.xcresult` bundle.

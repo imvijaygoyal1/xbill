@@ -45,6 +45,7 @@ turns one up; do not add a new prose block.
 | Any Supabase `insert`/`update`/`delete` | Without `.select()` the SDK sends `Prefer: return=minimal` and decoding fails. Never use `.single()` to check affected rows — go through `SupabaseWrite.requireAffected` | *Supabase Insert/Update — Always Chain .select()* |
 | Any `Identifiable` model built per-refresh (`SettlementSuggestion`) | A stored `id` filled with `UUID()` gives structurally identical rows new identities on every recompute. SwiftUI rebuilds every row; inside an in-flight `List` animation `UICollectionView` aborts with "Invalid number of items in section". Derive identity from content instead of storing it | `AUDIT_REPORT.md` → `DEV-01` |
 | Editing an expense (`ExpenseDetailView`, `ExpenseService`, `GroupViewModel`) | **`expenses.updated_at` is an optimistic-concurrency token, not a timestamp to display or parse.** It is an opaque `String?` on purpose — `timestamptz` is microsecond precision and `Date` is a `Double`, so decoding and re-encoding rounds it and *every* save reports a phantom conflict. Never "tidy" it into a `Date`. There is **no whole-struct `Expense` write** any more: `updateExpense` was deleted because `.update(expense)` sends the stale token back and undoes the guard. Every edit goes through `update_expense_with_splits`, which raises SQLSTATE **`XB409`** on conflict — match it with `AppError.isEditConflict`, never on message text. A nil token means "skip the check" **to the server**, so the client re-reads rather than sending one. Migration 051 is ✅ **deployed** (2026-08-31), but `p_expected_updated_at DEFAULT NULL` means **no shipped client sends a token yet** — the guard protects nobody until the client half ships, and 1.0–1.5 can still clobber forever | the 2026-08-31 fix log below, `supabase/migrations/051_expense_concurrency.sql`, `docs/superpowers/plans/2026-08-29-expense-optimistic-concurrency.md` |
+| Any `ToolbarItem` inside a `.sheet { }` whose content is a computed property of the presenting view | **EDIT-01 (iOS 27):** the toolbar is evaluated once from the captured copy of the parent, so a plain `@State` read (e.g. `.disabled(title.isEmpty)`) sees the value from **before** the sheet was seeded and never updates, even though the form fields look right. Read toolbar state through a child view that takes `@Binding`s, as `EditExpenseSaveButton` does | `AUDIT_REPORT.md` → `EDIT-01` |
 | Settle Up / `settlements` | **Either party may record a payment** — the debtor *or* the creditor. Balances are every split minus every settlement. **`splits.is_settled` STAYS IN THE SCHEMA PERMANENTLY — decided 2026-08-29. Do not propose dropping it again.** No logic branches on it, and as of 2026-08-28 `Split` no longer *decodes* it either. "Read by nothing" was true of the logic and false of the decoding: clients on 1.0–1.5 decode it non-optionally, so a `DROP` throws `keyNotFound` on every split and kills expenses and balances outright. **There is no force-update mechanism in this app**, so that population never provably empties — the risk has no bounded tail, and the prize is one boolean on a small table. The client change already captured the whole benefit by making a write unrepresentable. `settlements` RLS: INSERT requires `recorded_by = auth.uid()` **and** `auth.uid() IN (from_user_id, to_user_id)`; DELETE requires `recorded_by = auth.uid()`; there is **no UPDATE policy** — a correction is delete-then-record | `supabase/migrations/041_settlements.sql`, `docs/superpowers/specs/2026-07-28-settlements-ledger-design.md` |
 
 ### When you finish a piece of work
@@ -100,6 +101,27 @@ the watcher may not pick it up until `/hooks` is opened once or the session rest
 
 
 
+
+## Recent Fix Log — 2026-11-28 (latest) — EDIT-01: Save in the expense editor was dead on iOS 27
+
+`testExpenseEditSendsConcurrencyTokenRegression` had failed since 2026-11-26. Its message said
+PGRST202. **It was never a server problem.** XCUITest reported `Save … Disabled` from the moment the
+sheet opened, and `saveEdit()` never ran. The toolbar was evaluated once with `editTitle == ""`,
+taken from the copy of the parent that the `.sheet` closure captured, and was never re-evaluated.
+`EditExpenseSaveButton` now reads `@Binding`s. Hidden behind it was a test bug: `clearAndType`
+cleared nothing on a trailing-aligned field (`55.2542.5`). Both are fixed. The test now asserts the
+typed value and `save.isEnabled`, so the failure names its own cause.
+
+⚠️ **Not verified on a device**, and not verified whether shipped v1.7 is affected on iOS 27. Check
+that on a phone running iOS 27 before deciding whether this needs a release. Full regression
+**23/23**; unit **564 passed, 0 failed, 1 skipped**. Detail in `AUDIT_REPORT.md` → `EDIT-01`.
+
+### Key Pattern — a hardcoded failure message is a hypothesis, not evidence
+The assertion text said "it stays up on PGRST202", and a whole session went to the database. One
+`print(save.isEnabled)` before the tap would have found it immediately. Before debugging the far end
+of an action, prove the near end fired.
+
+---
 
 ## Recent Fix Log — 2026-09-25 (latest, later) — SCAN-CAP-01 measured (not changed), SCAN-RULE-06 shipped
 
